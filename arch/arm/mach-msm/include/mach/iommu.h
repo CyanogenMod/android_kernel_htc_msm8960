@@ -15,6 +15,7 @@
 
 #include <linux/interrupt.h>
 #include <linux/clk.h>
+#include <mach/socinfo.h>
 
 extern pgprot_t     pgprot_kernel;
 
@@ -116,3 +117,17 @@ static inline struct device *msm_iommu_get_ctx(const char *ctx_name)
 #endif
 
 #endif
+
+static inline int msm_soc_version_supports_iommu(void)
+{
+	if (cpu_is_msm8960() &&
+	    SOCINFO_VERSION_MAJOR(socinfo_get_version()) < 2)
+		return 0;
+
+	if (cpu_is_msm8x60() &&
+	    (SOCINFO_VERSION_MAJOR(socinfo_get_version()) != 2 ||
+	    SOCINFO_VERSION_MINOR(socinfo_get_version()) < 1))	{
+		return 0;
+	}
+	return 1;
+}
