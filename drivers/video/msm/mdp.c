@@ -1325,11 +1325,16 @@ static void vsync_isr_handler(void)
 int mdp_ppp_pipe_wait(void)
 {
 	int ret = 1;
+	boolean wait;
+	unsigned long flag;
 
 	/* wait 5 seconds for the operation to complete before declaring
 	the MDP hung */
+	spin_lock_irqsave(&mdp_spin_lock, flag);
+	wait = mdp_ppp_waiting;
+	spin_unlock_irqrestore(&mdp_spin_lock, flag);
 
-	if (mdp_ppp_waiting == TRUE) {
+	if (wait == TRUE) {
 		ret = wait_for_completion_interruptible_timeout(&mdp_ppp_comp,
 								5 * HZ);
 
@@ -1405,6 +1410,7 @@ void mdp_disable_irq_nosync(uint32 term)
 
 void mdp_pipe_kickoff(uint32 term, struct msm_fb_data_type *mfd)
 {
+	unsigned long flag;
 	/* complete all the writes before starting */
 	wmb();
 
@@ -1418,7 +1424,9 @@ void mdp_pipe_kickoff(uint32 term, struct msm_fb_data_type *mfd)
 
 		mdp_enable_irq(term);
 		INIT_COMPLETION(mdp_ppp_comp);
+		spin_lock_irqsave(&mdp_spin_lock, flag);
 		mdp_ppp_waiting = TRUE;
+		spin_unlock_irqrestore(&mdp_spin_lock, flag);
 		outpdw(MDP_BASE + 0x30, 0x1000);
 		wait_for_completion_killable(&mdp_ppp_comp);
 		mdp_disable_irq(term);
@@ -1762,6 +1770,7 @@ irqreturn_t mdp_isr(int irq, void *ptr)
 	char *base_addr;
 	int i, ret;
 #endif
+
 	/* Ensure all the register write are complete */
 	mb();
 
