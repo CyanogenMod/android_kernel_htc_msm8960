@@ -472,6 +472,7 @@ static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
 	int rc = 0;
 
 	mutex_lock(&aux_pcm_mutex);
+	pr_debug("%s: dai->id = %d", __func__, dai->id);
 
 	if (aux_pcm_count == 0) {
 		dev_dbg(dai->dev, "%s(): dai->id %d aux_pcm_count is 0. Just"
