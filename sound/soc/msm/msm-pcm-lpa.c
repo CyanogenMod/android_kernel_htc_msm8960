@@ -142,7 +142,8 @@ static void event_handler(uint32_t opcode,
 		case ASM_SESSION_CMD_RUN: {
 			if (!atomic_read(&prtd->pending_buffer))
 				break;
-			if (runtime->status->hw_ptr >= runtime->control->appl_ptr)
+			if (runtime->status->hw_ptr >=
+				runtime->control->appl_ptr)
 				break;
 			pr_debug("%s:writing %d bytes"
 				" of buffer to dsp\n",
@@ -360,15 +361,14 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 	EOS is not honored.
 	*/
 	if (msm_routing_check_backend_enabled(soc_prtd->dai_link->be_id)) {
-		rc = q6asm_run(prtd->audio_client,0,0,0);
+		rc = q6asm_run(prtd->audio_client, 0, 0, 0);
 		atomic_set(&prtd->pending_buffer, 0);
 		prtd->cmd_ack = 0;
 		q6asm_cmd_nowait(prtd->audio_client, CMD_EOS);
-		pr_debug("%s ++\n", __func__);
+		pr_debug("%s\n", __func__);
 		rc = wait_event_timeout(the_locks.eos_wait,
-			prtd->cmd_ack, 3 * HZ);
-		pr_debug("%s --\n", __func__);
-		if (rc <= 0)
+			prtd->cmd_ack, 5 * HZ);
+		if (rc < 0)
 			pr_err("EOS cmd timeout\n");
 		prtd->pcm_irq_pos = 0;
 	}
