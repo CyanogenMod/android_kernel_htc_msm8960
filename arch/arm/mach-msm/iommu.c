@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -58,7 +58,7 @@ static inline void clean_pte(unsigned long *start, unsigned long *end,
 
 static int msm_iommu_tex_class[4];
 
-DEFINE_SPINLOCK(msm_iommu_lock);
+DEFINE_MUTEX(msm_iommu_lock);
 
 struct msm_priv {
 	unsigned long *pgtable;
@@ -307,11 +307,10 @@ fail_nomem:
 static void msm_iommu_domain_destroy(struct iommu_domain *domain)
 {
 	struct msm_priv *priv;
-	unsigned long flags;
 	unsigned long *fl_table;
 	int i;
 
-	spin_lock_irqsave(&msm_iommu_lock, flags);
+	mutex_lock(&msm_iommu_lock);
 	priv = domain->priv;
 	domain->priv = NULL;
 
@@ -328,7 +327,7 @@ static void msm_iommu_domain_destroy(struct iommu_domain *domain)
 	}
 
 	kfree(priv);
-	spin_unlock_irqrestore(&msm_iommu_lock, flags);
+	mutex_unlock(&msm_iommu_lock);
 }
 
 static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
@@ -339,9 +338,8 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	struct msm_iommu_ctx_drvdata *tmp_drvdata;
 	int ret = 0;
-	unsigned long flags;
 
-	spin_lock_irqsave(&msm_iommu_lock, flags);
+	mutex_lock(&msm_iommu_lock);
 
 	priv = domain->priv;
 
@@ -383,7 +381,7 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 
 	ctx_drvdata->attached_domain = domain;
 fail:
-	spin_unlock_irqrestore(&msm_iommu_lock, flags);
+	mutex_unlock(&msm_iommu_lock);
 	return ret;
 }
 
@@ -394,10 +392,9 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 	struct msm_iommu_ctx_dev *ctx_dev;
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
-	unsigned long flags;
 	int ret;
 
-	spin_lock_irqsave(&msm_iommu_lock, flags);
+	mutex_lock(&msm_iommu_lock);
 	priv = domain->priv;
 
 	if (!priv || !dev)
@@ -422,7 +419,7 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 	list_del_init(&ctx_drvdata->attached_elm);
 	ctx_drvdata->attached_domain = NULL;
 fail:
-	spin_unlock_irqrestore(&msm_iommu_lock, flags);
+	mutex_unlock(&msm_iommu_lock);
 }
 
 static int __get_pgprot(int prot, int len)
@@ -471,7 +468,6 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 			 phys_addr_t pa, int order, int prot)
 {
 	struct msm_priv *priv;
-	unsigned long flags;
 	unsigned long *fl_table;
 	unsigned long *fl_pte;
 	unsigned long fl_offset;
@@ -482,7 +478,7 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 	size_t len = 0x1000UL << order;
 	int ret = 0;
 
-	spin_lock_irqsave(&msm_iommu_lock, flags);
+	mutex_lock(&msm_iommu_lock);
 
 	priv = domain->priv;
 	if (!priv) {
@@ -546,7 +542,7 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 
 		if (*fl_pte == 0) {
 			unsigned long *sl;
-			sl = (unsigned long *) __get_free_pages(GFP_ATOMIC,
+			sl = (unsigned long *) __get_free_pages(GFP_KERNEL,
 							get_order(SZ_4K));
 
 			if (!sl) {
@@ -602,7 +598,7 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 
 	ret = __flush_iotlb_va(domain, va);
 fail:
-	spin_unlock_irqrestore(&msm_iommu_lock, flags);
+	mutex_unlock(&msm_iommu_lock);
 	return ret;
 }
 
@@ -610,7 +606,6 @@ static int msm_iommu_unmap(struct iommu_domain *domain, unsigned long va,
 			    int order)
 {
 	struct msm_priv *priv;
-	unsigned long flags;
 	unsigned long *fl_table;
 	unsigned long *fl_pte;
 	unsigned long fl_offset;
@@ -620,7 +615,7 @@ static int msm_iommu_unmap(struct iommu_domain *domain, unsigned long va,
 	size_t len = 0x1000UL << order;
 	int i, ret = 0;
 
-	spin_lock_irqsave(&msm_iommu_lock, flags);
+	mutex_lock(&msm_iommu_lock);
 
 	priv = domain->priv;
 
@@ -700,7 +695,7 @@ static int msm_iommu_unmap(struct iommu_domain *domain, unsigned long va,
 
 	ret = __flush_iotlb_va(domain, va);
 fail:
-	spin_unlock_irqrestore(&msm_iommu_lock, flags);
+	mutex_unlock(&msm_iommu_lock);
 	return ret;
 }
 
@@ -729,13 +724,12 @@ static int msm_iommu_map_range(struct iommu_domain *domain, unsigned int va,
 	unsigned long fl_offset;
 	unsigned long *sl_table;
 	unsigned long sl_offset, sl_start;
-	unsigned long flags;
 	unsigned int chunk_offset = 0;
 	unsigned int chunk_pa;
 	int ret = 0;
 	struct msm_priv *priv;
 
-	spin_lock_irqsave(&msm_iommu_lock, flags);
+	mutex_lock(&msm_iommu_lock);
 
 	BUG_ON(len & (SZ_4K - 1));
 
@@ -766,7 +760,7 @@ static int msm_iommu_map_range(struct iommu_domain *domain, unsigned int va,
 		/* Set up a 2nd level page table if one doesn't exist */
 		if (*fl_pte == 0) {
 			sl_table = (unsigned long *)
-				 __get_free_pages(GFP_ATOMIC, get_order(SZ_4K));
+				 __get_free_pages(GFP_KERNEL, get_order(SZ_4K));
 
 			if (!sl_table) {
 				pr_debug("Could not allocate second level table\n");
@@ -821,7 +815,7 @@ static int msm_iommu_map_range(struct iommu_domain *domain, unsigned int va,
 	}
 	__flush_iotlb(domain);
 fail:
-	spin_unlock_irqrestore(&msm_iommu_lock, flags);
+	mutex_unlock(&msm_iommu_lock);
 	return ret;
 }
 
@@ -835,11 +829,10 @@ static int msm_iommu_unmap_range(struct iommu_domain *domain, unsigned int va,
 	unsigned long fl_offset;
 	unsigned long *sl_table;
 	unsigned long sl_start, sl_end;
-	unsigned long flags;
 	int used, i;
 	struct msm_priv *priv;
 
-	spin_lock_irqsave(&msm_iommu_lock, flags);
+	mutex_lock(&msm_iommu_lock);
 
 	BUG_ON(len & (SZ_4K - 1));
 
@@ -892,7 +885,7 @@ static int msm_iommu_unmap_range(struct iommu_domain *domain, unsigned int va,
 	}
 
 	__flush_iotlb(domain);
-	spin_unlock_irqrestore(&msm_iommu_lock, flags);
+	mutex_unlock(&msm_iommu_lock);
 	return 0;
 }
 
@@ -903,12 +896,11 @@ static phys_addr_t msm_iommu_iova_to_phys(struct iommu_domain *domain,
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	unsigned int par;
-	unsigned long flags;
 	void __iomem *base;
 	phys_addr_t ret = 0;
 	int ctx;
 
-	spin_lock_irqsave(&msm_iommu_lock, flags);
+	mutex_lock(&msm_iommu_lock);
 
 	priv = domain->priv;
 	if (list_empty(&priv->list_attached))
@@ -941,7 +933,7 @@ static phys_addr_t msm_iommu_iova_to_phys(struct iommu_domain *domain,
 
 	__disable_clocks(iommu_drvdata);
 fail:
-	spin_unlock_irqrestore(&msm_iommu_lock, flags);
+	mutex_unlock(&msm_iommu_lock);
 	return ret;
 }
 
@@ -986,8 +978,7 @@ irqreturn_t msm_iommu_fault_handler(int irq, void *dev_id)
 	unsigned int fsr, num;
 	int ret;
 
-	spin_lock(&msm_iommu_lock);
-	BUG_ON(!ctx_drvdata);
+	mutex_lock(&msm_iommu_lock);
 
 	drvdata = dev_get_drvdata(ctx_drvdata->pdev->dev.parent);
 	BUG_ON(!drvdata);
@@ -1027,7 +1018,7 @@ irqreturn_t msm_iommu_fault_handler(int irq, void *dev_id)
 
 	__disable_clocks(drvdata);
 fail:
-	spin_unlock(&msm_iommu_lock);
+	mutex_unlock(&msm_iommu_lock);
 	return ret;
 }
 
