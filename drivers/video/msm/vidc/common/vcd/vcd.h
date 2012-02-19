@@ -390,4 +390,6 @@ void vcd_handle_clnt_fatal_input_done(struct vcd_clnt_ctxt *cctxt,
 void vcd_handle_ind_info_output_reconfig
 	(struct vcd_clnt_ctxt *cctxt, u32 status);
 
+u32 vcd_set_num_slices(struct vcd_clnt_ctxt *cctxt);
+
 #endif
