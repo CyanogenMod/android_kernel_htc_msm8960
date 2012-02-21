@@ -2604,6 +2604,20 @@ static struct resource kgsl_3d0_resources[] = {
 	},
 };
 
+static const char *kgsl_3d0_iommu_ctx_names[] = {
+	"gfx3d_user",
+	/* priv_ctx goes here */
+};
+
+static struct kgsl_device_iommu_data kgsl_3d0_iommu_data[] = {
+	{
+		.iommu_ctx_names = kgsl_3d0_iommu_ctx_names,
+		.iommu_ctx_count = ARRAY_SIZE(kgsl_3d0_iommu_ctx_names),
+		.physstart = 0x07C00000,
+		.physend = 0x07C00000 + SZ_1M - 1,
+	},
+};
+
 static struct kgsl_device_platform_data kgsl_3d0_pdata = {
 	.pwrlevel = {
 		{
@@ -2640,6 +2654,8 @@ static struct kgsl_device_platform_data kgsl_3d0_pdata = {
 #ifdef CONFIG_MSM_BUS_SCALING
 	.bus_scale_table = &grp3d_bus_scale_pdata,
 #endif
+	.iommu_data = kgsl_3d0_iommu_data,
+	.iommu_count = ARRAY_SIZE(kgsl_3d0_iommu_data),
 };
 
 struct platform_device msm_kgsl_3d0 = {
@@ -2667,6 +2683,19 @@ static struct resource kgsl_2d0_resources[] = {
 	},
 };
 
+static const char *kgsl_2d0_iommu_ctx_names[] = {
+	"gfx2d0_2d0",
+};
+
+static struct kgsl_device_iommu_data kgsl_2d0_iommu_data[] = {
+	{
+		.iommu_ctx_names = kgsl_2d0_iommu_ctx_names,
+		.iommu_ctx_count = ARRAY_SIZE(kgsl_2d0_iommu_ctx_names),
+		.physstart = 0x07D00000,
+		.physend = 0x07D00000 + SZ_1M - 1,
+	},
+};
+
 static struct kgsl_device_platform_data kgsl_2d0_pdata = {
 	.pwrlevel = {
 		{
@@ -2691,6 +2720,8 @@ static struct kgsl_device_platform_data kgsl_2d0_pdata = {
 #ifdef CONFIG_MSM_BUS_SCALING
 	.bus_scale_table = &grp2d0_bus_scale_pdata,
 #endif
+	.iommu_data = kgsl_2d0_iommu_data,
+	.iommu_count = ARRAY_SIZE(kgsl_2d0_iommu_data),
 };
 
 struct platform_device msm_kgsl_2d0 = {
@@ -2700,6 +2731,19 @@ struct platform_device msm_kgsl_2d0 = {
 	.resource = kgsl_2d0_resources,
 	.dev = {
 		.platform_data = &kgsl_2d0_pdata,
+	},
+};
+
+static const char *kgsl_2d1_iommu_ctx_names[] = {
+	"gfx2d0_2d1",
+};
+
+static struct kgsl_device_iommu_data kgsl_2d1_iommu_data[] = {
+	{
+		.iommu_ctx_names = kgsl_2d1_iommu_ctx_names,
+		.iommu_ctx_count = ARRAY_SIZE(kgsl_2d1_iommu_ctx_names),
+		.physstart = 0x07E00000,
+		.physend = 0x07E00000 + SZ_1M - 1,
 	},
 };
 
@@ -2742,6 +2786,8 @@ static struct kgsl_device_platform_data kgsl_2d1_pdata = {
 #ifdef CONFIG_MSM_BUS_SCALING
 	.bus_scale_table = &grp2d1_bus_scale_pdata,
 #endif
+	.iommu_data = kgsl_2d1_iommu_data,
+	.iommu_count = ARRAY_SIZE(kgsl_2d1_iommu_data),
 };
 
 struct platform_device msm_kgsl_2d1 = {
