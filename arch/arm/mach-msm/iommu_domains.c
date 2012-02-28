@@ -66,12 +66,12 @@ struct {
 	},
 	/* Camera */
 	{
-		.name =	"ijpeg_src",
+		.name = "ijpeg_src",
 		.domain = CAMERA_DOMAIN,
 	},
 	/* Camera */
 	{
-		.name =	"ijpeg_dst",
+		.name = "ijpeg_dst",
 		.domain = CAMERA_DOMAIN,
 	},
 	/* Camera */
@@ -83,26 +83,6 @@ struct {
 	{
 		.name = "jpegd_dst",
 		.domain = CAMERA_DOMAIN,
-	},
-	/* Display */
-	{
-		.name = "mdp_vg1",
-		.domain = DISPLAY_DOMAIN,
-	},
-	/* Display */
-	{
-		.name = "mdp_vg2",
-		.domain = DISPLAY_DOMAIN,
-	},
-	/* Display */
-	{
-		.name = "mdp_rgb1",
-		.domain = DISPLAY_DOMAIN,
-	},
-	/* Display */
-	{
-		.name = "mdp_rgb2",
-		.domain = DISPLAY_DOMAIN,
 	},
 	/* Rotator */
 	{
@@ -356,14 +336,18 @@ static int __init msm_subsystem_iommu_init(void)
 				pool->gpool = gen_pool_create(PAGE_SHIFT, -1);
 
 				if (!pool->gpool) {
-					pr_err("%s: domain %d: could not allocate iova pool. iommu programming will not work with iova space %d\n",
+					pr_err("%s: could not allocate pool\n",
+						__func__);
+					pr_err("%s: domain %d iova space %d\n",
 						__func__, i, j);
 					continue;
 				}
 
 				if (gen_pool_add(pool->gpool, pool->paddr,
 						pool->size, -1)) {
-					pr_err("%s: domain %d: could not add memory to iova pool. iommu programming will not work with iova space %d\n",
+					pr_err("%s: could not add memory\n",
+						__func__);
+					pr_err("%s: domain %d pool %d\n",
 						__func__, i, j);
 					gen_pool_destroy(pool->gpool);
 					pool->gpool = NULL;
