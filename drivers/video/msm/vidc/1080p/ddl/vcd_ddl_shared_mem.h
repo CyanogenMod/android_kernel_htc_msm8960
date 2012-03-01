@@ -168,4 +168,6 @@ void vidc_sm_set_decoder_sei_enable(struct ddl_buf_addr *shared_mem,
 	u32 sei_enable);
 void vidc_sm_get_decoder_sei_enable(struct ddl_buf_addr *shared_mem,
 	u32 *sei_enable);
+void vidc_sm_get_aspect_ratio_info(struct ddl_buf_addr *shared_mem,
+	struct vcd_aspect_ratio *aspect_ratio_info);
 #endif
