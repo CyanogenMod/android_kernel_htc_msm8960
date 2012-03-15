@@ -630,6 +630,7 @@ static int register_memory(void)
 {
 	int			result;
 	unsigned long		paddr;
+	void                    *kvptr;
 	unsigned long		kvaddr;
 	unsigned long		mem_len;
 
@@ -646,7 +647,7 @@ static int register_memory(void)
 		atomic_read(&acdb_data.map_handle));
 	if (IS_ERR_OR_NULL(acdb_data.ion_handle)) {
 		pr_err("%s: Could not import map handle!!!\n", __func__);
-		result = PTR_ERR(acdb_data.ion_client);
+		result = PTR_ERR(acdb_data.ion_handle);
 		goto err_ion_client;
 	}
 
@@ -657,13 +658,14 @@ static int register_memory(void)
 		goto err_ion_handle;
 	}
 
-	kvaddr = (unsigned long)ion_map_kernel(acdb_data.ion_client,
+	kvptr = ion_map_kernel(acdb_data.ion_client,
 		acdb_data.ion_handle, 0);
-	if (IS_ERR_OR_NULL(&kvaddr)) {
+	if (IS_ERR_OR_NULL(kvptr)) {
 		pr_err("%s: Could not get kernel virt addr!!!\n", __func__);
-		result = -EINVAL;
+		result = PTR_ERR(kvptr);
 		goto err_ion_handle;
 	}
+	kvaddr = (unsigned long)kvptr;
 	mutex_unlock(&acdb_data.acdb_mutex);
 
 	atomic64_set(&acdb_data.paddr, paddr);
