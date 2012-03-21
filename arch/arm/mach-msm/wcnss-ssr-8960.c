@@ -95,7 +95,6 @@ static irqreturn_t riva_wdog_bite_irq_hdlr(int irq, void *dev_id)
 						MODULE_NAME);
 		return IRQ_HANDLED;
 	}
-	disable_irq_nosync(RIVA_APSS_WDOG_BITE_RESET_RDY_IRQ);
 	ss_restart_inprogress = true;
 	ret = schedule_work(&riva_fatal_work);
 	return IRQ_HANDLED;
@@ -128,6 +127,7 @@ static int riva_shutdown(const struct subsys_data *subsys)
 	pr_info("[SSR] pil_force_shutdown is finished\n");
 	flush_delayed_work(&cancel_vote_work);
 	pr_info("[SSR] flush_delayed_work(vote) for shutdown is finished\n");
+	disable_irq_nosync(RIVA_APSS_WDOG_BITE_RESET_RDY_IRQ);
 
 	return 0;
 }
