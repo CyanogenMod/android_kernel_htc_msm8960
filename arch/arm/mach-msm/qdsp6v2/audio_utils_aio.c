@@ -1134,16 +1134,17 @@ int audio_aio_open(struct q6audio_aio *audio, struct file *file)
 	file->private_data = audio;
 	audio->codec_ioctl = audio_aio_ioctl;
 
-	for (i = 0; i < AUDIO_EVENT_NUM; i++) {
-		e_node = kmalloc(sizeof(struct audio_aio_event), GFP_KERNEL);
-		if (e_node)
-			list_add_tail(&e_node->list, &audio->free_event_queue);
-		else {
-			pr_err("%s[%p]:event pkt alloc failed\n",
-				__func__, audio);
-			rc = -ENOMEM;
-			goto fail;
-		}
+	e_node = kmalloc(sizeof(struct audio_aio_event) * AUDIO_EVENT_NUM,
+			GFP_KERNEL);
+	if (e_node) {
+		for (i = 0; i < AUDIO_EVENT_NUM; i++)
+			list_add_tail(&e_node[i].list,
+				&audio->free_event_queue);
+	} else {
+		pr_err("%s[%p]:event pkt alloc failed\n",
+			__func__, audio);
+		rc = -ENOMEM;
+		goto fail;
 	}
 fail:
 
