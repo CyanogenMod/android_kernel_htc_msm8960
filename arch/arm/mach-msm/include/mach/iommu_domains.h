@@ -55,6 +55,20 @@ extern void msm_iommu_unmap_extra(struct iommu_domain *domain,
 						unsigned long size,
 						unsigned long page_size);
 
+extern int msm_iommu_map_contig_buffer(unsigned long phys,
+				unsigned int domain_no,
+				unsigned int partition_no,
+				unsigned long size,
+				unsigned long align,
+				unsigned long cached,
+				unsigned long *iova_val);
+
+
+extern void msm_iommu_unmap_contig_buffer(unsigned long iova,
+					unsigned int domain_no,
+					unsigned int partition_no,
+					unsigned long size);
+
 #else
 static inline struct iommu_domain
 	*msm_get_iommu_domain(int subsys_id) { return NULL; }
@@ -83,6 +97,7 @@ static inline int msm_iommu_map_extra(struct iommu_domain *domain,
 						int cached)
 {
 	return -ENODEV;
+
 }
 
 static inline void msm_iommu_unmap_extra(struct iommu_domain *domain,
@@ -91,6 +106,27 @@ static inline void msm_iommu_unmap_extra(struct iommu_domain *domain,
 						unsigned long page_size)
 {
 }
+
+static inline int msm_iommu_map_contig_buffer(unsigned long phys,
+				unsigned int domain_no,
+				unsigned int partition_no,
+				unsigned long size,
+				unsigned long align,
+				unsigned long cached,
+				unsigned long *iova_val)
+{
+	*iova_val = phys;
+	return 0;
+}
+
+static inline void msm_iommu_unmap_contig_buffer(unsigned long iova,
+					unsigned int domain_no,
+					unsigned int partition_no,
+					unsigned long size)
+{
+	return;
+}
+
 #endif
 
 #endif
