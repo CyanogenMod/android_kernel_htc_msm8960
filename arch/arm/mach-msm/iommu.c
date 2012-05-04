@@ -979,6 +979,7 @@ irqreturn_t msm_iommu_fault_handler(int irq, void *dev_id)
 	int ret;
 
 	mutex_lock(&msm_iommu_lock);
+	BUG_ON(!ctx_drvdata);
 
 	drvdata = dev_get_drvdata(ctx_drvdata->pdev->dev.parent);
 	BUG_ON(!drvdata);

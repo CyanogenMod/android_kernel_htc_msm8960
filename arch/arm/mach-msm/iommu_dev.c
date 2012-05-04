@@ -220,14 +220,6 @@ static int msm_iommu_probe(struct platform_device *pdev)
 		goto fail_io;
 	}
 
-	ret = request_threaded_irq(irq, NULL, msm_iommu_fault_handler,
-			IRQF_ONESHOT, "msm_iommu_secure_irpt_handler", drvdata);
-	if (ret) {
-		pr_err("Request IRQ %d failed with ret=%d\n", irq, ret);
-		goto fail_io;
-	}
-
-
 	drvdata->pclk = iommu_pclk;
 	drvdata->clk = iommu_clk;
 	drvdata->base = regs_base;
