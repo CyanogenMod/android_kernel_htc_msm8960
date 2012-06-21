@@ -2014,6 +2014,17 @@ config IOMMU_PGTABLES_L2
 	 section mappings and TLB misses should be quite infrequent.
 	 Most people can probably say Y here.
 
+config MSM_IOMMU_CONFIG_GLOBAL_REG_SPACE
+	bool "Configure the IOMMU global space from Linux"
+	depends on MSM_IOMMU=y
+	help
+	 Allow the IOMMU driver to configure the IOMMU global register space.
+	 This is normally handled by the secure environment and should not be
+	 necessary in a production system.
+	 Select 'Y' here if the system is operating without a secure environment.
+
+	 For production builds, say 'N' here.
+
 config MSM_DIRECT_SCLK_ACCESS
 	bool "Direct access to the SCLK timer"
 	default n
