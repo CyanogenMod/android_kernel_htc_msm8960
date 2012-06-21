@@ -195,10 +195,8 @@ int ion_iommu_heap_map_iommu(struct ion_buffer *buffer,
 	data->iova_addr = msm_allocate_iova_address(domain_num, partition_num,
 						data->mapped_size, align);
 
-	if (!data->iova_addr) {
-		ret = -ENOMEM;
+	if (ret)
 		goto out;
-	}
 
 	domain = msm_get_iommu_domain(domain_num);
 
