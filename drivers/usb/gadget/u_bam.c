@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -700,6 +700,29 @@ static void gbam2bam_connect_work(struct work_struct *w)
 	struct bam_ch_info *d = &port->data_ch;
 	u32 sps_params;
 	int ret;
+	unsigned long flags;
+
+	ret = usb_ep_enable(port->gr->in, port->gr->in_desc);
+	if (ret) {
+		pr_err("%s: usb_ep_enable failed eptype:IN ep:%p",
+				__func__, port->gr->in);
+		return;
+	}
+	port->gr->in->driver_data = port;
+
+	ret = usb_ep_enable(port->gr->out, port->gr->out_desc);
+	if (ret) {
+		pr_err("%s: usb_ep_enable failed eptype:OUT ep:%p",
+				__func__, port->gr->out);
+		port->gr->in->driver_data = 0;
+		return;
+	}
+	port->gr->out->driver_data = port;
+	spin_lock_irqsave(&port->port_lock_ul, flags);
+	spin_lock(&port->port_lock_dl);
+	port->port_usb = port->gr;
+	spin_unlock(&port->port_lock_dl);
+	spin_unlock_irqrestore(&port->port_lock_ul, flags);
 
 	ret = usb_bam_connect(d->connection_idx, &d->src_pipe_idx,
 						  &d->dst_pipe_idx);
@@ -1099,39 +1122,41 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 
 	d = &port->data_ch;
 
-	ret = usb_ep_enable(gr->in, gr->in_desc);
-	if (ret) {
-		pr_err("%s: usb_ep_enable failed eptype:IN ep:%p",
-				__func__, gr->in);
-		return ret;
-	}
-	gr->in->driver_data = port;
+	if (trans == USB_GADGET_XPORT_BAM) {
+		ret = usb_ep_enable(gr->in, gr->in_desc);
+		if (ret) {
+			pr_err("%s: usb_ep_enable failed eptype:IN ep:%p",
+					__func__, gr->in);
+			return ret;
+		}
+		gr->in->driver_data = port;
 
-	ret = usb_ep_enable(gr->out, gr->out_desc);
-	if (ret) {
-		pr_err("%s: usb_ep_enable failed eptype:OUT ep:%p",
-				__func__, gr->out);
-		gr->in->driver_data = 0;
-		return ret;
-	}
-	gr->out->driver_data = port;
+		ret = usb_ep_enable(gr->out, gr->out_desc);
+		if (ret) {
+			pr_err("%s: usb_ep_enable failed eptype:OUT ep:%p",
+					__func__, gr->out);
+			gr->in->driver_data = 0;
+			return ret;
+		}
+		gr->out->driver_data = port;
 
 	spin_lock_irqsave(&port->port_lock_ul, flags);
 	spin_lock(&port->port_lock_dl);
 	port->port_usb = gr;
 
-	if (trans == USB_GADGET_XPORT_BAM) {
 		d->to_host = 0;
 		d->to_modem = 0;
 		d->pending_with_bam = 0;
 		d->tohost_drp_cnt = 0;
 		d->tomodem_drp_cnt = 0;
-	}
 	spin_unlock(&port->port_lock_dl);
 	spin_unlock_irqrestore(&port->port_lock_ul, flags);
+	}
 
-	if (trans == USB_GADGET_XPORT_BAM2BAM)
+	if (trans == USB_GADGET_XPORT_BAM2BAM) {
+		port->gr = gr;
 		d->connection_idx = connection_idx;
+	}
 
 	queue_work(gbam_wq, &port->connect_w);
 

@@ -14,13 +14,8 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
-#include <linux/usb/msm_hsusb.h>
 #include <linux/usb/msm_hsusb_hw.h>
 #include <linux/usb/ulpi.h>
-#include <linux/usb/otg.h>
-
-#include <linux/usb/htc_info.h>
-static struct usb_info *the_usb_info;
 
 #include "ci13xxx_udc.c"
 
@@ -33,7 +28,7 @@ static irqreturn_t msm_udc_irq(int irq, void *data)
 
 static void ci13xxx_msm_notify_event(struct ci13xxx *udc, unsigned event)
 {
-	/* struct device *dev = udc->gadget.dev.parent; */
+	struct device *dev = udc->gadget.dev.parent;
 
 	switch (event) {
 	case CI13XXX_CONTROLLER_RESET_EVENT:
@@ -61,16 +56,11 @@ static struct ci13xxx_udc_driver ci13xxx_msm_udc_driver = {
 static int ci13xxx_msm_probe(struct platform_device *pdev)
 {
 	struct resource *res;
-	struct usb_info *ui;
 	void __iomem *regs;
 	int irq;
 	int ret;
 
 	dev_dbg(&pdev->dev, "ci13xxx_msm_probe\n");
-	ui = kzalloc(sizeof(struct usb_info), GFP_KERNEL);
-	if (!ui)
-		return -ENOMEM;
-	the_usb_info = ui;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
@@ -102,7 +92,6 @@ static int ci13xxx_msm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "request_irq failed\n");
 		goto udc_remove;
 	}
-	INIT_DELAYED_WORK(&ui->chg_stop, usb_chg_stop);
 
 	pm_runtime_no_callbacks(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
@@ -117,24 +106,8 @@ iounmap:
 	return ret;
 }
 
-static void ci13xxx_msm_shutdown(struct platform_device *pdev)
-{
-	struct msm_otg *motg;
-	struct ci13xxx *udc = _udc;
-
-	if (!udc || !udc->transceiver)
-		return;
-
-	motg = container_of(udc->transceiver, struct msm_otg, otg);
-
-	if (!atomic_read(&motg->in_lpm))
-		ci13xxx_pullup(&udc->gadget, 0);
-
-}
-
 static struct platform_driver ci13xxx_msm_driver = {
 	.probe = ci13xxx_msm_probe,
-	.shutdown = ci13xxx_msm_shutdown,
 	.driver = { .name = "msm_hsusb", },
 };
 

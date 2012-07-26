@@ -15,16 +15,6 @@
 #include <linux/usb/composite.h>
 #include <linux/usb/cdc.h>
 
-enum fserial_func_type {
-	USB_FSER_FUNC_NONE,
-	USB_FSER_FUNC_SERIAL,
-	USB_FSER_FUNC_MODEM,
-	USB_FSER_FUNC_MODEM_MDM,
-	USB_FSER_FUNC_AUTOBOT,
-};
-
-#define GSERIAL_NO_PORTS 5
-
 /*
  * One non-multiplexed "serial" I/O port ... there can be several of these
  * on any given USB peripheral device, if it provides enough endpoints.

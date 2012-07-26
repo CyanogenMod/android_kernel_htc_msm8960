@@ -25,10 +25,8 @@ enum transport_type {
 	USB_GADGET_XPORT_NONE,
 };
 
-/* Move it to android.c due to build break
- */
-#if 0
 #define XPORT_STR_LEN	10
+
 static char *xport_to_str(enum transport_type t)
 {
 	switch (t) {
@@ -61,15 +59,15 @@ static enum transport_type str_to_xport(const char *name)
 		return USB_GADGET_XPORT_SMD;
 	if (!strncasecmp("BAM", name, XPORT_STR_LEN))
 		return USB_GADGET_XPORT_BAM;
+	if (!strncasecmp("BAM2BAM", name, XPORT_STR_LEN))
+		return USB_GADGET_XPORT_BAM2BAM;
+	if (!strncasecmp("HSIC", name, XPORT_STR_LEN))
+		return USB_GADGET_XPORT_HSIC;
 	if (!strncasecmp("", name, XPORT_STR_LEN))
 		return USB_GADGET_XPORT_NONE;
 
 	return USB_GADGET_XPORT_UNDEF;
 }
-#else
-extern char *xport_to_str(enum transport_type t);
-extern enum transport_type str_to_xport(const char *name);
-#endif
 
 enum gadget_type {
 	USB_GADGET_SERIAL,

@@ -335,7 +335,7 @@ static void grmnet_ctrl_smd_connect_w(struct work_struct *w)
 		if (ret == -EAGAIN) {
 			/* port not ready  - retry */
 			pr_debug("%s: SMD port not ready - rescheduling:%s err:%d\n",
-				__func__, c->name, ret);
+					__func__, c->name, ret);
 			queue_delayed_work(grmnet_ctrl_wq, &port->connect_w,
 				msecs_to_jiffies(250));
 		} else {
@@ -346,11 +346,8 @@ static void grmnet_ctrl_smd_connect_w(struct work_struct *w)
 	}
 
 	spin_lock_irqsave(&port->port_lock, flags);
-	if (port->port_usb) {
-		pr_warning("%s: SMD notify closing before open\n", __func__);
-		c->cbits_tomodem |= TIOCM_RTS;
+	if (port->port_usb)
 		smd_tiocmset(c->ch, c->cbits_tomodem, ~c->cbits_tomodem);
-	}
 	spin_unlock_irqrestore(&port->port_lock, flags);
 }
 
@@ -480,7 +477,7 @@ static int grmnet_ctrl_smd_ch_remove(struct platform_device *pdev)
 			clear_bit(CH_READY, &c->flags);
 			clear_bit(CH_OPENED, &c->flags);
 			if (c->ch) {
-			smd_close(c->ch);
+				smd_close(c->ch);
 				c->ch = NULL;
 			}
 			break;

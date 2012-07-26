@@ -64,7 +64,7 @@ struct ci13xxx_td {
 #define TD_CURR_OFFSET        (0x0FFFUL <<  0)
 #define TD_FRAME_NUM          (0x07FFUL <<  0)
 #define TD_RESERVED_MASK      (0x0FFFUL <<  0)
-};
+} __attribute__ ((packed));
 
 /* DMA layout of queue heads */
 struct ci13xxx_qh {
