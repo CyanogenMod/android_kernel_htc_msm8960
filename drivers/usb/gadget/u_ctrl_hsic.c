@@ -21,8 +21,6 @@
 #include <linux/termios.h>
 #include <mach/usb_bridge.h>
 #include <mach/usb_gadget_xport.h>
-#include <linux/ratelimit.h>
-
 
 /* from cdc-acm.h */
 #define ACM_CTRL_RTS		(1 << 1)	/* unused with full duplex */
