@@ -2392,7 +2392,7 @@ int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 		return -EINTR;
 	}
 
-	if (display1_mfd && req->id == MSMFB_NEW_REQUEST && mfd->panel_info.pdest == MDP4_MIXER1) {
+	if (display1_mfd && req->id == MSMFB_NEW_REQUEST && mfd->panel_info.pdest == (DISP_TARGET_PHYS) MDP4_MIXER1) {
 		mdp4_dsi_cmd_dma_busy_wait(display1_mfd);
 		mdp4_overlay_update_layers(display1_mfd, MDP4_MIXER0);
 	}

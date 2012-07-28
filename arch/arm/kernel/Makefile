@@ -9,6 +9,7 @@ ifdef CONFIG_FUNCTION_TRACER
 CFLAGS_REMOVE_ftrace.o = -pg
 endif
 
+CFLAGS_return_address.o = -Wno-cpp
 CFLAGS_REMOVE_return_address.o = -pg
 
 # Object file lists.
