@@ -362,7 +362,6 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 {
 	uint32 isr, mask, panel;
 	struct mdp_dma_data *dma;
-	int i;
 
 	mdp_is_in_isr = TRUE;
 
@@ -386,16 +385,9 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 		that histogram works.*/
 		MDP_OUTP(MDP_BASE + 0x95010, 1);
 		outpdw(MDP_BASE + 0x9501c, INTR_HIST_DONE);
-		if (mdp_is_hist_start == TRUE) {
-			for (i=0;i<128;i++){
-				inpdw(MDP_BASE + ( 0x95400 + i*4));
-				inpdw(MDP_BASE + ( 0x95800 + i*4));
-				inpdw(MDP_BASE + ( 0x95C00 + i*4));
-			}
-			MDP_OUTP(MDP_BASE + 0x95004,
-					mdp_hist_frame_cnt);
-			MDP_OUTP(MDP_BASE + 0x95000, 1);
-		}
+		mdp_is_hist_valid = FALSE;
+		__mdp_histogram_reset();
+
 	}
 
 	if (isr & INTR_EXTERNAL_INTF_UDERRUN)
@@ -574,19 +566,18 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 		outpdw(MDP_DMA_P_HIST_INTR_CLEAR, isr);
 		mb();
 		isr &= mask;
+		if (isr & INTR_HIST_RESET_SEQ_DONE)
+			__mdp_histogram_kickoff();
+
 		if (isr & INTR_HIST_DONE) {
-			if (waitqueue_active(&(mdp_hist_comp.wait))) {
-				complete(&mdp_hist_comp);
-			} else {
-				if (mdp_is_hist_start == TRUE) {
-					for (i=0;i<128;i++){
-						inpdw(MDP_BASE + ( 0x95400 + i*4));
-						inpdw(MDP_BASE + ( 0x95800 + i*4));
-						inpdw(MDP_BASE + ( 0x95C00 + i*4));
-					}
-					MDP_OUTP(MDP_BASE + 0x95004, mdp_hist_frame_cnt);
-					MDP_OUTP(MDP_BASE + 0x95000, 1);
+			if (waitqueue_active(&mdp_hist_comp.wait)) {
+				if (!queue_work(mdp_hist_wq,
+					&mdp_histogram_worker)) {
+					pr_err("%s - can't queue hist_read\n",
+							__func__);
 				}
+			} else {
+				__mdp_histogram_reset();
 			}
 		}
 	}

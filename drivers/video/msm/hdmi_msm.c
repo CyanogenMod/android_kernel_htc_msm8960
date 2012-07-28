@@ -847,9 +847,6 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
 			kobject_uevent(external_common_state->uevent_kobj,
 				KOBJ_ONLINE);
 #ifdef SWITCH_DEV_SUPPORT
-#ifdef CONFIG_FB_MSM_HDMI_MHL_SUPERDEMO
-			if (!external_common_state->demotv_connected)
-#endif
 			switch_set_state(&hdmi_msm_state->hpd_switch, 1);
 #endif
 			hdmi_msm_hdcp_enable();
@@ -886,14 +883,7 @@ static void hdmi_msm_hpd_state_work(struct work_struct *work)
 			kobject_uevent(external_common_state->uevent_kobj,
 				KOBJ_OFFLINE);
 #ifdef SWITCH_DEV_SUPPORT
-#ifdef CONFIG_FB_MSM_HDMI_MHL_SUPERDEMO
-			if (!external_common_state->demotv_connected)
-#endif
 			switch_set_state(&hdmi_msm_state->hpd_switch, 0);
-#endif
-
-#ifdef CONFIG_FB_MSM_HDMI_MHL_SUPERDEMO
-			external_common_state->demotv_connected = false;
 #endif
 
 		}
@@ -3987,16 +3977,12 @@ static void hdmi_msm_hdcp_timer(unsigned long data)
 static void hdmi_msm_hpd_read_work(struct work_struct *work)
 {
 	uint32 hpd_ctrl;
-#ifdef CONFIG_INTERNAL_CHARGING_SUPPORT
-	static bool omit_read_work_in_probe = 1;
-#endif
+
 	clk_enable(hdmi_msm_state->hdmi_app_clk);
 	hdmi_msm_state->pd->core_power(1, 1);
 #ifdef CONFIG_INTERNAL_CHARGING_SUPPORT
-	if(probe_completed && !omit_read_work_in_probe)
+	if(probe_completed)
 		hdmi_msm_state->pd->enable_5v(1);
-	else
-		omit_read_work_in_probe = 0;
 	check_mhl_5v_status();
 #endif
 	hdmi_msm_set_mode(FALSE);
@@ -4230,21 +4216,8 @@ void hdmi_hpd_feature(int enable)
 			external_common_state->hpd_feature_on = 1;
 			mutex_unlock(&external_common_state_hpd_mutex);
 		} else {
-			if (hdmi_msm_state->panel_power_on == FALSE){
+			if (hdmi_msm_state->panel_power_on == FALSE)
 				external_common_state->hpd_feature(0);
-				DEV_INFO("HDMI HPD: sense DISCONNECTED: send OFFLINE\n");
-#ifdef SWITCH_DEV_SUPPORT
-#ifdef CONFIG_FB_MSM_HDMI_MHL_SUPERDEMO
-				if (!external_common_state->demotv_connected)
-#endif
-					switch_set_state(&hdmi_msm_state->hpd_switch, 0);
-#endif
-#ifdef CONFIG_FB_MSM_HDMI_MHL_SUPERDEMO
-				external_common_state->demotv_connected = false;
-#endif
-				kobject_uevent(external_common_state->uevent_kobj,
-					KOBJ_OFFLINE);
-			}
 			mutex_lock(&external_common_state_hpd_mutex);
 			external_common_state->hpd_feature_on = 0;
 			mutex_unlock(&external_common_state_hpd_mutex);

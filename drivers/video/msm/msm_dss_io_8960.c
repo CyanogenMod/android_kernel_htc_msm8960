@@ -568,6 +568,7 @@ void mipi_dsi_clk_enable(void)
 	u32 pll_ctrl = MIPI_INP(MIPI_DSI_BASE + 0x0200);
 	MIPI_OUTP(MIPI_DSI_BASE + 0x0200, pll_ctrl | 0x01);
 	mipi_dsi_phy_rdy_poll();
+
 	if (clk_set_rate(dsi_byte_div_clk, 1) < 0)	/* divided by 1 */
 		pr_err("%s: dsi_byte_div_clk - "
 			"clk_set_rate failed\n", __func__);
@@ -581,15 +582,14 @@ void mipi_dsi_clk_enable(void)
 	mdp4_stat.dsi_clk_on++;
 }
 
-void mipi_dsi_clk_disable(int disable_pll)
+void mipi_dsi_clk_disable(void)
 {
 	clk_disable(dsi_esc_clk);
 	clk_disable(dsi_byte_div_clk);
 	mipi_dsi_pclk_ctrl(&dsi_pclk, 0);
 	mipi_dsi_clk_ctrl(&dsicore_clk, 0);
 	/* DSIPHY_PLL_CTRL_0, disable dsi pll */
-	if(disable_pll)
-		MIPI_OUTP(MIPI_DSI_BASE + 0x0200, 0x0);
+	MIPI_OUTP(MIPI_DSI_BASE + 0x0200, 0x0);
 	mdp4_stat.dsi_clk_off++;
 }
 

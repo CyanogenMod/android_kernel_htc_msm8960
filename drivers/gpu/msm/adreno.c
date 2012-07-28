@@ -757,6 +757,15 @@ adreno_dump_and_recover(struct kgsl_device *device)
 		else
 			kgsl_pwrctrl_set_state(device, KGSL_STATE_ACTIVE);
 		complete_all(&device->recovery_gate);
+
+		/* HTC: Always trigger system panic for GPU Hang problem */
+		if (result) {
+			hr_msleep(10000);
+			panic("GPU Hang");
+		} else {
+			hr_msleep(1000);
+			pr_warn("Recoverable GPU Hang (skipped)\n");
+		}
 	}
 done:
 	return result;

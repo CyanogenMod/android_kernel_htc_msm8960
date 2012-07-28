@@ -363,17 +363,18 @@ static int mdp4_leading_0(uint32 num)
 
 static uint32 mdp4_scale_phase_step(int f_num, uint32 src, uint32 dst)
 {
-	uint32 val;
+	uint32 val, s;
 	int	n;
 
 	n = mdp4_leading_0(src);
 	if (n > f_num)
 		n = f_num;
-	val = src << n;	/* maximum to reduce lose of resolution */
-	val /= dst;
+	s = src << n;	/* maximum to reduce lose of resolution */
+	val = s / dst;
 	if (n < f_num) {
 		n = f_num - n;
 		val <<= n;
+		val |= ((s % dst) << n) / dst;
 	}
 
 	return val;
@@ -390,13 +391,14 @@ static void mdp4_scale_setup(struct mdp4_overlay_pipe *pipe)
 		pipe->op_mode |= MDP4_OP_SCALEY_EN;
 
 		if (pipe->pipe_num >= OVERLAY_PIPE_VG1) {
-			if (pipe->alpha_enable && pipe->dst_h > pipe->src_h
-				&& pipe->mixer_num == 0)
+			if ((pipe->flags & MDP_BACKEND_COMPOSITION) &&
+				pipe->alpha_enable && pipe->dst_h > pipe->src_h)
 				pipe->op_mode |= MDP4_OP_SCALEY_PIXEL_RPT;
 			else if (pipe->dst_h <= (pipe->src_h / 4))
 				pipe->op_mode |= MDP4_OP_SCALEY_MN_PHASE;
 			else
 				pipe->op_mode |= MDP4_OP_SCALEY_FIR;
+			pipe->op_mode |= MDP4_OP_SCALEY_FIR;
 		} else { /* RGB pipe */
 			pipe->op_mode |= MDP4_OP_SCALE_RGB_ENHANCED |
 				MDP4_OP_SCALE_RGB_BILINEAR |
@@ -413,13 +415,14 @@ static void mdp4_scale_setup(struct mdp4_overlay_pipe *pipe)
 		pipe->op_mode |= MDP4_OP_SCALEX_EN;
 
 		if (pipe->pipe_num >= OVERLAY_PIPE_VG1) {
-			if (pipe->alpha_enable && pipe->dst_w > pipe->src_w
-				&& pipe->mixer_num == 0)
+			if ((pipe->flags & MDP_BACKEND_COMPOSITION) &&
+				pipe->alpha_enable && pipe->dst_w > pipe->src_w)
 				pipe->op_mode |= MDP4_OP_SCALEX_PIXEL_RPT;
 			else if (pipe->dst_w <= (pipe->src_w / 4))
 				pipe->op_mode |= MDP4_OP_SCALEX_MN_PHASE;
 			else
 				pipe->op_mode |= MDP4_OP_SCALEX_FIR;
+			pipe->op_mode |= MDP4_OP_SCALEX_FIR;
 		} else { /* RGB pipe */
 			pipe->op_mode |= MDP4_OP_SCALE_RGB_ENHANCED |
 				MDP4_OP_SCALE_RGB_BILINEAR |
@@ -2122,7 +2125,8 @@ static int mdp4_overlay_is_rgb_type(int format)
 	}
 }
 
-static uint32 mdp4_overlay_get_perf_level(struct mdp_overlay *req)
+static uint32 mdp4_overlay_get_perf_level(struct mdp_overlay *req,
+					  struct msm_fb_data_type *mfd)
 {
 	int is_fg;
 
@@ -2146,9 +2150,18 @@ static uint32 mdp4_overlay_get_perf_level(struct mdp_overlay *req)
 		return OVERLAY_PERF_LEVEL1;
 
 	if (req->src.width*req->src.height <= OVERLAY_VGA_SIZE)
-		return OVERLAY_PERF_LEVEL3;
-	else if (req->src.width*req->src.height <= OVERLAY_720P_TILE_SIZE)
-		return OVERLAY_PERF_LEVEL2;
+		return OVERLAY_PERF_LEVEL4;
+	else if (req->src.width*req->src.height <= OVERLAY_720P_TILE_SIZE) {
+		u32 max, min;
+		max = (req->dst_rect.h > req->dst_rect.w) ?
+			req->dst_rect.h : req->dst_rect.w;
+		min = (mfd->panel_info.yres > mfd->panel_info.xres) ?
+			mfd->panel_info.xres : mfd->panel_info.yres;
+		if (max > min)	/* landscape mode */
+			return OVERLAY_PERF_LEVEL3;
+		else		/* potrait mode */
+			return OVERLAY_PERF_LEVEL2;
+	}
 	else
 		return OVERLAY_PERF_LEVEL1;
 }
@@ -2271,7 +2284,7 @@ int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 		mdp4_dsi_cmd_dma_busy_wait(display1_mfd);
 		mdp4_overlay_update_layers(display1_mfd, MDP4_MIXER0);
 	}
-	perf_level = mdp4_overlay_get_perf_level(req);
+	perf_level = mdp4_overlay_get_perf_level(req, mfd);
 
 	mixer = mfd->panel_info.pdest;	/* DISPLAY_1 or DISPLAY_2 */
 
@@ -2476,7 +2489,7 @@ int mdp4_check_dtv_pipe(void)
 	int stage;
 	for (stage = MDP4_MIXER_STAGE0 ; stage < MDP4_MIXER_STAGE_MAX ; stage++) {
 		if (ctrl->stage[MDP4_MIXER1][stage] != NULL &&
-			ctrl->stage[MDP4_MIXER1][stage]->pipe_ndx - 1 <= OVERLAY_PIPE_VG2){
+			ctrl->stage[MDP4_MIXER1][stage]->pipe_num <= OVERLAY_PIPE_VG2){
 			return true;
 		}
 	}

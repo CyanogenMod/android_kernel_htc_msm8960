@@ -63,31 +63,6 @@ int mdp4_overlay_dsi_state_get(void)
 	return dsi_state;
 }
 
-int mdp4_dsi_clock_off(void)
-{
-	int ret;
-
-	if (dsi_pipe == NULL) {
-		PR_DISP_DEBUG("dsi_clock_timer not initialize\n");
-		return 0;
-	}
-	ret = del_timer_sync(&dsi_clock_timer);
-	PR_DISP_DEBUG("%s ret:%d mipi_dsi_clk_on:%d\n",
-		__func__, ret, mipi_dsi_clk_on);
-
-	if (mipi_dsi_clk_on == 0) {
-		return ret;
-	}
-	mipi_dsi_clk_on = 0;
-	local_bh_disable();
-	mipi_dsi_clk_disable(false);
-	mipi_dsi_ahb_ctrl(0);
-	local_bh_enable();
-	mdp4_overlay_dsi_state_set(ST_DSI_CLK_OFF);
-
-	return ret;
-}
-
 static void dsi_clock_tout(unsigned long data)
 {
 	if (mipi_dsi_clk_on) {

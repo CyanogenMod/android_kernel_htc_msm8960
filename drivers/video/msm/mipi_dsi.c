@@ -51,7 +51,6 @@ static int pdev_list_cnt;
 static struct mipi_dsi_platform_data *mipi_dsi_pdata;
 
 static int vsync_gpio = -1;
-extern int mdp4_dsi_clock_off(void);
 
 static struct platform_driver mipi_dsi_driver = {
 	.probe = mipi_dsi_probe,
@@ -132,10 +131,8 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	mdp_bus_scale_update_request(0);
 #endif
 
-	mdp4_dsi_clock_off();
-
 	local_bh_disable();
-	mipi_dsi_clk_disable(true);
+	mipi_dsi_clk_disable();
 	local_bh_enable();
 
 	/* disbale dsi engine */
