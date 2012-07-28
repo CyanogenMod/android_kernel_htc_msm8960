@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * Based on videobuf-dma-contig.c,
  * (c) 2008 Magnus Damm
@@ -205,6 +205,9 @@ int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
 	}
 	rc = ion_phys(client, mem->ion_handle, (ion_phys_addr_t *)&mem->phyaddr,
 			 (size_t *)&len);
+	rc = ion_handle_get_flags(client, mem->ion_handle, &mem->ion_flags);
+	mem->kernel_vaddr = ion_map_kernel(client,
+		mem->ion_handle, mem->ion_flags);
 #elif CONFIG_ANDROID_PMEM
 	rc = get_pmem_file((int)mem->vaddr, (unsigned long *)&mem->phyaddr,
 					&kvstart, &len, &mem->file);
@@ -231,6 +234,7 @@ int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
 	if (IS_ERR((void *)mem->msm_buffer)) {
 		pr_err("%s: msm_subsystem_map_buffer failed\n", __func__);
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+		ion_unmap_kernel(client, mem->ion_handle);
 		ion_free(client, mem->ion_handle);
 #elif CONFIG_ANDROID_PMEM
 		put_pmem_file(mem->file);
@@ -251,6 +255,7 @@ void videobuf2_pmem_contig_user_put(struct videobuf2_contig_pmem *mem,
 		D("%s unmapped memory\n", __func__);
 	if (mem->is_userptr) {
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+		ion_unmap_kernel(client, mem->ion_handle);
 		ion_free(client, mem->ion_handle);
 #elif CONFIG_ANDROID_PMEM
 		put_pmem_file(mem->file);

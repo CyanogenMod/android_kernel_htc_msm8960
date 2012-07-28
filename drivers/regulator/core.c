@@ -30,6 +30,8 @@
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
+#include <linux/debugfs.h>
+#include <linux/seq_file.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/regulator.h>
@@ -3027,11 +3029,108 @@ static void rdev_init_debugfs(struct regulator_dev *rdev)
 error:
 	return;
 }
+int htc_vreg_dump(struct regulator_dev *rdev, struct seq_file *m)
+{
+	int len = 0;
+	int mode = 0;
+	int enable = 0;
+	int voltage = 0;
+	char nam_buf[20];
+	char en_buf[20];
+	char mod_buf[20];
+	char vol_buf[20];
+
+	memset(nam_buf,  ' ', sizeof(nam_buf));
+	nam_buf[19] = 0;
+	memset(en_buf, 0, sizeof(en_buf));
+	memset(mod_buf, 0, sizeof(mod_buf));
+	memset(vol_buf, 0, sizeof(vol_buf));
+
+	len = strlen(rdev_get_name(rdev));
+	if (len > 19)
+		len = 19;
+	memcpy(nam_buf, rdev_get_name(rdev), len);
+
+	enable = _regulator_is_enabled(rdev);
+	if (enable)
+			sprintf(en_buf, "YES");
+		else
+			sprintf(en_buf, "NO ");
+
+	mode = _regulator_get_mode(rdev);
+	if (mode == -EINVAL)
+		sprintf(mod_buf, "NULL  ");
+	else if (mode == 2)
+		sprintf(mod_buf, "NORMAL");
+	else if (mode == 4)
+		sprintf(mod_buf, "IDLE  ");
+
+	voltage = _regulator_get_voltage(rdev);
+	if (voltage == -EINVAL)
+		sprintf(vol_buf, "NULL");
+	else
+		sprintf(vol_buf, "%d uV", voltage);
+
+	if (m)
+		seq_printf(m, "VREG %s: [Enable]%s, [Mode]%s, [Vol]%s\n", nam_buf, en_buf,  mod_buf, vol_buf);
+	else
+		pr_info("VREG %s: [Enable]%s, [Mode]%s, [Vol]%s\n", nam_buf, en_buf,  mod_buf, vol_buf);
+
+	return 0;
+}
+
+static int list_vregs_show(struct seq_file *m, void *unused)
+{
+	struct regulator_dev *rdev;
+	char *title_msg = "------------ HTC VREG -------------\n";
+
+	seq_printf(m, title_msg);
+
+
+	mutex_lock(&regulator_list_mutex);
+	list_for_each_entry(rdev, &regulator_list, list) {
+			htc_vreg_dump(rdev, m);
+	}
+	mutex_unlock(&regulator_list_mutex);
+
+	return 0;
+}
+
+static int list_vregs_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, list_vregs_show, inode->i_private);
+}
+
+static const struct file_operations list_vregs_fops = {
+	.open		= list_vregs_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
+static struct dentry *debugfs_base;
+
+int __init htc_vreg_status_debug_init(void)
+{
+	int err = 0;
+
+	debugfs_base = debugfs_create_dir("htc_vreg", NULL);
+	if (!debugfs_base)
+		return -ENOMEM;
+
+	if (!debugfs_create_file("list_vregs", S_IRUGO, debugfs_base,
+				&regulator_list, &list_vregs_fops))
+		return -ENOMEM;
+
+	return err;
+}
+
 #else
 static inline void rdev_init_debugfs(struct regulator_dev *rdev)
 {
 	return;
 }
+int __init htc_vreg_status_debug_init(void) {}
 #endif
 
 /**
@@ -3408,6 +3507,7 @@ static int __init regulator_init(void)
 		pr_warn("regulator: Failed to create debugfs directory\n");
 		debugfs_root = NULL;
 	}
+	htc_vreg_status_debug_init();
 #endif
 
 	regulator_dummy_init();

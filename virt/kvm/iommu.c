@@ -227,7 +227,7 @@ int kvm_iommu_map_guest(struct kvm *kvm)
 		return -ENODEV;
 	}
 
-	kvm->arch.iommu_domain = iommu_domain_alloc(0);
+	kvm->arch.iommu_domain = iommu_domain_alloc();
 	if (!kvm->arch.iommu_domain)
 		return -ENOMEM;
 

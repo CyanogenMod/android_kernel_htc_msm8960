@@ -37,13 +37,13 @@
 #define VID_ENC_NAME	"msm_vidc_enc"
 
 #if DEBUG
-#define DBG(x...) printk(KERN_DEBUG x)
+#define DBG(x...) printk(KERN_DEBUG "[VID] " x)
 #else
 #define DBG(x...)
 #endif
 
-#define INFO(x...) printk(KERN_INFO x)
-#define ERR(x...) printk(KERN_ERR x)
+#define INFO(x...) printk(KERN_INFO "[VID] " x)
+#define ERR(x...) printk(KERN_ERR "[VID] " x)
 
 static struct vid_enc_dev *vid_enc_device_p;
 static dev_t vid_enc_dev_num;
@@ -197,6 +197,7 @@ static void vid_enc_output_frame_done(struct video_client_ctx *client_ctx,
 	int pmem_fd;
 	struct file *file;
 	s32 buffer_index = -1;
+	u32 ion_flag = 0;
 
 	if (!client_ctx || !vcd_frame_data) {
 		ERR("vid_enc_input_frame_done() NULL pointer\n");
@@ -259,7 +260,15 @@ static void vid_enc_output_frame_done(struct video_client_ctx *client_ctx,
 		venc_msg->venc_msg_info.statuscode =
 			VEN_S_EFATAL;
 	}
-
+	if (venc_msg->venc_msg_info.buf.len > 0) {
+		ion_flag = vidc_get_fd_info(client_ctx, BUFFER_TYPE_OUTPUT,
+					pmem_fd, kernel_vaddr, buffer_index);
+		if (ion_flag == CACHED) {
+			clean_and_invalidate_caches(kernel_vaddr,
+				(unsigned long)venc_msg->venc_msg_info.buf.len,
+				phy_addr);
+		}
+	}
 	mutex_lock(&client_ctx->msg_queue_lock);
 	list_add_tail(&venc_msg->list, &client_ctx->msg_queue);
 	mutex_unlock(&client_ctx->msg_queue_lock);
@@ -468,13 +477,17 @@ static u32 vid_enc_close_client(struct video_client_ctx *client_ctx)
 			rc = wait_for_completion_timeout(&client_ctx->event,
 				5 * HZ);
 			if (!rc) {
-				ERR("%s:ERROR vcd_stop time out"
+/* HTC_START */
+				INFO("%s:Warning: vcd_stop time out"
 				"rc = %d\n", __func__, rc);
+/* HTC_END */
 			}
 
 			if (client_ctx->event_status) {
-				ERR("%s:ERROR "
+/* HTC_START */
+				INFO("%s:Warning "
 				"vcd_stop Not successs\n", __func__);
+/* HTC_END */
 			}
 		}
 	}
@@ -822,16 +835,20 @@ static long vid_enc_ioctl(struct file *file,
 	{
 		enum venc_buffer_dir buffer_dir;
 		struct venc_bufferpayload buffer_info;
-		if (copy_from_user(&venc_msg, arg, sizeof(venc_msg)))
+		if (copy_from_user(&venc_msg, arg, sizeof(venc_msg))) {
+/* HTC_START*/
+			pr_info("[VID] VENC_FREE_BUF ERR 1");
 			return -EFAULT;
-
+		}
 		DBG("VEN_IOCTL_CMD_FREE_INPUT_BUFFER/"
 			"VEN_IOCTL_CMD_FREE_OUTPUT_BUFFER\n");
 
 		if (copy_from_user(&buffer_info, venc_msg.in,
-			sizeof(buffer_info)))
+			sizeof(buffer_info))) {
+/* HTC_START */
+			pr_info("[VID] VENC_FREE_BUF ERR 2");
 			return -EFAULT;
-
+		}
 		buffer_dir = VEN_BUFFER_TYPE_INPUT;
 		if (cmd == VEN_IOCTL_CMD_FREE_OUTPUT_BUFFER)
 			buffer_dir = VEN_BUFFER_TYPE_OUTPUT;
@@ -841,6 +858,8 @@ static long vid_enc_ioctl(struct file *file,
 		if (!result) {
 			DBG("\n VEN_IOCTL_CMD_FREE_OUTPUT_BUFFER"
 				"/VEN_IOCTL_CMD_FREE_OUTPUT_BUFFER failed");
+/* HTC_START */
+			pr_info("[VID] VENC_FREE_BUF ERR 3");
 			return -EIO;
 		}
 		break;

@@ -123,5 +123,5 @@ obj-y				+= platform/
 obj-y				+= ieee802154/
 #common clk code
 obj-y				+= clk/
-
+obj-y				+= felica/
 obj-$(CONFIG_HWSPINLOCK)	+= hwspinlock/

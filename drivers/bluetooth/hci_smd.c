@@ -34,19 +34,19 @@
 
 #define EVENT_CHANNEL		"APPS_RIVA_BT_CMD"
 #define DATA_CHANNEL		"APPS_RIVA_BT_ACL"
-/* release wakelock in 500ms, not immediately, because higher layers
- * don't always take wakelocks when they should
- * This is derived from the implementation for UART transport
- */
-
-#define RX_Q_MONITOR		(500)	/* 500 milli second */
+#define RX_Q_MONITOR		(500)	/* 1 milli second */
 
 
 static int hcismd_set;
 static DEFINE_MUTEX(hci_smd_enable);
 
 static int hcismd_set_enable(const char *val, struct kernel_param *kp);
+#if 1 /* HTC_BT modify */
+/* note: add get parameter value feature */
+module_param_call(hcismd_set, hcismd_set_enable, param_get_uint, &hcismd_set, 0644);
+#else /* QCT original */
 module_param_call(hcismd_set, hcismd_set_enable, NULL, &hcismd_set, 0644);
+#endif /* HTC_BT modify */
 
 static void hci_dev_restart(struct work_struct *worker);
 
@@ -485,6 +485,37 @@ static void hci_dev_restart(struct work_struct *worker)
 
 static int hcismd_set_enable(const char *val, struct kernel_param *kp)
 {
+#if 1 /* HTC_BT modify */
+	/* note: add get parameter value feature */
+	int ret = 0;
+	unsigned long enable;
+
+	ret = strict_strtoul(val, 10, &enable);
+	if (ret)
+		return ret;
+
+	if ( hcismd_set == enable )
+		return 0;
+
+	mutex_lock(&hci_smd_enable);
+
+	switch (enable) {
+
+	case 1:
+		if (0 == hci_smd_register_dev(&hs))
+			hcismd_set = 1;
+	break;
+	case 0:
+		hci_smd_deregister_dev(&hs);
+		hcismd_set = 0;
+	break;
+	default:
+		ret = -EFAULT;
+	}
+
+	mutex_unlock(&hci_smd_enable);
+	return ret;
+#else /* QCT original */
 	int ret = 0;
 
 	mutex_lock(&hci_smd_enable);
@@ -509,6 +540,7 @@ static int hcismd_set_enable(const char *val, struct kernel_param *kp)
 done:
 	mutex_unlock(&hci_smd_enable);
 	return ret;
+#endif /* HTC_BT modify */
 }
 static int  __init hci_smd_init(void)
 {

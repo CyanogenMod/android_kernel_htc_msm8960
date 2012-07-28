@@ -143,6 +143,8 @@ struct otg_transceiver {
 	int	(*send_event)(struct otg_transceiver *otg,
 			enum usb_otg_event event);
 
+	void	(*notify_usb_attached)(void);
+
 };
 
 
@@ -256,7 +258,6 @@ otg_set_power(struct otg_transceiver *otg, unsigned mA)
 {
 	return otg->set_power(otg, mA);
 }
-
 /* Context: can sleep */
 static inline int
 otg_set_suspend(struct otg_transceiver *otg, int suspend)

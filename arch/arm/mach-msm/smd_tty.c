@@ -84,8 +84,18 @@ static struct smd_config smd_configs[] = {
 	{3, "APPS_RIVA_BT_CMD", NULL, SMD_APPS_WCNSS},
 	{4, "MBALBRIDGE", NULL, SMD_APPS_MODEM},
 	{7, "DATA1", NULL, SMD_APPS_MODEM},
+	{9, "DATA4", NULL, SMD_APPS_MODEM},
 	{11, "DATA11", NULL, SMD_APPS_MODEM},
+#ifdef CONFIG_BUILD_OMA_DM
+	{19, "DATA3", NULL, SMD_APPS_MODEM},
+#endif
 	{21, "DATA21", NULL, SMD_APPS_MODEM},
+#ifdef CONFIG_BUILD_KDDI
+	{25, "DATA19", NULL, SMD_APPS_MODEM},
+#endif
+#ifdef CONFIG_BUILD_CIQ
+	{26, "DATA20", NULL, SMD_APPS_MODEM},
+#endif
 	{27, "GPSNMEA", NULL, SMD_APPS_MODEM},
 	{36, "LOOPBACK", "LOOPBACK_TTY", SMD_APPS_MODEM},
 };
@@ -492,8 +502,8 @@ static int smd_tty_dummy_probe(struct platform_device *pdev)
 		if (!strncmp(pdev->name, smd_configs[n].dev_name,
 					SMD_MAX_CH_NAME_LEN)) {
 			complete_all(&smd_tty[idx].ch_allocated);
-			return 0;
-		}
+	return 0;
+}
 	}
 	pr_err("%s: unknown device '%s'\n", __func__, pdev->name);
 
@@ -541,12 +551,24 @@ static int __init smd_tty_init(void)
 		if (smd_configs[n].dev_name == NULL)
 			smd_configs[n].dev_name = smd_configs[n].port_name;
 
+		tty_register_device(smd_tty_driver, idx, 0);
+		init_completion(&smd_tty[idx].ch_allocated);
+
+		/* register platform device */
+		smd_tty[idx].driver.probe = smd_tty_dummy_probe;
+		smd_tty[idx].driver.driver.name = smd_configs[n].dev_name;
+		smd_tty[idx].driver.driver.owner = THIS_MODULE;
+		spin_lock_init(&smd_tty[idx].reset_lock);
+		smd_tty[idx].is_open = 0;
+		init_waitqueue_head(&smd_tty[idx].ch_opened_wait_queue);
+		smd_tty[idx].smd = &smd_configs[n];
+
 		if (idx == DS_IDX) {
-			/*
+	/*
 			 * DS port uses the kernel API starting with
 			 * 8660 Fusion.  Only register the userspace
 			 * platform device for older targets.
-			 */
+	 */
 			int legacy_ds = 0;
 
 			legacy_ds |= cpu_is_msm7x01() || cpu_is_msm7x25();
@@ -562,16 +584,6 @@ static int __init smd_tty_init(void)
 				continue;
 		}
 
-		tty_register_device(smd_tty_driver, idx, 0);
-		init_completion(&smd_tty[idx].ch_allocated);
-
-		/* register platform device */
-		smd_tty[idx].driver.probe = smd_tty_dummy_probe;
-		smd_tty[idx].driver.driver.name = smd_configs[n].dev_name;
-		smd_tty[idx].driver.driver.owner = THIS_MODULE;
-		spin_lock_init(&smd_tty[idx].reset_lock);
-		smd_tty[idx].is_open = 0;
-		init_waitqueue_head(&smd_tty[idx].ch_opened_wait_queue);
 		ret = platform_driver_register(&smd_tty[idx].driver);
 
 		if (ret) {
@@ -579,7 +591,6 @@ static int __init smd_tty_init(void)
 			smd_tty[idx].driver.probe = NULL;
 			goto out;
 		}
-		smd_tty[idx].smd = &smd_configs[n];
 	}
 	INIT_DELAYED_WORK(&loopback_work, loopback_probe_worker);
 	return 0;

@@ -166,6 +166,37 @@ void pm8921_bms_charging_began(void);
  *				track of chargecycles
  */
 void pm8921_bms_charging_end(int is_battery_full);
+int pm8921_bms_stop_ocv_updates(void);
+int pm8921_bms_start_ocv_updates(void);
+/**
+ * pm8921_bms_dump_all - function to dump irq, regs, params for debug
+ */
+int pm8921_bms_dump_all(void);
+#ifdef CONFIG_HTC_BATT_8960
+/********************************************/
+/* htc_gauge/htc_charger abstract interface */
+/********************************************/
+/**
+ * pm8921_bms_get_batt_current - get battery voltage in mA
+ *
+ */
+int pm8921_bms_get_batt_current(int *result);
+
+/**
+ * pm8921_bms_get_batt_soc - get battery voltage in percent
+ *
+ */
+int pm8921_bms_get_batt_soc(int *result);
+/**
+ * pm8921_bms_get_batt_cc - get battery cc (uAh)
+ *
+ */
+int pm8921_bms_get_batt_cc(int *result);
+/**
+ * pm8921_bms_get_attr_text - function to get regs, params for debug
+ */
+int pm8921_bms_get_attr_text(char *buf, int size);
+#endif /* CONFIG_HTC_BATT_8960 */
 #else
 static inline int pm8921_bms_get_vsense_avg(int *result)
 {
@@ -189,6 +220,34 @@ static inline void pm8921_bms_charging_began(void)
 static inline void pm8921_bms_charging_end(int is_battery_full)
 {
 }
+static inline void pm8921_bms_stop_ocv_updates(void)
+{
+}
+static inline void pm8921_bms_start_ocv_updates(void)
+{
+}
+static inline int pm8921_bms_dump_all(void)
+{
+	return -ENXIO;
+}
+#ifdef CONFIG_HTC_BATT_8960
+static inline int pm8921_bms_get_batt_current(int *result)
+{
+	return -ENXIO;
+}
+static inline int pm8921_bms_get_batt_soc(int *result)
+{
+	return -ENXIO;
+}
+static inline int pm8921_bms_get_batt_cc(int *result)
+{
+	return -ENXIO;
+}
+static inline int pm8921_bms_get_attr_text(char *buf, int size)
+{
+	return 0;
+}
+#endif /* CONFIG_HTC_BATT_8960 */
 #endif
 
 #endif

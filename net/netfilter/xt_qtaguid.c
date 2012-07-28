@@ -50,7 +50,8 @@ module_param_named(stats_perms, proc_stats_perms, uint, S_IRUGO | S_IWUSR);
 
 static struct proc_dir_entry *xt_qtaguid_ctrl_file;
 #ifdef CONFIG_ANDROID_PARANOID_NETWORK
-static unsigned int proc_ctrl_perms = S_IRUGO | S_IWUGO;
+//static unsigned int proc_ctrl_perms = S_IRUGO | S_IWUGO;
+static unsigned int proc_ctrl_perms = S_IRUGO | S_IWUSR | S_IWGRP;
 #else
 static unsigned int proc_ctrl_perms = S_IRUGO | S_IWUSR;
 #endif

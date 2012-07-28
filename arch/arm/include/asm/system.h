@@ -72,6 +72,7 @@ extern unsigned int system_rev;
 extern unsigned int system_serial_low;
 extern unsigned int system_serial_high;
 extern unsigned int mem_fclk_21285;
+extern unsigned int als_kadc;
 
 struct pt_regs;
 

@@ -69,6 +69,12 @@ struct msm_panel_data {
 	uint32_t caps;
 };
 
+struct mdp_reg {
+    uint32_t reg;
+    uint32_t val;
+    uint32_t mask;
+};
+
 struct msm_mddi_client_data {
 	void (*suspend)(struct msm_mddi_client_data *);
 	void (*resume)(struct msm_mddi_client_data *);
@@ -187,6 +193,18 @@ struct msm_mddi_bridge_platform_data {
 	uint32_t panel_caps;
 };
 
+#if (defined(CONFIG_USB_FUNCTION_PROJECTOR) || defined(CONFIG_USB_ANDROID_PROJECTOR))
+/* For USB Projector to quick access the frame buffer info */
+struct msm_fb_info {
+	unsigned char *fb_addr;
+	int msmfb_area;
+	int xres;
+	int yres;
+};
+
+extern int msmfb_get_var(struct msm_fb_info *tmp);
+extern int msmfb_get_fb_area(void);
+#endif
 
 
 #endif

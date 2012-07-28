@@ -951,18 +951,19 @@ static int ion_debug_client_show(struct seq_file *s, void *unused)
 	struct ion_client *client = s->private;
 	struct rb_node *n;
 
-	seq_printf(s, "%16.16s: %16.16s : %16.16s : %16.16s\n", "heap_name",
-			"size_in_bytes", "handle refcount", "buffer");
+	seq_printf(s, "%10.10s: %14.14s : %10.10s : %10.10s : %10.10s : %10.10s\n", "heap_name",
+			"size_in_bytes", "handle", "refcount", "buffer", "physical");
 	mutex_lock(&client->lock);
 	for (n = rb_first(&client->handles); n; n = rb_next(n)) {
 		struct ion_handle *handle = rb_entry(n, struct ion_handle,
 						     node);
 
-		seq_printf(s, "%16.16s: %16x : %16d : %16p\n",
+		seq_printf(s, "%10.10s: %14x : %10p : %10d : %10p : %10p\n",
 				handle->buffer->heap->name,
 				handle->buffer->size,
+				handle,
 				atomic_read(&handle->ref.refcount),
-				handle->buffer);
+				handle->buffer, (void*)handle->buffer->priv_phys);
 	}
 
 	seq_printf(s, "%16.16s %d\n", "client refcount:",

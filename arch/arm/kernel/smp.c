@@ -91,7 +91,7 @@ int __cpuinit __cpu_up(unsigned int cpu)
 	 * of our "standard" page tables, with the addition of
 	 * a 1:1 mapping for the physical address of the kernel.
 	 */
-	pgd = pgd_alloc(&init_mm);
+	pgd = get_percpu_init_pgd(&init_mm, cpu);
 	if (!pgd)
 		return -ENOMEM;
 
@@ -151,8 +151,6 @@ int __cpuinit __cpu_up(unsigned int cpu)
 		identity_mapping_del(pgd, __pa(_stext), __pa(_etext));
 		identity_mapping_del(pgd, __pa(_sdata), __pa(_edata));
 	}
-
-	pgd_free(&init_mm, pgd);
 
 	return ret;
 }
@@ -417,7 +415,7 @@ void arch_send_call_function_single_ipi(int cpu)
 }
 
 static const char *ipi_types[NR_IPI] = {
-#define S(x,s)	[x - IPI_CPU_START] = s
+#define S(x, s)	[x - IPI_CPU_START] = s
 	S(IPI_CPU_START, "CPU start interrupts"),
 	S(IPI_TIMER, "Timer broadcast interrupts"),
 	S(IPI_RESCHEDULE, "Rescheduling interrupts"),
@@ -664,6 +662,7 @@ void smp_send_stop(void)
 
 	if (num_online_cpus() > 1) {
 		cpumask_t mask = cpu_online_map;
+		cpu_hotplug_disabled = 1;
 		cpu_clear(smp_processor_id(), mask);
 
 		smp_cross_call(&mask, IPI_CPU_STOP);

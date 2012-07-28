@@ -47,6 +47,67 @@ static int mmc_prep_request(struct request_queue *q, struct request *req)
 	return BLKPREP_OK;
 }
 
+static int sd_queue_thread(void *d)
+{
+	struct mmc_queue *mq = d;
+	struct request_queue *q = mq->queue;
+	struct request *req;
+#ifdef CONFIG_MMC_PERF_PROFILING
+	ktime_t start, diff;
+	struct mmc_host *host = mq->card->host;
+	unsigned long bytes_xfer;
+#endif
+
+	current->flags |= PF_MEMALLOC;
+
+	down(&mq->thread_sem);
+	do {
+		req = NULL;     /* Must be set to NULL at each iteration */
+
+		spin_lock_irq(q->queue_lock);
+		set_current_state(TASK_INTERRUPTIBLE);
+		req = blk_fetch_request(q);
+		mq->req = req;
+		spin_unlock_irq(q->queue_lock);
+
+		if (!req) {
+			if (kthread_should_stop()) {
+				set_current_state(TASK_RUNNING);
+				break;
+			}
+			up(&mq->thread_sem);
+			schedule();
+			down(&mq->thread_sem);
+			continue;
+		}
+		set_current_state(TASK_RUNNING);
+
+#ifdef CONFIG_MMC_PERF_PROFILING
+		bytes_xfer = blk_rq_bytes(req);
+		if (rq_data_dir(req) == READ) {
+			start = ktime_get();
+			mq->issue_fn(mq, req);
+			diff = ktime_sub(ktime_get(), start);
+			host->perf.rbytes_mmcq += bytes_xfer;
+			host->perf.rtime_mmcq =
+				ktime_add(host->perf.rtime_mmcq, diff);
+		} else {
+			start = ktime_get();
+			mq->issue_fn(mq, req);
+			diff = ktime_sub(ktime_get(), start);
+			host->perf.wbytes_mmcq += bytes_xfer;
+			host->perf.wtime_mmcq =
+				ktime_add(host->perf.wtime_mmcq, diff);
+		}
+#else
+		mq->issue_fn(mq, req);
+#endif
+	} while (1);
+	up(&mq->thread_sem);
+
+	return 0;
+}
+
 static int mmc_queue_thread(void *d)
 {
 	struct mmc_queue *mq = d;
@@ -156,7 +217,6 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 	mq->queue = blk_init_queue(mmc_request, lock);
 	if (!mq->queue)
 		return -ENOMEM;
-
 	mq->queue->queuedata = mq;
 	mq->req = NULL;
 
@@ -238,8 +298,11 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 
 	sema_init(&mq->thread_sem, 1);
 
-	mq->thread = kthread_run(mmc_queue_thread, mq, "mmcqd/%d%s",
-		host->index, subname ? subname : "");
+	if (mmc_card_sd(card))
+		mq->thread = kthread_run(sd_queue_thread, mq, "sd-qd");
+	else
+		mq->thread = kthread_run(mmc_queue_thread, mq, "mmcqd/%d%s",
+					host->index, subname ? subname : "");
 
 	if (IS_ERR(mq->thread)) {
 		ret = PTR_ERR(mq->thread);

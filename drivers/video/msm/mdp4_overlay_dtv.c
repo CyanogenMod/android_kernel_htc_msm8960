@@ -30,8 +30,11 @@
 #include "mdp.h"
 #include "msm_fb.h"
 #include "mdp4.h"
+#include <mach/debug_display.h>
 
 #define DTV_BASE	0xD0000
+
+extern int mdp4_check_dtv_pipe(void);
 
 /*#define DEBUG*/
 #ifdef DEBUG
@@ -193,6 +196,16 @@ static int mdp4_dtv_start(struct msm_fb_data_type *mfd)
 	/* Test pattern 8 x 8 pixel */
 	/* MDP_OUTP(MDP_BASE + DTV_BASE + 0x4C, 0x80000808); */
 
+	/*MHL v1.1 compliance test, Test3.2.3.2 Test3.2.3.4*/
+	if((var->yres == 480) || (var->yres == 576)){
+		if(var->xres == 640 && var->yres == 480)
+				mdp4_set_limit_range(false);
+		else
+				mdp4_set_limit_range(true);
+	}
+	else
+		mdp4_set_limit_range(false);
+
 	/* enable DTV block */
 	MDP_OUTP(MDP_BASE + DTV_BASE, 1);
 	mdp_pipe_ctrl(MDP_OVERLAY1_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
@@ -247,11 +260,21 @@ int mdp4_dtv_off(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
 	int ret = 0;
+	unsigned int flags;
 
 	mfd = (struct msm_fb_data_type *)platform_get_drvdata(pdev);
 
+	if (mdp4_check_dtv_pipe()) {
+		PR_DISP_DEBUG("%s dtv still enable\n", __func__);
+		return -1;
+	}
+
 	if (dtv_pipe != NULL) {
 		mdp4_mixer_stage_down(dtv_pipe);
+		flags = dtv_pipe->flags;
+		dtv_pipe->flags &= ~MDP_OV_PLAY_NOWAIT;
+		mdp4_overlay_dtv_ov_done_push(mfd, dtv_pipe);
+		dtv_pipe->flags = flags;
 		mdp4_dtv_stop(mfd);
 		mdp4_overlay_pipe_free(dtv_pipe);
 		dtv_pipe = NULL;
@@ -324,7 +347,7 @@ static void mdp4_overlay_dtv_alloc_pipe(struct msm_fb_data_type *mfd,
 		/* MSP_BORDER_COLOR */
 		MDP_OUTP(MDP_BASE + MDP4_OVERLAYPROC1_BASE + 0x5008,
 			(0x0 & 0xFFF));		/* 12-bit R */
-		mdp_pipe_ctrl(MDP_OVERLAY1_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 	} else {
 		switch (mfd->ibuf.bpp) {
 		case 2:
@@ -436,7 +459,12 @@ static void mdp4_overlay_dtv_wait4_ov_done(struct msm_fb_data_type *mfd,
 		return;
 	if (!(data & 0x1) || (pipe == NULL))
 		return;
-	wait_for_completion_timeout(&dtv_pipe->comp,
+
+	if(mfd->fbi->var.yres == 1080)
+		wait_for_completion_timeout(&dtv_pipe->comp,
+			msecs_to_jiffies(VSYNC_PERIOD_1080P24*2));
+	else
+		wait_for_completion_timeout(&dtv_pipe->comp,
 			msecs_to_jiffies(VSYNC_PERIOD*2));
 	mdp_disable_irq(MDP_OVERLAY1_TERM);
 }

@@ -915,7 +915,7 @@ struct thermal_cooling_device *thermal_cooling_device_register(
 	struct thermal_zone_device *pos;
 	int result;
 
-	if (strlen(type) >= THERMAL_NAME_LENGTH)
+	if ((type == NULL) || (strlen(type) >= THERMAL_NAME_LENGTH))
 		return ERR_PTR(-EINVAL);
 
 	if (!ops || !ops->get_max_state || !ops->get_cur_state ||
@@ -1039,8 +1039,14 @@ void thermal_zone_device_update(struct thermal_zone_device *tz)
 	enum thermal_trip_type trip_type;
 	struct thermal_cooling_device_instance *instance;
 	struct thermal_cooling_device *cdev;
+	int denominator;
 
 	mutex_lock(&tz->lock);
+
+	if (!strcmp(tz->type, "pm8921_tz"))
+		denominator = 1000;
+	else
+		denominator = 1;
 
 	if (tz->ops->get_temp(tz, &temp)) {
 		/* get_temp failed - retry it later */
@@ -1049,9 +1055,13 @@ void thermal_zone_device_update(struct thermal_zone_device *tz)
 		goto leave;
 	}
 
+	pr_info("[THERMAL] %s: Current temperature (%ld C)\n",tz->device.kobj.name,temp/denominator);
+
 	for (count = 0; count < tz->trips; count++) {
 		tz->ops->get_trip_type(tz, count, &trip_type);
 		tz->ops->get_trip_temp(tz, count, &trip_temp);
+
+		printk("[THERMAL] trip_temp = %ld, type:%d\n", trip_temp/denominator, trip_type);
 
 		switch (trip_type) {
 		case THERMAL_TRIP_CRITICAL:
@@ -1060,10 +1070,15 @@ void thermal_zone_device_update(struct thermal_zone_device *tz)
 					ret = tz->ops->notify(tz, count,
 							      trip_type);
 				if (!ret) {
+					pr_info("%s:%s: current temp(%ld) higher or equal max limit temp(%ld)\n",
+						__func__, tz->device.kobj.name, temp/denominator, trip_temp/denominator);
+#if defined(CONFIG_THERMAL_MAX_TEMP_PROTECT)
 					printk(KERN_EMERG
 					       "Critical temperature reached (%ld C), shutting down.\n",
-					       temp/1000);
+					       temp/denominator);
+					panic("thermal critical high");
 					orderly_poweroff(true);
+#endif
 				}
 			}
 			break;
@@ -1088,10 +1103,15 @@ void thermal_zone_device_update(struct thermal_zone_device *tz)
 					ret = tz->ops->notify(tz, count,
 								trip_type);
 			if (!ret) {
+				pr_info("%s:%s: current temp(%ld) lower or equal min limit temp(%ld)\n",
+					__func__, tz->device.kobj.name, temp/denominator, trip_temp/denominator);
+#if defined(CONFIG_THERMAL_MIN_TEMP_PROTECT)
 				printk(KERN_EMERG
 				"Critical temperature reached (%ld C), \
-					shutting down.\n", temp/1000);
+					shutting down.\n", temp/denominator);
+				panic("thermal critical low");
 				orderly_poweroff(true);
+#endif
 				}
 			}
 			break;
@@ -1164,7 +1184,7 @@ struct thermal_zone_device *thermal_zone_device_register(char *type,
 	int count;
 	int passive = 0;
 
-	if (strlen(type) >= THERMAL_NAME_LENGTH)
+	if ((type == NULL) || (strlen(type) >= THERMAL_NAME_LENGTH))
 		return ERR_PTR(-EINVAL);
 
 	if (trips > THERMAL_MAX_TRIPS || trips < 0)

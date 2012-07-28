@@ -405,4 +405,10 @@ void cpufreq_frequency_table_get_attr(struct cpufreq_frequency_table *table,
 void cpufreq_frequency_table_put_attr(unsigned int cpu);
 
 
+#ifdef CONFIG_PERFLOCK
+extern unsigned int get_max_cpu_freq(void);
+#endif
+
+extern DEFINE_PER_CPU(int, cpufreq_init_done);
+
 #endif /* _LINUX_CPUFREQ_H */

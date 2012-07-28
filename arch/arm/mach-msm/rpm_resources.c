@@ -37,9 +37,10 @@
 enum {
 	MSM_RPMRS_DEBUG_OUTPUT = BIT(0),
 	MSM_RPMRS_DEBUG_BUFFER = BIT(1),
+	MSM_RPMRS_DEBUG_IDLE_FLUSH = BIT(2),
 };
 
-static int msm_rpmrs_debug_mask;
+static int msm_rpmrs_debug_mask = MSM_RPMRS_DEBUG_OUTPUT;
 module_param_named(
 	debug_mask, msm_rpmrs_debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP
 );
@@ -48,16 +49,16 @@ static struct msm_rpmrs_level *msm_rpmrs_levels;
 static int msm_rpmrs_level_count;
 
 static bool msm_rpmrs_pxo_beyond_limits(struct msm_rpmrs_limits *limits);
-static void msm_rpmrs_aggregate_pxo(struct msm_rpmrs_limits *limits);
+static void msm_rpmrs_aggregate_pxo(struct msm_rpmrs_limits *limits, int from_idle);
 static void msm_rpmrs_restore_pxo(void);
 static bool msm_rpmrs_l2_cache_beyond_limits(struct msm_rpmrs_limits *limits);
-static void msm_rpmrs_aggregate_l2_cache(struct msm_rpmrs_limits *limits);
+static void msm_rpmrs_aggregate_l2_cache(struct msm_rpmrs_limits *limits, int from_idle);
 static void msm_rpmrs_restore_l2_cache(void);
 static bool msm_rpmrs_vdd_mem_beyond_limits(struct msm_rpmrs_limits *limits);
-static void msm_rpmrs_aggregate_vdd_mem(struct msm_rpmrs_limits *limits);
+static void msm_rpmrs_aggregate_vdd_mem(struct msm_rpmrs_limits *limits, int from_idle);
 static void msm_rpmrs_restore_vdd_mem(void);
 static bool msm_rpmrs_vdd_dig_beyond_limits(struct msm_rpmrs_limits *limits);
-static void msm_rpmrs_aggregate_vdd_dig(struct msm_rpmrs_limits *limits);
+static void msm_rpmrs_aggregate_vdd_dig(struct msm_rpmrs_limits *limits, int from_idle);
 static void msm_rpmrs_restore_vdd_dig(void);
 
 static ssize_t msm_rpmrs_resource_attr_show(
@@ -79,7 +80,7 @@ struct msm_rpmrs_resource {
 	uint32_t enable_low_power;
 
 	bool (*beyond_limits)(struct msm_rpmrs_limits *limits);
-	void (*aggregate)(struct msm_rpmrs_limits *limits);
+	void (*aggregate)(struct msm_rpmrs_limits *limits, int from_idle);
 	void (*restore)(void);
 
 	struct kobj_attribute ko_attr;
@@ -212,7 +213,7 @@ static bool msm_rpmrs_pxo_beyond_limits(struct msm_rpmrs_limits *limits)
 	return pxo > limits->pxo;
 }
 
-static void msm_rpmrs_aggregate_pxo(struct msm_rpmrs_limits *limits)
+static void msm_rpmrs_aggregate_pxo(struct msm_rpmrs_limits *limits, int from_idle)
 {
 	struct msm_rpmrs_resource *rs = &msm_rpmrs_pxo;
 	uint32_t *buf = &msm_rpmrs_buffer[rs->rs[0].id];
@@ -221,7 +222,8 @@ static void msm_rpmrs_aggregate_pxo(struct msm_rpmrs_limits *limits)
 		rs->rs[0].value = *buf;
 		if (limits->pxo > *buf)
 			*buf = limits->pxo;
-		if (MSM_RPMRS_DEBUG_OUTPUT & msm_rpmrs_debug_mask)
+		if (((!from_idle) && (MSM_RPMRS_DEBUG_OUTPUT & msm_rpmrs_debug_mask)) ||
+			((from_idle) && (MSM_RPMRS_DEBUG_IDLE_FLUSH & msm_rpmrs_debug_mask)))
 			pr_info("%s: %d (0x%x)\n", __func__, *buf, *buf);
 	}
 }
@@ -247,7 +249,7 @@ static bool msm_rpmrs_l2_cache_beyond_limits(struct msm_rpmrs_limits *limits)
 	return l2_cache > limits->l2_cache;
 }
 
-static void msm_rpmrs_aggregate_l2_cache(struct msm_rpmrs_limits *limits)
+static void msm_rpmrs_aggregate_l2_cache(struct msm_rpmrs_limits *limits, int from_idle)
 {
 	struct msm_rpmrs_resource *rs = &msm_rpmrs_l2_cache;
 	uint32_t *buf = &msm_rpmrs_buffer[rs->rs[0].id];
@@ -257,7 +259,8 @@ static void msm_rpmrs_aggregate_l2_cache(struct msm_rpmrs_limits *limits)
 		if (limits->l2_cache > *buf)
 			*buf = limits->l2_cache;
 
-		if (MSM_RPMRS_DEBUG_OUTPUT & msm_rpmrs_debug_mask)
+		if (((!from_idle) && (MSM_RPMRS_DEBUG_OUTPUT & msm_rpmrs_debug_mask)) ||
+			((from_idle) && (MSM_RPMRS_DEBUG_IDLE_FLUSH & msm_rpmrs_debug_mask)))
 			pr_info("%s: %d (0x%x)\n", __func__, *buf, *buf);
 	}
 }
@@ -306,7 +309,7 @@ static bool msm_rpmrs_vdd_mem_beyond_limits(struct msm_rpmrs_limits *limits)
 				MSM_RPMRS_VDD(limits->vdd_mem_upper_bound);
 }
 
-static void msm_rpmrs_aggregate_vdd_mem(struct msm_rpmrs_limits *limits)
+static void msm_rpmrs_aggregate_vdd_mem(struct msm_rpmrs_limits *limits, int from_idle)
 {
 	struct msm_rpmrs_resource *rs = &msm_rpmrs_vdd_mem;
 	uint32_t *buf = &msm_rpmrs_buffer[rs->rs[0].id];
@@ -318,7 +321,8 @@ static void msm_rpmrs_aggregate_vdd_mem(struct msm_rpmrs_limits *limits)
 			*buf |= MSM_RPMRS_VDD(limits->vdd_mem);
 		}
 
-		if (MSM_RPMRS_DEBUG_OUTPUT & msm_rpmrs_debug_mask)
+		if (((!from_idle) && (MSM_RPMRS_DEBUG_OUTPUT & msm_rpmrs_debug_mask)) ||
+			((from_idle) && (MSM_RPMRS_DEBUG_IDLE_FLUSH & msm_rpmrs_debug_mask)))
 			pr_info("%s: vdd %d (0x%x)\n", __func__,
 				MSM_RPMRS_VDD(*buf), MSM_RPMRS_VDD(*buf));
 	}
@@ -357,7 +361,7 @@ static bool msm_rpmrs_vdd_dig_beyond_limits(struct msm_rpmrs_limits *limits)
 				MSM_RPMRS_VDD(limits->vdd_dig_upper_bound);
 }
 
-static void msm_rpmrs_aggregate_vdd_dig(struct msm_rpmrs_limits *limits)
+static void msm_rpmrs_aggregate_vdd_dig(struct msm_rpmrs_limits *limits, int from_idle)
 {
 	struct msm_rpmrs_resource *rs = &msm_rpmrs_vdd_dig;
 	uint32_t *buf = &msm_rpmrs_buffer[rs->rs[0].id];
@@ -370,7 +374,8 @@ static void msm_rpmrs_aggregate_vdd_dig(struct msm_rpmrs_limits *limits)
 		}
 
 
-		if (MSM_RPMRS_DEBUG_OUTPUT & msm_rpmrs_debug_mask)
+		if (((!from_idle) && (MSM_RPMRS_DEBUG_OUTPUT & msm_rpmrs_debug_mask)) ||
+			((from_idle) && (MSM_RPMRS_DEBUG_IDLE_FLUSH & msm_rpmrs_debug_mask)))
 			pr_info("%s: vdd %d (0x%x)\n", __func__,
 				MSM_RPMRS_VDD(*buf), MSM_RPMRS_VDD(*buf));
 	}
@@ -554,7 +559,7 @@ static int msm_rpmrs_flush_buffer(
 	msm_rpmrs_aggregate_sclk(sclk_count);
 	for (i = 0; i < ARRAY_SIZE(msm_rpmrs_resources); i++) {
 		if (msm_rpmrs_resources[i]->aggregate)
-			msm_rpmrs_resources[i]->aggregate(limits);
+			msm_rpmrs_resources[i]->aggregate(limits, from_idle);
 	}
 
 	count = bitmap_weight(msm_rpmrs_buffered, MSM_RPM_ID_LAST + 1);
@@ -569,7 +574,8 @@ static int msm_rpmrs_flush_buffer(
 	i = find_first_bit(msm_rpmrs_buffered, MSM_RPM_ID_LAST + 1);
 
 	while (i < MSM_RPM_ID_LAST + 1) {
-		if (MSM_RPMRS_DEBUG_OUTPUT & msm_rpmrs_debug_mask)
+		if (((!from_idle) && (MSM_RPMRS_DEBUG_OUTPUT & msm_rpmrs_debug_mask)) ||
+			((from_idle) && (MSM_RPMRS_DEBUG_IDLE_FLUSH & msm_rpmrs_debug_mask)))
 			pr_info("%s: reg %d: 0x%x\n",
 				__func__, i, msm_rpmrs_buffer[i]);
 
@@ -977,6 +983,14 @@ static int rpmrs_cpu_callback(struct notifier_block *nfb,
 static struct notifier_block __refdata rpmrs_cpu_notifier = {
 	.notifier_call = rpmrs_cpu_callback,
 };
+
+void msm_rpmrs_lpm_init(uint32_t pxo, uint32_t l2_cache, uint32_t vdd_mem, uint32_t vdd_dig)
+{
+	msm_rpmrs_pxo.enable_low_power = pxo;
+	msm_rpmrs_l2_cache.enable_low_power = l2_cache;
+	msm_rpmrs_vdd_mem.enable_low_power = vdd_mem;
+	msm_rpmrs_vdd_dig.enable_low_power = vdd_dig;
+}
 
 int __init msm_rpmrs_levels_init(struct msm_rpmrs_level *levels, int size)
 {

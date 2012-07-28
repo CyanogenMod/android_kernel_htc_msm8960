@@ -145,7 +145,7 @@ static int register_fabric_info(struct msm_bus_fabric *fabric)
 		for (ctx = 0; ctx < NUM_CTX; ctx++) {
 			if (info->node_info->slaveclk[ctx]) {
 				info->nodeclk[ctx].clk = clk_get_sys("msm_bus",
-					info->node_info->slaveclk[ctx]);
+						info->node_info->slaveclk[ctx]);
 				if (IS_ERR(info->nodeclk[ctx].clk)) {
 					MSM_BUS_ERR("Couldn't get clk %s\n",
 						info->node_info->slaveclk[ctx]);

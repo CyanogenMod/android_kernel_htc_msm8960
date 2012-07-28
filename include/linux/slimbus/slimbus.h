@@ -532,6 +532,12 @@ struct slim_controller {
 				struct completion *comp);
 	enum slim_port_err	(*port_xfer_status)(struct slim_controller *ctr,
 				u8 pn, u8 **done_buf, u32 *done_len);
+#ifdef CONFIG_DEBUG_FS
+	struct dentry		*debug_root;
+	struct dentry		*debug_clkgear;
+	struct dentry		*debug_laddr;
+	struct dentry		*debug_ch;
+#endif
 };
 #define to_slim_controller(d) container_of(d, struct slim_controller, dev)
 

@@ -24,6 +24,9 @@
 
 #include <mach/clk.h>
 
+/* Maximum number of clocks supported. */
+#define MAX_NR_CLKS	300
+
 #define CLKFLAG_INVERT			0x00000001
 #define CLKFLAG_NOINVERT		0x00000002
 #define CLKFLAG_NONEST			0x00000004
@@ -35,6 +38,8 @@
 #define CLKFLAG_SKIP_AUTO_OFF		0x00000200
 #define CLKFLAG_MIN			0x00000400
 #define CLKFLAG_MAX			0x00000800
+#define CLKFLAG_IGNORE			0x10000000	/* added by htc for clock debugging */
+
 
 #define MAX_VDD_LEVELS			4
 
@@ -98,10 +103,14 @@ struct clk {
 	struct clk *depends;
 	struct clk_vdd_class *vdd_class;
 	unsigned long fmax[MAX_VDD_LEVELS];
-	unsigned long rate;
 
 	struct list_head children;
 	struct list_head siblings;
+#ifdef CONFIG_CLOCK_MAP
+	unsigned id;
+#endif
+	struct list_head enable_list;	/*added by htc for clock debugging*/
+	unsigned long rate;
 
 	unsigned count;
 	spinlock_t lock;
@@ -111,6 +120,12 @@ struct clk {
 	.lock = __SPIN_LOCK_UNLOCKED((name).lock), \
 	.children = LIST_HEAD_INIT((name).children), \
 	.siblings = LIST_HEAD_INIT((name).siblings)
+
+/*added by htc for clock debugging*/
+extern struct list_head clk_enable_list;
+extern spinlock_t clk_enable_list_lock;
+extern int is_xo_src(struct clk *);
+extern void clk_ignor_list_add(const char *, const char *);
 
 /**
  * struct clock_init_data - SoC specific clock initialization data
@@ -142,6 +157,7 @@ extern struct clock_init_data qds8x50_clock_init_data;
 void msm_clock_init(struct clock_init_data *data);
 int vote_vdd_level(struct clk_vdd_class *vdd_class, int level);
 int unvote_vdd_level(struct clk_vdd_class *vdd_class, int level);
+void keep_dig_voltage_low_in_idle(bool on);
 
 #ifdef CONFIG_DEBUG_FS
 int clock_debug_init(struct clock_init_data *data);

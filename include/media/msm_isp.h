@@ -1,19 +1,5 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 and
- * only version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- */
 #ifndef __MSM_ISP_H__
 #define __MSM_ISP_H__
-
-#define BIT(nr)			(1UL << (nr))
 
 /* ISP message IDs */
 #define MSG_ID_RESET_ACK                0
@@ -55,10 +41,8 @@
 #define MSG_ID_BUS_OVERFLOW             36
 #define MSG_ID_SOF_ACK                  37
 #define MSG_ID_STOP_REC_ACK             38
-#define MSG_ID_STATS_AWB_AEC            39
-#define MSG_ID_OUTPUT_PRIMARY           40
-#define MSG_ID_OUTPUT_SECONDARY         41
-#define MSG_ID_STATS_COMPOSITE          42
+#define MSG_ID_OUTPUT_PRIMARY           39
+#define MSG_ID_OUTPUT_SECONDARY         40
 
 /* ISP command IDs */
 #define VFE_CMD_DUMMY_0                                 0
@@ -190,21 +174,15 @@
 #define VFE_CMD_GET_RGB_G_TABLE                         126
 #define VFE_CMD_GET_LA_TABLE                            127
 #define VFE_CMD_DEMOSAICV3_UPDATE                       128
-#define VFE_CMD_ACTIVE_REGION_CFG                       129
-#define VFE_CMD_COLOR_PROCESSING_CONFIG                 130
-#define VFE_CMD_STATS_WB_AEC_CONFIG                     131
-#define VFE_CMD_STATS_WB_AEC_UPDATE                     132
-#define VFE_CMD_Y_GAMMA_CONFIG                          133
-#define VFE_CMD_SCALE_OUTPUT1_CONFIG                    134
-#define VFE_CMD_SCALE_OUTPUT2_CONFIG                    135
-#define VFE_CMD_CAPTURE_RAW                             136
-#define VFE_CMD_STOP_LIVESHOT                           137
+#define VFE_CMD_CAPTURE_RAW                             129
+#define VFE_CMD_STOP_LIVESHOT                           130
 
 struct msm_isp_cmd {
 	int32_t  id;
 	uint16_t length;
 	void     *value;
 };
+
 
 #define VPE_CMD_DUMMY_0                                 0
 #define VPE_CMD_INIT                                    1
@@ -240,9 +218,6 @@ struct msm_isp_cmd {
 #define VPE_INPUT_PLANE_UPDATE_LEN      12
 #define VPE_SCALER_CONFIG_LEN           260
 #define VPE_DIS_OFFSET_CFG_LEN          12
-
-#define IMEM_Y_OFFSET  0x2E000000
-#define IMEM_CBCR_OFFSET  0x2E00FA00
 
 struct msm_vpe_op_mode_cfg {
 	uint8_t op_mode_cfg[VPE_OPERATION_MODE_CFG_LEN];
@@ -305,17 +280,15 @@ struct msm_mctl_pp_frame_cmd {
 	/* TBD: 3D related */
 };
 
-#define VFE_OUTPUTS_MAIN_AND_PREVIEW	BIT(0)
-#define VFE_OUTPUTS_MAIN_AND_VIDEO	BIT(1)
-#define VFE_OUTPUTS_MAIN_AND_THUMB	BIT(2)
-#define VFE_OUTPUTS_THUMB_AND_MAIN	BIT(3)
-#define VFE_OUTPUTS_PREVIEW_AND_VIDEO	BIT(4)
-#define VFE_OUTPUTS_VIDEO_AND_PREVIEW	BIT(5)
-#define VFE_OUTPUTS_PREVIEW		BIT(6)
-#define VFE_OUTPUTS_VIDEO		BIT(7)
-#define VFE_OUTPUTS_RAW			BIT(8)
-#define VFE_OUTPUTS_JPEG_AND_THUMB	BIT(9)
-#define VFE_OUTPUTS_THUMB_AND_JPEG	BIT(10)
+#define VFE_OUTPUTS_MAIN_AND_PREVIEW    (1<<0)
+#define VFE_OUTPUTS_MAIN_AND_VIDEO      (1<<1)
+#define VFE_OUTPUTS_MAIN_AND_THUMB      (1<<2)
+#define VFE_OUTPUTS_THUMB_AND_MAIN      (1<<3)
+#define VFE_OUTPUTS_PREVIEW_AND_VIDEO (1<<4)
+#define VFE_OUTPUTS_VIDEO_AND_PREVIEW (1<<5)
+#define VFE_OUTPUTS_PREVIEW             (1<<7)
+#define VFE_OUTPUTS_VIDEO               (1<<8)
+#define VFE_OUTPUTS_RAW                 (1<<9)
 
 #endif /*__MSM_ISP_H__*/
 

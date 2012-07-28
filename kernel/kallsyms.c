@@ -23,6 +23,7 @@
 #include <linux/mm.h>
 #include <linux/ctype.h>
 #include <linux/slab.h>
+#include <mach/msm_iomap.h>
 
 #include <asm/sections.h>
 
@@ -580,9 +581,38 @@ static const struct file_operations kallsyms_operations = {
 	.release = seq_release_private,
 };
 
+#define KALLSYMS_ADDRESSES_ADDR		(MSM_KALLSYMS_SAVE_BASE + 0x0)
+#define KALLSYMS_NAMES_ADDR			(MSM_KALLSYMS_SAVE_BASE + 0x4)
+#define KALLSYMS_NUM_SYMS_ADDR		(MSM_KALLSYMS_SAVE_BASE + 0x8)
+#define KALLSYMS_TOKEN_TABLE_ADDR	(MSM_KALLSYMS_SAVE_BASE + 0xC)
+#define KALLSYMS_TOKEN_INDEX_ADDR	(MSM_KALLSYMS_SAVE_BASE + 0x10)
+#define KALLSYMS_MARKERS_ADDR			(MSM_KALLSYMS_SAVE_BASE + 0x14)
+#define _STEXT_ADDR						(MSM_KALLSYMS_SAVE_BASE + 0x18)
+#define _SINITTEXT_ADDR				(MSM_KALLSYMS_SAVE_BASE + 0x1C)
+#define _EINITTEXT_ADDR				(MSM_KALLSYMS_SAVE_BASE + 0x20)
+#define _END_ADDR						(MSM_KALLSYMS_SAVE_BASE + 0x24)
+#define KALLSYMS_MAGIC_ADDR			(MSM_KALLSYMS_SAVE_BASE + 0x28)
+#define KALLSYMS_MAGIC					0xA0B1C2D3
+
+static void save_kallsyms_addresses(void)
+{
+	*(unsigned *)KALLSYMS_ADDRESSES_ADDR = (unsigned)kallsyms_addresses;
+	*(unsigned *)KALLSYMS_NAMES_ADDR = (unsigned)kallsyms_names;
+	*(unsigned *)KALLSYMS_NUM_SYMS_ADDR = (unsigned)kallsyms_num_syms;
+	*(unsigned *)KALLSYMS_TOKEN_TABLE_ADDR = (unsigned)kallsyms_token_table;
+	*(unsigned *)KALLSYMS_TOKEN_INDEX_ADDR = (unsigned)kallsyms_token_index;
+	*(unsigned *)KALLSYMS_MARKERS_ADDR = (unsigned)kallsyms_markers;
+	*(unsigned *)_STEXT_ADDR = (unsigned)_stext;
+	*(unsigned *)_SINITTEXT_ADDR = (unsigned)_sinittext;
+	*(unsigned *)_EINITTEXT_ADDR = (unsigned)_einittext;
+	*(unsigned *)_END_ADDR = (unsigned)_end;
+	*(unsigned *)KALLSYMS_MAGIC_ADDR = (unsigned)KALLSYMS_MAGIC;
+}
+
 static int __init kallsyms_init(void)
 {
 	proc_create("kallsyms", 0444, NULL, &kallsyms_operations);
+	save_kallsyms_addresses();
 	return 0;
 }
 device_initcall(kallsyms_init);

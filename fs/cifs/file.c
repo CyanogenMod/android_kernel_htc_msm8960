@@ -1517,7 +1517,7 @@ static ssize_t
 cifs_iovec_write(struct file *file, const struct iovec *iov,
 		 unsigned long nr_segs, loff_t *poffset)
 {
-	unsigned int written;
+	unsigned int written = 0;
 	unsigned long num_pages, npages, i;
 	size_t copied, len, cur_len;
 	ssize_t total_written = 0;

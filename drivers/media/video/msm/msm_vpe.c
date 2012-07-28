@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -87,6 +87,7 @@ static int vpe_reset(void)
 	uint32_t vpe_version;
 	uint32_t rc = 0;
 
+	pr_info("%s, vpe_ctrl->state %d\n", __func__, vpe_ctrl->state);
 	vpe_reset_state_variables();
 	vpe_version = msm_io_r(vpe_ctrl->vpebase + VPE_HW_VERSION_OFFSET);
 	CDBG("vpe_version = 0x%x\n", vpe_version);
@@ -419,6 +420,9 @@ static int msm_send_frame_to_vpe(void)
 			  vpe_ctrl->pp_frame_info->dest_frame.sp.cbcr_off),
 			vpe_ctrl->vpebase + VPE_OUTP1_ADDR_OFFSET);
 	vpe_ctrl->state = VPE_STATE_ACTIVE;
+//HTC_START chris, 20120310 fix unknown reset which is caused by vpe clk disabled when vpe state is active.
+	vpe_ctrl->vpe_event_done = 0;
+//HTC_END
 	spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
 	vpe_start();
 	return rc;
@@ -431,7 +435,7 @@ static void vpe_send_outmsg(void)
 	memset(&rp, 0, sizeof(rp));
 	spin_lock_irqsave(&vpe_ctrl->lock, flags);
 	if (vpe_ctrl->state == VPE_STATE_IDLE) {
-		pr_err("%s VPE is in IDLE state. Ignore the ack msg", __func__);
+		pr_info("%s VPE is in IDLE state. Ignore the ack msg", __func__);
 		spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
 		return;
 	}
@@ -440,6 +444,10 @@ static void vpe_send_outmsg(void)
 	rp.extlen = sizeof(*vpe_ctrl->pp_frame_info);
 	vpe_ctrl->state = VPE_STATE_INIT;   /* put it back to idle. */
 	vpe_ctrl->pp_frame_info = NULL;
+//HTC_START chris, 20120310 fix unknown reset which is caused by vpe clk disabled when vpe state is active.
+	vpe_ctrl->vpe_event_done = 1;
+	wake_up(&vpe_ctrl->vpe_event_queue);
+//HTC_END
 	spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
 	v4l2_subdev_notify(&vpe_ctrl->subdev,
 		NOTIFY_VPE_MSG_EVT, (void *)&rp);
@@ -468,7 +476,7 @@ static irqreturn_t vpe_parse_irq(int irq_num, void *data)
 }
 
 static struct msm_cam_clk_info vpe_clk_info[] = {
-	{"vpe_clk", 160000000},
+	{"vpe_clk", 200000000},
 	{"vpe_pclk", -1},
 };
 
@@ -479,12 +487,16 @@ int vpe_enable(uint32_t clk_rate)
 	CDBG("%s", __func__);
 	/* don't change the order of clock and irq.*/
 	spin_lock_irqsave(&vpe_ctrl->lock, flags);
+	pr_info("%s, vpe_ctrl->state %d\n", __func__, vpe_ctrl->state);
 	if (vpe_ctrl->state != VPE_STATE_IDLE) {
 		pr_err("%s: VPE already enabled", __func__);
 		spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
 		return 0;
 	}
 	vpe_ctrl->state = VPE_STATE_INIT;
+//HTC_START chris, 20120310 fix unknown reset which is caused by vpe clk disabled when vpe state is active.
+	vpe_ctrl->vpe_event_done = 0;
+//HTC_END
 	spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
 	enable_irq(vpe_ctrl->vpeirq->start);
 	vpe_ctrl->fs_vpe = regulator_get(NULL, "fs_vpe");
@@ -496,13 +508,16 @@ int vpe_enable(uint32_t clk_rate)
 	} else if (regulator_enable(vpe_ctrl->fs_vpe)) {
 		pr_err("%s: Regulator FS_VPE enable failed\n", __func__);
 		regulator_put(vpe_ctrl->fs_vpe);
+		vpe_ctrl->fs_vpe = NULL;
 		goto vpe_fs_failed;
 	}
 
 	rc = msm_cam_clk_enable(&vpe_ctrl->pdev->dev, vpe_clk_info,
 			vpe_ctrl->vpe_clk, ARRAY_SIZE(vpe_clk_info), 1);
-	if (rc < 0)
+	if (rc < 0) {
+		pr_err("%s: VPE clk enable failed\n", __func__);
 		goto vpe_clk_failed;
+	}
 
 	return rc;
 
@@ -522,12 +537,27 @@ int vpe_disable(void)
 	unsigned long flags = 0;
 	CDBG("%s", __func__);
 	spin_lock_irqsave(&vpe_ctrl->lock, flags);
+	pr_info("%s, vpe_ctrl->state %d\n", __func__, vpe_ctrl->state);
 	if (vpe_ctrl->state == VPE_STATE_IDLE) {
-		CDBG("%s: VPE already disabled", __func__);
+		pr_err("%s: VPE already disabled", __func__);
 		spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
 		return rc;
 	}
 	spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
+
+//HTC_START chris, 20120310 fix unknown reset which is caused by vpe clk disabled when vpe state is active.
+	rc = wait_event_interruptible_timeout(vpe_ctrl->vpe_event_queue,
+		vpe_ctrl->vpe_event_done, msecs_to_jiffies(500));
+
+	if (rc < 0)
+		pr_err("%s: wait vpe event error: %d\n", __func__, rc);
+	else if (rc == 0) {
+		/* timeout */
+		pr_info("%s: wait vpe event timeout", __func__);
+	} else
+		pr_info("%s: got vpe done event, rc %d\n", __func__, rc);
+	rc = 0;
+//HTC_END
 
 	msm_cam_clk_enable(&vpe_ctrl->pdev->dev, vpe_clk_info,
 			vpe_ctrl->vpe_clk, ARRAY_SIZE(vpe_clk_info), 0);
@@ -539,6 +569,9 @@ int vpe_disable(void)
 	tasklet_kill(&vpe_tasklet);
 	spin_lock_irqsave(&vpe_ctrl->lock, flags);
 	vpe_ctrl->state = VPE_STATE_IDLE;
+//HTC_START chris, 20120310 fix unknown reset which is caused by vpe clk disabled when vpe state is active.
+	vpe_ctrl->vpe_event_done = 0;
+//HTC_END
 	spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
 	return rc;
 }
@@ -561,9 +594,6 @@ static int msm_vpe_do_pp(struct msm_mctl_pp_cmd *cmd,
 	vpe_ctrl->pp_frame_info = pp_frame_info;
 	msm_vpe_cfg_update(
 		&vpe_ctrl->pp_frame_info->pp_frame_cmd.crop);
-	CDBG("%s Sending frame idx %d id %d to VPE ", __func__,
-		pp_frame_info->src_frame.buf_idx,
-		pp_frame_info->src_frame.frame_id);
 	rc = msm_send_frame_to_vpe();
 	return rc;
 }
@@ -735,6 +765,9 @@ static int __devinit vpe_probe(struct platform_device *pdev)
 	disable_irq(vpe_ctrl->vpeirq->start);
 
 	vpe_ctrl->pdev = pdev;
+//HTC_START chris, 20120310 fix unknown reset which is caused by vpe clk disabled when vpe state is active.
+	init_waitqueue_head(&vpe_ctrl->vpe_event_queue);
+//HTC_END
 	return 0;
 
 vpe_no_resource:

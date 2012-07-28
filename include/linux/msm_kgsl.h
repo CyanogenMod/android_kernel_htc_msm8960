@@ -2,7 +2,14 @@
 #define _MSM_KGSL_H
 
 #define KGSL_VERSION_MAJOR        3
+
+#ifndef KGSL_VERSION_MINOR
+#if defined(CONFIG_MSM_KGSL_ADRENO220)
+#define KGSL_VERSION_MINOR        2
+#else
 #define KGSL_VERSION_MINOR        8
+#endif
+#endif
 
 /*context flags */
 #define KGSL_CONTEXT_SAVE_GMEM	1
@@ -27,12 +34,12 @@
 #define KGSL_FLAGS_SOFT_RESET  0x00000100
 
 /* Clock flags to show which clocks should be controled by a given platform */
-#define KGSL_CLK_SRC	0x00000001
-#define KGSL_CLK_CORE	0x00000002
-#define KGSL_CLK_IFACE	0x00000004
-#define KGSL_CLK_MEM	0x00000008
+#define KGSL_CLK_SRC   0x00000001
+#define KGSL_CLK_CORE  0x00000002
+#define KGSL_CLK_IFACE 0x00000004
+#define KGSL_CLK_MEM   0x00000008
 #define KGSL_CLK_MEM_IFACE 0x00000010
-#define KGSL_CLK_AXI	0x00000020
+#define KGSL_CLK_AXI   0x00000020
 
 #define KGSL_MAX_PWRLEVELS 5
 
@@ -42,6 +49,7 @@
 /* device id */
 enum kgsl_deviceid {
 	KGSL_DEVICE_3D0		= 0x00000000,
+	KGSL_DEVICE_YAMATO 	= KGSL_DEVICE_3D0,
 	KGSL_DEVICE_2D0		= 0x00000001,
 	KGSL_DEVICE_2D1		= 0x00000002,
 	KGSL_DEVICE_MAX		= 0x00000003
@@ -68,7 +76,11 @@ struct kgsl_devinfo {
 	* This field contains the adreno revision
 	* number 200, 205, 220, etc...
 	*/
+#if defined(CONFIG_MSM_KGSL_ADRENO220)
+	unsigned int gmem_hostbaseaddr;
+#else
 	unsigned int gpu_id;
+#endif
 	unsigned int gmem_sizebytes;
 };
 
@@ -147,10 +159,14 @@ struct kgsl_device_platform_data {
 	int (*set_grp_async)(void);
 	unsigned int idle_timeout;
 	unsigned int nap_allowed;
+#if defined(CONFIG_MSM_KGSL_ADRENO220)
+	unsigned int idle_pass;
+#endif
 	unsigned int clk_map;
 	struct msm_bus_scale_pdata *bus_scale_table;
 	const char *iommu_user_ctx_name;
 	const char *iommu_priv_ctx_name;
+	unsigned int snapshot_address;
 };
 
 #endif

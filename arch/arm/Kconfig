@@ -1580,6 +1580,9 @@ config ARCH_SELECT_MEMORY_MODEL
 config HAVE_ARCH_PFN_VALID
 	def_bool ARCH_HAS_HOLES_MEMORYMODEL || !SPARSEMEM
 
+config HOLES_IN_ZONE
+	def_bool ARCH_HAS_HOLES_MEMORYMODEL || !SPARSEMEM
+
 config HIGHMEM
 	bool "High Memory Support"
 	depends on MMU
@@ -1636,7 +1639,6 @@ config FIX_MOVABLE_ZONE
 
 config DONT_MAP_HOLE_AFTER_MEMBANK0
 	def_bool n
-	depends on SPARSEMEM
 
 config ARCH_ENABLE_MEMORY_HOTPLUG
 	def_bool n

@@ -143,11 +143,13 @@ void device_pm_move_before(struct device *deva, struct device *devb)
  */
 void device_pm_move_after(struct device *deva, struct device *devb)
 {
-	pr_debug("PM: Moving %s:%s after %s:%s\n",
-		 deva->bus ? deva->bus->name : "No Bus", dev_name(deva),
-		 devb->bus ? devb->bus->name : "No Bus", dev_name(devb));
-	/* Delete deva from dpm_list and reinsert after devb. */
-	list_move(&deva->power.entry, &devb->power.entry);
+	if (devb) {
+		pr_debug("PM: Moving %s:%s after %s:%s\n",
+			 deva->bus ? deva->bus->name : "No Bus", dev_name(deva),
+			 devb->bus ? devb->bus->name : "No Bus", dev_name(devb));
+		/* Delete deva from dpm_list and reinsert after devb. */
+		list_move(&deva->power.entry, &devb->power.entry);
+	}
 }
 
 /**

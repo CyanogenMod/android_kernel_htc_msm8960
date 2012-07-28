@@ -27,6 +27,7 @@
 #include <asm/system.h>
 #include <asm/mach-types.h>
 #include <mach/hardware.h>
+#include <mach/debug_display.h>
 #include "mdp.h"
 #include "msm_fb.h"
 #include "mdp4.h"
@@ -425,6 +426,8 @@ static void mdp4_overlay_dsi_video_wait4event(struct msm_fb_data_type *mfd,
 {
 	unsigned long flag;
 	unsigned int data;
+	long timeout;
+	int retry_count = 0;
 
 	data = inpdw(MDP_BASE + DSI_VIDEO_BASE);
 	data &= 0x01;
@@ -434,12 +437,42 @@ static void mdp4_overlay_dsi_video_wait4event(struct msm_fb_data_type *mfd,
 	spin_lock_irqsave(&mdp_spin_lock, flag);
 	INIT_COMPLETION(dsi_video_comp);
 	mfd->dma->waiting = TRUE;
+	wmb();
 	outp32(MDP_INTR_CLEAR, intr_done);
 	mdp_intr_mask |= intr_done;
+	wmb();
 	outp32(MDP_INTR_ENABLE, mdp_intr_mask);
 	mdp_enable_irq(MDP_DMA2_TERM);  /* enable intr */
 	spin_unlock_irqrestore(&mdp_spin_lock, flag);
+	wmb();
+#if 1 /* HTC_CSP_START */
+	timeout = wait_for_completion_timeout(&dsi_video_comp, HZ/5);
+
+	while (!timeout && retry_count++ < 15) {
+		rmb();
+		if (mfd->dma->waiting == FALSE) {
+			pr_info("###%s(%d)timeout but dma not busy now\n", __func__, __LINE__);
+			break;
+		} else {
+			PR_DISP_INFO("%s(%d)timeout but dma still busy\n", __func__, __LINE__);
+			PR_DISP_INFO("MDP_DISPLAY_STATUS:%x\n", inpdw(msm_mdp_base + 0x18));
+			PR_DISP_INFO("MDP_INTR_STATUS:%x\n", inpdw(MDP_INTR_STATUS));
+			PR_DISP_INFO("MDP_INTR_ENABLE:%x\n", inpdw(MDP_INTR_ENABLE));
+			PR_DISP_INFO("MDP_OVERLAY_STATUS:%x\n", inpdw(msm_mdp_base + 0x10000));
+
+			timeout = wait_for_completion_timeout(&dsi_video_comp, HZ/5);
+		}
+	}
+
+	if (retry_count >= 15) {
+		PR_DISP_INFO("###mdp busy wait retry timed out, mfd->dma->waiting:%d\n", mfd->dma->waiting);
+		spin_lock_irqsave(&mdp_spin_lock, flag);
+		mfd->dma->waiting = FALSE;
+		spin_unlock_irqrestore(&mdp_spin_lock, flag);
+	}
+#else /* HTC_CSP_END */
 	wait_for_completion(&dsi_video_comp);
+#endif
 	mdp_disable_irq(MDP_DMA2_TERM);
 }
 
@@ -470,7 +503,7 @@ void mdp4_overlay_dsi_video_vsync_push(struct msm_fb_data_type *mfd,
 {
 	unsigned long flag;
 
-	if (pipe->flags & MDP_OV_PLAY_NOWAIT)
+	if (pipe && (pipe->flags & MDP_OV_PLAY_NOWAIT))
 		return;
 
 	if (dsi_pipe->blt_addr) {
@@ -669,6 +702,7 @@ void mdp4_dsi_video_overlay(struct msm_fb_data_type *mfd)
 	pipe->srcp0_addr = (uint32) buf;
 	mdp4_overlay_rgb_setup(pipe);
 	mdp4_overlay_reg_flush(pipe, 1);
+	mdp4_overlay_update_layers(mfd, pipe->mixer_num);
 	mdp4_overlay_dsi_video_vsync_push(mfd, pipe);
 	mutex_unlock(&mfd->dma->ov_mutex);
 }

@@ -35,6 +35,11 @@
 #endif
 
 #include <mach/bam_dmux.h>
+#include <mach/board_htc.h>
+
+#define MODULE_NAME "[RMNETBAM] "
+
+static int ril_debug_flag = 0;
 
 /* Debug message support */
 static int msm_rmnet_bam_debug_mask;
@@ -46,8 +51,8 @@ module_param_named(debug_enable, msm_rmnet_bam_debug_mask,
 #define DEBUG_MASK_LVL2 (1U << 2)
 
 #define DBG(m, x...) do {			   \
-		if (msm_rmnet_bam_debug_mask & m) \
-			pr_info(x);		   \
+		if ((msm_rmnet_bam_debug_mask & m) || ril_debug_flag) \
+			pr_info(MODULE_NAME x);		   \
 } while (0)
 #define DBG0(x...) DBG(DEBUG_MASK_LVL0, x)
 #define DBG1(x...) DBG(DEBUG_MASK_LVL1, x)
@@ -226,7 +231,7 @@ static __be16 rmnet_ip_type_trans(struct sk_buff *skb, struct net_device *dev)
 		protocol = htons(ETH_P_IPV6);
 		break;
 	default:
-		pr_err("[%s] rmnet_recv() L3 protocol decode error: 0x%02x",
+		pr_err(MODULE_NAME "[%s] rmnet_recv() L3 protocol decode error: 0x%02x",
 		       dev->name, skb->data[0] & 0xf0);
 		/* skb will be dropped in upper layer for unknown protocol */
 	}
@@ -279,7 +284,7 @@ static void bam_recv_notify(void *dev, struct sk_buff *skb)
 		/* Deliver to network stack */
 		netif_rx(skb);
 	} else
-		pr_err("[%s] %s: No skb received",
+		pr_err(MODULE_NAME "[%s] %s: No skb received",
 			((struct net_device *)dev)->name, __func__);
 }
 
@@ -309,7 +314,7 @@ static int _rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 	bam_ret = msm_bam_dmux_write(p->ch_id, skb);
 
 	if (bam_ret != 0 && bam_ret != -EAGAIN && bam_ret != -EFAULT) {
-		pr_err("[%s] %s: write returned error %d",
+		pr_err(MODULE_NAME "[%s] %s: write returned error %d",
 			dev->name, __func__, bam_ret);
 		return -EPERM;
 	}
@@ -366,7 +371,7 @@ static void bam_notify(void *dev, int event, unsigned long data)
 			spin_unlock_irqrestore(&p->lock, flags);
 			ret = _rmnet_xmit(skb, dev);
 			if (ret) {
-				pr_err("%s: error %d dropping delayed TX SKB %p\n",
+				pr_err(MODULE_NAME "%s: error %d dropping delayed TX SKB %p\n",
 						__func__, ret, skb);
 				dev_kfree_skb_any(skb);
 			}
@@ -421,6 +426,8 @@ static int __rmnet_close(struct net_device *dev)
 	struct rmnet_private *p = netdev_priv(dev);
 	int rc = 0;
 
+	DBG0("[%s] __rmnet_close()\n", dev->name);
+
 	if (p->device_up) {
 		/* do not close rmnet port once up,  this causes
 		   remote side to hang if tried to open again */
@@ -460,8 +467,9 @@ static int rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 	int awake;
 	int ret = 0;
 
+	DBG0("[%s] rmnet_xmit()\n", dev->name);
 	if (netif_queue_stopped(dev)) {
-		pr_err("[%s]fatal: rmnet_xmit called when "
+		pr_err(MODULE_NAME "[%s]fatal: rmnet_xmit called when "
 			"netif_queue is stopped", dev->name);
 		return 0;
 	}
@@ -531,7 +539,7 @@ static void rmnet_set_multicast_list(struct net_device *dev)
 
 static void rmnet_tx_timeout(struct net_device *dev)
 {
-	pr_warning("[%s] rmnet_tx_timeout()\n", dev->name);
+	pr_warning(MODULE_NAME "[%s] rmnet_tx_timeout()\n", dev->name);
 }
 
 static const struct net_device_ops rmnet_ops_ether = {
@@ -659,7 +667,7 @@ static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		break;
 
 	default:
-		pr_err("[%s] error: rmnet_ioct called for unsupported cmd[%d]",
+		pr_err(MODULE_NAME "[%s] error: rmnet_ioct called for unsupported cmd[%d]",
 			dev->name, cmd);
 		return -EINVAL;
 	}
@@ -693,6 +701,8 @@ static int bam_rmnet_probe(struct platform_device *pdev)
 	char name[BAM_DMUX_CH_NAME_MAX_LEN];
 	struct rmnet_private *p;
 
+	DBG0("[%s] bam_rmnet_probe()\n", pdev->name);
+
 	for (i = 0; i < RMNET_DEVICE_COUNT; ++i) {
 		scnprintf(name, BAM_DMUX_CH_NAME_MAX_LEN, "bam_dmux_ch_%d", i);
 		if (!strncmp(pdev->name, name, BAM_DMUX_CH_NAME_MAX_LEN))
@@ -701,6 +711,7 @@ static int bam_rmnet_probe(struct platform_device *pdev)
 
 	p = netdev_priv(netdevs[i]);
 	if (p->in_reset) {
+		DBG0("[%s] is reset\n", pdev->name);
 		p->in_reset = 0;
 		msm_bam_dmux_open(p->ch_id, netdevs[i], bam_notify);
 		netif_carrier_on(netdevs[i]);
@@ -715,6 +726,8 @@ static int bam_rmnet_remove(struct platform_device *pdev)
 	int i;
 	char name[BAM_DMUX_CH_NAME_MAX_LEN];
 	struct rmnet_private *p;
+
+	DBG0("[%s] bam_rmnet_remove()\n", pdev->name);
 
 	for (i = 0; i < RMNET_DEVICE_COUNT; ++i) {
 		scnprintf(name, BAM_DMUX_CH_NAME_MAX_LEN, "bam_dmux_ch_%d", i);
@@ -743,7 +756,10 @@ static int __init rmnet_init(void)
 	unsigned n;
 	char *tempname;
 
-	pr_info("%s: BAM devices[%d]\n", __func__, RMNET_DEVICE_COUNT);
+	if (get_kernel_flag() & KERNEL_FLAG_RIL_DBG_RMNET)
+		ril_debug_flag = 1;
+
+	pr_info(MODULE_NAME "%s: BAM devices[%d]\n", __func__, RMNET_DEVICE_COUNT);
 
 #ifdef CONFIG_MSM_RMNET_DEBUG
 	timeout_us = 0;
@@ -757,7 +773,7 @@ static int __init rmnet_init(void)
 				   "rmnet%d", rmnet_setup);
 
 		if (!dev) {
-			pr_err("%s: no memory for netdev %d\n", __func__, n);
+			pr_err(MODULE_NAME "%s: no memory for netdev %d\n", __func__, n);
 			return -ENOMEM;
 		}
 
@@ -777,7 +793,7 @@ static int __init rmnet_init(void)
 
 		ret = register_netdev(dev);
 		if (ret) {
-			pr_err("%s: unable to register netdev"
+			pr_err(MODULE_NAME "%s: unable to register netdev"
 				   " %d rc=%d\n", __func__, n, ret);
 			free_netdev(dev);
 			return ret;
@@ -810,8 +826,11 @@ static int __init rmnet_init(void)
 		bam_rmnet_drivers[n].driver.owner = THIS_MODULE;
 		ret = platform_driver_register(&bam_rmnet_drivers[n]);
 		if (ret) {
-			pr_err("%s: registration failed n=%d rc=%d\n",
+			pr_err(MODULE_NAME "%s: registration failed n=%d rc=%d\n",
 					__func__, n, ret);
+			unregister_netdev(dev);
+			free_netdev(dev);
+			kfree(tempname);
 			return ret;
 		}
 	}

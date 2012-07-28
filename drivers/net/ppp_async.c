@@ -798,6 +798,14 @@ process_input_packet(struct asyncppp *ap)
 			goto err;
 		p = skb_pull(skb, 2);
 	}
+
+#ifdef CONFIG_HTC_NETWORK_MODIFY
+	if (IS_ERR(p) || (!p)) {
+		printk(KERN_ERR "[PPP] p is NULL in %s!\n", __func__);
+		goto err;
+    }
+#endif
+
 	proto = p[0];
 	if (proto & 1) {
 		/* protocol is compressed */

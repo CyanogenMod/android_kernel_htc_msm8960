@@ -17,6 +17,7 @@
 
 #include <linux/kernel.h>
 #include <linux/list.h>
+#include <linux/mutex.h>
 #include <linux/workqueue.h>
 
 struct xoadc_conv_state {
@@ -80,12 +81,15 @@ void pm8058_xoadc_restore_slot(uint32_t adc_instance,
 struct adc_properties *pm8058_xoadc_get_properties(uint32_t dev_instance);
 
 int32_t pm8058_xoadc_calibrate(uint32_t dev_instance,
-		struct adc_conv_slot *slot, int * calib_status);
+		struct adc_conv_slot *slot, int *calib_status);
 
 int32_t pm8058_xoadc_registered(void);
 
 int32_t pm8058_xoadc_calib_device(uint32_t adc_instance);
 
+int32_t pm8058_htc_config_mpp_and_adc_read(int32_t *result,
+						int32_t size, int32_t channels,
+						uint32_t mpp, uint32_t amux);
 #else
 
 static inline int32_t pm8058_xoadc_read_adc_code(uint32_t adc_instance,

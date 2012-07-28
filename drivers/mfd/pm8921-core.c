@@ -24,6 +24,7 @@
 #include <linux/mfd/pm8xxx/core.h>
 #include <linux/mfd/pm8xxx/regulator.h>
 #include <linux/leds-pm8xxx.h>
+#include <linux/syscore_ops.h>
 
 #define REG_HWREV		0x002  /* PMIC4 revision */
 #define REG_HWREV_2		0x0E8  /* PMIC4 revision 2 */
@@ -62,6 +63,8 @@ struct pm8921 {
 	struct pm8xxx_regulator_core_platform_data	*regulator_cdata;
 	u32						rev_registers;
 };
+
+static struct pm8921 *pmic8921_chip;
 
 static int pm8921_readb(const struct device *dev, u16 addr, u8 *val)
 {
@@ -768,6 +771,42 @@ static const char * const pm8922_rev_names[] = {
 	[PM8XXX_REVISION_8922_2p0]	= "2.0",
 };
 
+
+extern int msm_show_resume_irq_mask;
+
+static void pm8921_show_resume_irq(void)
+{
+	int i, irq;
+	struct pm_irq_chip *chip = pmic8921_chip->irq_chip;
+
+	if (!msm_show_resume_irq_mask || !chip)
+		return;
+
+	for (i = 0; i < PM8921_NR_IRQS; i++) {
+		irq = i + pm8xxx_get_irq_base(chip);
+		if (pm8xxx_get_irq_wake_stat(chip,irq)) {
+                            if(pm8xxx_get_irq_it_stat(chip, irq))
+					pr_warning("%s: %d triggered\n",
+					__func__, irq);
+		}
+	}
+}
+
+static int pm8921_suspend(void)
+{
+	return 0;
+}
+
+static void pm8921_resume(void)
+{
+	pm8921_show_resume_irq();
+}
+
+static struct syscore_ops pm8921_pm = {
+	.suspend = pm8921_suspend,
+	.resume = pm8921_resume,
+};
+
 static int __devinit pm8921_probe(struct platform_device *pdev)
 {
 	const struct pm8921_platform_data *pdata = pdev->dev.platform_data;
@@ -845,6 +884,9 @@ static int __devinit pm8921_probe(struct platform_device *pdev)
 
 	/* gpio might not work if no irq device is found */
 	WARN_ON(pmic->irq_chip == NULL);
+
+	pmic8921_chip = pmic;
+        register_syscore_ops(&pm8921_pm);
 
 	return 0;
 

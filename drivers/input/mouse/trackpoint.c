@@ -198,7 +198,7 @@ static int trackpoint_start_protocol(struct psmouse *psmouse, unsigned char *fir
 static int trackpoint_sync(struct psmouse *psmouse)
 {
 	struct trackpoint_data *tp = psmouse->private;
-	unsigned char toggle;
+	unsigned char toggle = 0;
 
 	/* Disable features that may make device unusable with this driver */
 	trackpoint_read(&psmouse->ps2dev, TP_TOGGLE_TWOHAND, &toggle);

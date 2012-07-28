@@ -45,6 +45,8 @@
 #define A225_PFP_FW "a225_pfp.fw"
 #define A225_PM4_FW "a225_pm4.fw"
 
+int ringbuffer_has_initialized = false;
+
 static void adreno_ringbuffer_submit(struct adreno_ringbuffer *rb)
 {
 	BUG_ON(rb->wptr == 0);
@@ -382,8 +384,10 @@ int adreno_ringbuffer_start(struct adreno_ringbuffer *rb, unsigned int init_ram)
 	/* idle device to validate ME INIT */
 	status = adreno_idle(device, KGSL_TIMEOUT_DEFAULT);
 
-	if (status == 0)
+	if (status == 0) {
 		rb->flags |= KGSL_FLAGS_STARTED;
+		ringbuffer_has_initialized = true;
+	}
 
 	return status;
 }

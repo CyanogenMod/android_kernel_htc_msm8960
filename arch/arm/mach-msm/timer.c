@@ -37,6 +37,16 @@
 #endif
 #include "timer.h"
 
+#define WDT0_RST        0x38
+#define WDT0_EN         0x40
+#define WDT0_STS        0x44
+#define WDT0_BARK_TIME  0x4C
+#define WDT0_BITE_TIME  0x5C
+
+#define WDT_HZ          32768
+
+static void __iomem *msm_tmr0_base;
+
 enum {
 	MSM_TIMER_DEBUG_SYNC = 1U << 0,
 };
@@ -102,7 +112,7 @@ enum {
 struct msm_clock {
 	struct clock_event_device   clockevent;
 	struct clocksource          clocksource;
-	unsigned int		    irq;
+	unsigned int                irq;
 	void __iomem                *regbase;
 	uint32_t                    freq;
 	uint32_t                    shift;
@@ -113,8 +123,8 @@ struct msm_clock {
 	void __iomem                *global_counter;
 	void __iomem                *local_counter;
 	union {
-		struct clock_event_device		*evt;
-		struct clock_event_device __percpu	**percpu_evt;
+		struct clock_event_device               *evt;
+		struct clock_event_device __percpu      **percpu_evt;
 	};
 };
 
@@ -346,6 +356,7 @@ static void msm_timer_set_mode(enum clock_event_mode mode,
 		chip = irq_get_chip(clock->irq);
 		if (chip && chip->irq_unmask)
 			chip->irq_unmask(irq_get_irq_data(clock->irq));
+
 		if (clock != &msm_clocks[MSM_CLOCK_GPT])
 			__raw_writel(TIMER_ENABLE_EN,
 				msm_clocks[MSM_CLOCK_GPT].regbase +
@@ -976,6 +987,11 @@ static void __init msm_timer_init(void)
 	struct irq_chip *chip;
 	struct msm_clock *dgt = &msm_clocks[MSM_CLOCK_DGT];
 	struct msm_clock *gpt = &msm_clocks[MSM_CLOCK_GPT];
+
+	msm_tmr0_base = msm_timer_get_timer0_base();
+	__raw_writel(1, msm_tmr0_base + WDT0_RST);
+
+	printk("%s\n", __func__);
 
 	if (cpu_is_msm7x01() || cpu_is_msm7x25() || cpu_is_msm7x27() ||
 	    cpu_is_msm7x25a() || cpu_is_msm7x27a() || cpu_is_msm7x25aa() ||

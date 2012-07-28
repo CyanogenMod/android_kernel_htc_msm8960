@@ -1367,6 +1367,11 @@ install_route:
 		}
 	}
 
+#ifdef CONFIG_HTC_NETWORK_MODIFY
+	if (IS_ERR(dev) || (!dev))
+		printk(KERN_ERR "[NET] dev is NULL in %s!\n", __func__);
+#endif
+
 	rt->dst.dev = dev;
 	rt->rt6i_idev = idev;
 	rt->rt6i_table = table;

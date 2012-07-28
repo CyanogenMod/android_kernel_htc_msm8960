@@ -26,6 +26,8 @@
 #include <mach/peripheral-loader.h>
 #include "smd_private.h"
 #include "ramdump.h"
+#include <mach/board_htc.h>
+
 
 #define MODULE_NAME			"wcnss_8960"
 
@@ -35,15 +37,23 @@ static DECLARE_WORK(riva_smsm_cb_work, riva_smsm_cb_fn);
 static void riva_fatal_fn(struct work_struct *);
 static DECLARE_WORK(riva_fatal_work, riva_fatal_fn);
 
+static struct delayed_work cancel_vote_work;
 static void *riva_ramdump_dev;
 static int riva_crash;
 static int ss_restart_inprogress;
-static int enable_riva_ssr;
+#if defined (CONFIG_MSM_WCNSS_SSR_ENABLE)
+static int enable_riva_ssr = 1;
+#else
+static int enable_riva_ssr = 0;
+#endif
 
 static void riva_smsm_cb_fn(struct work_struct *work)
 {
-	if (!enable_riva_ssr)
+	if (!enable_riva_ssr) {
+		ssr_set_restart_reason(
+			"riva fatal: SMSM reset request received from Riva");
 		panic(MODULE_NAME ": SMSM reset request received from Riva");
+	}
 	else
 		subsystem_restart("riva");
 }
@@ -51,6 +61,9 @@ static void riva_smsm_cb_fn(struct work_struct *work)
 static void smsm_state_cb_hdlr(void *data, uint32_t old_state,
 					uint32_t new_state)
 {
+       if (get_kernel_flag() & KERNEL_FLAG_ENABLE_SSR_WCNSS)
+		smsm_change_state_ssr(SMSM_APPS_STATE, SMSM_RESET, 0, KERNEL_FLAG_ENABLE_SSR_WCNSS);
+
 	riva_crash = true;
 	pr_err("%s: smsm state changed to smsm reset\n", MODULE_NAME);
 
@@ -97,20 +110,26 @@ static void smsm_riva_reset(void)
 	smsm_change_state(SMSM_APPS_STATE, SMSM_RESET, SMSM_RESET);
 }
 
-/* Subsystem handlers */
-static int riva_shutdown(const struct subsys_data *subsys)
+static void riva_post_bootup(struct work_struct *work)
 {
 	struct platform_device *pdev = wcnss_get_platform_device();
 	struct wcnss_wlan_config *pwlanconfig = wcnss_get_wlan_config();
-	int    ret = -1;
 
+	pr_debug(MODULE_NAME ": Cancel APPS vote for Iris & Riva\n");
+
+	wcnss_wlan_power(&pdev->dev, pwlanconfig,
+		WCNSS_WLAN_SWITCH_OFF);
+}
+
+/* Subsystem handlers */
+static int riva_shutdown(const struct subsys_data *subsys)
+{
 	pil_force_shutdown("wcnss");
+	pr_err("[SSR] pil_force_shutdown is finished\n");
+	flush_delayed_work(&cancel_vote_work);
+	pr_err("[SSR] flush_delayed_work(vote) for shutdown is finished\n");
 
-	/* proxy vote on behalf of Riva */
-	if (pdev && pwlanconfig)
-		ret = wcnss_wlan_power(&pdev->dev, pwlanconfig,
-					WCNSS_WLAN_SWITCH_OFF);
-	return ret;
+	return 0;
 }
 
 static int riva_powerup(const struct subsys_data *subsys)
@@ -122,11 +141,16 @@ static int riva_powerup(const struct subsys_data *subsys)
 	if (pdev && pwlanconfig)
 		ret = wcnss_wlan_power(&pdev->dev, pwlanconfig,
 					WCNSS_WLAN_SWITCH_ON);
-	if (!ret)
+	/* delay PIL operation, this SSR may be happening soon after kernel
+	 * resumes because of a SMSM RESET by Riva when APPS was suspended.
+	 * PIL fails to locate the images without this delay */
+	if (!ret) {
+		msleep(1000);
 		pil_force_boot("wcnss");
-
+	}
 	ss_restart_inprogress = false;
 	enable_irq(RIVA_APSS_WDOG_BITE_RESET_RDY_IRQ);
+	schedule_delayed_work(&cancel_vote_work, msecs_to_jiffies(5000));
 
 	return ret;
 }
@@ -160,8 +184,26 @@ static struct subsys_data riva_8960 = {
 	.shutdown = riva_shutdown,
 	.powerup = riva_powerup,
 	.ramdump = riva_ramdump,
-	.crash_shutdown = riva_crash_shutdown
+	.crash_shutdown = riva_crash_shutdown,
+	.enable_ssr = 0
 };
+
+/* host driver interface to initiate WCNSS SSR */
+int wcnss_subsystem_restart()
+{
+	int ret;
+
+	if (ss_restart_inprogress) {
+		pr_err("%s: Ignoring riva subsystem restart req, restart in progress\n",
+						MODULE_NAME);
+		return 0;
+	}
+    printk ("wcnss_subsystem_restart\n");
+	ss_restart_inprogress = true;
+	ret = schedule_work(&riva_fatal_work);
+	return ret;
+}
+EXPORT_SYMBOL(wcnss_subsystem_restart);
 
 static int enable_riva_ssr_set(const char *val, struct kernel_param *kp)
 {
@@ -174,6 +216,8 @@ static int enable_riva_ssr_set(const char *val, struct kernel_param *kp)
 	if (enable_riva_ssr)
 		pr_info(MODULE_NAME ": Subsystem restart activated for riva.\n");
 
+	riva_8960.enable_ssr = enable_riva_ssr;
+
 	return 0;
 }
 
@@ -182,6 +226,8 @@ module_param_call(enable_riva_ssr, enable_riva_ssr_set, param_get_int,
 
 static int __init riva_restart_init(void)
 {
+	riva_8960.enable_ssr = enable_riva_ssr;
+
 	return ssr_register_subsystem(&riva_8960);
 }
 
@@ -205,6 +251,11 @@ static int __init riva_ssr_module_init(void)
 				" (%d)\n", MODULE_NAME, ret);
 		goto out;
 	}
+       if (get_kernel_flag() & KERNEL_FLAG_ENABLE_SSR_WCNSS)
+		enable_riva_ssr = 1;
+
+	pr_info("%s: enable_riva_ssr set to %d\n", __func__, enable_riva_ssr);
+
 	ret = riva_restart_init();
 	if (ret < 0) {
 		pr_err("%s: Unable to register with ssr. (%d)\n",
@@ -218,6 +269,8 @@ static int __init riva_ssr_module_init(void)
 		ret = -ENOMEM;
 		goto out;
 	}
+	INIT_DELAYED_WORK(&cancel_vote_work, riva_post_bootup);
+
 	pr_info("%s: module initialized\n", MODULE_NAME);
 out:
 	return ret;

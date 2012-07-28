@@ -130,4 +130,6 @@ source "drivers/hwspinlock/Kconfig"
 
 source "drivers/clocksource/Kconfig"
 
+source "drivers/felica/Kconfig"
+
 endmenu

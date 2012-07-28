@@ -37,6 +37,9 @@
 #define QMI_RESULT_SUCCESS 0x0000
 #define QMI_RESULT_FAILURE 0x0001
 
+#define D(fmt, args...) printk(KERN_INFO "[RIL] "fmt, ##args)
+#define E(fmt, args...) printk(KERN_ERR "[RIL] "fmt, ##args)
+
 struct qmi_msg {
 	unsigned char service;
 	unsigned char client_id;
@@ -114,8 +117,7 @@ static void qmi_dump_msg(struct qmi_msg *msg, const char *prefix)
 	if (!verbose)
 		return;
 
-	printk(KERN_INFO
-	       "qmi: %s: svc=%02x cid=%02x tid=%04x type=%04x size=%04x\n",
+	D("qmi: %s: svc=%02x cid=%02x tid=%04x type=%04x size=%04x\n",
 	       prefix, msg->service, msg->client_id,
 	       msg->txn_id, msg->type, msg->size);
 
@@ -129,7 +131,7 @@ static void qmi_dump_msg(struct qmi_msg *msg, const char *prefix)
 		if (n > sz)
 			break;
 
-		printk(KERN_INFO "qmi: %s: tlv: %02x %04x { ",
+		D("qmi: %s: tlv: %02x %04x { ",
 		       prefix, x[0], n);
 		x += 3;
 		sz -= n;
@@ -268,8 +270,7 @@ static void qmi_process_ctl_msg(struct qmi_ctxt *ctxt, struct qmi_msg *msg)
 		if (qmi_get_tlv(msg, 0x01, sizeof(n), n))
 			return;
 		if (n[0] == QMI_WDS) {
-			printk(KERN_INFO
-			       "qmi: ctl: wds use client_id 0x%02x\n", n[1]);
+			D("qmi: ctl: wds use client_id 0x%02x\n", n[1]);
 			ctxt->wds_client_id = n[1];
 			ctxt->wds_busy = 0;
 		}
@@ -311,30 +312,40 @@ static void qmi_process_unicast_wds_msg(struct qmi_ctxt *ctxt,
 	switch (msg->type) {
 	case 0x0021:
 		if (qmi_get_status(msg, &err)) {
-			printk(KERN_ERR
-			       "qmi: wds: network stop failed (%04x)\n", err);
+			E("qmi: wds: network stop failed (%04x)\n", err);
 		} else {
-			printk(KERN_INFO
-			       "qmi: wds: network stopped\n");
+			D("qmi: wds: network stopped\n");
 			ctxt->state = STATE_OFFLINE;
 			ctxt->state_dirty = 1;
 		}
 		break;
 	case 0x0020:
 		if (qmi_get_status(msg, &err)) {
-			printk(KERN_ERR
-			       "qmi: wds: network start failed (%04x)\n", err);
+			D("qmi: wds: network start failed (%04x)\n", err);
+			/* ++Make pdp state always be sent to QMI channel when activating PDP context fails */
+			D("qmi: wds: Make pdp state always be sent to QMI channel when activating PDP context fails .\n");
+			ctxt->state = STATE_OFFLINE;
+			ctxt->state_dirty = 1;
+			/* --Make pdp state always be sent to QMI channel when activating PDP context fails */
+			if (msg->size == 0x000c && (msg->tlv)[10] == 0x0b) {
+				E("qmi: wds: pdp activation collided with CCFC\n");
+				ctxt->state = STATE_OFFLINE;
+				ctxt->state_dirty = 1;
+			}
+			if (msg->size == 0x000c && (msg->tlv)[10] == 0x0c) {
+				E("qmi: wds: pdp activation failed. Cause: Operator-determined barring\n");
+				ctxt->state = STATE_OFFLINE;
+				ctxt->state_dirty = 1;
+			}
 		} else if (qmi_get_tlv(msg, 0x01, sizeof(ctxt->wds_handle), &ctxt->wds_handle)) {
-			printk(KERN_INFO
-			       "qmi: wds no handle?\n");
+			D("qmi: wds no handle?\n");
 		} else {
-			printk(KERN_INFO
-			       "qmi: wds: got handle 0x%08x\n",
+			D("qmi: wds: got handle 0x%08x\n",
 			       ctxt->wds_handle);
 		}
 		break;
 	case 0x002D:
-		printk("qmi: got network profile\n");
+		D("qmi: got network profile\n");
 		if (ctxt->state == STATE_QUERYING) {
 			qmi_read_runtime_profile(ctxt, msg);
 			ctxt->state = STATE_ONLINE;
@@ -342,7 +353,7 @@ static void qmi_process_unicast_wds_msg(struct qmi_ctxt *ctxt,
 		}
 		break;
 	default:
-		printk(KERN_ERR "qmi: unknown msg type 0x%04x\n", msg->type);
+		D("qmi: unknown msg type 0x%04x\n", msg->type);
 	}
 	ctxt->wds_busy = 0;
 }
@@ -356,37 +367,36 @@ static void qmi_process_broadcast_wds_msg(struct qmi_ctxt *ctxt,
 			return;
 		switch (n[0]) {
 		case 1:
-			printk(KERN_INFO "qmi: wds: DISCONNECTED\n");
+			D("qmi: wds: DISCONNECTED\n");
 			ctxt->state = STATE_OFFLINE;
 			ctxt->state_dirty = 1;
 			break;
 		case 2:
-			printk(KERN_INFO "qmi: wds: CONNECTED\n");
+			D("qmi: wds: CONNECTED\n");
 			ctxt->state = STATE_QUERYING;
 			ctxt->state_dirty = 1;
 			qmi_network_get_profile(ctxt);
 			break;
 		case 3:
-			printk(KERN_INFO "qmi: wds: SUSPENDED\n");
+			D("qmi: wds: SUSPENDED\n");
 			ctxt->state = STATE_OFFLINE;
 			ctxt->state_dirty = 1;
 		}
 	} else {
-		printk(KERN_ERR "qmi: unknown bcast msg type 0x%04x\n", msg->type);
+		D("qmi: unknown bcast msg type 0x%04x\n", msg->type);
 	}
 }
 
 static void qmi_process_wds_msg(struct qmi_ctxt *ctxt,
 				struct qmi_msg *msg)
 {
-	printk("wds: %04x @ %02x\n", msg->type, msg->client_id);
+	D("wds: %04x @ %02x\n", msg->type, msg->client_id);
 	if (msg->client_id == ctxt->wds_client_id) {
 		qmi_process_unicast_wds_msg(ctxt, msg);
 	} else if (msg->client_id == 0xff) {
 		qmi_process_broadcast_wds_msg(ctxt, msg);
 	} else {
-		printk(KERN_ERR
-		       "qmi_process_wds_msg client id 0x%02x unknown\n",
+		E("qmi_process_wds_msg client id 0x%02x unknown\n",
 		       msg->client_id);
 	}
 }
@@ -449,7 +459,7 @@ static void qmi_process_qmux(struct qmi_ctxt *ctxt,
 		qmi_process_wds_msg(ctxt, &msg);
 		break;
 	default:
-		printk(KERN_ERR "qmi: msg from unknown svc 0x%02x\n",
+		D("qmi: msg from unknown svc 0x%02x\n",
 		       msg.service);
 		break;
 	}
@@ -478,7 +488,7 @@ static void qmi_read_work(struct work_struct *ws)
 			continue;
 		}
 		if (smd_read(ch, buf, sz) != sz) {
-			printk(KERN_ERR "qmi: not enough data?!\n");
+			E("qmi: not enough data?!\n");
 			continue;
 		}
 
@@ -503,7 +513,7 @@ static void qmi_open_work(struct work_struct *ws)
 static void qmi_notify(void *priv, unsigned event)
 {
 	struct qmi_ctxt *ctxt = priv;
-	
+
 	switch (event) {
 	case SMD_EVENT_DATA: {
 		int sz;
@@ -515,11 +525,11 @@ static void qmi_notify(void *priv, unsigned event)
 		break;
 	}
 	case SMD_EVENT_OPEN:
-		printk(KERN_INFO "qmi: smd opened\n");
+		D("qmi: smd opened\n");
 		queue_work(qmi_wq, &ctxt->open_work);
 		break;
 	case SMD_EVENT_CLOSE:
-		printk(KERN_INFO "qmi: smd closed\n");
+		D("qmi: smd closed\n");
 		break;
 	}
 }
@@ -566,6 +576,7 @@ static int qmi_network_up(struct qmi_ctxt *ctxt, char *apn)
 {
 	unsigned char data[96 + QMUX_OVERHEAD];
 	struct qmi_msg msg;
+	char *auth_type;
 	char *user;
 	char *pass;
 
@@ -582,6 +593,13 @@ static int qmi_network_up(struct qmi_ctxt *ctxt, char *apn)
 		}
 	}
 
+	for (auth_type = pass; *auth_type; auth_type++) {
+		if (*auth_type == ' ') {
+			*auth_type++ = 0;
+			break;
+		}
+	}
+
 	msg.service = QMI_WDS;
 	msg.client_id = ctxt->wds_client_id;
 	msg.txn_id = ctxt->wds_txn_id;
@@ -592,10 +610,14 @@ static int qmi_network_up(struct qmi_ctxt *ctxt, char *apn)
 	ctxt->wds_txn_id += 2;
 
 	qmi_add_tlv(&msg, 0x14, strlen(apn), apn);
+	if (*auth_type)
+		qmi_add_tlv(&msg, 0x16, strlen(auth_type), auth_type);
 	if (*user) {
-		unsigned char x;
-		x = 3;
-		qmi_add_tlv(&msg, 0x16, 1, &x);
+		if (!*auth_type) {
+			unsigned char x;
+			x = 3;
+			qmi_add_tlv(&msg, 0x16, 1, &x);
+		}
 		qmi_add_tlv(&msg, 0x17, strlen(user), user);
 		if (*pass)
 			qmi_add_tlv(&msg, 0x18, strlen(pass), pass);
@@ -760,7 +782,7 @@ static int qmi_open(struct inode *ip, struct file *fp)
 	int r = 0;
 
 	if (!ctxt) {
-		printk(KERN_ERR "unknown qmi misc %d\n", MINOR(ip->i_rdev));
+		E("unknown qmi misc %d\n", MINOR(ip->i_rdev));
 		return -ENODEV;
 	}
 

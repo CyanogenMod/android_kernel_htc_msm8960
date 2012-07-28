@@ -346,6 +346,7 @@ struct msm_spi {
 	int                      spi_gpios[ARRAY_SIZE(spi_rsrcs)];
 	/* SPI CS GPIOs for each slave */
 	struct spi_cs_gpio       cs_gpios[ARRAY_SIZE(spi_cs_rsrcs)];
+	int update_complete;
 };
 
 /* Forward declaration */
@@ -514,6 +515,9 @@ static irqreturn_t msm_spi_qup_irq(int irq, void *dev_id)
 {
 	u32 op, ret = IRQ_NONE;
 	struct msm_spi *dd = dev_id;
+
+	if (!dd->update_complete)
+		pr_err("%s Should not get irq now\n", __func__);
 
 	if (readl_relaxed(dd->base + SPI_ERROR_FLAGS) ||
 	    readl_relaxed(dd->base + QUP_ERROR_FLAGS)) {
@@ -789,11 +793,20 @@ fifo_size_err:
 static void msm_spi_read_word_from_fifo(struct msm_spi *dd)
 {
 	u32   data_in;
+	u8    *tmp_read_buf = NULL;
 	int   i;
 	int   shift;
+	u8 *ori_write_buf;
+	u8 *new_write_buf;
 
 	data_in = readl_relaxed(dd->base + SPI_INPUT_FIFO);
 	if (dd->read_buf) {
+		ori_write_buf = (u8 *)dd->cur_transfer->tx_buf;
+		if (dd->read_buf == NULL)
+			pr_info("[SPI_ERR] BF data_in = %x\n", data_in);
+		else
+			tmp_read_buf = dd->read_buf;
+
 		for (i = 0; (i < dd->bytes_per_word) &&
 			     dd->rx_bytes_remaining; i++) {
 			/* The data format depends on bytes_per_word:
@@ -803,6 +816,14 @@ static void msm_spi_read_word_from_fifo(struct msm_spi *dd)
 			   1 byte : 0x00000012
 			*/
 			shift = 8 * (dd->bytes_per_word - i - 1);
+			if (dd->read_buf == NULL) {
+				new_write_buf = (u8 *)dd->cur_transfer->tx_buf;
+				pr_info("[SPI_ERR]i=%d,rem=%d,cur=%d,bpw=%d,data_in=%x,owbuf[0]=%x,owbuf[1]=%x,owbuf[2]=%x,owbuf[3]=%x,nwbuf[0]=%x,nwbuf[1]=%x,nwbuf[2]=%x,nwbuf[3]=%x,tmp_read_buf_add=%p update_complete=%d\n",
+					i, dd->rx_bytes_remaining, dd->cur_msg_len, dd->bytes_per_word, data_in,
+					ori_write_buf[0], ori_write_buf[1], ori_write_buf[2], ori_write_buf[3],
+					new_write_buf[0], new_write_buf[1], new_write_buf[2], new_write_buf[3],
+					tmp_read_buf, dd->update_complete);
+			}
 			*dd->read_buf++ = (data_in & (0xFF << shift)) >> shift;
 			dd->rx_bytes_remaining--;
 		}
@@ -1556,6 +1577,9 @@ static void msm_spi_process_transfer(struct msm_spi *dd)
 	if (spi_ioc != spi_ioc_orig)
 		writel_relaxed(spi_ioc, dd->base + SPI_IO_CONTROL);
 
+	/* ensure all variables are updated before further processing */
+	mb();
+
 	if (dd->mode == SPI_DMOV_MODE) {
 		msm_spi_setup_dm_transfer(dd);
 		msm_spi_enqueue_dm_commands(dd);
@@ -1567,6 +1591,7 @@ static void msm_spi_process_transfer(struct msm_spi *dd)
 	else if (dd->mode == SPI_FIFO_MODE) {
 		if (msm_spi_prepare_for_write(dd))
 			goto transfer_end;
+		dd->update_complete = 1;
 		msm_spi_start_write(dd, read_count);
 	}
 
@@ -1756,6 +1781,8 @@ static void msm_spi_workq(struct work_struct *work)
 				  dd->pm_lat);
 	if (dd->use_rlock)
 		remote_mutex_lock(&dd->r_lock);
+
+	dd->update_complete = 0;
 
 	clk_enable(dd->clk);
 	clk_enable(dd->pclk);
@@ -2259,7 +2286,7 @@ static int __init msm_spi_probe(struct platform_device *pdev)
 			rc = pdata->dma_config();
 			if (rc) {
 				dev_warn(&pdev->dev,
-					"%s: DM mode not supported\n",
+					"[SPI]%s: DM mode not supported\n",
 					__func__);
 				dd->use_dma = 0;
 				goto skip_dma_resources;
@@ -2290,7 +2317,7 @@ skip_dma_resources:
 			rc = pdata->gpio_config();
 			if (rc) {
 				dev_err(&pdev->dev,
-					"%s: error configuring GPIOs\n",
+					"[SPI]%s: error configuring GPIOs\n",
 					__func__);
 				goto err_probe_gpio;
 			}
@@ -2343,14 +2370,14 @@ skip_dma_resources:
 
 		rc = remote_mutex_init(&dd->r_lock, &rmid);
 		if (rc) {
-			dev_err(&pdev->dev, "%s: unable to init remote_mutex "
+			dev_err(&pdev->dev, "[SPI]%s: unable to init remote_mutex "
 				"(%s), (rc=%d)\n", rmid.r_spinlock_id,
 				__func__, rc);
 			goto err_probe_rlock_init;
 		}
 		dd->use_rlock = 1;
 		dd->pm_lat = pdata->pm_lat;
-		pm_qos_add_request(&qos_req_list, PM_QOS_CPU_DMA_LATENCY, 
+		pm_qos_add_request(&qos_req_list, PM_QOS_CPU_DMA_LATENCY,
 					    	 PM_QOS_DEFAULT_VALUE);
 	}
 	mutex_lock(&dd->core_lock);
@@ -2361,14 +2388,14 @@ skip_dma_resources:
 	dd->dev = &pdev->dev;
 	dd->clk = clk_get(&pdev->dev, "core_clk");
 	if (IS_ERR(dd->clk)) {
-		dev_err(&pdev->dev, "%s: unable to get core_clk\n", __func__);
+		dev_err(&pdev->dev, "[SPI]%s: unable to get core_clk\n", __func__);
 		rc = PTR_ERR(dd->clk);
 		goto err_probe_clk_get;
 	}
 
 	dd->pclk = clk_get(&pdev->dev, "iface_clk");
 	if (IS_ERR(dd->pclk)) {
-		dev_err(&pdev->dev, "%s: unable to get iface_clk\n", __func__);
+		dev_err(&pdev->dev, "[SPI]%s: unable to get iface_clk\n", __func__);
 		rc = PTR_ERR(dd->pclk);
 		goto err_probe_pclk_get;
 	}
@@ -2378,7 +2405,7 @@ skip_dma_resources:
 
 	rc = clk_enable(dd->clk);
 	if (rc) {
-		dev_err(&pdev->dev, "%s: unable to enable core_clk\n",
+		dev_err(&pdev->dev, "[SPI]%s: unable to enable core_clk\n",
 			__func__);
 		goto err_probe_clk_enable;
 	}
@@ -2386,7 +2413,7 @@ skip_dma_resources:
 
 	rc = clk_enable(dd->pclk);
 	if (rc) {
-		dev_err(&pdev->dev, "%s: unable to enable iface_clk\n",
+		dev_err(&pdev->dev, "[SPI]%s: unable to enable iface_clk\n",
 		__func__);
 		goto err_probe_pclk_enable;
 	}
@@ -2446,7 +2473,7 @@ skip_dma_resources:
 
 	rc = sysfs_create_group(&(dd->dev->kobj), &dev_attr_grp);
 	if (rc) {
-		dev_err(&pdev->dev, "failed to create dev. attrs : %d\n", rc);
+		dev_err(&pdev->dev, "[SPI]failed to create dev. attrs : %d\n", rc);
 		goto err_attrs;
 	}
 
@@ -2502,7 +2529,9 @@ static int msm_spi_suspend(struct platform_device *pdev, pm_message_t state)
 	struct spi_master *master = platform_get_drvdata(pdev);
 	struct msm_spi    *dd;
 	unsigned long      flags;
+	struct msm_spi_platform_data *pdata = pdev->dev.platform_data;
 
+	printk(KERN_INFO "[SPI]%s\n", __func__);
 	if (!master)
 		goto suspend_exit;
 	dd = spi_master_get_devdata(master);
@@ -2516,7 +2545,11 @@ static int msm_spi_suspend(struct platform_device *pdev, pm_message_t state)
 
 	/* Wait for transactions to end, or time out */
 	wait_event_interruptible(dd->continue_suspend, !dd->transfer_pending);
+
 	msm_spi_free_gpios(dd);
+
+	if (pdata && pdata->gpio_release)
+		pdata->gpio_release();
 
 suspend_exit:
 	return 0;
@@ -2526,7 +2559,9 @@ static int msm_spi_resume(struct platform_device *pdev)
 {
 	struct spi_master *master = platform_get_drvdata(pdev);
 	struct msm_spi    *dd;
+	struct msm_spi_platform_data *pdata = pdev->dev.platform_data;
 
+	printk(KERN_INFO "[SPI]%s\n", __func__);
 	if (!master)
 		goto resume_exit;
 	dd = spi_master_get_devdata(master);
@@ -2535,6 +2570,8 @@ static int msm_spi_resume(struct platform_device *pdev)
 
 	BUG_ON(msm_spi_request_gpios(dd) != 0);
 	dd->suspended = 0;
+	if (pdata && pdata->gpio_config)
+		pdata->gpio_config();
 resume_exit:
 	return 0;
 }

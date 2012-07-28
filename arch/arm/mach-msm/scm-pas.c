@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "scm-pas: " fmt
+#define pr_fmt(fmt) "scm-pas:" fmt
 
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -56,32 +56,43 @@ int pas_init_image(enum pas_id id, const u8 *metadata, size_t size)
 EXPORT_SYMBOL(pas_init_image);
 
 static struct msm_bus_paths scm_pas_bw_tbl[] = {
-	{
-		.vectors = (struct msm_bus_vectors[]){
-			{
-				.src = MSM_BUS_MASTER_SPS,
-				.dst = MSM_BUS_SLAVE_EBI_CH0,
-			},
-		},
-		.num_paths = 1,
-	},
-	{
-		.vectors = (struct msm_bus_vectors[]){
-			{
-				.src = MSM_BUS_MASTER_SPS,
-				.dst = MSM_BUS_SLAVE_EBI_CH0,
-				.ib = 492 * 8 * 1000000UL,
-				.ab = 492 * 8 *  100000UL,
-			},
-		},
-		.num_paths = 1,
-	},
+       {
+               .vectors = (struct msm_bus_vectors[]){
+                       {
+                               .src = MSM_BUS_MASTER_SPS,
+                               .dst = MSM_BUS_SLAVE_EBI_CH0,
+                       },
+               },
+               .num_paths = 1,
+       },
+       {
+               .vectors = (struct msm_bus_vectors[]){
+                       {
+                               .src = MSM_BUS_MASTER_SPS,
+                               .dst = MSM_BUS_SLAVE_EBI_CH0,
+                               .ib = 492 * 8 * 1000000UL,
+                               .ab = 492 * 8 *  100000UL,
+                       },
+               },
+               .num_paths = 1,
+       },
+       {
+               .vectors = (struct msm_bus_vectors[]){
+                       {
+                               .src = MSM_BUS_MASTER_AMPSS_M0,
+                               .dst = MSM_BUS_SLAVE_SPS,
+                               .ib = 64 * 8 * 1000000UL,
+                               .ab = 64 * 8 *  600000UL,
+                       },
+               },
+               .num_paths = 1,
+       },
 };
 
 static struct msm_bus_scale_pdata scm_pas_bus_pdata = {
-	.usecase = scm_pas_bw_tbl,
-	.num_usecases = ARRAY_SIZE(scm_pas_bw_tbl),
-	.name = "scm_pas",
+       .usecase = scm_pas_bw_tbl,
+       .num_usecases = ARRAY_SIZE(scm_pas_bw_tbl),
+       .name = "scm_pas",
 };
 
 static uint32_t scm_perf_client;
@@ -90,41 +101,70 @@ static struct clk *scm_bus_clk;
 static DEFINE_MUTEX(scm_pas_bw_mutex);
 static int scm_pas_bw_count;
 
-static int scm_pas_enable_bw(void)
+int scm_pas_enable_bw(void)
 {
-	int ret = 0;
+       int ret = 0;
 
-	if (!scm_perf_client || !scm_bus_clk)
-		return -EINVAL;
+       if (!scm_perf_client || !scm_bus_clk)
+               return -EINVAL;
 
-	mutex_lock(&scm_pas_bw_mutex);
-	if (!scm_pas_bw_count) {
-		ret = msm_bus_scale_client_update_request(scm_perf_client, 1);
-		if (ret) {
-			pr_err("bandwidth request failed (%d)\n", ret);
-		} else {
-			ret = clk_enable(scm_bus_clk);
-			if (ret)
-				pr_err("clock enable failed\n");
-		}
-	}
-	if (ret)
-		msm_bus_scale_client_update_request(scm_perf_client, 0);
-	else
-		scm_pas_bw_count++;
-	mutex_unlock(&scm_pas_bw_mutex);
-	return ret;
+       mutex_lock(&scm_pas_bw_mutex);
+       if (!scm_pas_bw_count) {
+               ret = msm_bus_scale_client_update_request(scm_perf_client, 1);
+               if (ret) {
+                       pr_err("bandwidth request failed (%d)\n", ret);
+               } else {
+                       ret = clk_enable(scm_bus_clk);
+                       if (ret)
+                               pr_err("clock enable failed\n");
+               }
+       }
+       if (ret)
+               msm_bus_scale_client_update_request(scm_perf_client, 0);
+       else
+               scm_pas_bw_count++;
+       mutex_unlock(&scm_pas_bw_mutex);
+       return ret;
 }
+EXPORT_SYMBOL(scm_pas_enable_bw);
 
-static void scm_pas_disable_bw(void)
+void scm_pas_disable_bw(void)
 {
-	mutex_lock(&scm_pas_bw_mutex);
-	if (scm_pas_bw_count-- == 1) {
-		msm_bus_scale_client_update_request(scm_perf_client, 0);
-		clk_disable(scm_bus_clk);
-	}
-	mutex_unlock(&scm_pas_bw_mutex);
+       mutex_lock(&scm_pas_bw_mutex);
+       if (scm_pas_bw_count-- == 1) {
+               msm_bus_scale_client_update_request(scm_perf_client, 0);
+               clk_disable(scm_bus_clk);
+       }
+       mutex_unlock(&scm_pas_bw_mutex);
 }
+EXPORT_SYMBOL(scm_pas_disable_bw);
+
+int scm_pas_enable_dx_bw(void)
+{
+       int ret = 0;
+
+       if (!scm_perf_client || !scm_bus_clk)
+               return -EINVAL;
+
+       mutex_lock(&scm_pas_bw_mutex);
+       if (!scm_pas_bw_count) {
+               ret = msm_bus_scale_client_update_request(scm_perf_client, 2);
+               if (ret) {
+                       pr_err("dx bandwidth request failed (%d)\n", ret);
+               } else {
+                       ret = clk_enable(scm_bus_clk);
+                       if (ret)
+                               pr_err("dx clock enable failed\n");
+               }
+       }
+       if (ret)
+               msm_bus_scale_client_update_request(scm_perf_client, 0);
+       else
+               scm_pas_bw_count++;
+       mutex_unlock(&scm_pas_bw_mutex);
+       return ret;
+}
+EXPORT_SYMBOL(scm_pas_enable_dx_bw);
 
 int pas_auth_and_reset(enum pas_id id)
 {
@@ -135,7 +175,7 @@ int pas_auth_and_reset(enum pas_id id)
 	ret = scm_call(SCM_SVC_PIL, PAS_AUTH_AND_RESET_CMD, &proc,
 			sizeof(proc), &scm_ret, sizeof(scm_ret));
 	if (ret)
-		scm_ret = ret;
+		return scm_ret = ret;
 	if (!bus_ret)
 		scm_pas_disable_bw();
 
@@ -157,7 +197,11 @@ int pas_shutdown(enum pas_id id)
 }
 EXPORT_SYMBOL(pas_shutdown);
 
+#if defined(CONFIG_ARCH_MSM8X60) || defined(CONFIG_ARCH_MSM8960)
 static bool secure_pil = true;
+#else
+static bool secure_pil = false;
+#endif
 module_param(secure_pil, bool, S_IRUGO);
 MODULE_PARM_DESC(secure_pil, "Use secure PIL");
 
@@ -194,15 +238,15 @@ static int __init scm_pas_init(void)
 	if (!cpu_is_apq8064())
 		scm_perf_client = msm_bus_scale_register_client(
 				&scm_pas_bus_pdata);
-	if (!scm_perf_client)
-		pr_warn("unable to register bus client\n");
-	scm_bus_clk = clk_get_sys("scm", "bus_clk");
-	if (!IS_ERR(scm_bus_clk)) {
-		clk_set_rate(scm_bus_clk, 64000000);
-	} else {
-		scm_bus_clk = NULL;
-		pr_warn("unable to get bus clock\n");
-	}
-	return 0;
+       if (!scm_perf_client)
+               pr_warn("unable to register bus client\n");
+       scm_bus_clk = clk_get_sys("scm", "bus_clk");
+       if (!IS_ERR(scm_bus_clk)) {
+               clk_set_rate(scm_bus_clk, 64000000);
+       } else {
+               scm_bus_clk = NULL;
+               pr_warn("unable to get bus clock\n");
+       }
+       return 0;
 }
 module_init(scm_pas_init);

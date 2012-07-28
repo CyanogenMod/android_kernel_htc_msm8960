@@ -554,20 +554,24 @@ config TSIF_CHRDEV
 	  To compile this driver as module, choose M here: the
 	  module will be called tsif_chrdev.
 
+config TSIF_NM32X_62X_DEV
+	tristate "NM32x/62x TSIF device"
+	depends on TSIF
+	default n
+	---help---
+	  This driver uses low level TSIF interface. It provides Newport 
+	  Media NM32x/62x device useable from user space programs: one 
+	  can read TSIF stream from this device.
+
+	  To compile this driver as module, choose M here: the
+	  module will be called nm32x_62x-tsi.
+
 config TSIF_DEBUG
 	bool "Turn on debugging information for tsif driver"
 	depends on TSIF
 	default n
 	---help---
 	  This turns on debugging information for the tsif driver
-
-config TSPP
-	depends on ARCH_MSM
-	tristate "TSPP (Transport Stream Packet Processor) Support"
-	---help---
-	Transport Stream Packet Processor is used to offload the
-	processing of MPEG transport streams from the main processor.
-	This can also be compiled as a loadable module.
 
 config HAPTIC_ISA1200
 	tristate "ISA1200 haptic support"
@@ -594,19 +598,28 @@ config PMIC8XXX_VIBRATOR
 	  on the PM8XXX chips. The vibrator is controlled using the
 	  timed output class.
 
-config PMIC8XXX_NFC
-	tristate "Qualcomm PM8XXX support for Near Field Communication"
-	depends on MFD_PM8XXX
+config PMIC8XXX_VIBRATOR_PWM
+        tristate "Qualcomm Vibrator support for PMIC8XXX with pwm function"
+        help
+          This option enables device driver support for the vibrator
+          on the PM8XXX chips. The vibrator is controlled using the
+          timed output class.
+
+config PMIC8058_NFC
+	tristate "Qualcomm PM8058 support for Near Field Communication"
+	depends on PMIC8058
+	default y
 	help
-	  Qualcomm PM8XXX chips have a module to support NFC (Near Field
+	  Qualcomm PM8058 chip has a module to support NFC (Near Field
 	  Communication). This option enables the driver to support it.
 
-config PMIC8XXX_UPL
-	tristate "Qualcomm PM8XXX support for User Programmable Logic"
-	depends on MFD_PM8XXX
+config PMIC8058_UPL
+	tristate "Qualcomm PM8058 support for User Programmable Logic"
+	depends on PMIC8058
+	default n
 	help
 	  This option enables device driver support for User Programmable Logic
-	  on Qualcomm PM8XXX chips. The UPL module provides a means to implement
+	  on Qualcomm PM8058 chip.  The UPL module provides a means to implement
 	  simple truth table based logic via a set of control registers. I/O may
 	  be routed in and out of the UPL module via GPIO or DTEST pins.
 
@@ -635,6 +648,33 @@ config QFP_FUSE
 	  to the fuse block. Currently this is supported only
 	  on FSM targets.
 
+config CABLE_DETECT_8X60
+        boolean "Cable detect driver"
+        depends on ARCH_MSM8X60
+        default n
+        help
+          Detect usb, ac and other accessories.
+
+config CABLE_DETECT_8960
+        boolean "Cable detect driver"
+        depends on ARCH_MSM8960
+        default n
+        help
+          Detect usb, ac and other accessories.
+
+config CABLE_DETECT_ACCESSORY
+        boolean "CABLE ACCESSORY DETECT"
+        default n
+
+config CABLE_DETECT_ACCESSORY_BY_ADC
+        boolean "DETECT ACCESSORY BY PMIC ADC"
+        default n
+
+config CABLE_DETECT_GPIO_DOCK
+        boolean "CABLE_DETECT_GPIO_DOCK"
+        depends on CABLE_DETECT_8960
+        default n
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
@@ -642,5 +682,6 @@ source "drivers/misc/iwmc3200top/Kconfig"
 source "drivers/misc/ti-st/Kconfig"
 source "drivers/misc/lis3lv02d/Kconfig"
 source "drivers/misc/carma/Kconfig"
+source "drivers/misc/mpu3050/Kconfig"
 
 endif # MISC_DEVICES

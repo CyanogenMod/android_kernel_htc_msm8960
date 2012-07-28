@@ -448,4 +448,66 @@ enum {
 	MSM_RPM_STATUS_ID_LAST = MSM_RPM_STATUS_ID_EBI1_CH1_RANGE,
 };
 
+#define RPM_DEBUG_RAM_DEBUG		0x1
+#define RPM_DEBUG_RAM_DUMP		0x2
+#define RPM_DEBUG_APP_FROM_SUSPEND	0x4
+#define RPM_DEBUG_POWER_MEASUREMENT	0x8
+#define RPM_DEBUG_DISABLE_WATCHDOG	0x10
+
+typedef enum {
+  STAT_COUNT = 0,
+  STAT_ACCUM_TIME_SCLK = 1,
+  STAT_TYPE_FORCE_ENUM_SIZE = 0x7fffffff,
+} stat_type;
+
+typedef struct {
+  char     *name;
+  stat_type type;
+  uint32_t    value;
+} rpm_stat;
+
+typedef enum {
+  RPM_STAT_XO_SHUTDOWN_COUNT = 0,
+  RPM_STAT_XO_SHUTDOWN_TIME  = 1,
+  RPM_STAT_VDD_MIN_COUNT = 2,
+  RPM_STAT_VDD_MIN_TIME = 3,
+  RPM_MAX_STATS,
+  RPM_HTC_REGION = 63,
+} stat_assignments;
+
+typedef enum {
+  RPM_MASTER_0 = 0,
+  RPM_MASTER_1,
+  RPM_MASTER_2,
+  RPM_MASTER_3,
+  RPM_MASTER_4,
+  RPM_MASTER_5,
+  RPM_MASTER_COUNT,
+} rpm_master_type;
+
+  /* stat_sleep_info - uint32_t stats[3];
+  stats[0] bit0 : is_sleep_mode
+  stats[0] bit1 : cxo
+  stats[0] bit2 : pxo
+  stats[0] bit3~bit31 : vdd_mem
+  stats[1] vdd_dig
+  stats[2] reserve
+  */
+typedef struct {
+  uint32_t count;
+  uint32_t sleep_timestamp;
+  uint32_t total_duration;
+  uint32_t stats[3];
+} stat_sleep_info;
+
+typedef struct {
+  uint32_t num_stats;
+  rpm_stat stats[RPM_MAX_STATS];
+  uint32_t reversed1[62 - ((sizeof(rpm_stat)/sizeof(uint32_t)) * RPM_MAX_STATS)];
+  uint32_t reversed2[33];
+  uint32_t rpm_debug_mode;
+  stat_sleep_info sleep_info[RPM_MASTER_COUNT];
+} stats_blob;
+
+extern int htc_get_xo_vdd_min_info(uint32_t *xo_count, uint64_t *xo_time, uint32_t *vddmin_count, uint64_t *vddmin_time);
 #endif /* __ARCH_ARM_MACH_MSM_RPM_8960_H */

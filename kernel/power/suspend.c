@@ -27,6 +27,8 @@
 
 #include "power.h"
 
+int suspend_footprint;
+
 const char *const pm_states[PM_SUSPEND_MAX] = {
 #ifdef CONFIG_EARLYSUSPEND
 	[PM_SUSPEND_ON]		= "on",
@@ -93,18 +95,20 @@ static int suspend_prepare(void)
 
 	if (!suspend_ops || !suspend_ops->enter)
 		return -EPERM;
-
+	suspend_footprint = 5;
 	pm_prepare_console();
-
+	suspend_footprint = 6;
 	error = pm_notifier_call_chain(PM_SUSPEND_PREPARE);
 	if (error)
 		goto Finish;
-
+	suspend_footprint = 7;
 	error = usermodehelper_disable();
 	if (error)
 		goto Finish;
 
+	suspend_footprint = 8;
 	error = suspend_freeze_processes();
+	suspend_footprint = 0;
 	if (!error)
 		return 0;
 
@@ -212,7 +216,8 @@ int suspend_devices_and_enter(suspend_state_t state)
 		if (error)
 			goto Close;
 	}
-	suspend_console();
+	if (!suspend_console_deferred)
+		suspend_console();
 	suspend_test_start();
 	error = dpm_suspend_start(PMSG_SUSPEND);
 	if (error) {
@@ -229,7 +234,8 @@ int suspend_devices_and_enter(suspend_state_t state)
 	suspend_test_start();
 	dpm_resume_end(PMSG_RESUME);
 	suspend_test_finish("resume devices");
-	resume_console();
+	if (!suspend_console_deferred)
+		resume_console();
  Close:
 	if (suspend_ops->end)
 		suspend_ops->end();
@@ -276,8 +282,9 @@ int enter_state(suspend_state_t state)
 	if (!mutex_trylock(&pm_mutex))
 		return -EBUSY;
 
+	suspend_footprint = 3;
 	suspend_sys_sync_queue();
-
+	suspend_footprint = 4;
 	pr_debug("PM: Preparing system for %s sleep\n", pm_states[state]);
 	error = suspend_prepare();
 	if (error)

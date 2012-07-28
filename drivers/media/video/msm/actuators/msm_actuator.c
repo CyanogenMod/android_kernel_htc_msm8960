@@ -230,7 +230,8 @@ int32_t msm_actuator_af_power_down(struct msm_actuator_ctrl_t *a_ctrl)
 
 int32_t msm_actuator_config(
 	struct msm_actuator_ctrl_t *a_ctrl,
-	void __user *argp)
+	struct msm_actuator_info *board_info,
+	void __user *argp) /* HTC Angie 20111212 - Rawchip */
 {
 	struct msm_actuator_cfg_data cdata;
 	int32_t rc = 0;
@@ -250,6 +251,9 @@ int32_t msm_actuator_config(
 			rc = -EFAULT;
 		break;
 	case CFG_SET_ACTUATOR_INFO:
+#ifdef USE_RAWCHIP_AF
+		if (board_info && !board_info->use_rawchip_af)
+#endif
 		a_ctrl->set_info = cdata.cfg.set_info;
 		rc = a_ctrl->func_tbl.actuator_init_table(a_ctrl);
 		if (rc < 0)
@@ -269,6 +273,17 @@ int32_t msm_actuator_config(
 		if (rc < 0)
 			LERROR("%s move focus failed %d\n", __func__, rc);
 		break;
+
+/* HTC_START Angie 20111212 - Rawchip */
+	case CFG_GET_ACTUATOR_CURR_STEP_POS:
+		LINFO("%s current step: %d\n", __func__, a_ctrl->curr_step_pos);
+		cdata.cfg.curr_step_pos = a_ctrl->curr_step_pos;
+		if (copy_to_user((void *)argp,
+				 &cdata,
+				 sizeof(struct msm_actuator_cfg_data)))
+			rc = -EFAULT;
+		break;
+/* HTC_END */
 
 	default:
 		break;

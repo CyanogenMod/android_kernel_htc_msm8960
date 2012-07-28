@@ -117,7 +117,7 @@ struct pm8xxx_mpp_config_data {
  * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
  */
 int pm8xxx_mpp_config(unsigned mpp, struct pm8xxx_mpp_config_data *config);
-
+int pm8xxx_dump_mpp(struct seq_file *m, int curr_len, char *gpio_buffer);
 #else
 
 static inline int pm8xxx_mpp_config(unsigned mpp,
@@ -126,6 +126,11 @@ static inline int pm8xxx_mpp_config(unsigned mpp,
 	return -ENXIO;
 }
 
+static inline int pm8xxx_dump_mpp(struct seq_file *m,
+					int curr_len, char *gpio_buffer)
+{
+	return curr_len;
+}
 #endif
 
 /* MPP Type: type */

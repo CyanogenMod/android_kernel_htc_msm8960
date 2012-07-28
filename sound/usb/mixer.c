@@ -152,7 +152,6 @@ static inline void check_mapped_dB(const struct usbmix_name_map *p,
 	if (p && p->dB) {
 		cval->dBmin = p->dB->min;
 		cval->dBmax = p->dB->max;
-		cval->initialized = 1;
 	}
 }
 
@@ -1093,7 +1092,7 @@ static void build_feature_ctl(struct mixer_build *state, void *raw_desc,
 				" Switch" : " Volume");
 		if (control == UAC_FU_VOLUME) {
 			check_mapped_dB(map, cval);
-			if (cval->dBmin < cval->dBmax || !cval->initialized) {
+			if (cval->dBmin < cval->dBmax) {
 				kctl->tlv.c = mixer_vol_tlv;
 				kctl->vd[0].access |= 
 					SNDRV_CTL_ELEM_ACCESS_TLV_READ |

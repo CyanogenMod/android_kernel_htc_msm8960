@@ -98,7 +98,6 @@ enum gpio_event_direct_flags {
 /*	GPIOEDF_USE_IRQ             = (1U << 2) | GPIOIDF_USE_DOWN_IRQ, */
 	GPIOEDF_PRINT_KEYS          = 1U << 8,
 	GPIOEDF_PRINT_KEY_DEBOUNCE  = 1U << 9,
-	GPIOEDF_PRINT_KEY_UNSTABLE  = 1U << 10,
 };
 
 struct gpio_event_direct_entry {
@@ -119,6 +118,7 @@ struct gpio_event_input_info {
 	uint16_t type;
 	const struct gpio_event_direct_entry *keymap;
 	size_t keymap_size;
+	void (*setup_input_gpio)(void);
 };
 
 /* outputs */

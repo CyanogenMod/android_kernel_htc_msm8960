@@ -31,6 +31,7 @@ enum led_brightness {
 struct led_classdev {
 	const char		*name;
 	int			 brightness;
+	int                      offset;
 	int			 max_brightness;
 	int			 flags;
 
@@ -75,6 +76,8 @@ struct led_classdev {
 	void			*trigger_data;
 #endif
 };
+
+extern void led_brightness_switch(char *, int state);
 
 extern int led_classdev_register(struct device *parent,
 				 struct led_classdev *led_cdev);

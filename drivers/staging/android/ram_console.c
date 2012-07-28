@@ -155,6 +155,44 @@ void ram_console_enable_console(int enabled)
 		ram_console.flags &= ~CON_ENABLED;
 }
 
+#ifdef CONFIG_ANDROID_RAM_CONSOLE_APPEND_PMIC_STATUS_BITS
+static unsigned int atoi(const char *name)
+{
+	unsigned int val = 0;
+
+	for (;; name++) {
+		switch (*name) {
+		case '0' ... '9':
+			val = 10*val+(*name-'0');
+			break;
+		default:
+			return val;
+		}
+	}
+}
+static unsigned int last_off_event = 0;
+static int __init pmic_last_off_event(char *opt)
+{
+	if (!opt || !*opt || *opt == '\0')
+		return 1;
+	pr_debug("ram_console: last_off_event=%s", opt);
+	last_off_event = atoi(opt);
+	return 1;
+}
+__setup("reset_status=", pmic_last_off_event);
+
+static unsigned int start_on_event = 0;
+static int __init pmic_start_on_event(char *opt)
+{
+	if (!opt || !*opt || *opt == '\0')
+		return 1;
+	pr_debug("ram_console: start_on_event=%s", opt);
+	start_on_event = atoi(opt);
+	return 1;
+}
+__setup("poweron_status=", pmic_start_on_event);
+#endif
+
 static void __init
 ram_console_save_old(struct ram_console_buffer *buffer, const char *bootinfo,
 	char *dest)
@@ -164,6 +202,11 @@ ram_console_save_old(struct ram_console_buffer *buffer, const char *bootinfo,
 	size_t total_size = old_log_size;
 	char *ptr;
 	const char *bootinfo_label = "Boot info:\n";
+#ifdef CONFIG_ANDROID_RAM_CONSOLE_APPEND_PMIC_STATUS_BITS
+#define PMIC_STATUS_MAX 100
+	char pmic_status_buffer[PMIC_STATUS_MAX];
+	size_t pmic_status_buffer_len;
+#endif
 
 #ifdef CONFIG_ANDROID_RAM_CONSOLE_ERROR_CORRECTION
 	uint8_t *block;
@@ -211,6 +254,16 @@ ram_console_save_old(struct ram_console_buffer *buffer, const char *bootinfo,
 		bootinfo_size = strlen(bootinfo) + strlen(bootinfo_label);
 	total_size += bootinfo_size;
 
+#ifdef CONFIG_ANDROID_RAM_CONSOLE_APPEND_PMIC_STATUS_BITS
+	pmic_status_buffer_len =
+		snprintf(pmic_status_buffer, sizeof(pmic_status_buffer),
+			"\n[QCT] PMIC status: start_on_event=0x%x, last_off_event=0x%x\n",
+			start_on_event, last_off_event);
+	pmic_status_buffer_len =
+		min(pmic_status_buffer_len, sizeof(pmic_status_buffer) - 1);
+	total_size += pmic_status_buffer_len;
+#endif
+
 	if (dest == NULL) {
 		dest = kmalloc(total_size, GFP_KERNEL);
 		if (dest == NULL) {
@@ -237,6 +290,11 @@ ram_console_save_old(struct ram_console_buffer *buffer, const char *bootinfo,
 		memcpy(ptr, bootinfo, bootinfo_size);
 		ptr += bootinfo_size;
 	}
+#ifdef CONFIG_ANDROID_RAM_CONSOLE_APPEND_PMIC_STATUS_BITS
+	memcpy(ptr,
+		   pmic_status_buffer, pmic_status_buffer_len);
+	ptr += pmic_status_buffer_len;
+#endif
 }
 
 static int __init ram_console_init(struct ram_console_buffer *buffer,

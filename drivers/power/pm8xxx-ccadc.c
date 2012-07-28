@@ -1,15 +1,15 @@
 /* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 and
- * only version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- */
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 and
++ * only version 2 as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ */
 #define pr_fmt(fmt)	"%s: " fmt, __func__
 
 #include <linux/module.h>
@@ -568,7 +568,7 @@ int pm8xxx_ccadc_get_battery_current(int *bat_current_ua)
 }
 EXPORT_SYMBOL(pm8xxx_ccadc_get_battery_current);
 
-static int get_reg(void *data, u64 * val)
+static int get_reg(void *data, u64 *val)
 {
 	int addr = (int)data;
 	int ret;
@@ -601,7 +601,7 @@ static int set_reg(void *data, u64 val)
 }
 DEFINE_SIMPLE_ATTRIBUTE(reg_fops, get_reg, set_reg, "0x%02llx\n");
 
-static int get_calc(void *data, u64 * val)
+static int get_calc(void *data, u64 *val)
 {
 	int ibat, rc;
 
@@ -610,6 +610,77 @@ static int get_calc(void *data, u64 * val)
 	return rc;
 }
 DEFINE_SIMPLE_ATTRIBUTE(calc_fops, get_calc, NULL, "%lld\n");
+
+void dump_all(void)
+{
+	u64 val;
+	get_reg((void *)CCADC_ANA_PARAM, &val);
+	pr_info("[BATT] CCADC_ANA_PARAM = 0x%02llx\n", val);
+	get_reg((void *)CCADC_DIG_PARAM, &val);
+	pr_info("[BATT] CCADC_DIG_PARAM = 0x%02llx\n", val);
+	get_reg((void *)CCADC_RSV, &val);
+	pr_info("[BATT] CCADC_RSV = 0x%02llx\n", val);
+	get_reg((void *)CCADC_DATA0, &val);
+	pr_info("[BATT] CCADC_DATA0 = 0x%02llx\n", val);
+	get_reg((void *)CCADC_DATA1, &val);
+	pr_info("[BATT] CCADC_DATA1 = 0x%02llx\n", val);
+	get_reg((void *)CCADC_OFFSET_TRIM1, &val);
+	pr_info("[BATT] CCADC_OFFSET_TRIM1 = 0x%02llx\n", val);
+	get_reg((void *)CCADC_OFFSET_TRIM0, &val);
+	pr_info("[BATT] CCADC_OFFSET_TRIM0 = 0x%02llx\n", val);
+	get_reg((void *)CCADC_FULLSCALE_TRIM1, &val);
+	pr_info("[BATT] CCADC_FULLSCALE_TRIM1 = 0x%02llx\n", val);
+	get_reg((void *)CCADC_FULLSCALE_TRIM0, &val);
+	pr_info("[BATT] CCADC_FULLSCALE_TRIM0 = 0x%02llx\n", val);
+}
+
+inline int pm8xxx_ccadc_dump_all(void)
+{
+	if (!the_chip) {
+		pr_err("called before init\n");
+		return -EINVAL;
+	}
+	dump_all();
+	return 0;
+}
+EXPORT_SYMBOL(pm8xxx_ccadc_dump_all);
+
+int pm8xxx_ccadc_get_attr_text(char *buf, int size)
+{
+	int len = 0;
+	u64 val = 0;
+
+	get_reg((void *)CCADC_ANA_PARAM, &val);
+	len += scnprintf(buf + len, size - len,
+			"CCADC_ANA_PARAM: 0x%02llx;\n", val);
+	get_reg((void *)CCADC_DIG_PARAM, &val);
+	len += scnprintf(buf + len, size - len,
+			"CCADC_DIG_PARAM: 0x%02llx;\n", val);
+	get_reg((void *)CCADC_RSV, &val);
+	len += scnprintf(buf + len, size - len,
+			"CCADC_RSV: 0x%02llx;\n", val);
+	get_reg((void *)CCADC_DATA0, &val);
+	len += scnprintf(buf + len, size - len,
+			"CCADC_DATA0: 0x%02llx;\n", val);
+	get_reg((void *)CCADC_DATA1, &val);
+	len += scnprintf(buf + len, size - len,
+			"CCADC_DATA1: 0x%02llx;\n", val);
+	get_reg((void *)CCADC_OFFSET_TRIM1, &val);
+	len += scnprintf(buf + len, size - len,
+			"CCADC_OFFSET_TRIM1: 0x%02llx;\n", val);
+	get_reg((void *)CCADC_OFFSET_TRIM0, &val);
+	len += scnprintf(buf + len, size - len,
+			"CCADC_OFFSET_TRIM0: 0x%02llx;\n", val);
+	get_reg((void *)CCADC_FULLSCALE_TRIM1, &val);
+	len += scnprintf(buf + len, size - len,
+			"CCADC_FULLSCALE_TRIM1: 0x%02llx;\n", val);
+	get_reg((void *)CCADC_FULLSCALE_TRIM0, &val);
+	len += scnprintf(buf + len, size - len,
+			"CCADC_FULLSCALE_TRIM0: 0x%02llx;\n", val);
+
+	return len;
+}
+EXPORT_SYMBOL(pm8xxx_ccadc_get_attr_text);
 
 static void create_debugfs_entries(struct pm8xxx_ccadc_chip *chip)
 {

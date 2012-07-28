@@ -18,6 +18,15 @@ config DIAG_OVER_USB
 	default y
 	help
 	 This feature helps segregate code required for DIAG traffic to go over USB.
+
+config MODEM_DIAG_MASTER
+	bool "Set if Modem is to be the master on DIAG"
+	depends on ARCH_MSM
+	default n
+	help
+	 Diag master: Android just forwards the Diag packet to modem. Modem will remove HDLC by itself.
+	 Diag slave: Android kernel should remove HDLC from Diag packet before send to modem.
+	 In the latest modem codebase, it was n by default.
 endmenu
 
 menu "SDIO support for DIAG"
@@ -28,14 +37,4 @@ config DIAG_SDIO_PIPE
 	bool "Enable 9K DIAG traffic over SDIO"
 	help
 	 SDIO Transport Layer for DIAG Router
-endmenu
-
-menu "HSIC support for DIAG"
-
-config DIAG_HSIC_PIPE
-	depends on USB_QCOM_DIAG_BRIDGE
-	default y
-	bool "Enable 9K DIAG traffic over HSIC"
-	help
-	 HSIC Transport Layer for DIAG Router
 endmenu

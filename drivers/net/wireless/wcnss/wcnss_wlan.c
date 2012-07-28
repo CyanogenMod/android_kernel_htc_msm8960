@@ -49,7 +49,8 @@ static struct {
 
 static void wcnss_post_bootup(struct work_struct *work)
 {
-	pr_info("%s: Cancel APPS vote for Iris & Riva\n", __func__);
+	pr_info("[WCNSS]%s: Cancel APPS vote for Iris & Riva\n", __func__);
+	pr_info("[WCNSS]RIVA driver version=%s\n", VERSION);
 
 	/* Since Riva is up, cancel any APPS vote for Iris & Riva VREGs  */
 	wcnss_wlan_power(&penv->pdev->dev, &penv->wlan_config,
@@ -89,7 +90,7 @@ wcnss_wlan_ctrl_probe(struct platform_device *pdev)
 
 	penv->smd_channel_ready = 1;
 
-	pr_info("%s: SMD ctrl channel up\n", __func__);
+	pr_info("[WCNSS]%s: SMD ctrl channel up\n", __func__);
 
 	/* Schedule a work to do any post boot up activity */
 	INIT_DELAYED_WORK(&penv->wcnss_work, wcnss_post_bootup);
@@ -104,7 +105,7 @@ wcnss_wlan_ctrl_remove(struct platform_device *pdev)
 	if (penv)
 		penv->smd_channel_ready = 0;
 
-	pr_info("%s: SMD ctrl channel down\n", __func__);
+	pr_info("[WCNSS]%s: SMD ctrl channel down\n", __func__);
 
 	return 0;
 }
@@ -183,7 +184,7 @@ void wcnss_wlan_unregister_pm_ops(struct device *dev,
 	if (penv && dev && (dev == &penv->pdev->dev) && pm_ops) {
 		if (pm_ops->suspend != penv->pm_ops->suspend ||
 				pm_ops->resume != penv->pm_ops->resume)
-			pr_err("PM APIs dont match with registered APIs\n");
+			pr_err("[WCNSS]PM APIs dont match with registered APIs\n");
 		penv->pm_ops = NULL;
 	}
 }
@@ -311,6 +312,11 @@ static struct miscdevice wcnss_misc = {
 };
 #endif /* ifndef MODULE */
 
+#ifdef CONFIG_PERFLOCK
+#include <mach/perflock.h>
+struct perf_lock qcom_wlan_perf_lock;
+EXPORT_SYMBOL(qcom_wlan_perf_lock);
+#endif /* CONFIG_PERFLOCK */
 
 static int __devinit
 wcnss_wlan_probe(struct platform_device *pdev)
@@ -320,6 +326,10 @@ wcnss_wlan_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "cannot handle multiple devices.\n");
 		return -ENODEV;
 	}
+
+#ifdef CONFIG_PERFLOCK
+        perf_lock_init(&qcom_wlan_perf_lock, PERF_LOCK_HIGHEST, "qcom-wifi-perf");
+#endif /* CONFIG_PERFLOCK */
 
 	/* create an environment to track the device */
 	penv = kzalloc(sizeof(*penv), GFP_KERNEL);

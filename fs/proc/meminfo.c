@@ -97,6 +97,11 @@ static int meminfo_proc_show(struct seq_file *m, void *v)
 		"Committed_AS:   %8lu kB\n"
 		"VmallocTotal:   %8lu kB\n"
 		"VmallocUsed:    %8lu kB\n"
+		"VmallocIoRemap: %8lu kB\n"
+		"VmallocAlloc:   %8lu kB\n"
+		"VmallocMap:     %8lu kB\n"
+		"VmallocUserMap: %8lu kB\n"
+		"VmallocVpage:   %8lu kB\n"
 		"VmallocChunk:   %8lu kB\n"
 #ifdef CONFIG_MEMORY_FAILURE
 		"HardwareCorrupted: %5lu kB\n"
@@ -155,6 +160,11 @@ static int meminfo_proc_show(struct seq_file *m, void *v)
 		K(committed),
 		(unsigned long)VMALLOC_TOTAL >> 10,
 		vmi.used >> 10,
+		vmi.ioremap >> 10,
+		vmi.alloc >> 10,
+		vmi.map >> 10,
+		vmi.usermap >> 10,
+		vmi.vpages >> 10,
 		vmi.largest_chunk >> 10
 #ifdef CONFIG_MEMORY_FAILURE
 		,atomic_long_read(&mce_bad_pages) << (PAGE_SHIFT - 10)

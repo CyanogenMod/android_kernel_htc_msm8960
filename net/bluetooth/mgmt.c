@@ -1619,6 +1619,7 @@ static int pair_device(struct sock *sk, u16 index, unsigned char *data, u16 len)
 			io_cap = 0x01;
 		conn = hci_connect(hdev, ACL_LINK, 0, &cp->bdaddr, sec_level,
 								auth_type);
+		conn->auth_initiator = 1;
 	}
 
 	if (IS_ERR(conn)) {
@@ -1900,7 +1901,10 @@ void mgmt_inquiry_complete_evt(u16 index, u8 status)
 						sizeof(le_cp), &le_cp);
 		if (err >= 0) {
 			mod_timer(&hdev->disco_le_timer, jiffies +
-				msecs_to_jiffies(hdev->disco_int_phase * 1000));
+		        //	msecs_to_jiffies(hdev->disco_int_phase * 1000));
+                        //htc_bt ++
+                                msecs_to_jiffies(1000));
+                        //htc_bt --
 			hdev->disco_state = SCAN_LE;
 		} else
 			hdev->disco_state = SCAN_IDLE;
@@ -2910,4 +2914,17 @@ int mgmt_remote_version(u16 index, bdaddr_t *bdaddr, u8 ver, u16 mnf,
 	ev.lmp_subver = sub_ver;
 
 	return mgmt_event(MGMT_EV_REMOTE_VERSION, index, &ev, sizeof(ev), NULL);
+}
+
+int mgmt_remote_features(u16 index, bdaddr_t *bdaddr, u8 features[8])
+{
+	struct mgmt_ev_remote_features ev;
+
+	memset(&ev, 0, sizeof(ev));
+
+	bacpy(&ev.bdaddr, bdaddr);
+	memcpy(ev.features, features, sizeof(ev.features));
+
+	return mgmt_event(MGMT_EV_REMOTE_FEATURES, index, &ev, sizeof(ev),
+									NULL);
 }

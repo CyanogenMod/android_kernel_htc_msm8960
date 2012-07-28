@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,7 +19,6 @@
 #include <linux/cdev.h>
 #include <linux/platform_device.h>
 #include <linux/wakelock.h>
-#include <linux/regulator/consumer.h>
 #include "linux/types.h"
 
 #include <mach/board.h>
@@ -33,6 +32,18 @@
 #else
 #define CDBG(fmt, args...) do { } while (0)
 #endif
+
+#ifdef pr_err
+#undef pr_err
+#endif
+#define pr_err(fmt, args...) \
+        printk(KERN_ERR "[CAM][ERR] " pr_fmt(fmt), ## args)
+
+#ifdef pr_info
+#undef pr_info
+#endif
+#define pr_info(fmt, args...) \
+        printk(KERN_INFO "[CAM] " pr_fmt(fmt), ## args)
 
 #define PAD_TO_2K(a, b) ((!b) ? a : (((a)+2047) & ~2047))
 
@@ -52,7 +63,6 @@ enum vfe_mode_of_operation{
 	VFE_MODE_OF_OPERATION_VIDEO,
 	VFE_MODE_OF_OPERATION_RAW_SNAPSHOT,
 	VFE_MODE_OF_OPERATION_ZSL,
-	VFE_MODE_OF_OPERATION_JPEG_SNAPSHOT,
 	VFE_LAST_MODE_OF_OPERATION_ENUM
 };
 
@@ -76,7 +86,7 @@ enum vfe_resp_msg {
 	VFE_MSG_STATS_AEC,
 	VFE_MSG_STATS_AF,
 	VFE_MSG_STATS_AWB,
-	VFE_MSG_STATS_RS, /* 10 */
+	VFE_MSG_STATS_RS,
 	VFE_MSG_STATS_CS,
 	VFE_MSG_STATS_IHIST,
 	VFE_MSG_STATS_SKIN,
@@ -86,12 +96,9 @@ enum vfe_resp_msg {
 	VFE_MSG_SYNC_TIMER2,
 	VFE_MSG_COMMON,
 	VFE_MSG_V32_START,
-	VFE_MSG_V32_START_RECORDING, /* 20 */
+	VFE_MSG_V32_START_RECORDING,
 	VFE_MSG_V32_CAPTURE,
-	VFE_MSG_V32_JPEG_CAPTURE,
 	VFE_MSG_OUTPUT_IRQ,
-	VFE_MSG_V2X_PREVIEW,
-	VFE_MSG_V2X_CAPTURE,
 	VFE_MSG_OUTPUT_PRIMARY,
 	VFE_MSG_OUTPUT_SECONDARY,
 };
@@ -202,7 +209,6 @@ struct msm_camera_csi2_params {
 #define VFE31_OUTPUT_MODE_T (0x1 << 4)
 
 #define CSI_EMBED_DATA 0x12
-#define CSI_YUV422_8  0x1E
 #define CSI_RAW8    0x2A
 #define CSI_RAW10   0x2B
 #define CSI_RAW12   0x2C
@@ -210,7 +216,6 @@ struct msm_camera_csi2_params {
 #define CSI_DECODE_6BIT 0
 #define CSI_DECODE_8BIT 1
 #define CSI_DECODE_10BIT 2
-#define CSI_DECODE_DPCM_10_8_10 5
 
 struct msm_vfe_phy_info {
 	uint32_t sbuf_phy;
@@ -391,6 +396,12 @@ struct msm_sync {
 	int unblock_poll_frame;
 	int unblock_poll_pic_frame;
 
+/* HTC_START ben 20111111 HDR */
+	atomic_t dropframe_enabled;
+	atomic_t snap_dropframe_num; /* num of snapshot frames to drop */
+	atomic_t snap_dropframe; /* whether to drop next snapshot frame */
+/* HTC_END ben 20111111 HDR */
+
 	/* This queue contains snapshot frames.  It is accessed by the DSP (in
 	 * interrupt context, and by the control thread.
 	 */
@@ -405,6 +416,7 @@ struct msm_sync {
 	struct msm_strobe_flash_ctrl sfctrl;
 	struct msm_actuator_ctrl actctrl;
 	struct wake_lock wake_lock;
+	struct wake_lock wake_lock_suspend;
 	struct platform_device *pdev;
 	int16_t ignore_qcmd_type;
 	uint8_t ignore_qcmd;
@@ -675,8 +687,6 @@ u32 msm_io_r_mb(void __iomem *addr);
 void msm_io_dump(void __iomem *addr, int size);
 void msm_io_memcpy(void __iomem *dest_addr, void __iomem *src_addr, u32 len);
 void msm_camio_set_perf_lvl(enum msm_bus_perf_setting);
-void msm_camio_bus_scale_cfg(
-	struct msm_bus_scale_pdata *, enum msm_bus_perf_setting);
 
 void *msm_isp_sync_alloc(int size, gfp_t gfp);
 
@@ -684,15 +694,4 @@ void msm_isp_sync_free(void *ptr);
 
 int msm_cam_clk_enable(struct device *dev, struct msm_cam_clk_info *clk_info,
 		struct clk **clk_ptr, int num_clk, int enable);
-int msm_cam_core_reset(void);
-
-int msm_camera_config_vreg(struct device *dev, struct camera_vreg_t *cam_vreg,
-		int num_vreg, struct regulator **reg_ptr, int config);
-int msm_camera_enable_vreg(struct device *dev, struct camera_vreg_t *cam_vreg,
-		int num_vreg, struct regulator **reg_ptr, int enable);
-
-int msm_camera_config_gpio_table
-	(struct msm_camera_sensor_info *sinfo, int gpio_en);
-int msm_camera_request_gpio_table
-	(struct msm_camera_sensor_info *sinfo, int gpio_en);
 #endif

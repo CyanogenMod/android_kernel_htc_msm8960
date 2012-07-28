@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -61,6 +61,8 @@ struct videobuf2_contig_pmem {
 	unsigned long mapped_phyaddr;
 	struct ion_handle *ion_handle;
 	struct ion_client *client;
+	void *kernel_vaddr;
+	unsigned long ion_flags;
 };
 void videobuf2_queue_pmem_contig_init(struct vb2_queue *q,
 					enum v4l2_buf_type type,

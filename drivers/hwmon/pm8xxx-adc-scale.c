@@ -25,91 +25,117 @@
    and provided to the battery driver in the units desired for
    their framework which is 0.1DegC. True resolution of 0.1DegC
    will result in the below table size to increase by 10 times */
-static const struct pm8xxx_adc_map_pt adcmap_btm_threshold[] = {
-	{-300,	1642},
-	{-200,	1544},
-	{-100,	1414},
-	{0,	1260},
-	{10,	1244},
-	{20,	1228},
-	{30,	1212},
-	{40,	1195},
-	{50,	1179},
-	{60,	1162},
-	{70,	1146},
-	{80,	1129},
-	{90,	1113},
-	{100,	1097},
-	{110,	1080},
-	{120,	1064},
-	{130,	1048},
-	{140,	1032},
-	{150,	1016},
-	{160,	1000},
-	{170,	985},
-	{180,	969},
-	{190,	954},
-	{200,	939},
-	{210,	924},
-	{220,	909},
-	{230,	894},
-	{240,	880},
-	{250,	866},
-	{260,	852},
-	{270,	838},
-	{280,	824},
-	{290,	811},
-	{300,	798},
-	{310,	785},
-	{320,	773},
-	{330,	760},
-	{340,	748},
-	{350,	736},
-	{360,	725},
-	{370,	713},
-	{380,	702},
-	{390,	691},
-	{400,	681},
-	{410,	670},
-	{420,	660},
-	{430,	650},
-	{440,	640},
-	{450,	631},
-	{460,	622},
-	{470,	613},
-	{480,	604},
-	{490,	595},
-	{500,	587},
-	{510,	579},
-	{520,	571},
-	{530,	563},
-	{540,	556},
-	{550,	548},
-	{560,	541},
-	{570,	534},
-	{580,	527},
-	{590,	521},
-	{600,	514},
-	{610,	508},
-	{620,	502},
-	{630,	496},
-	{640,	490},
-	{650,	485},
-	{660,	281},
-	{670,	274},
-	{680,	267},
-	{690,	260},
-	{700,	254},
-	{710,	247},
-	{720,	241},
-	{730,	235},
-	{740,	229},
-	{750,	224},
-	{760,	218},
-	{770,	213},
-	{780,	208},
-	{790,	203}
+static const struct pm8xxx_adc_map_pt adcmap_btm[] = {
+	{-200,	1671},
+	{-190,	1663},
+	{-180,	1654},
+	{-170,	1646},
+	{-160,	1636},
+	{-150,	1627},
+	{-140,	1617},
+	{-130,	1606},
+	{-120,	1595},
+	{-110,	1584},
+	{-100,	1572},
+	{-90,	1560},
+	{-80,	1548},
+	{-70,	1534},
+	{-60,	1521},
+	{-50,	1507},
+	{-40,	1492},
+	{-30,	1477},
+	{-20,	1462},
+	{-10,	1446},
+	{-0,	1430},
+	{10,		1413},
+	{20,		1396},
+	{30,		1379},
+	{40,		1361},
+	{50,		1343},
+	{60,		1325},
+	{70,		1306},
+	{80,		1287},
+	{90,		1267},
+	{100,	1248},
+	{110,	1228},
+	{120,	1208},
+	{130,	1188},
+	{140,	1168},
+	{150,	1147},
+	{160,	1127},
+	{170,	1106},
+	{180,	1086},
+	{190,	1065},
+	{200,	1044},
+	{210,	1024},
+	{220,	1004},
+	{230,	983},
+	{240,	963},
+	{250,	943},
+	{260,	923},
+	{270,	903},
+	{280,	884},
+	{290,	864},
+	{300,	845},
+	{310,	827},
+	{320,	808},
+	{330,	790},
+	{340,	772},
+	{350,	755},
+	{360,	738},
+	{370,	721},
+	{380,	704},
+	{390,	688},
+	{400,	672},
+	{410,	657},
+	{420,	642},
+	{430,	627},
+	{440,	613},
+	{450,	599},
+	{460,	585},
+	{470,	572},
+	{480,	559},
+	{490,	547},
+	{500,	535},
+	{510,	523},
+	{520,	511},
+	{530,	500},
+	{540,	489},
+	{550,	479},
+	{560,	469},
+	{570,	459},
+	{580,	449},
+	{590,	440},
+	{600,	431},
+	{610,	423},
+	{620,	414},
+	{630,	406},
+	{640,	398},
+	{650,	390},
+	{660,	383},
+	{670,	376},
+	{680,	369},
+	{690,	363},
+	{700,	356},
+	{710,	350},
+	{720,	344},
+	{730,	338},
+	{740,	333},
+	{750,	327},
+	{760,	322},
+	{770,	317},
+	{780,	312},
+	{790,	308}
 };
+
+/* if board file doesn't assign map table, default one will be used */
+static struct pm8xxx_adc_map_table default_adcmap_btm = {
+	.table = adcmap_btm,
+	.size = ARRAY_SIZE(adcmap_btm),
+};
+
+/* pointer to map_table that driver uses to translate adc <-> batt temperature */
+static struct pm8xxx_adc_map_table *adcmap_btm_table = &default_adcmap_btm;
 
 static const struct pm8xxx_adc_map_pt adcmap_pa_therm[] = {
 	{1677,	-30},
@@ -495,6 +521,12 @@ static int32_t pm8xxx_adc_map_batt_therm(const struct pm8xxx_adc_map_pt *pts,
 	return 0;
 }
 
+void pm8xxx_adc_set_adcmap_btm_table(struct pm8xxx_adc_map_table *adcmap_table)
+{
+	adcmap_btm_table = adcmap_table;
+}
+EXPORT_SYMBOL_GPL(pm8xxx_adc_set_adcmap_btm_table);
+
 int32_t pm8xxx_adc_scale_default(int32_t adc_code,
 		const struct pm8xxx_adc_properties *adc_properties,
 		const struct pm8xxx_adc_chan_properties *chan_properties,
@@ -580,19 +612,56 @@ int32_t pm8xxx_adc_scale_batt_therm(int32_t adc_code,
 		const struct pm8xxx_adc_properties *adc_properties,
 		const struct pm8xxx_adc_chan_properties *chan_properties,
 		struct pm8xxx_adc_chan_result *adc_chan_result)
-{
+ {
 	int64_t bat_voltage = 0;
 
 	bat_voltage = pm8xxx_adc_scale_ratiometric_calib(adc_code,
 			adc_properties, chan_properties);
 
 	return pm8xxx_adc_map_batt_therm(
-			adcmap_btm_threshold,
-			ARRAY_SIZE(adcmap_btm_threshold),
+			adcmap_btm_table->table,
+			adcmap_btm_table->size,
 			bat_voltage,
 			&adc_chan_result->physical);
 }
 EXPORT_SYMBOL_GPL(pm8xxx_adc_scale_batt_therm);
+/* htc table translate adc_code to mv to degC */
+#if 0
+int32_t pm8xxx_adc_scale_batt_therm(int32_t adc_code,
+		const struct pm8xxx_adc_properties *adc_properties,
+		const struct pm8xxx_adc_chan_properties *chan_properties,
+		struct pm8xxx_adc_chan_result *adc_chan_result)
+{
+	pm8xxx_adc_scale_default(adc_code, adc_properties, chan_properties,
+								adc_chan_result);
+	/* convert mV ---> degC using the table */
+	return pm8xxx_adc_map_linear(
+			adcmap_batttherm,
+			ARRAY_SIZE(adcmap_batttherm),
+			adc_chan_result->physical,
+			&adc_chan_result->physical);
+}
+EXPORT_SYMBOL_GPL(pm8xxx_adc_scale_batt_therm);
+#endif
+/* qcom tranlate adc_code to temp by table directly */
+#if 0
+int32_t pm8xxx_adc_scale_batt_therm(int32_t adc_code,
+		const struct pm8xxx_adc_properties *adc_properties,
+		const struct pm8xxx_adc_chan_properties *chan_properties,
+		struct pm8xxx_adc_chan_result *adc_chan_result)
+{
+	/* Note: adc_chan_result->measurement is in the unit of
+		adc_properties.adc_reference */
+	adc_chan_result->measurement = adc_code;
+	/* convert mV ---> degC using the table */
+	return pm8xxx_adc_map_linear(
+			adcmap_batttherm,
+			ARRAY_SIZE(adcmap_batttherm),
+			adc_code,
+			&adc_chan_result->physical);
+}
+EXPORT_SYMBOL_GPL(pm8xxx_adc_scale_batt_therm);
+#endif
 
 int32_t pm8xxx_adc_scale_pa_therm(int32_t adc_code,
 		const struct pm8xxx_adc_properties *adc_properties,
@@ -705,8 +774,8 @@ int32_t pm8xxx_adc_batt_scaler(struct pm8xxx_adc_arb_btm_param *btm_param,
 	int rc;
 
 	rc = pm8xxx_adc_map_linear(
-		adcmap_btm_threshold,
-		ARRAY_SIZE(adcmap_btm_threshold),
+		adcmap_btm_table->table,
+		adcmap_btm_table->size,
 		(btm_param->low_thr_temp),
 		&btm_param->low_thr_voltage);
 	if (rc)
@@ -719,8 +788,8 @@ int32_t pm8xxx_adc_batt_scaler(struct pm8xxx_adc_arb_btm_param *btm_param,
 		chan_properties->adc_graph[ADC_CALIB_RATIOMETRIC].adc_gnd;
 
 	rc = pm8xxx_adc_map_linear(
-		adcmap_btm_threshold,
-		ARRAY_SIZE(adcmap_btm_threshold),
+		adcmap_btm_table->table,
+		adcmap_btm_table->size,
 		(btm_param->high_thr_temp),
 		&btm_param->high_thr_voltage);
 	if (rc)

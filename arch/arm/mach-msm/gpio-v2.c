@@ -22,11 +22,14 @@
 #include <linux/syscore_ops.h>
 
 #include <asm/mach/irq.h>
-
+#include <linux/debugfs.h>
+#include <linux/seq_file.h>
+#include <linux/slab.h>
+#include <linux/mfd/pm8xxx/pm8921.h>
 #include <mach/msm_iomap.h>
 #include <mach/gpiomux.h>
 #include "mpm.h"
-
+#include <mach/pm.h>
 /* Bits of interest in the GPIO_IN_OUT register.
  */
 enum {
@@ -578,10 +581,427 @@ static struct syscore_ops msm_gpio_syscore_ops = {
 	.resume = msm_gpio_resume,
 };
 
+/* Move definitions out of CONFIG_DEBUG_FS for msm_sleep_show_gpios */
+#define GPIO_FUNC_SEL_BIT 2
+#define GPIO_DRV_BIT 6
+
+#if defined(CONFIG_DEBUG_FS)
+
+static int gpio_debug_direction_set(void *data, u64 val)
+{
+	unsigned long irq_flags;
+	int *id = data;
+
+	spin_lock_irqsave(&tlmm_lock, irq_flags);
+
+	if (val)
+		clr_gpio_bits(BIT(GPIO_OE_BIT), GPIO_CONFIG(*id));
+	else
+		set_gpio_bits(BIT(GPIO_OE_BIT), GPIO_CONFIG(*id));
+
+	spin_unlock_irqrestore(&tlmm_lock, irq_flags);
+	return 0;
+}
+
+static int gpio_debug_direction_get(void *data, u64 *val)
+{
+	int *id = data;
+
+	*val = (readl(GPIO_CONFIG(*id)) & BIT(GPIO_OE_BIT))>>GPIO_OE_BIT;
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(gpio_direction_fops, gpio_debug_direction_get,
+			gpio_debug_direction_set, "%llu\n");
+
+static int gpio_debug_level_set(void *data, u64 val)
+{
+	unsigned long irq_flags;
+	int *id = data;
+
+	spin_lock_irqsave(&tlmm_lock, irq_flags);
+	writel(val ? BIT(GPIO_OUT_BIT) : 0, GPIO_IN_OUT(*id));
+	spin_unlock_irqrestore(&tlmm_lock, irq_flags);
+
+	return 0;
+}
+
+static int gpio_debug_level_get(void *data, u64 *val)
+{
+	int *id = data;
+	int dir = (readl(GPIO_CONFIG(*id)) & BIT(GPIO_OE_BIT))>>GPIO_OE_BIT;
+
+	if (dir)
+		*val = (readl(GPIO_IN_OUT(*id)) & BIT(GPIO_OUT_BIT))>>GPIO_OUT_BIT;
+	else
+		*val = readl(GPIO_IN_OUT(*id)) & BIT(GPIO_IN_BIT);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(gpio_level_fops, gpio_debug_level_get,
+			gpio_debug_level_set, "%llu\n");
+
+static int gpio_debug_drv_set(void *data, u64 val)
+{
+	unsigned long irq_flags;
+	int *id = data;
+
+	spin_lock_irqsave(&tlmm_lock, irq_flags);
+	set_gpio_bits((val << GPIO_DRV_BIT), GPIO_CONFIG(*id));
+	spin_unlock_irqrestore(&tlmm_lock, irq_flags);
+
+	return 0;
+}
+
+static int gpio_debug_drv_get(void *data, u64 *val)
+{
+	int *id = data;
+
+	*val = (readl(GPIO_CONFIG(*id)) >> GPIO_DRV_BIT) & 0x7;
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(gpio_drv_fops, gpio_debug_drv_get,
+			gpio_debug_drv_set, "%llu\n");
+
+static int gpio_debug_func_sel_set(void *data, u64 val)
+{
+	unsigned long irq_flags;
+	int *id = data;
+
+	spin_lock_irqsave(&tlmm_lock, irq_flags);
+	set_gpio_bits((val << GPIO_FUNC_SEL_BIT), GPIO_CONFIG(*id));
+	spin_unlock_irqrestore(&tlmm_lock, irq_flags);
+
+	return 0;
+}
+
+static int gpio_debug_func_sel_get(void *data, u64 *val)
+{
+	int *id = data;
+
+	*val = (readl(GPIO_CONFIG(*id)) >> GPIO_FUNC_SEL_BIT) & 0x7;
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(gpio_func_sel_fops, gpio_debug_func_sel_get,
+			gpio_debug_func_sel_set, "%llu\n");
+
+static int gpio_debug_pull_set(void *data, u64 val)
+{
+	unsigned long irq_flags;
+	int *id = data;
+
+	spin_lock_irqsave(&tlmm_lock, irq_flags);
+	set_gpio_bits(val, GPIO_CONFIG(*id));
+	spin_unlock_irqrestore(&tlmm_lock, irq_flags);
+
+	return 0;
+}
+
+static int gpio_debug_pull_get(void *data, u64 *val)
+{
+	int *id = data;
+
+	*val = readl(GPIO_CONFIG(*id)) & 0x3;
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(gpio_pull_fops, gpio_debug_pull_get,
+			gpio_debug_pull_set, "%llu\n");
+
+static int gpio_debug_int_enable_get(void *data, u64 *val)
+{
+	int *id = data;
+
+	*val = readl(GPIO_INTR_CFG(*id)) & 0x1;
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(gpio_int_enable_fops, gpio_debug_int_enable_get,
+			NULL, "%llu\n");
+
+static int gpio_debug_int_owner_set(void *data, u64 val)
+{
+	int *id = data;
+	unsigned long irq_flags;
+
+	spin_lock_irqsave(&tlmm_lock, irq_flags);
+
+	if (val)
+		writel(TARGET_PROC_SCORPION, GPIO_INTR_CFG_SU(*id));
+	else
+		writel(TARGET_PROC_NONE, GPIO_INTR_CFG_SU(*id));
+
+	spin_unlock_irqrestore(&tlmm_lock, irq_flags);
+
+	return 0;
+}
+
+static int gpio_debug_int_owner_get(void *data, u64 *val)
+{
+	int *id = data;
+
+	*val = readl(GPIO_INTR_CFG_SU(*id)) & 0x7;
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(gpio_int_owner_fops, gpio_debug_int_owner_get,
+			gpio_debug_int_owner_set, "%llu\n");
+
+static int gpio_debug_int_type_get(void *data, u64 *val)
+{
+	int *id = data;
+
+	*val = (readl(GPIO_INTR_CFG(*id))>>0x1) & 0x3;
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(gpio_int_type_fops, gpio_debug_int_type_get,
+			NULL, "%llu\n");
+
+static int list_gpios_show(struct seq_file *m, void *unused)
+{
+	msm_dump_gpios(m, 0, NULL);
+	pm8xxx_dump_gpios(m, 0, NULL);
+	pm8xxx_dump_mpp(m, 0, NULL);
+	return 0;
+}
+
+static int list_sleep_gpios_show(struct seq_file *m, void *unused)
+{
+	print_gpio_buffer(m);
+	return 0;
+}
+
+static int list_gpios_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, list_gpios_show, inode->i_private);
+}
+
+static int list_sleep_gpios_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, list_sleep_gpios_show, inode->i_private);
+}
+
+static int list_sleep_gpios_release(struct inode *inode, struct file *file)
+{
+	free_gpio_buffer();
+	return single_release(inode, file);
+}
+
+static const struct file_operations list_gpios_fops = {
+	.open		= list_gpios_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
+static const struct file_operations list_sleep_gpios_fops = {
+	.open		= list_sleep_gpios_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= list_sleep_gpios_release,
+};
+
+static struct dentry *debugfs_base;
+#define DEBUG_MAX_FNAME    8
+
+static int gpio_add_status(int id)
+{
+	unsigned int *index_p;
+	struct dentry *gpio_dir;
+	char name[DEBUG_MAX_FNAME];
+
+	index_p = kzalloc(sizeof(*index_p), GFP_KERNEL);
+	if (!index_p)
+		return -ENOMEM;
+	*index_p = id;
+	snprintf(name, DEBUG_MAX_FNAME-1, "%d", *index_p);
+
+	gpio_dir = debugfs_create_dir(name, debugfs_base);
+	if (!gpio_dir)
+		return -ENOMEM;
+
+	if (!debugfs_create_file("direction", S_IRUGO | S_IWUSR, gpio_dir,
+				index_p, &gpio_direction_fops))
+		goto error;
+
+	if (!debugfs_create_file("level", S_IRUGO | S_IWUSR, gpio_dir,
+				index_p, &gpio_level_fops))
+		goto error;
+
+	if (!debugfs_create_file("drv_strength", S_IRUGO | S_IWUSR, gpio_dir,
+				index_p, &gpio_drv_fops))
+		goto error;
+
+	if (!debugfs_create_file("func_sel", S_IRUGO | S_IWUSR, gpio_dir,
+				index_p, &gpio_func_sel_fops))
+		goto error;
+
+	if (!debugfs_create_file("pull", S_IRUGO | S_IWUSR, gpio_dir,
+				index_p, &gpio_pull_fops))
+		goto error;
+
+	if (!debugfs_create_file("int_enable", S_IRUGO, gpio_dir,
+				index_p, &gpio_int_enable_fops))
+		goto error;
+
+	if (!debugfs_create_file("int_owner", S_IRUGO | S_IWUSR, gpio_dir,
+				index_p, &gpio_int_owner_fops))
+		goto error;
+
+	if (!debugfs_create_file("int_type", S_IRUGO, gpio_dir,
+				index_p, &gpio_int_type_fops))
+		goto error;
+
+	return 0;
+error:
+	debugfs_remove_recursive(gpio_dir);
+	return -ENOMEM;
+}
+
+int __init gpio_status_debug_init(void)
+{
+	int i;
+	int err = 0;
+
+	debugfs_base = debugfs_create_dir("htc_gpio", NULL);
+	if (!debugfs_base)
+		return -ENOMEM;
+
+	if (!debugfs_create_file("list_gpios", S_IRUGO, debugfs_base,
+				&msm_gpio.gpio_chip, &list_gpios_fops))
+		return -ENOMEM;
+
+	if (!debugfs_create_file("list_sleep_gpios", S_IRUGO, debugfs_base,
+				&msm_gpio.gpio_chip, &list_sleep_gpios_fops))
+		return -ENOMEM;
+
+	for (i = msm_gpio.gpio_chip.base; i < msm_gpio.gpio_chip.ngpio; i++)
+		err = gpio_add_status(i);
+
+	return err;
+}
+
+#else
+static void gpio_status_debug_init(void) {}
+#endif
+int msm_dump_gpios(struct seq_file *m, int curr_len, char *gpio_buffer)
+{
+	unsigned int i, func_sel, dir, pull, drv, value, int_en, int_owner, len;
+	char list_gpio[100];
+	char *title_msg = "------------ MSM GPIO -------------";
+
+	if (m) {
+		seq_printf(m, "%s\n", title_msg);
+	} else {
+		pr_info("%s\n", title_msg);
+		curr_len += sprintf(gpio_buffer + curr_len,
+		"%s\n", title_msg);
+	}
+
+	for (i = msm_gpio.gpio_chip.base; i < msm_gpio.gpio_chip.ngpio; i++) {
+		memset(list_gpio, 0 , sizeof(list_gpio));
+		len = 0;
+
+		len += sprintf(list_gpio + len, "GPIO[%3d]: ", i);
+
+		func_sel = (readl(GPIO_CONFIG(i)) >> GPIO_FUNC_SEL_BIT) & 0x7;
+		len += sprintf(list_gpio + len, "[FS]0x%x, ", func_sel);
+
+		dir = (readl(GPIO_CONFIG(i)) & BIT(GPIO_OE_BIT))>>GPIO_OE_BIT;
+		if (dir) {
+				value = (readl(GPIO_IN_OUT(i)) & BIT(GPIO_OUT_BIT))>>GPIO_OUT_BIT;
+				len += sprintf(list_gpio + len, "[DIR]OUT, [VAL]%s ", value ? "HIGH" : " LOW");
+		} else {
+				value = readl(GPIO_IN_OUT(i)) & BIT(GPIO_IN_BIT);
+				len += sprintf(list_gpio + len, "[DIR] IN, [VAL]%s ", value ? "HIGH" : " LOW");
+		}
+
+		pull = readl(GPIO_CONFIG(i)) & 0x3;
+		switch (pull) {
+		case 0x0:
+			len += sprintf(list_gpio + len, "[PULL]NO, ");
+			break;
+		case 0x1:
+			len += sprintf(list_gpio + len, "[PULL]PD, ");
+			break;
+		case 0x2:
+			len += sprintf(list_gpio + len, "[PULL]KP, ");
+			break;
+		case 0x3:
+			len += sprintf(list_gpio + len, "[PULL]PU, ");
+			break;
+		default:
+			break;
+		}
+
+		drv = (readl(GPIO_CONFIG(i)) >> GPIO_DRV_BIT) & 0x7;
+		len += sprintf(list_gpio + len, "[DRV]%2dmA, ", 2*(drv+1));
+
+		if (!dir) {
+			int_en = readl(GPIO_INTR_CFG(i)) & 0x1;
+			len += sprintf(list_gpio + len, "[INT]%s, ", int_en ? "YES" : " NO");
+			if (int_en) {
+				int_owner = readl(GPIO_INTR_CFG_SU(i)) & 0x7;
+				switch (int_owner) {
+				case 0x0:
+					len += sprintf(list_gpio + len, "MSS_PROC, ");
+					break;
+				case 0x1:
+					len += sprintf(list_gpio + len, "SPS_PROC, ");
+					break;
+				case 0x2:
+					len += sprintf(list_gpio + len, " LPA_DSP, ");
+					break;
+				case 0x3:
+					len += sprintf(list_gpio + len, "RPM_PROC, ");
+					break;
+				case 0x4:
+					len += sprintf(list_gpio + len, " SC_PROC, ");
+					break;
+				case 0x5:
+					len += sprintf(list_gpio + len, "RESERVED, ");
+					break;
+				case 0x6:
+					len += sprintf(list_gpio + len, "RESERVED, ");
+					break;
+				case 0x7:
+					len += sprintf(list_gpio + len, "    NONE, ");
+					break;
+				default:
+					break;
+				}
+			}
+		}
+
+		list_gpio[99] = '\0';
+		if (m) {
+			seq_printf(m, "%s\n", list_gpio);
+		} else {
+			pr_info("%s\n", list_gpio);
+			curr_len += sprintf(gpio_buffer +
+			curr_len, "%s\n", list_gpio);
+		}
+	}
+
+	return curr_len;
+}
+EXPORT_SYMBOL(msm_dump_gpios);
 static int __init msm_gpio_init(void)
 {
 	msm_gpio_probe();
 	register_syscore_ops(&msm_gpio_syscore_ops);
+	gpio_status_debug_init();
 	return 0;
 }
 

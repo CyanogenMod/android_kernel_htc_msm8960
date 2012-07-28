@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,8 +12,6 @@
 
 #ifndef __MSM_VFE32_H__
 #define __MSM_VFE32_H__
-
-#include <linux/bitops.h>
 
 #define TRUE  1
 #define FALSE 0
@@ -168,9 +166,6 @@
 #define VFE_AF_PINGPONG_STATUS_BIT       0x100
 #define VFE_AWB_PINGPONG_STATUS_BIT      0x200
 
-#define HFR_MODE_OFF 1
-#define VFE_FRAME_SKIP_PERIOD_MASK 0x0000001F /*bits 0 -4*/
-
 enum VFE32_DMI_RAM_SEL {
 	NO_MEM_SELECTED          = 0,
 	BLACK_LUT_RAM_BANK0      = 0x1,
@@ -223,14 +218,12 @@ enum vfe_output_state {
 #define V32_OUT_CLAMP_OFF         0x00000524
 #define V32_OUT_CLAMP_LEN         8
 
-#define V32_OPERATION_CFG_LEN     36
+#define V32_OPERATION_CFG_LEN     32
 
 #define V32_AXI_OUT_OFF           0x00000038
-#define V32_AXI_OUT_LEN           216
+#define V32_AXI_OUT_LEN           212
 #define V32_AXI_CH_INF_LEN        24
 #define V32_AXI_CFG_LEN           47
-#define V32_AXI_BUS_FMT_OFF    1
-#define V32_AXI_BUS_FMT_LEN    4
 
 #define V32_FRAME_SKIP_OFF        0x00000504
 #define V32_FRAME_SKIP_LEN        32
@@ -781,8 +774,6 @@ struct vfe32_output_ch {
 #define VFE32_IMASK_STATS_SKIN_BHIST_BUS_OVFL (0x00000001<<21)
 #define VFE32_IMASK_AXI_ERROR                 (0x00000001<<22)
 
-#define VFE_COM_STATUS 0x000FE000
-
 struct vfe32_output_path {
 	uint16_t output_mode;     /* bitmask  */
 
@@ -869,27 +860,25 @@ struct vfe32_frame_extra {
 #define VFE_CLAMP_MIN                   0x00000528
 #define VFE_REALIGN_BUF                 0x0000052C
 #define VFE_STATS_CFG                   0x00000530
-#define VFE_STATS_AWB_SGW_CFG           0x00000554
 #define VFE_DMI_CFG                     0x00000598
 #define VFE_DMI_ADDR                    0x0000059C
 #define VFE_DMI_DATA_LO                 0x000005A4
-#define VFE_BUS_IO_FORMAT_CFG           0x000006F8
+#define VFE_BUS_IO_FORMAT_CFG		0x000006F8
 #define VFE_PIXEL_IF_CFG                0x000006FC
-#define VFE_VIOLATION_STATUS            0x000007B4
 
 #define VFE33_DMI_DATA_HI               0x000005A0
 #define VFE33_DMI_DATA_LO               0x000005A4
 
-#define VFE32_OUTPUT_MODE_PT			BIT(0)
-#define VFE32_OUTPUT_MODE_S			BIT(1)
-#define VFE32_OUTPUT_MODE_V			BIT(2)
-#define VFE32_OUTPUT_MODE_P			BIT(3)
-#define VFE32_OUTPUT_MODE_T			BIT(4)
-#define VFE32_OUTPUT_MODE_P_ALL_CHNLS		BIT(5)
-#define VFE32_OUTPUT_MODE_PRIMARY		BIT(6)
-#define VFE32_OUTPUT_MODE_PRIMARY_ALL_CHNLS	BIT(7)
-#define VFE32_OUTPUT_MODE_SECONDARY		BIT(8)
-#define VFE32_OUTPUT_MODE_SECONDARY_ALL_CHNLS	BIT(9)
+#define VFE32_OUTPUT_MODE_PT (0x1 << 0)
+#define VFE32_OUTPUT_MODE_S (0x1 << 1)
+#define VFE32_OUTPUT_MODE_V (0x1 << 2)
+#define VFE32_OUTPUT_MODE_P (0x1 << 3)
+#define VFE32_OUTPUT_MODE_T (0x1 << 4)
+#define VFE32_OUTPUT_MODE_P_ALL_CHNLS (0x1 << 5)
+#define VFE32_OUTPUT_MODE_PRIMARY (0x1 << 6)
+#define VFE32_OUTPUT_MODE_PRIMARY_ALL_CHNLS (0x1 << 7)
+#define VFE32_OUTPUT_MODE_SECONDARY (0x1 << 8)
+#define VFE32_OUTPUT_MODE_SECONDARY_ALL_CHNLS (0x1 << 9)
 
 struct vfe_stats_control {
 	uint8_t  ackPending;
@@ -912,10 +901,6 @@ struct vfe32_ctrl_type {
 	spinlock_t  aec_ack_lock;
 	spinlock_t  awb_ack_lock;
 	spinlock_t  af_ack_lock;
-	spinlock_t  ihist_ack_lock;
-	spinlock_t  rs_ack_lock;
-	spinlock_t  cs_ack_lock;
-	spinlock_t  comp_stats_ack_lock;
 
 	uint32_t extlen;
 	void *extdata;
@@ -968,10 +953,6 @@ struct vfe32_ctrl_type {
 	struct platform_device *pdev;
 	struct clk *vfe_clk[3];
 	spinlock_t  sd_notify_lock;
-	uint32_t hfr_mode;
-	uint32_t frame_skip_cnt;
-	uint32_t frame_skip_pattern;
-	uint32_t snapshot_frame_cnt;
 };
 
 #define statsAeNum      0

@@ -25,11 +25,41 @@
 #include <mach/hardware.h>
 #include <mach/msm_iomap.h>
 
-#include "pm.h"
+#include <mach/pm.h>
 #include "scm-boot.h"
 #include "spm.h"
 
 int pen_release = -1;
+
+/*
+PHY define in msm_iomap-8960.h, VIRT define in msm_iomap.h
+The counters to check kernel exit for both cpu's
+kernel foot print for cpu0	: phy 0x889F1000 : virt 0xFA703000
+kernel foot print for cpu1	: phy 0x889F1004 : virt 0xFA703004
+kernel exit counter from cpu0	: phy 0x889F1008 : virt 0xFA703008
+kernel exit counter from cpu1	: phy 0x889F100C : virt 0xFA70300C
+msm_pm_boot_entry		: phy 0x889F1010 : virt 0xFA703010
+msm_pm_boot_vector		: phy 0x889F1014 : virt 0xFA703014
+reset vector for cpu0(init)	: phy 0x889F1018 : virt 0xFA703018
+reset vector for cpu1(init)	: phy 0x889F101C : virt 0xFA70301C
+cpu0 reset vector address	: phy 0x889F1020 : virt 0xFA703020
+cpu1 reset vector address	: phy 0x889F1024 : virt 0xFA703024
+cpu0 reset vector address value	: phy 0x889F1028 : virt 0xFA703028
+cpu1 reset vector address value	: phy 0x889F102C : virt 0xFA70302C
+cpu0 frequency			: phy 0x889F1030 : virt 0xFA703030
+cpu1 frequency			: phy 0x889F1034 : virt 0xFA703034
+L2 frequency			: phy 0x889F1038 : virt 0xFA703038
+acpuclk_set_rate footprint cpu0	: phy 0x889F103C : virt 0xFA70303C
+acpuclk_set_rate footprint cpu1	: phy 0x889F1040 : virt 0xFA703040
+*/
+#define CPU0_EXIT_KERNEL_COUNTER_BASE			(MSM_KERNEL_FOOTPRINT_BASE + 0x8)
+#define CPU1_EXIT_KERNEL_COUNTER_BASE			(MSM_KERNEL_FOOTPRINT_BASE + 0xC)
+static void init_cpu_debug_counter_for_cold_boot(void)
+{
+	*(unsigned *)CPU0_EXIT_KERNEL_COUNTER_BASE = 0x0;
+	*(unsigned *)CPU1_EXIT_KERNEL_COUNTER_BASE = 0x0;
+	mb();
+}
 
 /* Initialize the present map (cpu_set(i, cpu_present_map)). */
 void __init platform_smp_prepare_cpus(unsigned int max_cpus)
@@ -73,14 +103,14 @@ static int __cpuinit krait_release_secondary_sim(int cpu)
 		return -ENODEV;
 
 	if (machine_is_msm8960_sim() || machine_is_msm8960_rumi3()) {
-		writel_relaxed(0x10, base_ptr+0x04);
-		writel_relaxed(0x80, base_ptr+0x04);
+				writel_relaxed(0x10, base_ptr+0x04);
+				writel_relaxed(0x80, base_ptr+0x04);
 	}
 
 	if (machine_is_apq8064_sim())
-		writel_relaxed(0xf0000, base_ptr+0x04);
+				writel_relaxed(0xf0000, base_ptr+0x04);
 
-	mb();
+				mb();
 	iounmap(base_ptr);
 	return 0;
 }
@@ -93,24 +123,24 @@ static int __cpuinit krait_release_secondary(int cpu)
 
 	msm_spm_turn_on_cpu_rail(cpu);
 
-	writel_relaxed(0x109, base_ptr+0x04);
-	writel_relaxed(0x101, base_ptr+0x04);
-	ndelay(300);
+				writel_relaxed(0x109, base_ptr+0x04);
+				writel_relaxed(0x101, base_ptr+0x04);
+				ndelay(300);
 
-	writel_relaxed(0x121, base_ptr+0x04);
-	udelay(2);
+				writel_relaxed(0x121, base_ptr+0x04);
+				udelay(2);
 
-	writel_relaxed(0x020, base_ptr+0x04);
-	udelay(2);
+				writel_relaxed(0x020, base_ptr+0x04);
+				udelay(2);
 
-	writel_relaxed(0x000, base_ptr+0x04);
-	udelay(100);
+				writel_relaxed(0x000, base_ptr+0x04);
+				udelay(100);
 
-	writel_relaxed(0x080, base_ptr+0x04);
-	mb();
-	iounmap(base_ptr);
+				writel_relaxed(0x080, base_ptr+0x04);
+			mb();
+			iounmap(base_ptr);
 	return 0;
-}
+		}
 
 static int __cpuinit release_secondary(unsigned int cpu)
 {
@@ -168,6 +198,7 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 			printk(KERN_DEBUG "Failed to set secondary core boot "
 					  "address\n");
 		per_cpu(cold_boot_done, cpu) = true;
+		init_cpu_debug_counter_for_cold_boot();
 	}
 
 	pen_release = cpu;

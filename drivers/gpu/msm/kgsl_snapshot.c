@@ -10,12 +10,12 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/vmalloc.h>
 #include <linux/time.h>
 #include <linux/sysfs.h>
 #include <linux/utsname.h>
 #include <linux/sched.h>
 #include <linux/idr.h>
+#include <mach/debug_display.h>
 
 #include "kgsl.h"
 #include "kgsl_log.h"
@@ -232,6 +232,9 @@ int kgsl_device_snapshot(struct kgsl_device *device, int hang)
 	struct kgsl_snapshot_header *header = device->snapshot;
 	int remain = device->snapshot_maxsize - sizeof(*header);
 	void *snapshot;
+	struct platform_device *pdev =
+		container_of(device->parentdev, struct platform_device, dev);
+	struct kgsl_device_platform_data *pdata = pdev->dev.platform_data;
 
 	/*
 	 * The first hang is always the one we are interested in. To
@@ -283,6 +286,10 @@ int kgsl_device_snapshot(struct kgsl_device *device, int hang)
 	/* Freeze the snapshot on a hang until it gets read */
 	device->snapshot_frozen = (hang) ? 1 : 0;
 
+	/* log buffer info to aid in ramdump recovery */
+	KGSL_DRV_ERR(device,"snapshot created at va %p pa %x size %d\n",
+			device->snapshot, pdata->snapshot_address,
+			device->snapshot_size);
 	return 0;
 }
 EXPORT_SYMBOL(kgsl_device_snapshot);
@@ -430,9 +437,18 @@ static struct kobj_type ktype_snapshot = {
 int kgsl_device_snapshot_init(struct kgsl_device *device)
 {
 	int ret;
+	struct platform_device *pdev =
+		container_of(device->parentdev, struct platform_device, dev);
+	struct kgsl_device_platform_data *pdata = pdev->dev.platform_data;
 
-	if (device->snapshot == NULL)
-		device->snapshot = vmalloc(KGSL_SNAPSHOT_MEMSIZE);
+	if (device->snapshot == NULL) {
+		if(pdata->snapshot_address) {
+			device->snapshot = ioremap(pdata->snapshot_address, KGSL_SNAPSHOT_MEMSIZE);
+			PR_DISP_INFO("snapshot created at va %p pa %x\n",
+				device->snapshot, pdata->snapshot_address);
+		} else
+			device->snapshot = kzalloc(KGSL_SNAPSHOT_MEMSIZE, GFP_KERNEL);
+	}
 
 	if (device->snapshot == NULL)
 		return -ENOMEM;
@@ -475,7 +491,7 @@ void kgsl_device_snapshot_close(struct kgsl_device *device)
 
 	kobject_put(&device->snapshot_kobj);
 
-	vfree(device->snapshot);
+	kfree(device->snapshot);
 
 	device->snapshot = NULL;
 	device->snapshot_maxsize = 0;

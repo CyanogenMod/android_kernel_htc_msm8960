@@ -39,7 +39,7 @@ static RAW_NOTIFIER_HEAD(cpu_chain);
 /* If set, cpu_up and cpu_down will return -EBUSY and do nothing.
  * Should always be manipulated under cpu_add_remove_lock
  */
-static int cpu_hotplug_disabled;
+int cpu_hotplug_disabled;
 
 #ifdef CONFIG_HOTPLUG_CPU
 

@@ -1720,6 +1720,17 @@ void snd_pcm_period_elapsed(struct snd_pcm_substream *substream)
 
 	if (PCM_RUNTIME_CHECK(substream))
 		return;
+
+	//HTC_AUD_START
+	if(substream == NULL){
+		printk(KERN_ERR "[AUD] snd_pcm_period_elapsed(), no substream instance, return\n");
+		return;
+	}else if (substream->runtime == NULL){
+		printk(KERN_ERR "[AUD] snd_pcm_period_elapsed(), no runtime instance, return\n");
+		return;
+	}
+	//HTC_AUD_END
+
 	runtime = substream->runtime;
 
 	if (runtime->transfer_ack_begin)

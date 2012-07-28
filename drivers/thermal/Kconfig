@@ -67,6 +67,24 @@ config THERMAL_PM8XXX
 	  shifting over temperature shutdown control of the PMIC from hardware
 	  to software.
 
+config THERMAL_MAX_TEMP_PROTECT
+       bool "Max temperature protection support"
+       depends on THERMAL
+       default y
+       help
+         This enable the protection under critical high temperature enviroment.
+         Device would auto shutdown when thermal sensor senses the temperature
+         is higher than the critical high temperature.
+
+config THERMAL_MIN_TEMP_PROTECT
+       bool "Min temperature protection support"
+       depends on THERMAL
+       default y
+       help
+         This enable the protection under critical low temperature enviroment.
+         Device would auto shutdown when thermal sensor senses the temperature
+         is lower than the critical low temperature.
+
 config THERMAL_MONITOR
 	bool "Monitor thermal state and limit CPU Frequency"
 	depends on THERMAL_TSENS8960

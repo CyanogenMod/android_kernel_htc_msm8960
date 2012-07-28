@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,7 +14,6 @@
 
 #include <linux/i2c.h>
 #include <mach/camera.h>
-#include <mach/gpio.h>
 #include <media/v4l2-subdev.h>
 #include <media/msm_camera.h>
 #include "msm_camera_i2c.h"
@@ -35,6 +34,10 @@
 #define LINFO(fmt, args...) printk(fmt, ##args)
 #else
 #define LINFO(fmt, args...) CDBG(fmt, ##args)
+#endif
+
+#ifdef CONFIG_RAWCHIP
+#define USE_RAWCHIP_AF
 #endif
 
 struct msm_actuator_ctrl_t;
@@ -101,15 +104,14 @@ struct msm_actuator_ctrl_t {
 	uint16_t region_size;
 	struct damping_t *damping[2];
 	void *user_data;
-	uint32_t vcm_pwd;
-	uint32_t vcm_enable;
 };
 
 int32_t msm_actuator_i2c_write_b_af(struct msm_actuator_ctrl_t *a_ctrl,
 		uint8_t msb,
 		uint8_t lsb);
 int32_t msm_actuator_config(struct msm_actuator_ctrl_t *a_ctrl,
-		void __user *cfg_data);
+		struct msm_actuator_info *board_info,
+		void __user *cfg_data); /* HTC Angie 20111212 - Rawchip */
 int32_t msm_actuator_move_focus(struct msm_actuator_ctrl_t *a_ctrl,
 		int direction,
 		int32_t num_steps);

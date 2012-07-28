@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -186,6 +186,13 @@ struct asm_mmap {
 };
 
 static struct asm_mmap this_mmap;
+static struct q6asm_ops default_qops;
+static struct q6asm_ops *qops = &default_qops;
+
+void htc_8960_register_q6asm_ops(struct q6asm_ops *ops)
+{
+	qops = ops;
+}
 
 static int q6asm_session_alloc(struct audio_client *ac)
 {
@@ -1158,6 +1165,7 @@ int q6asm_open_read(struct audio_client *ac,
 	if (!rc) {
 		pr_err("%s: timeout. waited for OPEN_WRITE rc[%d]\n", __func__,
 			rc);
+                BUG();
 		goto fail_cmd;
 	}
 	return 0;
@@ -1169,6 +1177,7 @@ int q6asm_open_write(struct audio_client *ac, uint32_t format)
 {
 	int rc = 0x00;
 	struct asm_stream_cmd_open_write open;
+	static int  if_first_open_write = 0;
 
 	if ((ac == NULL) || (ac->apr == NULL)) {
 		pr_err("%s: APR handle NULL\n", __func__);
@@ -1176,7 +1185,12 @@ int q6asm_open_write(struct audio_client *ac, uint32_t format)
 	}
 	pr_debug("%s: session[%d] wr_format[0x%x]", __func__, ac->session,
 		format);
-
+	//make sure Q6 is ready before sending the STREAM_CMD_OPEN_WRITE
+        if(!if_first_open_write)
+	{
+		msleep(30);
+		if_first_open_write = 1;
+	}
 	q6asm_add_hdr(ac, &open.hdr, sizeof(open), TRUE);
 
 	open.hdr.opcode = ASM_STREAM_CMD_OPEN_WRITE;
@@ -1189,12 +1203,19 @@ int q6asm_open_write(struct audio_client *ac, uint32_t format)
 	if (open.post_proc_top == 0)
 		open.post_proc_top = DEFAULT_POPP_TOPOLOGY;
 
+	/* change to HTC_POPP_TOPOLOGY to support Q6 effect */
+	if (qops->get_q6_effect) {
+		int mode = qops->get_q6_effect();
+		if (mode == 0) { /* POPP */
+			pr_aud_info("%s: change to HTC_POPP_TOPOLOGY\n",
+				    __func__);
+			open.post_proc_top = HTC_POPP_TOPOLOGY;
+		}
+	}
+
 	switch (format) {
 	case FORMAT_LINEAR_PCM:
 		open.format = LINEAR_PCM;
-		break;
-	case FORMAT_MULTI_CHANNEL_LINEAR_PCM:
-		open.format = MULTI_CHANNEL_PCM;
 		break;
 	case FORMAT_MPEG4_AAC:
 		open.format = MPEG4_AAC;
@@ -1215,6 +1236,7 @@ int q6asm_open_write(struct audio_client *ac, uint32_t format)
 		pr_err("%s: Invalid format[%d]\n", __func__, format);
 		goto fail_cmd;
 	}
+
 	rc = apr_send_pkt(ac->apr, (uint32_t *) &open);
 	if (rc < 0) {
 		pr_err("%s: open failed op[0x%x]rc[%d]\n", \
@@ -1226,6 +1248,7 @@ int q6asm_open_write(struct audio_client *ac, uint32_t format)
 	if (!rc) {
 		pr_err("%s: timeout. waited for OPEN_WRITE rc[%d]\n", __func__,
 			rc);
+                BUG();
 		goto fail_cmd;
 	}
 	return 0;
@@ -1335,6 +1358,7 @@ int q6asm_open_read_write(struct audio_client *ac,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
 	if (!rc) {
 		pr_err("timeout. waited for OPEN_WRITE rc[%d]\n", rc);
+                BUG();
 		goto fail_cmd;
 	}
 	return 0;
@@ -1375,6 +1399,7 @@ int q6asm_run(struct audio_client *ac, uint32_t flags,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
 	if (!rc) {
 		pr_err("timeout. waited for run success rc[%d]", rc);
+                BUG();
 		goto fail_cmd;
 	}
 
@@ -1747,66 +1772,6 @@ int q6asm_media_format_block_pcm(struct audio_client *ac,
 	fmt.write_cfg.pcm_cfg.sample_rate = rate;
 	fmt.write_cfg.pcm_cfg.is_signed = 1;
 	fmt.write_cfg.pcm_cfg.interleaved = 1;
-
-	rc = apr_send_pkt(ac->apr, (uint32_t *) &fmt);
-	if (rc < 0) {
-		pr_err("%s:Comamnd open failed\n", __func__);
-		goto fail_cmd;
-	}
-	rc = wait_event_timeout(ac->cmd_wait,
-			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
-	if (!rc) {
-		pr_err("%s:timeout. waited for FORMAT_UPDATE\n", __func__);
-		goto fail_cmd;
-	}
-	return 0;
-fail_cmd:
-	return -EINVAL;
-}
-
-int q6asm_media_format_block_multi_ch_pcm(struct audio_client *ac,
-				uint32_t rate, uint32_t channels)
-{
-	struct asm_stream_media_format_update fmt;
-	u8 *channel_mapping;
-	int rc = 0;
-
-	pr_debug("%s:session[%d]rate[%d]ch[%d]\n", __func__, ac->session, rate,
-		channels);
-
-	q6asm_add_hdr(ac, &fmt.hdr, sizeof(fmt), TRUE);
-
-	fmt.hdr.opcode = ASM_DATA_CMD_MEDIA_FORMAT_UPDATE;
-
-	fmt.format = MULTI_CHANNEL_PCM;
-	fmt.cfg_size = sizeof(struct asm_multi_channel_pcm_fmt_blk);
-	fmt.write_cfg.multi_ch_pcm_cfg.num_channels = channels;
-	fmt.write_cfg.multi_ch_pcm_cfg.bits_per_sample = 16;
-	fmt.write_cfg.multi_ch_pcm_cfg.sample_rate = rate;
-	fmt.write_cfg.multi_ch_pcm_cfg.is_signed = 1;
-	fmt.write_cfg.multi_ch_pcm_cfg.is_interleaved = 1;
-	channel_mapping =
-		fmt.write_cfg.multi_ch_pcm_cfg.channel_mapping;
-
-	memset(channel_mapping, 0, PCM_FORMAT_MAX_NUM_CHANNEL);
-
-	if (channels == 1)  {
-		channel_mapping[0] = PCM_CHANNEL_FL;
-	} else if (channels == 2) {
-		channel_mapping[0] = PCM_CHANNEL_FL;
-		channel_mapping[1] = PCM_CHANNEL_FR;
-	} else if (channels == 6) {
-		channel_mapping[0] = PCM_CHANNEL_FC;
-		channel_mapping[1] = PCM_CHANNEL_FL;
-		channel_mapping[2] = PCM_CHANNEL_FR;
-		channel_mapping[3] = PCM_CHANNEL_LB;
-		channel_mapping[4] = PCM_CHANNEL_RB;
-		channel_mapping[5] = PCM_CHANNEL_LFE;
-	} else {
-		pr_err("%s: ERROR.unsupported num_ch = %u\n", __func__,
-				channels);
-		return -EINVAL;
-	}
 
 	rc = apr_send_pkt(ac->apr, (uint32_t *) &fmt);
 	if (rc < 0) {
@@ -2397,6 +2362,63 @@ int q6asm_set_mute(struct audio_client *ac, int muteflag)
 	rc = 0;
 fail_cmd:
 	kfree(vol_cmd);
+	return rc;
+}
+
+int q6asm_enable_effect(struct audio_client *ac, uint32_t module_id,
+			uint32_t param_id, uint32_t payload_size,
+			void *payload)
+{
+	void *q6_cmd = NULL;
+	void *data = NULL;
+	struct asm_pp_params_command *cmd = NULL;
+	int sz = 0;
+	int rc  = 0;
+
+	pr_aud_info("%s: param_id 0x%x, payload size %d\n",
+			__func__, param_id, payload_size);
+	sz = sizeof(struct asm_pp_params_command) +
+		+ payload_size;
+	q6_cmd = kzalloc(sz, GFP_KERNEL);
+	if (q6_cmd == NULL) {
+		pr_aud_err("%s[%d]: Mem alloc failed\n", __func__, ac->session);
+		rc = -EINVAL;
+		return rc;
+	}
+	cmd = (struct asm_pp_params_command *)q6_cmd;
+	q6asm_add_hdr_async(ac, &cmd->hdr, sz, TRUE);
+	cmd->hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS;
+	cmd->payload = NULL;
+	cmd->payload_size = sizeof(struct  asm_pp_param_data_hdr) +
+				payload_size;
+	cmd->params.module_id = module_id;
+	cmd->params.param_id = param_id;
+	cmd->params.param_size = payload_size;
+	cmd->params.reserved = 0;
+
+	data = (u8 *)(q6_cmd + sizeof(struct asm_pp_params_command));
+	memcpy(data, payload, payload_size);
+
+	rc = apr_send_pkt(ac->apr, (uint32_t *) q6_cmd);
+	if (rc < 0) {
+		pr_aud_err("%s: Enable Q6 effect Command failed\n", __func__);
+		rc = -EINVAL;
+		goto fail_cmd;
+	}
+
+	rc = wait_event_timeout(ac->cmd_wait,
+			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
+	if (!rc) {
+		pr_aud_err("%s: timeout in sending command to apr\n",
+			__func__);
+		rc = -EINVAL;
+		goto fail_cmd;
+	}
+	rc = 0;
+
+fail_cmd:
+	kfree(q6_cmd);
+	pr_aud_info("%s: return %d\n", __func__, rc);
 	return rc;
 }
 
@@ -3228,13 +3250,13 @@ static int __init q6asm_init(void)
 #ifdef CONFIG_DEBUG_FS
 	out_buffer = kmalloc(OUT_BUFFER_SIZE, GFP_KERNEL);
 	out_dentry = debugfs_create_file("audio_out_latency_measurement_node",\
-				S_IFREG | S_IRUGO | S_IWUGO,\
+				S_IFREG | S_IRUGO | S_IWUSR,\
 				NULL, NULL, &audio_output_latency_debug_fops);
 	if (IS_ERR(out_dentry))
 		pr_err("debugfs_create_file failed\n");
 	in_buffer = kmalloc(IN_BUFFER_SIZE, GFP_KERNEL);
 	in_dentry = debugfs_create_file("audio_in_latency_measurement_node",\
-				S_IFREG | S_IRUGO | S_IWUGO,\
+				S_IFREG | S_IRUGO | S_IWUSR,\
 				NULL, NULL, &audio_input_latency_debug_fops);
 	if (IS_ERR(in_dentry))
 		pr_err("debugfs_create_file failed\n");

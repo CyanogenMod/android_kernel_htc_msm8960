@@ -75,7 +75,9 @@ static void check_temp(struct work_struct *work)
 		pr_debug("msm_thermal: Unable to read TSENS sensor %d\n",
 				tsens_dev.sensor_num);
 		goto reschedule;
-	}
+	} else
+		pr_info("msm_thermal: TSENS sensor %d (%ld C)\n",
+				tsens_dev.sensor_num, temp);
 
 	for_each_possible_cpu(cpu) {
 		cpu_policy = per_cpu(policy, cpu);
