@@ -1021,8 +1021,15 @@ static void msm_slim_rxwq(struct msm_slim_ctrl *dev)
 				e_addr[2] != QC_CHIPID_SL)
 				dev->pgdla = laddr;
 			if (!ret && !pm_runtime_enabled(dev->dev) &&
-				laddr == (QC_MSM_DEVS - 1))
+				laddr == (QC_MSM_DEVS - 1)) {
 				pm_runtime_enable(dev->dev);
+				/*
+				 * Avoid runtime-PM by default, but allow
+				 * command line activation
+				 * HTC AUD rollback it due to slimbus issue 
+				pm_runtime_forbid(dev->dev);
+				*/
+			}
 
 		} else if (mc == SLIM_MSG_MC_REPLY_INFORMATION ||
 				mc == SLIM_MSG_MC_REPLY_VALUE) {

@@ -16,7 +16,6 @@ config ARCH_MSM7X25
 	select MSM_VIC
 	select CPU_V6
 	select MSM_REMOTE_SPINLOCK_SWP
-	select MULTI_IRQ_HANDLER
 	select MSM_PM if PM
 
 config ARCH_MSM7X27
@@ -30,10 +29,6 @@ config ARCH_MSM7X27
 	select MSM_REMOTE_SPINLOCK_SWP if MSM_SOC_REV_NONE
 	select MSM_GPIOMUX
 	select REGULATOR
-	select MULTI_IRQ_HANDLER
-	select MSM_PROC_COMM_REGULATOR
-	select CLEANCACHE
-	select QCACHE
 	select MSM_PM2 if PM
 
 config ARCH_MSM7X30
@@ -57,7 +52,6 @@ config ARCH_MSM7X30
 	select MSM_SPM_V1
 	select REGULATOR
 	select MSM_PROC_COMM_REGULATOR
-	select MULTI_IRQ_HANDLER
 	select MSM_PM2 if PM
 
 config ARCH_QSD8X50
@@ -95,39 +89,16 @@ config ARCH_MSM8X60
 	select MSM_DALRPC
 	select MSM_QDSP6_APR
 	select MSM_NATIVE_RESTART
-	select ARCH_INLINE_SPIN_TRYLOCK
-	select ARCH_INLINE_SPIN_TRYLOCK_BH
-	select ARCH_INLINE_SPIN_LOCK
-	select ARCH_INLINE_SPIN_LOCK_BH
-	select ARCH_INLINE_SPIN_LOCK_IRQ
-	select ARCH_INLINE_SPIN_LOCK_IRQSAVE
-	select ARCH_INLINE_SPIN_UNLOCK
-	select ARCH_INLINE_SPIN_UNLOCK_BH
-	select ARCH_INLINE_SPIN_UNLOCK_IRQ
-	select ARCH_INLINE_SPIN_UNLOCK_IRQRESTORE
-	select ARCH_INLINE_READ_TRYLOCK
-	select ARCH_INLINE_READ_LOCK
-	select ARCH_INLINE_READ_LOCK_BH
-	select ARCH_INLINE_READ_LOCK_IRQ
-	select ARCH_INLINE_READ_LOCK_IRQSAVE
-	select ARCH_INLINE_READ_UNLOCK
-	select ARCH_INLINE_READ_UNLOCK_BH
-	select ARCH_INLINE_READ_UNLOCK_IRQ
-	select ARCH_INLINE_READ_UNLOCK_IRQRESTORE
-	select ARCH_INLINE_WRITE_TRYLOCK
-	select ARCH_INLINE_WRITE_LOCK
-	select ARCH_INLINE_WRITE_LOCK_BH
-	select ARCH_INLINE_WRITE_LOCK_IRQ
-	select ARCH_INLINE_WRITE_LOCK_IRQSAVE
-	select ARCH_INLINE_WRITE_UNLOCK
-	select ARCH_INLINE_WRITE_UNLOCK_BH
-	select ARCH_INLINE_WRITE_UNLOCK_IRQRESTORE
 	select CPU_HAS_L2_PMU
 	select MSM_SPM_V1
 	select MSM_SCM if SMP
 	select MULTI_IRQ_HANDLER
-	select MSM_MULTIMEDIA_USE_ION
 	select MSM_PM8X60 if PM
+
+config ARCH_MSM8X60_LTE
+	bool "MSM8X60_LTE"
+	depends on ARCH_MSM8X60
+	default n
 
 config ARCH_MSM8960
 	bool "MSM8960"
@@ -151,17 +122,9 @@ config ARCH_MSM8960
 	select MSM_NATIVE_RESTART
 	select DONT_MAP_HOLE_AFTER_MEMBANK0
 	select MSM_REMOTE_SPINLOCK_SFPB
-	select ARCH_POPULATES_NODE_MAP
-	select ARCH_SPARSEMEM_ENABLE
 	select ARCH_HAS_HOLES_MEMORYMODEL
-	select MEMORY_HOTPLUG
-	select MEMORY_HOTREMOVE
-	select ARCH_ENABLE_MEMORY_HOTPLUG
-	select ARCH_ENABLE_MEMORY_HOTREMOVE
+	select COMPACTION
 	select MIGRATION
-	select ARCH_MEMORY_PROBE
-	select ARCH_MEMORY_REMOVE
-	select FIX_MOVABLE_ZONE
 	select CLEANCACHE
 	select QCACHE
 	select MSM_MULTIMEDIA_USE_ION
@@ -199,10 +162,8 @@ config ARCH_MSM8930
 	select MIGRATION
 	select ARCH_MEMORY_PROBE
 	select ARCH_MEMORY_REMOVE
-	select FIX_MOVABLE_ZONE
-	select MSM_ULTRASOUND
 	select MULTI_IRQ_HANDLER
-	select MSM_PM8X60 if PM
+        select MSM_PM8X60 if PM
 
 config ARCH_APQ8064
 	bool "APQ8064"
@@ -229,7 +190,7 @@ config ARCH_MSMCOPPER
 	select MSM_SCM if SMP
 	select MSM_GPIOMUX
 	select MULTI_IRQ_HANDLER
-	select MSM_MULTIMEDIA_USE_ION
+        select MSM_PM8X60 if PM
 
 config ARCH_FSM9XXX
 	bool "FSM9XXX"
@@ -254,8 +215,6 @@ config ARCH_MSM9615
 	select REGULATOR
 	select MSM_RPM_REGULATOR
 	select MULTI_IRQ_HANDLER
-	select MSM_PM8X60 if PM
-
 endmenu
 
 choice
@@ -338,6 +297,44 @@ config MSM_REMOTE_SPINLOCK_SFPB
 	bool
 config MSM_ADM3
 	bool
+
+config PERFLOCK
+        depends on CPU_FREQ
+        depends on ARCH_MSM8960 || ARCH_MSM8X60 || ARCH_QSD8X50 || ARCH_MSM7X30 || ARCH_MSM7X00A || ARCH_MSM7227 || ARCH_MSM7225
+        default n
+        bool "HTC Performance Lock"
+
+config PERFLOCK_BOOT_LOCK
+        depends on PERFLOCK
+        depends on ARCH_MSM8960 || ARCH_MSM8X60 || ARCH_QSD8X50 || ARCH_MSM7X30 || ARCH_MSM7X00A || ARCH_MSM7227 || ARCH_MSM7225
+        default n
+        bool "Boot Time Performance Lock"
+
+config PERFLOCK_SCREEN_POLICY
+        depends on PERFLOCK
+        depends on ARCH_MSM8960 || ARCH_MSM8X60 || ARCH_QSD8X50 || ARCH_MSM7X00A || ARCH_MSM7227 || ARCH_MSM7225
+        default n
+        bool "Change Cpufreq Policy while Screen ON/OFF"
+
+config PERFLOCK_SCREEN_ON_MIN
+        depends on PERFLOCK_SCREEN_POLICY
+        int "Minimum speed while screen on"
+        default MSM_CPU_FREQ_ONDEMAND_MIN
+
+config PERFLOCK_SCREEN_ON_MAX
+        depends on PERFLOCK_SCREEN_POLICY
+        int "Maximum speed while screen on"
+        default MSM_CPU_FREQ_ONDEMAND_MAX
+
+config PERFLOCK_SCREEN_OFF_MIN
+        depends on PERFLOCK_SCREEN_POLICY
+        int "Minimum speed while screen off"
+        default MSM_CPU_FREQ_ONDEMAND_MIN
+
+config PERFLOCK_SCREEN_OFF_MAX
+        depends on PERFLOCK_SCREEN_POLICY
+        int "Maximum speed while screen off"
+        default MSM_CPU_FREQ_ONDEMAND_MIN
 
 menu "MSM Board Selection"
 
@@ -458,6 +455,13 @@ config MACH_MSM7X30_FLUID
        bool "MSM7x30 FLUID"
        help
          Support for the Qualcomm MSM7x30 FLUID eval board.
+
+config MACH_RUNNYMEDE
+       depends on ARCH_MSM7X30
+       default n
+       bool "Runnymede"
+       help
+         Support for the Qualcomm Runnymede board.
 
 config MACH_SAPPHIRE
 	depends on ARCH_MSM7X01A
@@ -589,6 +593,48 @@ config MACH_MSM8X60_DRAGON
 	help
 	  Support for the Qualcomm MSM8x60 Dragon board.
 
+config MACH_PYRAMID
+	depends on ARCH_MSM8X60
+	default n
+	bool "Pyramid"
+	help
+	  Support for the Pyramid device.
+
+config MACH_SHOOTER
+	depends on ARCH_MSM8X60
+	default n
+	bool "shooter"
+	help
+	  Support for the Shooter device.
+
+config MACH_VERDI_LTE
+	depends on ARCH_MSM8X60
+	default n
+	bool "Verdi_lte"
+	help
+	  Support for the Verdi_lte device.
+
+config MACH_HOLIDAY
+	depends on ARCH_MSM8X60
+	default n
+	bool "Holiday"
+	help
+	  Support for the Holiday device.
+
+config MACH_VIGOR
+	depends on ARCH_MSM8X60
+	default n
+	bool "Vigor"
+	help
+	  Support for the Vigor device.
+
+config MACH_RUBY
+	depends on ARCH_MSM8X60
+	default n
+	bool "Ruby"
+	help
+	  Support for the Ruby device.
+
 config MACH_MSM8960_SIM
 	depends on ARCH_MSM8960
 	bool "MSM8960 Simulator"
@@ -643,18 +689,6 @@ config MACH_MSM8930_FLUID
 	help
 	  Support for the Qualcomm MSM8930 FLUID device.
 
-config MACH_MSM8627_CDP
-	depends on ARCH_MSM8930
-	bool "MSM8627 CDP"
-	help
-	  Support for the Qualcomm MSM8627 CDP device.
-
-config MACH_MSM8627_MTP
-	depends on ARCH_MSM8930
-	bool "MSM8627 MTP"
-	help
-	  Support for the Qualcomm MSM8627 MTP device.
-
 config MACH_MSM9615_CDP
 	depends on ARCH_MSM9615
 	bool "MSM9615 CDP"
@@ -697,7 +731,65 @@ config MACH_FSM9XXX_SURF
 	  chipset based SURF evaluation board and
 	  FFA board.
 
+config MACH_VILLE
+        depends on ARCH_MSM8960
+        bool "Ville"
+        help
+          Support for the HTC Ville.
+
+config MACH_TAHITI
+	depends on ARCH_MSM8960
+	bool "Tahiti"
+	help
+	  Support for the HTC Tahiti.
+
+config MACH_FIGHTER
+	depends on ARCH_MSM8960
+	bool "Fighter"
+	help
+	  Support for the HTC Fighter
+
+config MACH_JET
+	depends on ARCH_MSM8960
+	bool "Jet"
+	help
+	  Support for the HTC Jet
+
+config MACH_ELITE
+	depends on ARCH_MSM8960
+	bool "Elite"
+	help
+	  Support for the HTC Elite
+
+config MACH_KNIGHT
+	depends on ARCH_MSM8960
+	bool "Knight"
+	help
+	  Support for the HTC Knight
+
+config MACH_VALENTE_WX
+	depends on ARCH_MSM8960
+	bool "Valente#WX"
+	help
+	  Support for the HTC Valente#WX
+
+config MACH_ELITE_ULK
+	depends on ARCH_MSM8960
+	bool "Elite#ULK"
+	help
+	  Support for the HTC Elite#ULK
+
+config MACH_JEWEL_DD
+	depends on ARCH_MSM8960
+	bool "jel_dd"
+	help
+	  Support for the HTC JEWEL_DD
 endmenu
+
+config MSM_MDP40
+	bool
+	depends on ARCH_MSM7X30 || ARCH_MSM8X60
+	default y
 
 config MSM_STACKED_MEMORY
 	bool "Stacked Memory"
@@ -708,23 +800,23 @@ config MSM_STACKED_MEMORY
 	  shared memory interface.  When not present regular RAM is used.
 
 config PHYS_OFFSET
-	hex
+	hex "Kernel physical start address"
 	default "0x40800000" if ARCH_MSM9615
 	default "0x80200000" if ARCH_APQ8064
-	default "0x80200000" if ARCH_MSM8960
+	default "0x80400000" if ARCH_MSM8960
 	default "0x80200000" if ARCH_MSM8930
 	default "0x80200000" if ARCH_MSMCOPPER
 	default "0x10000000" if ARCH_FSM9XXX
 	default "0x00200000" if !MSM_STACKED_MEMORY
 	default "0x00000000" if ARCH_QSD8X50 && MSM_SOC_REV_A
 	default "0x20000000" if ARCH_QSD8X50
-	default "0x40200000" if ARCH_MSM8X60
+	default "0x48000000" if ARCH_MSM8X60
 	default "0x10000000"
 
 config KERNEL_PMEM_EBI_REGION
 	bool "Enable in-kernel PMEM region for EBI"
 	default y if ARCH_MSM8X60
-	depends on ANDROID_PMEM && (ARCH_MSM8X60 || ARCH_MSM8960 || ARCH_MSMCOPPER)
+	depends on ANDROID_PMEM && (ARCH_MSM8X60 || ARCH_MSM8960)
 	help
 	   Enable the in-kernel PMEM allocator to use EBI memory.
 
@@ -832,6 +924,27 @@ choice
 		  Say Y here if you want the debug print routines to direct
 		  their output to the serial port on MSM Copper devices.
 endchoice
+
+config HTC_BATT_CORE
+	depends on POWER_SUPPLY
+	default n
+	bool "HTC battery core driver"
+
+config HTC_BATT8x60
+	depends on HTC_BATT_CORE
+	default n
+	bool "HTC battery driver for 8x60"
+
+config HTC_BATT_8960
+	depends on HTC_BATT_CORE
+	default n
+	bool "HTC battery driver for 8960"
+
+config HTC_ONMODE_CHARGING
+	bool "On Mode Charging Icon Support"
+	default n
+	help
+		support on mode charing icon
 
 choice
 	prompt "Default Timer"
@@ -975,6 +1088,11 @@ config HTC_HEADSET
 	 headset, on the trout platform. Can be used with the msm serial
 	 debugger, but not with serial console.
 
+config GSBI5_UARTDM
+	tristate "GSBI5 as UARTDM support"
+	help
+	  Say Y here if you want to support felica feature...
+
 config TROUT_BATTCHG
 	depends on MACH_TROUT && POWER_SUPPLY
 	default y
@@ -984,6 +1102,12 @@ config HTC_PWRSINK
 	depends on MSM_SMD
 	default n
 	bool "HTC Power Sink Driver"
+
+config BUILD_OMA_DM
+	bool "Build in OMA-DM fixes"
+	default n
+	help
+	  For OMA-DM we need to do some additional fixes.
 
 config QSD_SVS
 	bool "QSD Static Voltage Scaling"
@@ -1076,7 +1200,7 @@ config MSM_SMD_DEBUG
 	  between the ARM9 and ARM11
 
 config MSM_SDIO_AL
-	depends on ((ARCH_MSM7X30 || MACH_MSM8X60_FUSN_FFA || MACH_TYPE_MSM8X60_FUSION) && HAS_WAKELOCK)
+	depends on ((ARCH_MSM7X30 || ARCH_MSM8X60_LTE || MACH_MSM8X60_FUSN_FFA || MACH_TYPE_MSM8X60_FUSION) && HAS_WAKELOCK)
 	default y
 	tristate "SDIO-Abstraction-Layer"
 	help
@@ -1178,6 +1302,13 @@ config MSM_SMD_PKT
 	  Provides a binary SMD non-muxed packet port interface.
 
 	  If in doubt, say yes.
+
+config SMD_OFFSET_HTC_MODEM_INFO_STAT
+	depends on MSM_SMD
+	hex "SMD offset for htc modem information"
+	default 0x0
+	help
+	  Provide accmulated time for each network type.
 
 config MSM_SDIO_CMUX
 	bool "SDIO CMUX Driver"
@@ -1355,6 +1486,14 @@ config MSM_CPU_FREQ_MIN
 
 endif # CPU_FREQ_MSM
 
+config MSM_CPU_FREQ_ONDEMAND_MAX
+        int "Max"
+        default 384000
+
+config MSM_CPU_FREQ_ONDEMAND_MIN
+        int "Min"
+        default 245760
+
 config MSM_CPU_AVS
 	bool "Enable software controlled Adaptive Voltage Scaling (AVS)"
 	depends on (ARCH_MSM_SCORPION && QSD_SVS)
@@ -1492,6 +1631,17 @@ config WIFI_MEM_PREALLOC
 	help
 	  Preallocates memory buffers for WiFi driver
 
+config WIFI_NVS_PROC_CREATE
+	bool "Store nvs data into /proc/calibration"
+	help
+	  store nvs data into /proc/calibration
+
+config ARCH_MSM_FLASHLIGHT
+	bool "Flashlight Driver"
+	depends on ARCH_MSM
+	help
+	  The flashlight driver is for MSM series.
+
 config QSD_AUDIO
 	bool "QSD audio"
 	depends on ARCH_MSM_SCORPION && MSM_DALRPC && ANDROID_PMEM && !MSM_SMP
@@ -1605,6 +1755,54 @@ config MSM_RPM_REGULATOR
 	  voltages and other parameters of the various power rails supplied
 	  by some Qualcomm PMICs.
 
+config HTC_HEADSET_MGR
+	tristate "HTC headset manager driver"
+	default n
+	help
+	  Provides support of HTC headset manager.
+
+config HTC_HEADSET_H2W
+	tristate "HTC 2 Wire headset driver"
+	depends on HTC_HEADSET_MGR
+	default n
+	help
+	  Provides support of HTC 2 Wire headset.
+
+config HTC_HEADSET_GPIO
+	tristate "HTC GPIO headset detection driver"
+	depends on HTC_HEADSET_MGR
+	default n
+	help
+	  Provides support of HTC GPIO headset detection.
+
+config HTC_HEADSET_MICROP
+	tristate "HTC Micro-P headset detection driver"
+	depends on HTC_HEADSET_MGR && MICROP_COMMON
+	default n
+	help
+	  Provides support of HTC Micro-P headset detection.
+
+config HTC_HEADSET_PMIC
+	tristate "HTC PMIC headset detection driver"
+	depends on HTC_HEADSET_MGR
+	default n
+	help
+	  Provides support of HTC PMIC headset detection.
+
+config HTC_HEADSET_MISC
+	tristate "HTC MISC headset detection driver"
+	depends on HTC_HEADSET_MGR
+	default n
+	help
+	  Provides support of HTC MISC headset detection.
+
+config HTC_HEADSET_8X60
+	tristate "HTC 8X60 headset detection driver"
+	depends on HTC_HEADSET_MGR
+	default n
+	help
+	  Provides support of HTC 8X60 headset detection.
+
 config MSM_PIL
 	bool "Peripheral image loading"
 	select FW_LOADER
@@ -1615,19 +1813,6 @@ config MSM_PIL
 	  brought out of reset.
 
 	  Say yes to support these devices.
-
-config MSM_PIL_MODEM
-	tristate "Modem (ARM11) Boot Support"
-	depends on MSM_PIL
-	help
-	  Support for booting and shutting down ARM11 Modem processors.
-
-config MSM_PIL_QDSP6V3
-	tristate "QDSP6v3 (Hexagon) Boot Support"
-	depends on MSM_PIL
-	help
-	  Support for booting and shutting down QDSP6v3 processors (hexagon).
-	  The QDSP6 is a low power DSP used in audio software applications.
 
 config MSM_PIL_QDSP6V4
 	tristate "QDSP6v4 (Hexagon) Boot Support"
@@ -1700,6 +1885,30 @@ config MSM_WCNSS_SSR_8960
 	 monitors WCNSS hardware watchdog interrupt lines and plugs WCNSS
 	 into the subsystem restart framework.
 
+config MSM_SSR_INDEPENDENT
+        bool "MSM 8960 subsystems restart independent"
+        depends on (ARCH_MSM8960)
+        help
+         This option enables the subsystems restart independent for MSM8960
+
+config MSM_MODEM_SSR_ENABLE
+        bool "MSM 8960 Modem subsystem restart enable"
+        depends on (ARCH_MSM8960 && MSM_SSR_INDEPENDENT)
+        help
+         This option enables the modem subsystem restart for MSM8960
+
+config MSM_LPASS_SSR_ENABLE
+        bool "MSM 8960 Lpass subsystem restart enable"
+        depends on (ARCH_MSM8960 && MSM_SSR_INDEPENDENT)
+        help
+         This option enables the lpass subsystem restart for MSM8960
+
+config MSM_WCNSS_SSR_ENABLE
+        bool "MSM 8960 WCNSS subsystem restart enable"
+        depends on (ARCH_MSM8960 && MSM_SSR_INDEPENDENT)
+        help
+         This option enables the WCNSS subsystem restart for MSM8960
+
 config SCORPION_Uni_45nm_BUG
 	bool "Scorpion Uni 45nm(SC45U): Workaround for ICIMVAU and BPIMVA"
 	depends on ARCH_MSM7X30 || (ARCH_QSD8X50 && MSM_SOC_REV_A)
@@ -1722,14 +1931,6 @@ config MSM_BUSPM_DEV
 	  performance monitors, counters, etc. The module can also be used to
 	  allocate physical memory which is used by bus performance hardware to
 	  dump performance data.
-
-config MSM_TZ_LOG
-	tristate "MSM Trust Zone (TZ) Log Driver"
-	depends on DEBUG_FS
-	help
-	  This option enables a driver with a debugfs interface for messages
-	  produced by the Secure code (Trust zone). These messages provide
-	  diagnostic information about TZ operation.
 
 config MSM_RPM_LOG
 	tristate "MSM Resource Power Manager Log Driver"
@@ -1868,6 +2069,14 @@ config MSM_QDSS_ETM_DEFAULT_ENABLE
 	  Turns on QDSS ETM tracing by default. Otherwise, tracing is
 	  disabled by default but can be enabled by other means.
 
+config CLOCK_MAP
+	bool "Log clk_enable()/clk_disable() calls"
+	help
+	  Turn on extra debugging for clk_enable()/clk_disable() calls.
+	  A bitmap is maintained in non-cached memory and each registered
+	  clock gets a unique id. If the bitmap has that bit set the clock
+	  is enabled, otherwise the clock is disabled.
+
 config MSM_SLEEP_STATS
 	bool "Enable exporting of MSM sleep stats to userspace"
 	depends on CPU_IDLE
@@ -1897,7 +2106,7 @@ config MSM_SHARED_GPIO_FOR_UART2DM
 
 config MSM_SHOW_RESUME_IRQ
 	bool "Enable logging of interrupts that could have caused resume"
-	depends on (ARM_GIC || PMIC8058)
+	depends on (ARCH_GIC || PMIC8058 || MFD_PM8921_CORE)
 	default y if PMIC8058
 	default n
 	help
@@ -1939,12 +2148,6 @@ config MSM_AUDIO_QDSP6
         help
           Enable HW audio support in QDSP6.
           QDSP6 can support HW encoder & decoder and audio processing
-
-config MSM_ULTRASOUND
-	bool "MSM ultrasound support"
-	depends on MSM_AUDIO_QDSP6
-	help
-	  Enable support for qdsp6/ultrasound.
 
 config MSM_RPC_VIBRATOR
 	bool "RPC based MSM Vibrator Support"
@@ -2009,5 +2212,29 @@ config MSM_RTB_SEPARATE_CPUS
 	  separately. This will guarantee that the last acesses for each cpu
 	  will be logged but there will be fewer entries per cpu
 
+config ACPU_CUSTOM_FREQ_SUPPORT
+	bool "Custom frequency support"
+	default n
+	help
+	  Adds support for custom frequency table adjustments.
+
+config ACPU_MAX_FREQ
+	int "Maximum supported frequency"
+	depends on ACPU_CUSTOM_FREQ_SUPPORT
+	default 0
+	help
+	  If set to non-zero number, will search for this frequency in
+          frequency table and set as maximum supported frequency if found.
+
+config AUDIO_USAGE_FOR_POWER_CONSUMPTION
+	bool "AUDIO_USAGE_FOR_POWER_CONSUMPTION"
+	default n
+
+config ANDROID_RAM_CONSOLE_APPEND_PMIC_STATUS_BITS
+	bool "Append PMIC status bits to end of /proc/last_kmsg"
+	default n
+	help
+	  Append PMIC status bits to end of /proc/last_kmsg for
+	  checking the boot / reset reason in detail
 
 endif

@@ -1,4 +1,4 @@
-
+source "drivers/video/msm/sii9234/Kconfig"
 source "drivers/video/msm/vidc/Kconfig"
 
 config FB_MSM
@@ -103,6 +103,16 @@ config FB_MSM_DTV
 	bool
 	default n
 
+config FB_MSM_MDP_ABL
+        bool "CABL Service"
+        depends on FB_MSM
+        default n
+
+config MSM_AUTOBL_ENABLE
+        bool "ACL Service"
+        depends on FB_MSM
+        default n
+
 config FB_MSM_EXTMDDI
 	bool
 	default n
@@ -155,10 +165,6 @@ config FB_MSM_MIPI_DSI_RENESAS
 	bool
 	select FB_MSM_MIPI_DSI
 	default n
-
-config FB_MSM_MIPI_DSI_TRULY
-	bool
-	select FB_MSM_MIPI_DSI
 
 config FB_MSM_MIPI_DSI_SIMULATOR
 	bool
@@ -286,10 +292,6 @@ config FB_MSM_MIPI_CHIMEI_WXGA
 	  The panel is connected to the host
 	  via Toshiba DSI-to-LVDS bridge.
 
-config FB_MSM_MIPI_TRULY_VIDEO_WVGA_PT
-	bool
-	select FB_MSM_MIPI_DSI_TRULY
-
 config FB_MSM_MIPI_SIMULATOR_VIDEO
 	bool
 	select FB_MSM_MIPI_DSI_SIMULATOR
@@ -403,7 +405,6 @@ config FB_MSM_MIPI_PANEL_DETECT
 	select FB_MSM_MIPI_TOSHIBA_VIDEO_WSVGA_PT
 	select FB_MSM_MIPI_RENESAS_VIDEO_FWVGA_PT
 	select FB_MSM_MIPI_RENESAS_CMD_FWVGA_PT
-	select FB_MSM_MIPI_TRULY_VIDEO_WVGA_PT
 	select FB_MSM_MIPI_NOVATEK_VIDEO_QHD_PT
 	select FB_MSM_MIPI_NOVATEK_CMD_QHD_PT
 	select FB_MSM_MIPI_SIMULATOR_VIDEO
@@ -502,10 +503,6 @@ config FB_MSM_MIPI_RENESAS_CMD_FWVGA_PT_PANEL
 config FB_MSM_MIPI_CHIMEI_WXGA_PANEL
 	bool "MIPI Chimei WXGA PT Panel"
 	select FB_MSM_MIPI_CHIMEI_WXGA
-
-config FB_MSM_MIPI_TRULY_VIDEO_WVGA_PT_PANEL
-	bool "MIPI Truly Video WVGA PT Panel"
-	select FB_MSM_MIPI_TRULY_VIDEO_WVGA_PT
 
 config FB_MSM_MIPI_SIMULATOR_VIDEO_PANEL
 	bool "MIPI Simulator Video Panel"
@@ -615,7 +612,7 @@ config FB_MSM_HDMI_MSM_PANEL_DVI_SUPPORT
 config FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
 	depends on FB_MSM_HDMI_MSM_PANEL
 	bool "Use HDCP mode"
-	default y
+	default n
 	---help---
 	  Support for HDCP mode for MSM HDMI 1080p Panel
 	  Choose to enable HDCP
@@ -627,15 +624,6 @@ config FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
 	---help---
 	  Support for HDMI CEC Feature
 	  Choose to enable CEC
-
-config FB_MSM_HDMI_MHL
-	depends on FB_MSM_HDMI_MSM_PANEL
-	bool 'HDMI to MHL support'
-	default n
-	---help---
-	  Support the HDMI to MHL conversion.
-	  MHL (Mobile High-Definition Link) technology
-	  uses USB connector to output HDMI content
 
 choice
 	depends on  (FB_MSM_MDP22 || FB_MSM_MDP31 || FB_MSM_MDP40)
@@ -724,5 +712,15 @@ config FB_MSM_DEFAULT_DEPTH_RGBA8888
 	bool "32 bits per pixel (RGBA8888)"
 
 endchoice
+
+config FB_MSM_SELF_REFRESH
+	bool "Use self refresh"
+	depends on FB_MSM
+	default n
+
+config FB_MSM_CABC
+	bool "Use CABC"
+	depends on FB_MSM
+	default n
 
 endif

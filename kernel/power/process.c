@@ -17,6 +17,7 @@
 #include <linux/delay.h>
 #include <linux/workqueue.h>
 #include <linux/wakelock.h>
+#include <mach/msm_watchdog.h>
 #include "power.h"
 
 /* 
@@ -128,6 +129,10 @@ static int try_to_freeze_tasks(bool sig_only)
 		}
 		thaw_workqueues();
 
+#ifdef CONFIG_MSM_WATCHDOG
+		/* Suspend wdog until tasks are printed */
+		msm_watchdog_suspend();
+#endif
 		read_lock(&tasklist_lock);
 		do_each_thread(g, p) {
 			task_lock(p);
@@ -138,6 +143,9 @@ static int try_to_freeze_tasks(bool sig_only)
 			task_unlock(p);
 		} while_each_thread(g, p);
 		read_unlock(&tasklist_lock);
+#ifdef CONFIG_MSM_WATCHDOG
+		msm_watchdog_resume();
+#endif
 	} else {
 		printk("(elapsed %d.%02d seconds) ", elapsed_csecs / 100,
 			elapsed_csecs % 100);

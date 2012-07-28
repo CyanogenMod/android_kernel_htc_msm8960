@@ -2308,7 +2308,7 @@ static int msm_ipc_router_add_xprt(struct msm_ipc_router_xprt *xprt)
 	struct msm_ipc_router_xprt_info *xprt_info;
 	struct msm_ipc_routing_table_entry *rt_entry;
 
-	xprt_info = kmalloc(sizeof(struct msm_ipc_router_xprt_info),
+	xprt_info = kzalloc(sizeof(struct msm_ipc_router_xprt_info),
 			    GFP_KERNEL);
 	if (!xprt_info)
 		return -ENOMEM;

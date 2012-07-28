@@ -154,9 +154,9 @@ static void mmc_host_clk_gate_work(struct work_struct *work)
 void mmc_host_clk_hold(struct mmc_host *host)
 {
 	unsigned long flags;
-
 	/* cancel any clock gating work scheduled by mmc_host_clk_release() */
 	cancel_delayed_work_sync(&host->clk_gate_work);
+
 	mutex_lock(&host->clk_gate_mutex);
 	spin_lock_irqsave(&host->clk_lock, flags);
 	if (host->clk_gated) {
@@ -334,6 +334,7 @@ struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
 	wake_lock_init(&host->detect_wake_lock, WAKE_LOCK_SUSPEND,
 		kasprintf(GFP_KERNEL, "%s_detect", mmc_hostname(host)));
 	INIT_DELAYED_WORK(&host->detect, mmc_rescan);
+	INIT_DELAYED_WORK(&host->remove, mmc_remove_sd_card);
 	INIT_DELAYED_WORK_DEFERRABLE(&host->disable, mmc_host_deeper_disable);
 #ifdef CONFIG_PM
 	host->pm_notify.notifier_call = mmc_pm_notify;
@@ -441,8 +442,9 @@ int mmc_add_host(struct mmc_host *host)
 	err = device_add(&host->class_dev);
 	if (err)
 		return err;
-
+#if 0  /* 2011-11-14 FIR ITS#55, may cause kernel panic */
 	led_trigger_register_simple(dev_name(&host->class_dev), &host->led);
+#endif
 
 #ifdef CONFIG_DEBUG_FS
 	mmc_add_host_debugfs(host);
@@ -485,9 +487,9 @@ void mmc_remove_host(struct mmc_host *host)
 
 
 	device_del(&host->class_dev);
-
+#if 0  /* 2011-11-14 FIR ITS#55, may cause kernel panic */
 	led_trigger_unregister_simple(host->led);
-
+#endif
 	mmc_host_clk_exit(host);
 }
 

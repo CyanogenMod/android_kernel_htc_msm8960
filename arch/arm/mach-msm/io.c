@@ -1,4 +1,4 @@
-/* arch/arm/mach-msm/io.c
+	/* arch/arm/mach-msm/io.c
  *
  * MSM7K, QSD io support
  *
@@ -163,6 +163,7 @@ static struct map_desc msm8x60_io_desc[] __initdata = {
 		.type =     MT_DEVICE,
 	},
 	MSM_DEVICE(QFPROM),
+	MSM_DEVICE(EBI1_CH0),
 };
 
 void __init msm_map_msm8x60_io(void)
@@ -202,6 +203,8 @@ static struct map_desc msm8960_io_desc[] __initdata = {
 	MSM_DEVICE(DEBUG_UART),
 #endif
 	MSM_CHIP_DEVICE(QFPROM, MSM8960),
+	MSM_DEVICE(KERNEL_FOOTPRINT),
+	MSM_DEVICE(KALLSYMS_SAVE),
 };
 
 void __init msm_map_msm8960_io(void)
@@ -339,6 +342,10 @@ static struct map_desc fsm9xxx_io_desc[] __initdata = {
 	MSM_DEVICE(SAW),
 	MSM_DEVICE(GCC),
 	MSM_DEVICE(GRFC),
+	MSM_DEVICE(DMOV_SD0),
+	MSM_DEVICE(DMOV_SD1),
+	MSM_DEVICE(DMOV_SD2),
+	MSM_DEVICE(DMOV_SD3),
 	MSM_DEVICE(QFP_FUSE),
 	MSM_DEVICE(HH),
 #if defined(CONFIG_DEBUG_MSM_UART1) || defined(CONFIG_DEBUG_MSM_UART2) || \

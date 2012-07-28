@@ -60,6 +60,13 @@ static int msm_route_lpa_vol_control;
 static const DECLARE_TLV_DB_SCALE(lpa_rx_vol_gain, 0,
 			INT_LPA_RX_VOL_MAX_STEPS, 0);
 
+#define INT_COMPR_RX_VOL_MAX_STEPS 100
+#define INT_COMPR_RX_VOL_GAIN 0x2000
+
+static int msm_route_compr_vol_control;
+static const DECLARE_TLV_DB_SCALE(compr_rx_vol_gain, 0,
+			INT_COMPR_RX_VOL_MAX_STEPS, 0);
+
 /* Equal to Frontend after last of the MULTIMEDIA SESSIONS */
 #define MAX_EQ_SESSIONS		MSM_FRONTEND_DAI_CS_VOICE
 
@@ -134,6 +141,14 @@ static int fe_dai_map[MSM_FRONTEND_DAI_MM_SIZE][2] = {
 	{INVALID_SESSION, INVALID_SESSION},
 };
 
+static struct msm_pcm_routing_ops default_rops;
+static struct msm_pcm_routing_ops *rops = &default_rops;
+
+void htc_8960_register_pcm_routing_ops(struct msm_pcm_routing_ops *ops)
+{
+	rops = ops;
+}
+
 static void msm_pcm_routing_build_matrix(int fedai_id, int dspst_id,
 	int path_type)
 {
@@ -162,7 +177,7 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, int dspst_id, int stream_type)
 {
 	int i, session_type, path_type, port_type;
 	struct route_payload payload;
-	u32 channels;
+	int topology = DEFAULT_COPP_TOPOLOGY;
 
 	if (fedai_id > MSM_FRONTEND_DAI_MM_MAX_ID) {
 		/* bad ID assigned in machine driver */
@@ -182,6 +197,15 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, int dspst_id, int stream_type)
 
 	mutex_lock(&routing_lock);
 
+	/* change to HTC_COPP_TOPOLOGY to support Q6 effect */
+	if (rops->get_q6_effect) {
+		if (rops->get_q6_effect() == 1) { /* COPP */
+			pr_aud_info("%s: change to HTC_COPP_TOPOLOGY\n",
+				    __func__);
+			topology = HTC_COPP_TOPOLOGY;
+		}
+	}
+
 	payload.num_copps = 0; /* only RX needs to use payload */
 	fe_dai_map[fedai_id][session_type] = dspst_id;
 	/* re-enable EQ if active */
@@ -192,23 +216,11 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, int dspst_id, int stream_type)
 			port_type) && msm_bedais[i].active &&
 			(test_bit(fedai_id,
 			&msm_bedais[i].fe_sessions))) {
-
-			channels = params_channels(msm_bedais[i].hw_params);
-
-			if ((stream_type == SNDRV_PCM_STREAM_PLAYBACK) &&
-				(channels > 2))
-				adm_multi_ch_copp_open(msm_bedais[i].port_id,
-				path_type,
-				params_rate(msm_bedais[i].hw_params),
-				channels,
-				DEFAULT_COPP_TOPOLOGY);
-			else
-				adm_open(msm_bedais[i].port_id,
+			adm_open(msm_bedais[i].port_id,
 				path_type,
 				params_rate(msm_bedais[i].hw_params),
 				params_channels(msm_bedais[i].hw_params),
-				DEFAULT_COPP_TOPOLOGY);
-
+				topology);
 			payload.copp_ids[payload.num_copps++] =
 				msm_bedais[i].port_id;
 		}
@@ -256,9 +268,9 @@ void msm_pcm_routing_dereg_phy_stream(int fedai_id, int stream_type)
 static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 {
 	int session_type, path_type;
-	u32 channels;
+	int topology = DEFAULT_COPP_TOPOLOGY;
 
-	pr_debug("%s: reg %x val %x set %x\n", __func__, reg, val, set);
+	pr_info("%s: reg %x val %x set %x\n", __func__, reg, val, set);
 
 	if (val > MSM_FRONTEND_DAI_MM_MAX_ID) {
 		/* recheck FE ID in the mixer control defined in this file */
@@ -278,6 +290,15 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 	mutex_lock(&routing_lock);
 
 	if (set) {
+		/* change to HTC_COPP_TOPOLOGY to support Q6 effect */
+		if (rops->get_q6_effect) {
+			if (rops->get_q6_effect() == 1) { /* COPP */
+				pr_aud_info("%s: change to HTC_COPP_TOPOLOGY\n",
+					    __func__);
+				topology = HTC_COPP_TOPOLOGY;
+			}
+		}
+
 		if (!test_bit(val, &msm_bedais[reg].fe_sessions) &&
 			(msm_bedais[reg].port_id == VOICE_PLAYBACK_TX))
 			voc_start_playback(set);
@@ -285,22 +306,10 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 		set_bit(val, &msm_bedais[reg].fe_sessions);
 		if (msm_bedais[reg].active && fe_dai_map[val][session_type] !=
 			INVALID_SESSION) {
-
-			channels = params_channels(msm_bedais[reg].hw_params);
-
-			if ((session_type == SESSION_TYPE_RX) && (channels > 2))
-				adm_multi_ch_copp_open(msm_bedais[reg].port_id,
-				path_type,
-				params_rate(msm_bedais[reg].hw_params),
-				channels,
-				DEFAULT_COPP_TOPOLOGY);
-			else
-				adm_open(msm_bedais[reg].port_id,
-				path_type,
+			adm_open(msm_bedais[reg].port_id, path_type,
 				params_rate(msm_bedais[reg].hw_params),
 				params_channels(msm_bedais[reg].hw_params),
-				DEFAULT_COPP_TOPOLOGY);
-
+				topology);
 			msm_pcm_routing_build_matrix(val,
 				fe_dai_map[val][session_type], path_type);
 		}
@@ -371,7 +380,7 @@ static void msm_pcm_routing_process_voice(u16 reg, u16 val, int set)
 	else
 		session_id = voc_get_session_id(VOIP_SESSION_NAME);
 
-	pr_debug("%s: FE DAI 0x%x session_id 0x%x\n",
+	pr_info("%s: FE DAI 0x%x session_id 0x%x\n",
 		 __func__, val, session_id);
 
 	mutex_lock(&routing_lock);
@@ -545,6 +554,23 @@ static int msm_routing_set_lpa_vol_mixer(struct snd_kcontrol *kcontrol,
 {
 	if (!lpa_set_volume(ucontrol->value.integer.value[0]))
 		msm_route_lpa_vol_control =
+			ucontrol->value.integer.value[0];
+
+	return 0;
+}
+
+static int msm_routing_get_compr_vol_mixer(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = msm_route_compr_vol_control;
+	return 0;
+}
+
+static int msm_routing_set_compr_vol_mixer(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	if (!compr_set_volume(ucontrol->value.integer.value[0]))
+		msm_route_compr_vol_control =
 			ucontrol->value.integer.value[0];
 
 	return 0;
@@ -980,6 +1006,12 @@ static const struct snd_kcontrol_new lpa_vol_mixer_controls[] = {
 	SOC_SINGLE_EXT_TLV("LPA RX Volume", SND_SOC_NOPM, 0,
 	INT_LPA_RX_VOL_GAIN, 0, msm_routing_get_lpa_vol_mixer,
 	msm_routing_set_lpa_vol_mixer, lpa_rx_vol_gain),
+};
+
+static const struct snd_kcontrol_new compr_vol_mixer_controls[] = {
+	SOC_SINGLE_EXT_TLV("COMPR RX Volume", SND_SOC_NOPM, 0,
+	INT_COMPR_RX_VOL_GAIN, 0, msm_routing_get_compr_vol_mixer,
+	msm_routing_set_compr_vol_mixer, compr_rx_vol_gain),
 };
 
 static const struct snd_kcontrol_new eq_enable_mixer_controls[] = {
@@ -1454,13 +1486,28 @@ static int msm_pcm_routing_close(struct snd_pcm_substream *substream)
 	return 0;
 }
 
+int msm_pcm_routing_get_port(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	unsigned int be_id = rtd->dai_link->be_id;
+	struct msm_pcm_routing_bdai_data *bedai;
+
+	if (be_id >= MSM_BACKEND_DAI_MAX) {
+		pr_err("%s: unexpected be_id %d\n", __func__, be_id);
+		return -EINVAL;
+	}
+
+	bedai = &msm_bedais[be_id];
+	return bedai->port_id;
+}
+
 static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	unsigned int be_id = rtd->dai_link->be_id;
 	int i, path_type, session_type;
 	struct msm_pcm_routing_bdai_data *bedai;
-	u32 channels;
+	int topology = DEFAULT_COPP_TOPOLOGY;
 
 	if (be_id >= MSM_BACKEND_DAI_MAX) {
 		pr_err("%s: unexpected be_id %d\n", __func__, be_id);
@@ -1496,24 +1543,21 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 	 */
 	bedai->active = 1;
 
+	/* change to HTC_COPP_TOPOLOGY to support Q6 effect */
+	if (rops->get_q6_effect) {
+		if (rops->get_q6_effect() == 1) { /* COPP */
+			pr_aud_info("%s: change to HTC_COPP_TOPOLOGY\n",
+				    __func__);
+			topology = HTC_COPP_TOPOLOGY;
+		}
+	}
+
 	for_each_set_bit(i, &bedai->fe_sessions, MSM_FRONTEND_DAI_MM_SIZE) {
 		if (fe_dai_map[i][session_type] != INVALID_SESSION) {
-
-			channels = params_channels(bedai->hw_params);
-			if ((substream->stream == SNDRV_PCM_STREAM_PLAYBACK) &&
-				(channels > 2))
-				adm_multi_ch_copp_open(bedai->port_id,
-				path_type,
-				params_rate(bedai->hw_params),
-				channels,
-				DEFAULT_COPP_TOPOLOGY);
-			else
-				adm_open(bedai->port_id,
-				path_type,
+			adm_open(bedai->port_id, path_type,
 				params_rate(bedai->hw_params),
 				params_channels(bedai->hw_params),
-				DEFAULT_COPP_TOPOLOGY);
-
+				topology);
 			msm_pcm_routing_build_matrix(i,
 				fe_dai_map[i][session_type], path_type);
 		}
@@ -1565,6 +1609,10 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 			ARRAY_SIZE(lpa_vol_mixer_controls));
 
 	snd_soc_add_platform_controls(platform,
+				compr_vol_mixer_controls,
+			ARRAY_SIZE(compr_vol_mixer_controls));
+
+	snd_soc_add_platform_controls(platform,
 				eq_enable_mixer_controls,
 			ARRAY_SIZE(eq_enable_mixer_controls));
 
@@ -1606,6 +1654,23 @@ static struct platform_driver msm_routing_pcm_driver = {
 	.probe = msm_routing_pcm_probe,
 	.remove = __devexit_p(msm_routing_pcm_remove),
 };
+
+int msm_routing_check_backend_enabled(int fedai_id)
+{
+	int i;
+	if (fedai_id > MSM_FRONTEND_DAI_MM_MAX_ID) {
+		/* bad ID assigned in machine driver */
+		pr_err("%s: bad MM ID\n", __func__);
+		return 0;
+	}
+	for (i = 0; i < MSM_BACKEND_DAI_MAX; i++) {
+		if ((test_bit(fedai_id,
+			&msm_bedais[i].fe_sessions))) {
+			return msm_bedais[i].active;
+		}
+	}
+	return 0;
+}
 
 static int __init msm_soc_routing_platform_init(void)
 {

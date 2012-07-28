@@ -16,6 +16,7 @@
 #include <linux/platform_device.h>
 #include <linux/mfd/wcd9310/core.h>
 #include <linux/bitops.h>
+#include <linux/mutex.h>
 #include <linux/slab.h>
 #include <linux/clk.h>
 #include <sound/core.h>
@@ -37,6 +38,7 @@ struct msm_dai_q6_dai_data {
 	u32 rate;
 	u32 channels;
 	union afe_port_config port_config;
+	struct mutex dai_lock;
 };
 
 static struct clk *pcm_clk;
@@ -207,6 +209,30 @@ static int msm_dai_q6_cdc_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	return 0;
 }
 
+static int msm_dai_q6_hdmi_hw_params(struct snd_pcm_hw_params *params,
+	struct snd_soc_dai *dai)
+{
+	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
+
+	dev_dbg(dai->dev, "%s start HDMI port\n", __func__);
+
+	dai_data->channels = params_channels(params);
+	switch (dai_data->channels) {
+	case 2:
+		dai_data->port_config.hdmi.channel_mode = 0; /* Put in macro */
+		break;
+	default:
+		return -EINVAL;
+		break;
+	}
+
+	/* Q6 only supports 16 as now */
+	dai_data->port_config.hdmi.bitwidth = 16;
+	dai_data->port_config.hdmi.data_type = 0;
+	dai_data->rate = params_rate(params);
+
+	return 0;
+}
 
 static int msm_dai_q6_slim_bus_hw_params(struct snd_pcm_hw_params *params,
 				    struct snd_soc_dai *dai, int stream)
@@ -402,6 +428,9 @@ static int msm_dai_q6_hw_params(struct snd_pcm_substream *substream,
 	case MI2S_RX:
 		rc = msm_dai_q6_mi2s_hw_params(params, dai, substream->stream);
 		break;
+	case HDMI_RX:
+		rc = msm_dai_q6_hdmi_hw_params(params, dai);
+		break;
 	case SLIMBUS_0_RX:
 	case SLIMBUS_0_TX:
 		rc = msm_dai_q6_slim_bus_hw_params(params, dai,
@@ -466,6 +495,8 @@ static void msm_dai_q6_shutdown(struct snd_pcm_substream *substream,
 	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
 	int rc = 0;
 
+	mutex_lock(&dai_data->dai_lock);
+
 	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 		switch (dai->id) {
 		case VOICE_PLAYBACK_TX:
@@ -481,10 +512,12 @@ static void msm_dai_q6_shutdown(struct snd_pcm_substream *substream,
 		}
 		if (IS_ERR_VALUE(rc))
 			dev_err(dai->dev, "fail to close AFE port\n");
-		pr_debug("%s: dai_data->status_mask = %ld\n", __func__,
+		pr_info("%s: dai_data->status_mask = %ld\n", __func__,
 			*dai_data->status_mask);
 		clear_bit(STATUS_PORT_STARTED, dai_data->status_mask);
 	}
+
+	mutex_unlock(&dai_data->dai_lock);
 }
 
 static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
@@ -548,12 +581,16 @@ static int msm_dai_q6_prepare(struct snd_pcm_substream *substream,
 	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
 	int rc = 0;
 
+	mutex_lock(&dai_data->dai_lock);
+
 	if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 		/* PORT START should be set if prepare called in active state */
 		rc = afe_q6_interface_prepare();
 		if (IS_ERR_VALUE(rc))
 			dev_err(dai->dev, "fail to open AFE APR\n");
 	}
+
+	mutex_unlock(&dai_data->dai_lock);
 	return rc;
 }
 
@@ -606,7 +643,9 @@ static int msm_dai_q6_trigger(struct snd_pcm_substream *substream, int cmd,
 	 * native q6 AFE driver propagates AFE response in order to handle
 	 * port start/stop command error properly if error does arise.
 	 */
-	pr_debug("%s:port:%d  cmd:%d dai_data->status_mask = %ld",
+
+	mutex_lock(&dai_data->dai_lock);
+	pr_info("%s:port:%d  cmd:%d dai_data->status_mask = %ld",
 		__func__, dai->id, cmd, *dai_data->status_mask);
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
@@ -650,6 +689,7 @@ static int msm_dai_q6_trigger(struct snd_pcm_substream *substream, int cmd,
 	default:
 		rc = -EINVAL;
 	}
+	mutex_unlock(&dai_data->dai_lock);
 
 	return rc;
 }
@@ -749,9 +789,10 @@ static int msm_dai_q6_dai_probe(struct snd_soc_dai *dai)
 		dev_err(dai->dev, "DAI-%d: fail to allocate dai data\n",
 		dai->id);
 		rc = -ENOMEM;
-	} else
+	} else {
+		mutex_init(&dai_data->dai_lock);
 		dev_set_drvdata(dai->dev, dai_data);
-
+	}
 	return rc;
 }
 
@@ -875,6 +916,20 @@ static struct snd_soc_dai_driver msm_dai_q6_afe_tx_dai = {
 		.channels_max = 2,
 		.rate_min =     8000,
 		.rate_max =	48000,
+	},
+	.ops = &msm_dai_q6_ops,
+	.probe = msm_dai_q6_dai_probe,
+	.remove = msm_dai_q6_dai_remove,
+};
+
+static struct snd_soc_dai_driver msm_dai_q6_hdmi_rx_dai = {
+	.playback = {
+		.rates = SNDRV_PCM_RATE_48000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		.channels_min = 2,
+		.channels_max = 2,
+		.rate_max =     48000,
+		.rate_min =	48000,
 	},
 	.ops = &msm_dai_q6_ops,
 	.probe = msm_dai_q6_dai_probe,
@@ -1064,6 +1119,9 @@ static __devinit int msm_dai_q6_dev_probe(struct platform_device *pdev)
 	case MI2S_RX:
 		rc = snd_soc_register_dai(&pdev->dev,
 					&msm_dai_q6_mi2s_rx_dai);
+		break;
+	case HDMI_RX:
+		rc = snd_soc_register_dai(&pdev->dev, &msm_dai_q6_hdmi_rx_dai);
 		break;
 	case SLIMBUS_0_RX:
 		rc = snd_soc_register_dai(&pdev->dev,

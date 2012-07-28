@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,8 +16,71 @@
 #include "diagchar.h"
 #include "diagfwd.h"
 #include "diagfwd_cntl.h"
+#ifdef CONFIG_DIAG_OVER_USB
+#include <mach/usbdiag.h>
+#endif
 
 #define HDR_SIZ 8
+
+void diag_smd_cntl_notify(void *ctxt, unsigned event)
+{
+	int r1, r2;
+
+	if (!(driver->ch_cntl))
+		return;
+
+	switch (event) {
+	case SMD_EVENT_DATA:
+		r1 = smd_read_avail(driver->ch_cntl);
+		r2 = smd_cur_packet_size(driver->ch_cntl);
+		if (r1 > 0 && r1 == r2)
+			queue_work(driver->diag_wq,
+				 &(driver->diag_read_smd_cntl_work));
+		else
+			pr_info("diag: incomplete pkt on Modem CNTL ch\n");
+		break;
+	}
+}
+
+void diag_smd_qdsp_cntl_notify(void *ctxt, unsigned event)
+{
+	int r1, r2;
+
+	if (!(driver->chqdsp_cntl))
+		return;
+
+	switch (event) {
+	case SMD_EVENT_DATA:
+		r1 = smd_read_avail(driver->chqdsp_cntl);
+		r2 = smd_cur_packet_size(driver->chqdsp_cntl);
+		if (r1 > 0 && r1 == r2)
+			queue_work(driver->diag_wq,
+				 &(driver->diag_read_smd_qdsp_cntl_work));
+		else
+			pr_info("diag: incomplete pkt on LPASS CNTL ch\n");
+		break;
+	}
+}
+
+void diag_smd_wcnss_cntl_notify(void *ctxt, unsigned event)
+{
+	int r1, r2;
+
+	if (!(driver->ch_wcnss_cntl))
+		return;
+
+	switch (event) {
+	case SMD_EVENT_DATA:
+		r1 = smd_read_avail(driver->ch_wcnss_cntl);
+		r2 = smd_cur_packet_size(driver->ch_wcnss_cntl);
+		if (r1 > 0 && r1 == r2)
+			queue_work(driver->diag_wq,
+				 &(driver->diag_read_smd_wcnss_cntl_work));
+		else
+			pr_info("diag: incomplete pkt on WCNSS CNTL ch\n");
+		break;
+	}
+}
 
 static void diag_smd_cntl_send_req(int proc_num)
 {
@@ -27,8 +90,17 @@ static void diag_smd_cntl_send_req(int proc_num)
 	struct diag_ctrl_msg *msg;
 	struct cmd_code_range *range;
 	struct bindpkt_params *temp;
-	void *buf = NULL;
+	void *buf = NULL, *dump_buf = NULL;
 	smd_channel_t *smd_ch = NULL;
+
+	DIAG_INFO("%s: %s\n", __func__,
+		(proc_num == MODEM_PROC)?"MODEM_PROC":
+		(proc_num == QDSP_PROC)?"QDSP_PROC":"WCNSS_PROC");
+
+	if (pkt_params == NULL) {
+		pr_alert("diag: Memory allocation failure\n");
+		return;
+	}
 
 	if (proc_num == MODEM_PROC) {
 		buf = driver->buf_in_cntl;
@@ -62,14 +134,39 @@ static void diag_smd_cntl_send_req(int proc_num)
 		while (count_bytes + HDR_SIZ <= r) {
 			type = *(uint32_t *)(buf);
 			data_len = *(uint32_t *)(buf + 4);
+			if (type < DIAG_CTRL_MSG_REG ||
+					 type > DIAG_CTRL_MSG_F3_MASK_V2) {
+				pr_alert("diag: Invalid Msg type %d proc %d",
+					 type, proc_num);
+				break;
+			}
+			if (data_len < 0 || data_len > r) {
+				pr_alert("diag: Invalid data len %d proc %d",
+					 data_len, proc_num);
+				break;
+			}
 			count_bytes = count_bytes+HDR_SIZ+data_len;
 			if (type == DIAG_CTRL_MSG_REG && r >= count_bytes) {
 				msg = buf+HDR_SIZ;
+				if (!msg->count_entries) {
+					DIAG_ERR("version: %d, cmd_code: %d,"
+						" subsysid: %d, count_entries: %d,"
+						" port:%d\n", msg->version,
+						msg->cmd_code, msg->subsysid,
+						msg->count_entries, msg->port);
+					dump_buf = kmalloc(r, GFP_KERNEL);
+					memcpy(dump_buf, buf, r);
+					continue;
+				}
 				range = buf+HDR_SIZ+
 						sizeof(struct diag_ctrl_msg);
 				pkt_params->count = msg->count_entries;
 				temp = kzalloc(pkt_params->count * sizeof(struct
 						 bindpkt_params), GFP_KERNEL);
+				if (temp == NULL) {
+					pr_alert("diag: Memory alloc fail\n");
+					return;
+				}
 				for (j = 0; j < pkt_params->count; j++) {
 					temp->cmd_code = msg->cmd_code;
 					temp->subsys_id = msg->subsysid;
@@ -90,14 +187,20 @@ static void diag_smd_cntl_send_req(int proc_num)
 			buf = buf + HDR_SIZ + data_len;
 		}
 	}
+	if (dump_buf) {
+		print_hex_dump(KERN_DEBUG, "diag_debug_buf:",
+			16, 1, DUMP_PREFIX_ADDRESS, dump_buf, r, 1);
+		kfree(dump_buf);
+	}
 	kfree(pkt_params);
 	if (flag) {
 		/* Poll SMD CNTL channels to check for data */
-		queue_work(driver->diag_wq, &(driver->diag_read_smd_cntl_work));
-		queue_work(driver->diag_wq,
-			 &(driver->diag_read_smd_qdsp_cntl_work));
-		queue_work(driver->diag_wq,
-			 &(driver->diag_read_smd_wcnss_cntl_work));
+		if (proc_num == MODEM_PROC)
+			diag_smd_cntl_notify(NULL, SMD_EVENT_DATA);
+		else if (proc_num == QDSP_PROC)
+			diag_smd_qdsp_cntl_notify(NULL, SMD_EVENT_DATA);
+		else if (proc_num == WCNSS_PROC)
+			diag_smd_wcnss_cntl_notify(NULL, SMD_EVENT_DATA);
 	}
 }
 
@@ -116,26 +219,11 @@ void diag_read_smd_wcnss_cntl_work_fn(struct work_struct *work)
 	diag_smd_cntl_send_req(WCNSS_PROC);
 }
 
-static void diag_smd_cntl_notify(void *ctxt, unsigned event)
-{
-	queue_work(driver->diag_wq, &(driver->diag_read_smd_cntl_work));
-}
-
-static void diag_smd_qdsp_cntl_notify(void *ctxt, unsigned event)
-{
-	queue_work(driver->diag_wq, &(driver->diag_read_smd_qdsp_cntl_work));
-}
-
-static void diag_smd_wcnss_cntl_notify(void *ctxt, unsigned event)
-{
-	queue_work(driver->diag_wq, &(driver->diag_read_smd_wcnss_cntl_work));
-}
-
 static int diag_smd_cntl_probe(struct platform_device *pdev)
 {
 	int r = 0;
 
-	/* open control ports only on 8960 & newer targets */
+	/* open control ports only on 8960 */
 	if (chk_apps_only()) {
 		if (pdev->id == SMD_APPS_MODEM)
 			r = smd_open("DIAG_CNTL", &driver->ch_cntl, driver,

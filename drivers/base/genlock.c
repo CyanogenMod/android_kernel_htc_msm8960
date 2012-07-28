@@ -34,6 +34,9 @@
 #define GENLOCK_LOG_ERR(fmt, args...) \
 pr_err("genlock: %s: " fmt, __func__, ##args)
 
+#define GENLOCK_LOG_INFO(fmt, args...) \
+pr_info("genlock: %s: " fmt, __func__, ##args)
+
 struct genlock {
 	struct list_head active;  /* List of handles holding lock */
 	spinlock_t lock;          /* Spinlock to protect the lock internals */
@@ -49,6 +52,7 @@ struct genlock_handle {
 	struct file *file;        /* File structure associated with handle */
 	int active;		  /* Number of times the active lock has been
 				     taken */
+	int pid;
 };
 
 /*
@@ -215,7 +219,8 @@ struct genlock *genlock_attach_lock(struct genlock_handle *handle, int fd)
 	}
 
 	handle->lock = lock;
-	kref_get(&lock->refcount);
+	if (atomic_read(&(lock->refcount.refcount)) > 0)
+		kref_get(&lock->refcount);
 
 	return lock;
 }
@@ -258,6 +263,8 @@ static int _genlock_unlock(struct genlock *lock, struct genlock_handle *handle)
 
 	if (lock->state == _UNLOCKED) {
 		GENLOCK_LOG_ERR("Trying to unlock an unlocked handle\n");
+		/* workaround return unlock success for graphic infinite loop issue */
+		ret = 0;
 		goto done;
 	}
 
@@ -369,6 +376,15 @@ static int _genlock_lock(struct genlock *lock, struct genlock_handle *handle,
 		spin_lock_irqsave(&lock->lock, irqflags);
 
 		if (elapsed <= 0) {
+			if(list_empty(&lock->active))
+				printk("[genlock] lock failed, but list_empty\n");
+			else {
+				struct genlock_handle *h;
+				printk("[genlock] lock failed %d, the follows hold lock %d\n", op, lock->state);
+				list_for_each_entry(h, &lock->active, entry) {
+					printk("[genlock] handle %p pid %d\n", h, h->pid);
+				}
+			}
 			ret = (elapsed < 0) ? elapsed : -ETIMEDOUT;
 			goto done;
 		}
@@ -382,6 +398,7 @@ dolock:
 	list_add_tail(&handle->entry, &lock->active);
 	lock->state = op;
 	handle->active = 1;
+	handle->pid = current->pid;
 
 done:
 	spin_unlock_irqrestore(&lock->lock, irqflags);
@@ -418,6 +435,10 @@ int genlock_lock(struct genlock_handle *handle, int op, int flags,
 		return -EINVAL;
 	}
 
+	if (atomic_read(&(lock->refcount.refcount)) == 0)
+		return 0;
+	else kref_get(&lock->refcount);
+
 	switch (op) {
 	case GENLOCK_UNLOCK:
 		ret = _genlock_unlock(lock, handle);
@@ -430,6 +451,10 @@ int genlock_lock(struct genlock_handle *handle, int op, int flags,
 		GENLOCK_LOG_ERR("Invalid lock operation\n");
 		ret = -EINVAL;
 		break;
+	}
+	if (kref_put(&lock->refcount, genlock_destroy)) {
+		GENLOCK_LOG_INFO("release lock after ioctl complete, pid (%d/%d)\n",
+		    current->tgid, current->pid);
 	}
 
 	return ret;
@@ -499,23 +524,28 @@ done:
 static void genlock_release_lock(struct genlock_handle *handle)
 {
 	unsigned long flags;
+	struct genlock *lock = NULL;
 
 	if (handle == NULL || handle->lock == NULL)
 		return;
+	if (atomic_read(&(handle->lock->refcount.refcount)) == 0)
+		return;
 
 	spin_lock_irqsave(&handle->lock->lock, flags);
+	lock = handle->lock;
 
 	/* If the handle is holding the lock, then force it closed */
 
 	if (handle_has_lock(handle->lock, handle)) {
+		GENLOCK_LOG_INFO("Releasing a handle that still holds lock (%d)\n", lock->state);
 		list_del(&handle->entry);
 		_genlock_signal(handle->lock);
 	}
-	spin_unlock_irqrestore(&handle->lock->lock, flags);
-
-	kref_put(&handle->lock->refcount, genlock_destroy);
 	handle->lock = NULL;
 	handle->active = 0;
+	spin_unlock_irqrestore(&lock->lock, flags);
+
+	kref_put(&lock->refcount, genlock_destroy);
 }
 
 /*

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,9 +26,6 @@ struct route_payload {
 
 int adm_open(int port, int path, int rate, int mode, int topology);
 
-int adm_multi_ch_copp_open(int port, int path, int rate, int mode,
-				int topology);
-
 int adm_memory_map_regions(uint32_t *buf_add, uint32_t mempool_id,
 				uint32_t *bufsz, uint32_t bufcnt);
 
@@ -43,5 +40,8 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 #ifdef CONFIG_RTAC
 int adm_get_copp_id(int port_id);
 #endif
+
+int q6adm_enable_effect(int port_id, uint32_t module_id, uint32_t param_id,
+		uint32_t payload_size, void *payload);
 
 #endif /* __Q6_ADM_H__ */

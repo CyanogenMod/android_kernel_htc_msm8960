@@ -160,6 +160,8 @@ struct kmemleak_object {
 	unsigned long jiffies;		/* creation timestamp */
 	pid_t pid;			/* pid of the current task */
 	char comm[TASK_COMM_LEN];	/* executable name */
+	unsigned long long ktime;	/* printk time */
+	unsigned long nanosec_rem;	/* printk nanosec */
 };
 
 /* flag representing the memory block allocation status */
@@ -350,9 +352,10 @@ static void print_unreferenced(struct seq_file *seq,
 
 	seq_printf(seq, "unreferenced object 0x%08lx (size %zu):\n",
 		   object->pointer, object->size);
-	seq_printf(seq, "  comm \"%s\", pid %d, jiffies %lu (age %d.%03ds)\n",
+	seq_printf(seq, "  comm \"%s\", pid %d, jiffies %lu (age %d.%03ds) [%5lu.%06lu]\n",
 		   object->comm, object->pid, object->jiffies,
-		   msecs_age / 1000, msecs_age % 1000);
+		   msecs_age / 1000, msecs_age % 1000,
+		   (unsigned long) object->ktime, object->nanosec_rem / 1000);
 	hex_dump_object(seq, object);
 	seq_printf(seq, "  backtrace:\n");
 
@@ -533,6 +536,8 @@ static struct kmemleak_object *create_object(unsigned long ptr, size_t size,
 	object->count = 0;			/* white color initially */
 	object->jiffies = jiffies;
 	object->checksum = 0;
+	object->ktime = cpu_clock(UINT_MAX);
+	object->nanosec_rem = do_div(object->ktime, 1000000000);
 
 	/* task information */
 	if (in_irq()) {
@@ -574,10 +579,11 @@ static struct kmemleak_object *create_object(unsigned long ptr, size_t size,
 		kmemleak_stop("Cannot insert 0x%lx into the object search tree "
 			      "(already existing)\n", ptr);
 		object = lookup_object(ptr, 1);
-		spin_lock(&object->lock);
-		dump_object_info(object);
-		spin_unlock(&object->lock);
-
+		if (object) {
+			spin_lock(&object->lock);
+			dump_object_info(object);
+			spin_unlock(&object->lock);
+		}
 		goto out;
 	}
 	list_add_tail_rcu(&object->object_list, &object_list);
@@ -922,7 +928,7 @@ void __ref kmemleak_not_leak(const void *ptr)
 {
 	pr_debug("%s(0x%p)\n", __func__, ptr);
 
-	if (atomic_read(&kmemleak_enabled) && ptr && !IS_ERR(ptr))
+	if (atomic_read(&kmemleak_initialized) && ptr && !IS_ERR(ptr))
 		make_gray_object((unsigned long)ptr);
 	else if (atomic_read(&kmemleak_early_log))
 		log_early(KMEMLEAK_NOT_LEAK, ptr, 0, 0);
@@ -1308,8 +1314,13 @@ static void kmemleak_scan(void)
 	rcu_read_unlock();
 
 	if (new_leaks)
+#ifdef CONFIG_PROC_FS
+		pr_info("%d new suspected memory leaks (see "
+			"/proc/kmemleak)\n", new_leaks);
+#else
 		pr_info("%d new suspected memory leaks (see "
 			"/sys/kernel/debug/kmemleak)\n", new_leaks);
+#endif
 
 }
 
@@ -1661,6 +1672,8 @@ static int kmemleak_boot_config(char *str)
 }
 early_param("kmemleak", kmemleak_boot_config);
 
+#include <mach/board_htc.h>
+
 /*
  * Kmemleak initialization.
  */
@@ -1669,12 +1682,14 @@ void __init kmemleak_init(void)
 	int i;
 	unsigned long flags;
 
-#ifdef CONFIG_DEBUG_KMEMLEAK_DEFAULT_OFF
+	/* Switch kmemleak by kernelflag */
+	if (get_kernel_flag() & KERNEL_FLAG_KMEMLEAK)
+		kmemleak_skip_disable = 1;
+
 	if (!kmemleak_skip_disable) {
 		kmemleak_disable();
 		return;
 	}
-#endif
 
 	jiffies_min_age = msecs_to_jiffies(MSECS_MIN_AGE);
 	jiffies_scan_wait = msecs_to_jiffies(SECS_SCAN_WAIT * 1000);
@@ -1727,12 +1742,21 @@ void __init kmemleak_init(void)
 	}
 }
 
+#ifdef CONFIG_PROC_FS
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
+#endif
+
 /*
  * Late initialization function.
  */
 static int __init kmemleak_late_init(void)
 {
+#ifdef CONFIG_PROC_FS
+	struct proc_dir_entry *p;
+#else
 	struct dentry *dentry;
+#endif
 
 	atomic_set(&kmemleak_initialized, 1);
 
@@ -1747,10 +1771,16 @@ static int __init kmemleak_late_init(void)
 		return -ENOMEM;
 	}
 
+#ifdef CONFIG_PROC_FS
+	p = proc_create("kmemleak", S_IRUGO, NULL, &kmemleak_fops);
+	if (!p)
+		pr_warning("Failed to create the proc kmemleak file\n");
+#else
 	dentry = debugfs_create_file("kmemleak", S_IRUGO, NULL, NULL,
 				     &kmemleak_fops);
 	if (!dentry)
 		pr_warning("Failed to create the debugfs kmemleak file\n");
+#endif
 	mutex_lock(&scan_mutex);
 	start_scan_thread();
 	mutex_unlock(&scan_mutex);

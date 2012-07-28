@@ -253,6 +253,13 @@ config SPI_OC_TINY
 	help
 	  This is the driver for OpenCores tiny SPI master controller.
 
+config SPI_AIC3254
+	tristate "TI AIC3254 SPI support"
+        default n
+	depends on ARCH_MSM7X30 || ARCH_MSM8X60
+	help
+	  TI AIC3254 is external codec for audio RX
+
 config SPI_OMAP_UWIRE
 	tristate "OMAP1 MicroWire"
 	depends on ARCH_OMAP1

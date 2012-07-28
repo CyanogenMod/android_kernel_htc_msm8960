@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,7 +19,14 @@
 #include <linux/spinlock.h>
 #include <linux/proc_fs.h>
 #include "msm.h"
-#include "msm_sensor.h"
+
+//HTC_START howard 20111209
+#include <linux/switch.h>
+//HTC_END
+
+#ifdef CONFIG_RAWCHIP
+#include "rawchip/rawchip.h"
+#endif
 
 #define MSM_MAX_CAMERA_SENSORS 5
 
@@ -163,7 +170,12 @@ static int msm_server_control(struct msm_cam_server_dev *server_dev,
 		if (!rc)
 			rc = -ETIMEDOUT;
 		if (rc < 0) {
-			pr_err("%s: wait_event error %d\n", __func__, rc);
+			rcmd = msm_dequeue(queue, list_control);
+			if (!rcmd)
+				free_qcmd(rcmd);
+			kfree(isp_event);
+			pr_err("%s: wait_event error %d, ctrlcmd.type=%d, v4l2_evt.type=%d\n"
+				, __func__, rc, out->type, v4l2_evt.type);
 			return rc;
 		}
 	}
@@ -671,12 +683,14 @@ static int msm_camera_get_crop(struct msm_cam_v4l2_device *pcam,
 static int msm_camera_v4l2_querycap(struct file *f, void *pctx,
 				struct v4l2_capability *pcaps)
 {
+	struct msm_cam_v4l2_device *pcam  = video_drvdata(f);
 
 	D("%s\n", __func__);
 	WARN_ON(pctx != f->private_data);
 
 	/* some other day, some other time */
 	/*cap->version = LINUX_VERSION_CODE; */
+	strlcpy(pcaps->driver, pcam->pdev->name, sizeof(pcaps->driver));
 	pcaps->capabilities = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_STREAMING;
 	return 0;
 }
@@ -769,7 +783,7 @@ static int msm_camera_v4l2_reqbufs(struct file *f, void *pctx,
 	}
 	if (!pb->count) {
 		/* Deallocation. free buf_offset array */
-		D("%s Inst %p freeing buffer offsets array",
+		pr_info("%s Inst %p freeing buffer offsets array",
 			__func__, pcam_inst);
 		for (j = 0 ; j < pcam_inst->buf_count ; j++)
 			kfree(pcam_inst->buf_offset[j]);
@@ -782,7 +796,7 @@ static int msm_camera_v4l2_reqbufs(struct file *f, void *pctx,
 			pcam_inst->vbqueue_initialized = 0;
 		}
 	} else {
-		D("%s Inst %p Allocating buf_offset array",
+		pr_info("%s Inst %p Allocating buf_offset array",
 			__func__, pcam_inst);
 		/* Allocation. allocate buf_offset array */
 		pcam_inst->buf_offset = (struct msm_cam_buf_offset **)
@@ -832,8 +846,7 @@ static int msm_camera_v4l2_qbuf(struct file *f, void *pctx,
 	pcam_inst = container_of(f->private_data,
 		struct msm_cam_v4l2_dev_inst, eventHandle);
 
-	D("%s Inst=%p, mode=%d, idx=%d\n", __func__, pcam_inst,
-		pcam_inst->image_mode, pb->index);
+	D("%s Inst = %p\n", __func__, pcam_inst);
 	WARN_ON(pctx != f->private_data);
 
 	if (!pcam_inst->buf_offset) {
@@ -863,8 +876,7 @@ static int msm_camera_v4l2_qbuf(struct file *f, void *pctx,
 	}
 
 	rc = vb2_qbuf(&pcam_inst->vid_bufq, pb);
-	D("%s, videobuf_qbuf mode %d and idx %d returns %d\n", __func__,
-		pcam_inst->image_mode, pb->index, rc);
+	D("%s, videobuf_qbuf returns %d\n", __func__, rc);
 
 	return rc;
 }
@@ -916,7 +928,7 @@ static int msm_camera_v4l2_streamon(struct file *f, void *pctx,
 	pcam_inst->streamon = 1;
 	rc = msm_server_streamon(pcam, pcam_inst->my_index);
 	mutex_unlock(&pcam->vid_lock);
-	D("%s rc = %d\n", __func__, rc);
+	pr_info("%s pcam_inst %p rc = %d\n", __func__, pcam_inst, rc);
 	return rc;
 }
 
@@ -950,7 +962,8 @@ static int msm_camera_v4l2_streamoff(struct file *f, void *pctx,
 
 	/* stop buffer streaming */
 	rc = vb2_streamoff(&pcam_inst->vid_bufq, buf_type);
-	D("%s, videobuf_streamoff returns %d\n", __func__, rc);
+	pr_info("%s pcam_inst %p videobuf_streamoff returns %d\n",
+		__func__, pcam_inst, rc);
 	return rc;
 }
 
@@ -1213,7 +1226,7 @@ static int msm_camera_v4l2_s_parm(struct file *f, void *pctx,
 	pcam_inst->image_mode = a->parm.capture.extendedmode;
 	pcam_inst->pcam->dev_inst_map[pcam_inst->image_mode] = pcam_inst;
 	pcam_inst->path = msm_vidbuf_get_path(pcam_inst->image_mode);
-	D("%spath=%d,rc=%d\n", __func__,
+	pr_info("%spath=%d,rc=%d\n", __func__,
 		pcam_inst->path, rc);
 	return rc;
 }
@@ -1448,6 +1461,7 @@ static int msm_open(struct file *f)
 		}
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 		pcam->mctl.client = msm_ion_client_create(-1, "camera");
+		kref_init(&pcam->mctl.refcount);
 #endif
 		/* Should be set to sensor ops if any but right now its OK!! */
 		if (!pcam->mctl.mctl_open) {
@@ -1477,14 +1491,15 @@ static int msm_open(struct file *f)
 				__func__, rc);
 			return rc;
 		}
-		if (pcam->mctl.isp_sdev->sd_vpe) {
-			rc = v4l2_device_register_subdev(&pcam->v4l2_dev,
-						pcam->mctl.isp_sdev->sd_vpe);
-			if (rc < 0) {
-				mutex_unlock(&pcam->vid_lock);
-				return rc;
-			}
+		rc = v4l2_device_register_subdev(&pcam->v4l2_dev,
+					pcam->mctl.isp_sdev->sd_vpe);
+		if (rc < 0) {
+			mutex_unlock(&pcam->vid_lock);
+			pr_err("%s: vpe v4l2_device_register_subdev failed rc = %d\n",
+				__func__, rc);
+			return rc;
 		}
+
 		rc = msm_setup_v4l2_event_queue(&pcam_inst->eventHandle,
 							pcam->pvdev);
 		if (rc < 0) {
@@ -1502,6 +1517,7 @@ static int msm_open(struct file *f)
 
 
 	if (pcam->use_count == 1) {
+		msm_queue_init(&g_server_dev.ctrl_q, "control");
 		rc = msm_send_open_server(pcam->vnode_id);
 		if (rc < 0) {
 			mutex_unlock(&pcam->vid_lock);
@@ -1573,15 +1589,23 @@ static int msm_mmap(struct file *f, struct vm_area_struct *vma)
 	return rc;
 }
 
+void msm_release_ion_client(struct kref *ref)
+{
+	struct msm_cam_media_controller *mctl = container_of(ref,
+			struct msm_cam_media_controller, refcount);
+	pr_info("%s Calling ion_client_destroy ", __func__);
+	ion_client_destroy(mctl->client);
+}
+
 static int msm_close(struct file *f)
 {
-	int rc = 0;
+	int rc = 0, i;
 	struct msm_cam_v4l2_device *pcam;
 	struct msm_cam_v4l2_dev_inst *pcam_inst;
 	pcam_inst = container_of(f->private_data,
 		struct msm_cam_v4l2_dev_inst, eventHandle);
 	pcam = pcam_inst->pcam;
-	D("%s\n", __func__);
+	pr_info("%s\n", __func__);
 	if (!pcam) {
 		pr_err("%s NULL pointer of camera device!\n", __func__);
 		return -EINVAL;
@@ -1592,9 +1616,23 @@ static int msm_close(struct file *f)
 	pcam_inst->streamon = 0;
 	pcam->use_count--;
 	pcam->dev_inst_map[pcam_inst->image_mode] = NULL;
+
+/* HTC_START andyyeh 0303 Fix kmemleak when userspace processes are killed */
+	/* Deallocation. free buf_offset array */
+	pr_info("%s Inst %p freeing buffer offsets array",
+		__func__, pcam_inst);
+
+	if (pcam_inst->buf_offset) {
+		for (i = 0 ; i < pcam_inst->buf_count ; i++)
+			kfree(pcam_inst->buf_offset[i]);
+		kfree(pcam_inst->buf_offset);
+		pcam_inst->buf_offset = NULL;
+	}
+/* HTC_END */
+
 	if (pcam_inst->vbqueue_initialized)
 		vb2_queue_release(&pcam_inst->vid_bufq);
-	D("%s Closing down instance %p ", __func__, pcam_inst);
+	pr_info("%s Closing down instance %p ", __func__, pcam_inst);
 	pcam->dev_inst[pcam_inst->my_index] = NULL;
 	if (pcam_inst->my_index == 0) {
 		v4l2_fh_del(&pcam_inst->eventHandle);
@@ -1619,7 +1657,7 @@ static int msm_close(struct file *f)
 				pr_err("mctl_release fails %d\n", rc);
 		}
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-		ion_client_destroy(pcam->mctl.client);
+		kref_put(&pcam->mctl.refcount, msm_release_ion_client);
 #endif
 	}
 	mutex_unlock(&pcam->vid_lock);
@@ -1771,7 +1809,7 @@ static long msm_ioctl_server(struct file *fp, unsigned int cmd,
 			return rc;
 		}
 		rc = 0;
-	break;
+		break;
 
 	case VIDIOC_SUBSCRIBE_EVENT:
 		if (copy_from_user(&temp_sub, (void __user *)arg,
@@ -2019,6 +2057,7 @@ static long msm_ioctl_config(struct file *fp, unsigned int cmd,
 				(*((uint32_t *)ev.u.data));
 		/* Copy the event structure into user struct. */
 		u_isp_event = *k_isp_event;
+
 		if (ev.type != (V4L2_EVENT_PRIVATE_START +
 				MSM_CAM_RESP_DIV_FRAME_EVT_MSG) &&
 				ev.type != (V4L2_EVENT_PRIVATE_START +
@@ -2147,8 +2186,17 @@ static int msm_open_config(struct inode *inode, struct file *fp)
 	spin_lock_init(&config_cam->p_mctl->sync.pmem_stats_spinlock);
 
 	config_cam->p_mctl->config_device = config_cam;
+	kref_get(&config_cam->p_mctl->refcount);
 	fp->private_data = config_cam;
 	return rc;
+}
+
+static int msm_close_config(struct inode *node, struct file *f)
+{
+	struct msm_cam_config_dev *config_cam = f->private_data;
+	pr_info("%s Decrementing ref count of config node ", __func__);
+	kref_put(&config_cam->p_mctl->refcount, msm_release_ion_client);
+	return 0;
 }
 
 static struct v4l2_file_operations g_msm_fops = {
@@ -2177,7 +2225,298 @@ static const struct file_operations msm_fops_config = {
 	.poll  = msm_poll_config,
 	.unlocked_ioctl = msm_ioctl_config,
 	.mmap	= msm_mmap_config,
+	.release = msm_close_config,
 };
+
+/* Andrew_Cheng linear led 20111205 MB */
+static struct camera_flash_info *p_flash_led_info;
+static struct kobject *led_status_obj;
+
+static ssize_t flash_led_info_get(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	ssize_t length = 0;
+
+	if (p_flash_led_info != NULL)
+		length = sprintf(buf, "%d %d %d %d\n",
+			p_flash_led_info->led_info->enable,
+			p_flash_led_info->led_info->low_limit_led_state,
+			p_flash_led_info->led_info->max_led_current_ma,
+			p_flash_led_info->led_info->num_led_est_table);
+	else
+		length = sprintf(buf, "%d\n", 0);
+	/*pr_info("[CAM] %s: length(%d)\n", __func__, length);*/
+	return length;
+}
+
+static ssize_t flash_led_tbl_get(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	ssize_t length = 0;
+	uint16_t i = 0;
+	char sub[64] = {0};
+	struct camera_led_est *sub_tbl = NULL;
+
+	if (p_flash_led_info != NULL)
+		for (i = 0; i < p_flash_led_info->led_info->num_led_est_table; i++) {
+			sub_tbl = (struct camera_led_est *)
+				(((char *)p_flash_led_info->led_est_table) +
+				(i * sizeof(struct camera_led_est)));
+			if (sub_tbl != NULL) {
+			length += sprintf(sub, "%d %d %d %d %d %d ",
+				sub_tbl->enable,
+				sub_tbl->led_state,
+				sub_tbl->current_ma,
+				sub_tbl->lumen_value,
+				sub_tbl->min_step,
+				sub_tbl->max_step);
+			strcat(buf, sub);
+			}
+		}
+	else
+		length = sprintf(buf, "%d\n", 0);
+	return length;
+}
+
+static DEVICE_ATTR(flash_led_info, 0444,
+	flash_led_info_get,
+	NULL);
+
+static DEVICE_ATTR(flash_led_tbl, 0444,
+	flash_led_tbl_get,
+	NULL);
+
+static uint32_t led_ril_status_value;
+static uint32_t led_wimax_status_value;
+static uint32_t led_hotspot_status_value;
+static uint16_t led_low_temp_limit;
+static uint16_t led_low_cap_limit;
+
+static ssize_t led_ril_status_get(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	ssize_t length;
+	length = sprintf(buf, "%d\n", led_ril_status_value);
+	return length;
+}
+
+static ssize_t led_ril_status_set(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	uint32_t tmp = 0;
+
+	if (buf[1] == '\n')
+		tmp = buf[0] - 0x30;
+
+	led_ril_status_value = tmp;
+	pr_info("[CAM]led_ril_status_value = %d\n", led_ril_status_value);
+	return count;
+}
+
+static ssize_t led_wimax_status_get(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	ssize_t length;
+	length = sprintf(buf, "%d\n", led_wimax_status_value);
+	return length;
+}
+
+static ssize_t led_wimax_status_set(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	uint32_t tmp = 0;
+
+	if (buf[1] == '\n')
+		tmp = buf[0] - 0x30;
+
+	led_wimax_status_value = tmp;
+	pr_info("[CAM]led_wimax_status_value = %d\n", led_wimax_status_value);
+	return count;
+}
+
+static ssize_t led_hotspot_status_get(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	ssize_t length;
+	length = sprintf(buf, "%d\n", led_hotspot_status_value);
+	return length;
+}
+
+static ssize_t led_hotspot_status_set(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	uint32_t tmp = 0;
+
+	tmp = buf[0] - 0x30; /* only get the first char */
+
+	led_hotspot_status_value = tmp;
+	pr_info("[CAM]led_hotspot_status_value = %d\n", led_hotspot_status_value);
+	return count;
+}
+
+static ssize_t low_temp_limit_get(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	ssize_t length;
+	length = sprintf(buf, "%d\n", led_low_temp_limit);
+	return length;
+}
+
+static ssize_t low_cap_limit_get(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	ssize_t length;
+	length = sprintf(buf, "%d\n", led_low_cap_limit);
+	return length;
+}
+
+static DEVICE_ATTR(led_ril_status, 0644,
+	led_ril_status_get,
+	led_ril_status_set);
+
+static DEVICE_ATTR(led_wimax_status, 0644,
+	led_wimax_status_get,
+	led_wimax_status_set);
+
+static DEVICE_ATTR(led_hotspot_status, 0644,
+	led_hotspot_status_get,
+	led_hotspot_status_set);
+
+static DEVICE_ATTR(low_temp_limit, 0444,
+	low_temp_limit_get,
+	NULL);
+
+static DEVICE_ATTR(low_cap_limit, 0444,
+	low_cap_limit_get,
+	NULL);
+
+static int msm_sensor_attr_node(struct msm_sync *sync)
+{
+	int ret = 0;
+
+	led_status_obj = kobject_create_and_add("camera_led_status", NULL);
+	if (led_status_obj == NULL) {
+		pr_info("[CAM]msm_camera: subsystem_register failed\n");
+		ret = -ENOMEM;
+		goto error;
+	}
+
+	ret = sysfs_create_file(led_status_obj,
+		&dev_attr_flash_led_info.attr);
+	if (ret) {
+		pr_info("[CAM]msm_camera: sysfs_create_file flash_led_info failed\n");
+		ret = -EFAULT;
+		goto error;
+	}
+
+	ret = sysfs_create_file(led_status_obj,
+		&dev_attr_flash_led_tbl.attr);
+	if (ret) {
+		pr_info("[CAM]msm_camera: sysfs_create_file flash_led_tbl failed\n");
+		ret = -EFAULT;
+		goto error;
+	}
+
+	ret = sysfs_create_file(led_status_obj,
+		&dev_attr_led_ril_status.attr);
+	if (ret) {
+		pr_info("[CAM]msm_camera: sysfs_create_file dev_attr_led_ril_status failed\n");
+		ret = -EFAULT;
+		goto error;
+	}
+	ret = sysfs_create_file(led_status_obj,
+		&dev_attr_led_wimax_status.attr);
+	if (ret) {
+		pr_info("[CAM]msm_camera: sysfs_create_file dev_attr_led_wimax_status failed\n");
+		ret = -EFAULT;
+		goto error;
+	}
+	ret = sysfs_create_file(led_status_obj,
+		&dev_attr_led_hotspot_status.attr);
+	if (ret) {
+		pr_info("[CAM]msm_camera: sysfs_create_file dev_attr_led_hotspot_status failed\n");
+		ret = -EFAULT;
+		goto error;
+	}
+	ret = sysfs_create_file(led_status_obj,
+		&dev_attr_low_temp_limit.attr);
+	if (ret) {
+		pr_info("[CAM]msm_camera: sysfs_create_file dev_attr_low_temp_limit failed\n");
+		ret = -EFAULT;
+		goto error;
+	}
+	ret = sysfs_create_file(led_status_obj,
+		&dev_attr_low_cap_limit.attr);
+	if (ret) {
+		pr_info("[CAM]msm_camera: sysfs_create_file dev_attr_low_cap_limit failed\n");
+		ret = -EFAULT;
+		goto error;
+	}
+
+	if ((sync->sdata->flash_data->flash_type != MSM_CAMERA_FLASH_NONE) &&
+		sync->sdata->flash_cfg && sync->sdata->flash_cfg->flash_info) {
+		p_flash_led_info = sync->sdata->flash_cfg->flash_info;
+	} else {
+		p_flash_led_info = NULL;
+	}
+
+	led_low_temp_limit = sync->sdata->flash_cfg->low_temp_limit;
+	led_low_cap_limit = sync->sdata->flash_cfg->low_cap_limit;
+
+	return ret;
+
+error:
+	kobject_del(led_status_obj);
+	return ret;
+}
+/* Andrew_Cheng linear led 20111205 ME */
+
+/* Andrew_Cheng 20120301 for probe rawchip at mfgkernel MB */
+#ifdef CONFIG_RAWCHIP
+static struct kobject *rawchip_status_obj;
+
+uint32_t rawchip_id;
+
+static ssize_t probed_rawchip_id_get(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	ssize_t length;
+	length = sprintf(buf, "0x%x\n", rawchip_id);
+	return length;
+}
+
+static DEVICE_ATTR(probed_rawchip_id, 0444,
+	probed_rawchip_id_get,
+	NULL);
+
+static int msm_rawchip_attr_node(void)
+{
+	int ret = 0;
+
+	rawchip_status_obj = kobject_create_and_add("camera_rawchip_status", NULL);
+	if (rawchip_status_obj == NULL) {
+		pr_err("[CAM]msm_camera: create camera_rawchip_status failed\n");
+		ret = -ENOMEM;
+		goto error;
+	}
+
+	ret = sysfs_create_file(rawchip_status_obj,
+		&dev_attr_probed_rawchip_id.attr);
+	if (ret) {
+		pr_info("[CAM]msm_camera: sysfs_create_file dev_attr_probed_rawchip_id failed\n");
+		ret = -EFAULT;
+		goto error;
+	}
+
+	return ret;
+
+error:
+	kobject_del(rawchip_status_obj);
+	return ret;
+}
+#endif
+/* Andrew_Cheng 20120301 for probe rawchip at mfgkernel ME */
+
 
 int msm_setup_v4l2_event_queue(struct v4l2_fh *eventHandle,
 					struct video_device *pvdev)
@@ -2197,10 +2536,13 @@ int msm_setup_v4l2_event_queue(struct v4l2_fh *eventHandle,
 	}
 
 	/* queue of max size 30 */
-	rc = v4l2_event_alloc(eventHandle, 30);
-	if (rc < 0)
+	/*HTC_START Max_Sun 20120311, change event queue from 30 to 200 for slow motion problem*/
+	rc = v4l2_event_alloc(eventHandle, 200);
+	/* HTC_END */
+	if (rc < 0) {
+		pr_err("%s, v4l2_event_alloc failed, rc = %d", __func__, rc);
 		return rc;
-
+	}
 	v4l2_fh_add(eventHandle);
 	return rc;
 
@@ -2318,11 +2660,10 @@ static int msm_cam_dev_init(struct msm_cam_v4l2_device *pcam)
 {
 	int rc = -ENOMEM;
 	struct video_device *pvdev = NULL;
-	struct i2c_client *client = v4l2_get_subdevdata(pcam->mctl.sensor_sdev);
 	D("%s\n", __func__);
 
 	/* first register the v4l2 device */
-	pcam->v4l2_dev.dev = &client->dev;
+	pcam->v4l2_dev.dev = &pcam->pdev->dev;
 	rc = v4l2_device_register(pcam->v4l2_dev.dev, &pcam->v4l2_dev);
 	if (rc < 0)
 		return -EINVAL;
@@ -2339,11 +2680,11 @@ static int msm_cam_dev_init(struct msm_cam_v4l2_device *pcam)
 
 	/* init video device's driver interface */
 	D("sensor name = %s, sizeof(pvdev->name)=%d\n",
-		pcam->mctl.sensor_sdev->name, sizeof(pvdev->name));
+		pcam->pdev->name, sizeof(pvdev->name));
 
 	/* device info - strlcpy is safer than strncpy but
 	   only if architecture supports*/
-	strlcpy(pvdev->name, pcam->mctl.sensor_sdev->name, sizeof(pvdev->name));
+	strlcpy(pvdev->name, pcam->pdev->name, sizeof(pvdev->name));
 
 	pvdev->release   = video_device_release;
 	pvdev->fops	  = &g_msm_fops;
@@ -2390,6 +2731,7 @@ static int msm_sync_destroy(struct msm_sync *sync)
 	if (sync) {
 		mutex_destroy(&sync->lock);
 		wake_lock_destroy(&sync->wake_lock);
+		wake_lock_destroy(&sync->wake_lock_suspend);
 	}
 	return 0;
 }
@@ -2407,24 +2749,28 @@ static int msm_actuator_probe(struct msm_actuator_info *actuator_info,
 
 	if (!actuator_info)
 		goto probe_fail;
-
-	adapter = i2c_get_adapter(actuator_info->bus_id);
+ 
+ 	adapter = i2c_get_adapter(actuator_info->bus_id);
 	if (!adapter)
 		goto probe_fail;
-
-	act_client = i2c_new_device(adapter, actuator_info->board_info);
+ 
+ 	act_client = i2c_new_device(adapter, actuator_info->board_info);
 	if (!act_client)
 		goto device_fail;
-
-	a_ext_ctrl = (struct msm_actuator_ctrl *)i2c_get_clientdata(act_client);
+ 
+ 	a_ext_ctrl = (struct msm_actuator_ctrl *)i2c_get_clientdata(act_client);
 	if (!a_ext_ctrl)
 		goto client_fail;
 
 	*actctrl = *a_ext_ctrl;
+#if 1	/* HTC_START: enable auto focus with sensor actuator */
 	a_ext_ctrl->a_create_subdevice((void *)actuator_info,
 				       (void *)act_sdev);
+#else
+	a_ext_ctrl->a_create_subdevice((void *)actuator_info->board_info,
+				       (void *)act_sdev);
+#endif	/* HTC_END */
 	return rc;
-
 client_fail:
 	i2c_unregister_device(act_client);
 device_fail:
@@ -2443,25 +2789,37 @@ static int msm_sync_init(struct msm_sync *sync,
 	struct platform_device *pdev)
 {
 	int rc = 0;
+
+	sync->sdata = pdev->dev.platform_data;
+
 	wake_lock_init(&sync->wake_lock, WAKE_LOCK_IDLE, "msm_camera");
+	wake_lock_init(&sync->wake_lock_suspend, WAKE_LOCK_SUSPEND, "msm_camera_suspend");
+
+	sync->pdev = pdev;
 	sync->opencnt = 0;
+
 	mutex_init(&sync->lock);
+	D("%s: initialized %s\n", __func__, sync->sdata->sensor_name);
 	return rc;
 }
 
 /* register a msm sensor into the msm device, which will probe the
  * sensor HW. if the HW exist then create a video device (/dev/videoX/)
  * to represent this sensor */
-int msm_sensor_register(struct v4l2_subdev *sensor_sd)
+int msm_sensor_register(struct platform_device *pdev,
+		int (*sensor_probe)(const struct msm_camera_sensor_info *,
+			struct v4l2_subdev *, struct msm_sensor_ctrl *))
 {
+
 	int rc = -EINVAL;
-	struct msm_camera_sensor_info *sdata;
+	struct msm_camera_sensor_info *sdata = pdev->dev.platform_data;
 	struct msm_cam_v4l2_device *pcam;
-	struct msm_sensor_ctrl_t *s_ctrl;
+	struct v4l2_subdev *sdev = NULL;
+	struct msm_sensor_ctrl *sctrl = NULL;
 	struct v4l2_subdev *act_sdev = NULL;
 	struct msm_actuator_ctrl *actctrl = NULL;
 
-	D("%s for %s\n", __func__, sensor_sd->name);
+	D("%s for %s\n", __func__, pdev->name);
 
 	/* allocate the memory for the camera device first */
 	pcam = kzalloc(sizeof(*pcam), GFP_KERNEL);
@@ -2471,34 +2829,102 @@ int msm_sensor_register(struct v4l2_subdev *sensor_sd)
 		return -ENOMEM;
 	}
 
-	pcam->mctl.sensor_sdev = sensor_sd;
-	s_ctrl = get_sctrl(sensor_sd);
-	sdata = (struct msm_camera_sensor_info *) s_ctrl->sensordata;
-
-	pcam->mctl.act_sdev = kzalloc(sizeof(struct v4l2_subdev),
-								  GFP_KERNEL);
-	if (!pcam->mctl.act_sdev) {
-		pr_err("%s: could not allocate mem for actuator v4l2_subdev\n",
-			   __func__);
+	pcam->mctl.sensor_sdev = kzalloc(sizeof(struct v4l2_subdev),
+					 GFP_KERNEL);
+	if (!pcam->mctl.sensor_sdev) {
+		pr_err("%s: could not allocate mem for sensor v4l2_subdev\n",
+			__func__);
 		kfree(pcam);
 		return -ENOMEM;
+	}
+
+	sdev = pcam->mctl.sensor_sdev;
+	snprintf(sdev->name, sizeof(sdev->name), "%s", pdev->name);
+	sctrl = &pcam->mctl.sync.sctrl;
+
+	/* come sensor probe logic */
+	rc = msm_camio_probe_on(pdev);
+	if (rc < 0) {
+		kzfree(pcam);
+		return rc;
+	}
+
+	if (sdata->use_rawchip) {
+#ifdef CONFIG_RAWCHIP
+		rc = rawchip_probe_init();
+		msm_rawchip_attr_node();
+		if (rc < 0) {
+			msm_camio_probe_off(pdev);
+			kzfree(pcam);
+			return rc;
+		}
+#endif
+	}
+
+	rc = sensor_probe(sdata, sdev, sctrl);
+	if (rc < 0) {
+		pr_err("%s: failed to detect %s\n",
+			__func__,
+			sdata->sensor_name);
+
+		kzfree(sdev);
+		if (sdata->use_rawchip) {
+#ifdef CONFIG_RAWCHIP
+			rawchip_probe_deinit();
+#endif
+		}
+		msm_camio_probe_off(pdev);
+		kzfree(pcam);
+		return rc;
+	}
+
+	pcam->mctl.act_sdev = kzalloc(sizeof(struct v4l2_subdev),
+					 GFP_KERNEL);
+	if (!pcam->mctl.act_sdev) {
+		pr_err("%s: could not allocate mem for actuator v4l2_subdev\n",
+			__func__);
+
+		rc = -ENOMEM;
+		kzfree(pcam);
+		return rc;
 	}
 
 	act_sdev = pcam->mctl.act_sdev;
 	actctrl = &pcam->mctl.sync.actctrl;
 
+	if (sdata->actuator_info) {
+		if (sdata->use_rawchip)
+			sdata->actuator_info->use_rawchip_af = 1;
+		else
+			sdata->actuator_info->use_rawchip_af = 0;
+	}
+
 	msm_actuator_probe(sdata->actuator_info,
-					   act_sdev, actctrl);
+		act_sdev, actctrl);
+
+	if (sdata->use_rawchip) {
+#ifdef CONFIG_RAWCHIP
+		rawchip_probe_deinit();
+#endif
+	}
+
+	msm_camio_probe_off(pdev);
 
 	/* setup a manager object*/
-	rc = msm_sync_init(&pcam->mctl.sync, NULL);
+	rc = msm_sync_init(&pcam->mctl.sync, pdev);
 	if (rc < 0)
 		goto failure;
 	D("%s: pcam =0x%p\n", __func__, pcam);
 	D("%s: &pcam->mctl.sync =0x%p\n", __func__, &pcam->mctl.sync);
 
-	pcam->mctl.sync.sdata = sdata;
+	/* Andrew_Cheng linear led 20111205 MB */
+	if (pcam->mctl.sync.sdata->flash_cfg)
+		msm_sensor_attr_node(&pcam->mctl.sync);
+	/* Andrew_Cheng linear led 20111205 ME */
+
 	pcam->mctl.sync.pcam_sync = pcam;
+	/* bind the driver device to the sensor device */
+	pcam->pdev = pdev;
 
 	/* init the user count and lock*/
 	pcam->use_count = 0;
@@ -2510,6 +2936,7 @@ int msm_sensor_register(struct v4l2_subdev *sensor_sd)
 	if (rc < 0)
 		goto failure;
 
+	/* now initialize the camera device object */
 	rc  = msm_cam_dev_init(pcam);
 	if (rc < 0)
 		goto failure;
@@ -2525,16 +2952,16 @@ int msm_sensor_register(struct v4l2_subdev *sensor_sd)
 	[g_server_dev.camera_info.num_cameras]
 	= video_device_node_name(pcam->pvdev);
 	D("%s Connected video device %s\n", __func__,
-		g_server_dev.camera_info.video_dev_name
+	  g_server_dev.camera_info.video_dev_name
 		[g_server_dev.camera_info.num_cameras]);
 
 	g_server_dev.camera_info.s_mount_angle
 	[g_server_dev.camera_info.num_cameras]
-	= sdata->sensor_platform_info->mount_angle;
+	= sctrl->s_mount_angle;
 
 	g_server_dev.camera_info.is_internal_cam
 	[g_server_dev.camera_info.num_cameras]
-	= sdata->camera_type;
+	= sctrl->s_camera_type;
 
 	g_server_dev.mctl_node_info.mctl_node_name
 	[g_server_dev.mctl_node_info.num_mctl_nodes]
@@ -2553,22 +2980,20 @@ int msm_sensor_register(struct v4l2_subdev *sensor_sd)
 			g_server_dev.camera_info.num_cameras);
 
 	/* register the subdevice, must be done for callbacks */
-	rc = v4l2_device_register_subdev(&pcam->v4l2_dev, sensor_sd);
+	rc = v4l2_device_register_subdev(&pcam->v4l2_dev, sdev);
 	if (rc < 0) {
 		D("%s sensor sub device register failed\n",
 			__func__);
 		goto failure;
 	}
-
 	if (sdata->actuator_info) {
 		rc = v4l2_device_register_subdev(&pcam->v4l2_dev, act_sdev);
 		if (rc < 0) {
 			D("%s actuator sub device register failed\n",
-			  __func__);
+				__func__);
 			goto failure;
 		}
 	}
-
 	pcam->vnode_id = vnode_count++;
 	return rc;
 
@@ -2576,11 +3001,68 @@ failure:
 	/* mutex_destroy not needed at this moment as the associated
 	implemenation of mutex_init is not consuming resources */
 	msm_sync_destroy(&pcam->mctl.sync);
+	pcam->pdev = NULL;
 	kfree(act_sdev);
+	kfree(sdev);
 	kzfree(pcam);
 	return rc;
 }
 EXPORT_SYMBOL(msm_sensor_register);
+
+//HTC_START howard 20111209
+static struct switch_dev htccallback_switch = {
+	.name = "htccallback",
+};
+
+static struct kobject *htccallback_obj;
+
+static uint32_t htccallback_value;
+
+static ssize_t htccallback_set(struct device *dev,
+                struct device_attribute *attr, const char *buf, size_t count)
+{
+	char *tmp;
+	htccallback_value = simple_strtoul(buf, &tmp, 0);
+
+	switch_set_state(&htccallback_switch, htccallback_value);
+
+       pr_info("htccallback_value = %d\n", htccallback_value);
+
+       return count;
+}
+
+static DEVICE_ATTR(htccallback, 0660,
+    NULL,
+    htccallback_set);
+
+static int msm_camera_sysfs_init(void)
+{
+	int ret = 0;
+	pr_info("[CAM] htccallback:kobject creat and add\n");
+
+       htccallback_obj = kobject_create_and_add("camera_htccallback", NULL);
+       if (htccallback_obj == NULL) {
+              pr_info("[CAM]htccallback: subsystem_register_htccallback failed\n");
+              ret = -ENOMEM;
+              goto error;
+       }
+
+       ret = sysfs_create_file(htccallback_obj,
+                  &dev_attr_htccallback.attr);
+	if (ret) {
+		pr_info("[CAM]htccallback: sysfs_create_htccallback_file failed\n");
+		ret = -EFAULT;
+		goto error;
+	}
+	if (switch_dev_register(&htccallback_switch) < 0) {
+		pr_info("[CAM]htccallback : switch_dev_register error\n");
+	}
+	return ret;
+error:
+	kobject_del(htccallback_obj);
+	return ret;
+}
+//HTC_END
 
 static int __init msm_camera_init(void)
 {
@@ -2629,6 +3111,10 @@ static int __init msm_camera_init(void)
 			return rc;
 		}
 	}
+
+//HTC_START howard 20111209
+	msm_camera_sysfs_init();
+//HTC_END
 
 	msm_isp_register(&g_server_dev);
 	return rc;

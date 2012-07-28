@@ -303,6 +303,9 @@ ipt_do_table(struct sk_buff *skb,
 	const struct xt_table_info *private;
 	struct xt_action_param acpar;
 	unsigned int addend;
+	/* debug for stucking */
+	int watchdog_counter = 0;
+	int watchdog_counter2 = 0;
 
 	/* Initialization */
 	ip = ip_hdr(skb);
@@ -353,10 +356,21 @@ ipt_do_table(struct sk_buff *skb,
 		xt_ematch_foreach(ematch, e) {
 			acpar.match     = ematch->u.kernel.match;
 			acpar.matchinfo = ematch->data;
+			watchdog_counter2++;
+			if(watchdog_counter2 == 100) {
+				pr_info("[Network] counter2=%d, ipt_do_table > 100",watchdog_counter2);
+				goto no_match;
+			}
 			if (!acpar.match->match(skb, &acpar))
 				goto no_match;
 		}
 
+		watchdog_counter++;
+		if(watchdog_counter == 100) {
+			pr_info("[Network] counter=%d, ipt_do_table",watchdog_counter);
+			verdict = NF_DROP;
+			break;
+		}
 		ADD_COUNTER(e->counters, skb->len, 1);
 
 		t = ipt_get_target(e);

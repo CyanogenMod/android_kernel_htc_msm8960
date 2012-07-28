@@ -393,6 +393,26 @@ static inline void irq_move_masked_irq(struct irq_data *data) { }
 
 extern int no_irq_affinity;
 
+#ifdef CONFIG_ARCH_MSM8X60
+struct _handle_irq {
+	unsigned int L_irq;	/* Last serving irq */
+	unsigned int S_irq;	/* Serving irq */
+};
+
+extern struct _handle_irq *handle_irq;
+extern int *spin_locking_flag;
+
+struct _irq_state {
+	unsigned int irqnr; /*IRQ number*/
+	unsigned int total; /*Total irq count*/
+	unsigned int since_last; /*irq count since last pet*/
+};
+
+extern struct _irq_state *irq_count_info_ptr;
+#endif
+
+
+
 /*
  * Built-in IRQ handlers for various IRQ types,
  * callable via desc->handle_irq()

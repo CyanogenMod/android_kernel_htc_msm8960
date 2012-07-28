@@ -71,6 +71,7 @@ struct spi_device {
 	struct spi_master	*master;
 	u32			max_speed_hz;
 	u8			chip_select;
+	u8			ext_gpio_cs;
 	u8			mode;
 #define	SPI_CPHA	0x01			/* clock phase */
 #define	SPI_CPOL	0x02			/* clock polarity */
@@ -622,6 +623,11 @@ spi_read(struct spi_device *spi, void *buf, size_t len)
 extern int spi_write_then_read(struct spi_device *spi,
 		const void *txbuf, unsigned n_tx,
 		void *rxbuf, unsigned n_rx);
+
+/* HTC: to support write/read in full duplex mode */
+extern int spi_write_and_read(struct spi_device *spi,
+		u8 *txbuf, u8 *rxbuf, unsigned size);
+
 
 /**
  * spi_w8r8 - SPI synchronous 8 bit write followed by 8 bit read

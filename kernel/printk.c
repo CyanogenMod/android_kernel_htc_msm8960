@@ -1159,6 +1159,16 @@ static int __init console_suspend_disable(char *str)
 __setup("no_console_suspend", console_suspend_disable);
 
 /**
+ * suspend_console_deferred:
+ * Parameter to decide whether to defer suspension of console. If set as 1, suspend
+ * console is deferred to latter stages. Currently used in 8x60 projects only.
+ */
+int suspend_console_deferred = 1;
+module_param_named(
+	suspend_console_deferred, suspend_console_deferred, int, S_IRUGO | S_IWUSR | S_IWGRP
+);
+
+/**
  * suspend_console - suspend the console subsystem
  *
  * This disables printk() while we go into suspend states

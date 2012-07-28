@@ -2129,8 +2129,11 @@ static int mpage_da_submit_io(struct mpage_da_data *mpd,
 					clear_buffer_unwritten(bh);
 				}
 
-				/* skip page if block allocation undone */
-				if (buffer_delay(bh) || buffer_unwritten(bh))
+				/*
+				 * skip page if block allocation undone and
+				 * block is dirty
+				 */
+				if (ext4_bh_delay_or_unwritten(NULL, bh))
 					skip_page = 1;
 				bh = bh->b_this_page;
 				block_start += bh->b_size;
@@ -2935,6 +2938,10 @@ static int ext4_da_writepages(struct address_space *mapping,
 	 * the stack trace.
 	 */
 	if (unlikely(sbi->s_mount_flags & EXT4_MF_FS_ABORTED))
+		return -EROFS;
+
+	/* return immediately if filesystem is mounted read-only */
+	if (unlikely(inode->i_sb->s_flags & MS_RDONLY))
 		return -EROFS;
 
 	if (wbc->range_start == 0 && wbc->range_end == LLONG_MAX)

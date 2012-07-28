@@ -15,6 +15,8 @@
 
 #include <asm/atomic.h>
 
+#define FD_DEBUG 1 /* fd debug*/
+
 /*
  * The default fd array needs to be at least BITS_PER_LONG,
  * as this is the granularity returned by copy_fdset().
@@ -57,6 +59,10 @@ struct files_struct {
 	struct embedded_fd_set open_fds_init;
 	struct file __rcu * fd_array[NR_OPEN_DEFAULT];
 };
+
+#if FD_DEBUG
+extern void fd_num_check(struct files_struct *files, unsigned int fd);
+#endif
 
 #define rcu_dereference_check_fdtable(files, fdtfd) \
 	(rcu_dereference_check((fdtfd), \

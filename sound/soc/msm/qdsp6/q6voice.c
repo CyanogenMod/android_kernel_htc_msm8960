@@ -1311,6 +1311,7 @@ static int voice_send_cvp_map_memory_cmd(struct voice_data *v)
 			msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
+                BUG();
 		goto fail;
 	}
 	return 0;
@@ -1427,6 +1428,7 @@ static int voice_send_cvs_map_memory_cmd(struct voice_data *v)
 			msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
+                BUG();
 		goto fail;
 	}
 	return 0;
@@ -1923,7 +1925,7 @@ static int voice_setup_vocproc(struct voice_data *v)
 	if (v->st_enable)
 		voice_send_set_pp_enable_cmd(v, MODULE_ID_VOICE_MODULE_ST,
 					v->st_enable);
-	if (v->fens_enable)
+	// if (v->fens_enable): to disable FENS dynamically
 		voice_send_set_pp_enable_cmd(v, MODULE_ID_VOICE_MODULE_FENS,
 					v->fens_enable);
 
@@ -1992,6 +1994,7 @@ static int voice_send_enable_vocproc_cmd(struct voice_data *v)
 				msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
+                BUG();
 		goto fail;
 	}
 
@@ -2622,6 +2625,7 @@ static int voice_cvs_start_playback(struct voice_data *v)
 	cvs_handle = voice_get_cvs_handle(v);
 
 	if (!v->music_info.playing && v->music_info.count) {
+		pr_info("%s: Start playback sent\n", __func__);
 		cvs_start_playback.hdr_field = APR_HDR_FIELD(
 					APR_MSG_TYPE_SEQ_CMD,
 					APR_HDR_LEN(APR_HDR_SIZE),
@@ -2655,7 +2659,7 @@ static int voice_cvs_start_playback(struct voice_data *v)
 
 		v->music_info.playing = 1;
 	} else {
-		pr_debug("%s: Start playback already sent\n", __func__);
+		pr_info("%s: Start playback already sent\n", __func__);
 	}
 
 	return 0;
@@ -2745,7 +2749,7 @@ int voc_start_playback(uint32_t set)
 			v->music_info.count++;
 		else
 			v->music_info.count--;
-		pr_debug("%s: music_info count =%d\n", __func__,
+		pr_info("%s: music_info count =%d\n", __func__,
 			v->music_info.count);
 
 		cvs_handle = voice_get_cvs_handle(v);
@@ -2847,7 +2851,7 @@ int voc_enable_cvp(uint16_t session_id)
 						MODULE_ID_VOICE_MODULE_ST,
 						v->st_enable);
 		/* enable FENS */
-		if (v->fens_enable)
+		// if (v->fens_enable): to disable FENS dynamically
 			voice_send_set_pp_enable_cmd(v,
 						MODULE_ID_VOICE_MODULE_FENS,
 						v->fens_enable);
@@ -3074,7 +3078,7 @@ int voc_set_rxtx_port(uint16_t session_id, uint32_t port_id, uint32_t dev_type)
 		return -EINVAL;
 	}
 
-	pr_debug("%s: port_id=%d, type=%d\n", __func__, port_id, dev_type);
+	pr_info("%s: port_id=%d, type=%d\n", __func__, port_id, dev_type);
 
 	mutex_lock(&v->lock);
 

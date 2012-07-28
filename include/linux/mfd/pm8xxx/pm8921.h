@@ -131,5 +131,5 @@ struct pm8921_platform_data {
 	struct pm8xxx_vibrator_platform_data	*vibrator_pdata;
 	struct pm8xxx_ccadc_platform_data	*ccadc_pdata;
 };
-
+int pmic_vreg_dump(char *vreg_buffer, int curr_len);
 #endif

@@ -1,15 +1,3 @@
-/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 and
- * only version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- */
 #ifndef __LINUX_MSM_CAMERA_H
 #define __LINUX_MSM_CAMERA_H
 
@@ -184,10 +172,25 @@
 	_IOW(MSM_CAM_IOCTL_MAGIC, 51, uint32_t *)
 
 #define MSM_CAM_IOCTL_GET_MCTL_INFO \
-	_IOR(MSM_CAM_IOCTL_MAGIC, 51, struct msm_mctl_node_info *)
+	_IOR(MSM_CAM_IOCTL_MAGIC, 52, struct msm_mctl_node_info *)
 
 #define MSM_CAM_IOCTL_MCTL_DIVERT_DONE \
-	_IOR(MSM_CAM_IOCTL_MAGIC, 52, struct msm_cam_evt_divert_frame *)
+       _IOR(MSM_CAM_IOCTL_MAGIC, 53, struct msm_cam_evt_divert_frame *)
+
+/* HTC_END ben 20111111 HDR */
+#define QCT_IOCTL_MAX 53 // changes according to QCT definition
+
+#define MSM_CAM_IOCTL_ENABLE_DROP_FRAME \
+	_IOW(MSM_CAM_IOCTL_MAGIC, QCT_IOCTL_MAX+1, int *)
+
+#define MSM_CAM_IOCTL_SET_DROP_FRAME_NUM \
+	_IOW(MSM_CAM_IOCTL_MAGIC, QCT_IOCTL_MAX+2, int *)
+/* HTC_END ben 20111111 HDR */
+
+//HTC_START chris 20120305
+#define MSM_CAM_IOCTL_RETURN_FREE_FRAME \
+	_IOR(MSM_CAM_IOCTL_MAGIC, QCT_IOCTL_MAX+3, struct msm_cam_evt_divert_frame *)
+//HTC_END chris 20120305
 
 struct msm_mctl_pp_cmd {
 	int32_t  id;
@@ -217,8 +220,7 @@ struct msm_mctl_post_proc_cmd {
 #define PP_SNAP  0x01
 #define PP_RAW_SNAP ((0x01)<<1)
 #define PP_PREV  ((0x01)<<2)
-#define PP_THUMB ((0x01)<<3)
-#define PP_MASK		(PP_SNAP|PP_RAW_SNAP|PP_PREV|PP_THUMB)
+#define PP_MASK		(PP_SNAP|PP_RAW_SNAP|PP_PREV)
 
 #define MSM_CAM_CTRL_CMD_DONE  0
 #define MSM_CAM_SENSOR_VFE_CMD 1
@@ -296,7 +298,6 @@ struct msm_pp_frame {
 		struct msm_pp_frame_sp sp;
 		struct msm_pp_frame_mp mp[MAX_PLANES];
 	};
-	int node_type;
 };
 
 struct msm_cam_evt_divert_frame {
@@ -425,12 +426,11 @@ struct msm_camera_cfg_cmd {
 #define CMD_CONFIG_PING_ADDR 48
 #define CMD_CONFIG_PONG_ADDR 49
 #define CMD_CONFIG_FREE_BUF_ADDR 50
-#define CMD_VFE_BUFFER_RELEASE 51
 
-#define CMD_AXI_CFG_PRIM		0xF1
-#define CMD_AXI_CFG_PRIM_ALL_CHNLS	0xF2
-#define CMD_AXI_CFG_SEC			0xF4
-#define CMD_AXI_CFG_SEC_ALL_CHNLS	0xF8
+#define CMD_AXI_CFG_PRIM                            0xF1
+#define CMD_AXI_CFG_PRIM_ALL_CHNLS   0xF2
+#define CMD_AXI_CFG_SEC                               0xF4
+#define CMD_AXI_CFG_SEC_ALL_CHNLS      0xF8
 
 /* vfe config command: config command(from config thread)*/
 struct msm_vfe_cfg_cmd {
@@ -508,9 +508,6 @@ struct outputCfg {
 	uint32_t window_height_lastline;
 };
 
-#define VIDEO_NODE 0
-#define MCTL_NODE 1
-
 #define OUTPUT_1	0
 #define OUTPUT_2	1
 #define OUTPUT_1_AND_2            2   /* snapshot only */
@@ -527,7 +524,6 @@ struct outputCfg {
 #define OUTPUT_PRIM_ALL_CHNLS	0xF2
 #define OUTPUT_SEC		0xF4
 #define OUTPUT_SEC_ALL_CHNLS	0xF8
-
 
 #define MSM_FRAME_PREV_1	0
 #define MSM_FRAME_PREV_2	1
@@ -686,9 +682,6 @@ struct msm_stats_buf {
 #define MSM_V4L2_CAM_OP_ZSL             (MSM_V4L2_CAM_OP_DEFAULT+4)
 /* camera operation mode for raw snapshot - one frame output queue */
 #define MSM_V4L2_CAM_OP_RAW             (MSM_V4L2_CAM_OP_DEFAULT+5)
-/* camera operation mode for jpeg snapshot - one frame output queue */
-#define MSM_V4L2_CAM_OP_JPEG_CAPTURE    (MSM_V4L2_CAM_OP_DEFAULT+6)
-
 
 #define MSM_V4L2_VID_CAP_TYPE	0
 #define MSM_V4L2_STREAM_ON		1
@@ -759,18 +752,51 @@ struct msm_snapshot_pp_status {
 #define CFG_GET_EEPROM_DATA		33
 #define CFG_SET_ACTUATOR_INFO		34
 #define CFG_GET_ACTUATOR_INFO		35
-#define CFG_MAX			36
+#if 1 /* HTC_START Hayden Huang 20111006 YUV Sensor */
+#define CFG_SET_SHARPNESS 36
+#define CFG_SET_SATURATION 37
+#define CFG_SET_OV_LSC_RAW_CAPTURE 38
+#define CFG_SET_ISO			39
+#define CFG_SET_COORDINATE		40
+#define CFG_RUN_AUTO_FOCUS		41
+#define CFG_CANCEL_AUTO_FOCUS		42
+#define CFG_GET_EXP_FOR_LED		43
+#define CFG_UPDATE_AEC_FOR_LED		44
+#define CFG_SET_FRONT_CAMERA_MODE	45
+#define CFG_SET_QCT_LSC_RAW_CAPTURE 46
+#define CFG_SET_QTR_SIZE_MODE		47
+#define CFG_GET_AF_STATE		48
+#define CFG_SET_DMODE			49
+#define CFG_SET_CALIBRATION	50
+#define CFG_SET_AF_MODE		51
+#define CFG_GET_SP3D_L_FRAME	52
+#define CFG_GET_SP3D_R_FRAME	53
+#define CFG_SET_FLASHLIGHT		54
+#define CFG_SET_FLASHLIGHT_EXP_DIV 55
+#define CFG_GET_ISO             56
+#define CFG_GET_EXP_GAIN	57
+#define CFG_SET_FRAMERATE 	58
+#endif /* HTC_END Hayden Huang 20111006 YUV Sensor */
+#define CFG_GET_ACTUATOR_CURR_STEP_POS 59 /* HTC Angie 20111212 - Rawchip */
+#define CFG_MAX			60
 
+/* HTC_START */
+// Ray add for read fuse id command
+#define CFG_I2C_IOCTL_R_OTP 70
+/* HTC_END */
 
 #define MOVE_NEAR	0
 #define MOVE_FAR	1
 
-#define SENSOR_PREVIEW_MODE		0
-#define SENSOR_SNAPSHOT_MODE		1
-#define SENSOR_RAW_SNAPSHOT_MODE	2
+/* HTC_START Angie 20111019 - Full Size Preview */
+#define SENSOR_PREVIEW_MODE		0 /* SENSOR_MODE_PREVIEW, SENSOR_MODE_VIDEO, SENSOR_MODE_FULL_SIZE_PREVIEW */
+#define SENSOR_SNAPSHOT_MODE		1 /* SENSOR_MODE_SNAPSHOT */
+#define SENSOR_RAW_SNAPSHOT_MODE	2 /* SENSOR_MODE_RAW_SNAPSHOT */
+/* HTC_END */
 #define SENSOR_HFR_60FPS_MODE 3
 #define SENSOR_HFR_90FPS_MODE 4
 #define SENSOR_HFR_120FPS_MODE 5
+#define SENSOR_PREVIEW_MODE_WIDE 6
 
 #define SENSOR_QTR_SIZE			0
 #define SENSOR_FULL_SIZE		1
@@ -790,156 +816,6 @@ struct msm_snapshot_pp_status {
 #define CAMERA_EFFECT_SKETCH		10
 #define CAMERA_EFFECT_NEON		11
 #define CAMERA_EFFECT_MAX		12
-
-/* QRD */
-#define CAMERA_EFFECT_BW		10
-#define CAMERA_EFFECT_BLUISH	12
-#define CAMERA_EFFECT_REDDISH	13
-#define CAMERA_EFFECT_GREENISH	14
-
-/* QRD */
-#define CAMERA_ANTIBANDING_OFF		0
-#define CAMERA_ANTIBANDING_50HZ		2
-#define CAMERA_ANTIBANDING_60HZ		1
-#define CAMERA_ANTIBANDING_AUTO		3
-
-#define CAMERA_CONTRAST_LV0			0
-#define CAMERA_CONTRAST_LV1			1
-#define CAMERA_CONTRAST_LV2			2
-#define CAMERA_CONTRAST_LV3			3
-#define CAMERA_CONTRAST_LV4			4
-#define CAMERA_CONTRAST_LV5			5
-#define CAMERA_CONTRAST_LV6			6
-#define CAMERA_CONTRAST_LV7			7
-#define CAMERA_CONTRAST_LV8			8
-#define CAMERA_CONTRAST_LV9			9
-
-#define CAMERA_BRIGHTNESS_LV0			0
-#define CAMERA_BRIGHTNESS_LV1			1
-#define CAMERA_BRIGHTNESS_LV2			2
-#define CAMERA_BRIGHTNESS_LV3			3
-#define CAMERA_BRIGHTNESS_LV4			4
-#define CAMERA_BRIGHTNESS_LV5			5
-#define CAMERA_BRIGHTNESS_LV6			6
-#define CAMERA_BRIGHTNESS_LV7			7
-#define CAMERA_BRIGHTNESS_LV8			8
-
-
-#define CAMERA_SATURATION_LV0			0
-#define CAMERA_SATURATION_LV1			1
-#define CAMERA_SATURATION_LV2			2
-#define CAMERA_SATURATION_LV3			3
-#define CAMERA_SATURATION_LV4			4
-#define CAMERA_SATURATION_LV5			5
-#define CAMERA_SATURATION_LV6			6
-#define CAMERA_SATURATION_LV7			7
-#define CAMERA_SATURATION_LV8			8
-
-#define CAMERA_SHARPNESS_LV0		0
-#define CAMERA_SHARPNESS_LV1		3
-#define CAMERA_SHARPNESS_LV2		6
-#define CAMERA_SHARPNESS_LV3		9
-#define CAMERA_SHARPNESS_LV4		12
-#define CAMERA_SHARPNESS_LV5		15
-#define CAMERA_SHARPNESS_LV6		18
-#define CAMERA_SHARPNESS_LV7		21
-#define CAMERA_SHARPNESS_LV8		24
-#define CAMERA_SHARPNESS_LV9		27
-#define CAMERA_SHARPNESS_LV10		30
-
-#define CAMERA_SETAE_AVERAGE		0
-#define CAMERA_SETAE_CENWEIGHT	1
-
-#define CFG_SET_SATURATION		30
-#define CFG_SET_SHARPNESS			31
-#define CFG_SET_TOUCHAEC            32
-#define CFG_SET_AUTO_FOCUS          33
-#define CFG_SET_AUTOFLASH 34
-/* QRD */
-#define CFG_SET_EXPOSURE_COMPENSATION 35
-
-#define  CAMERA_WB_AUTO               1 /* This list must match aeecamera.h */
-#define  CAMERA_WB_CUSTOM             2
-#define  CAMERA_WB_INCANDESCENT       3
-#define  CAMERA_WB_FLUORESCENT        4
-#define  CAMERA_WB_DAYLIGHT           5
-#define  CAMERA_WB_CLOUDY_DAYLIGHT    6
-#define  CAMERA_WB_TWILIGHT           7
-#define  CAMERA_WB_SHADE              8
-
-#define CAMERA_EXPOSURE_COMPENSATION_LV0			12
-#define CAMERA_EXPOSURE_COMPENSATION_LV1			6
-#define CAMERA_EXPOSURE_COMPENSATION_LV2			0
-#define CAMERA_EXPOSURE_COMPENSATION_LV3			-6
-#define CAMERA_EXPOSURE_COMPENSATION_LV4			-12
-
-enum msm_v4l2_saturation_level {
-	MSM_V4L2_SATURATION_L0,
-	MSM_V4L2_SATURATION_L1,
-	MSM_V4L2_SATURATION_L2,
-	MSM_V4L2_SATURATION_L3,
-	MSM_V4L2_SATURATION_L4,
-	MSM_V4L2_SATURATION_L5,
-	MSM_V4L2_SATURATION_L6,
-	MSM_V4L2_SATURATION_L7,
-	MSM_V4L2_SATURATION_L8,
-	MSM_V4L2_SATURATION_L9,
-	MSM_V4L2_SATURATION_L10,
-};
-
-enum msm_v4l2_exposure_level {
-	MSM_V4L2_EXPOSURE_N2,
-	MSM_V4L2_EXPOSURE_N1,
-	MSM_V4L2_EXPOSURE_D,
-	MSM_V4L2_EXPOSURE_P1,
-	MSM_V4L2_EXPOSURE_P2,
-};
-
-enum msm_v4l2_sharpness_level {
-	MSM_V4L2_SHARPNESS_L0,
-	MSM_V4L2_SHARPNESS_L1,
-	MSM_V4L2_SHARPNESS_L2,
-	MSM_V4L2_SHARPNESS_L3,
-	MSM_V4L2_SHARPNESS_L4,
-	MSM_V4L2_SHARPNESS_L5,
-	MSM_V4L2_SHARPNESS_L6,
-};
-
-enum msm_v4l2_expo_metering_mode {
-	MSM_V4L2_EXP_FRAME_AVERAGE,
-	MSM_V4L2_EXP_CENTER_WEIGHTED,
-	MSM_V4L2_EXP_SPOT_METERING,
-};
-
-enum msm_v4l2_iso_mode {
-	MSM_V4L2_ISO_AUTO = 0,
-	MSM_V4L2_ISO_DEBLUR,
-	MSM_V4L2_ISO_100,
-	MSM_V4L2_ISO_200,
-	MSM_V4L2_ISO_400,
-	MSM_V4L2_ISO_800,
-	MSM_V4L2_ISO_1600,
-};
-
-enum msm_v4l2_wb_mode {
-	MSM_V4L2_WB_MIN_MINUS_1,
-	MSM_V4L2_WB_AUTO = 1,
-	MSM_V4L2_WB_CUSTOM,
-	MSM_V4L2_WB_INCANDESCENT,
-	MSM_V4L2_WB_FLUORESCENT,
-	MSM_V4L2_WB_DAYLIGHT,
-	MSM_V4L2_WB_CLOUDY_DAYLIGHT,
-	MSM_V4L2_WB_TWILIGHT,
-	MSM_V4L2_WB_SHADE,
-	MSM_V4L2_WB_OFF,
-};
-
-enum msm_v4l2_power_line_frequency {
-	MSM_V4L2_POWER_LINE_OFF,
-	MSM_V4L2_POWER_LINE_60HZ,
-	MSM_V4L2_POWER_LINE_50HZ,
-	MSM_V4L2_POWER_LINE_AUTO,
-};
 
 struct sensor_pict_fps {
 	uint16_t prevfps;
@@ -1022,10 +898,10 @@ struct sensor_calib_data {
 enum msm_sensor_resolution_t {
 	MSM_SENSOR_RES_FULL,
 	MSM_SENSOR_RES_QTR,
-	MSM_SENSOR_RES_2,
-	MSM_SENSOR_RES_3,
-	MSM_SENSOR_RES_4,
-	MSM_SENSOR_RES_5,
+	MSM_SENSOR_RES_VIDEO,
+	MSM_SENSOR_RES_VIDEO_HFR,
+	MSM_SENSOR_RES_NIGHT,
+	MSM_SENSOR_RES_FULL_WIDE,
 	MSM_SENSOR_RES_6,
 	MSM_SENSOR_RES_7,
 	MSM_SENSOR_INVALID_RES,
@@ -1039,11 +915,25 @@ struct msm_sensor_output_info_t {
 	uint32_t vt_pixel_clk;
 	uint32_t op_pixel_clk;
 	uint16_t binning_factor;
+	uint16_t x_addr_start;
+	uint16_t y_addr_start;
+	uint16_t x_addr_end;
+	uint16_t y_addr_end;
+	uint16_t x_even_inc;
+	uint16_t x_odd_inc;
+	uint16_t y_even_inc;
+	uint16_t y_odd_inc;
+	uint8_t binning_rawchip;
 };
 
 struct sensor_output_info_t {
 	struct msm_sensor_output_info_t *output_info;
 	uint16_t num_info;
+ /* HTC_START Angie 20111019 - Fix FPS */
+	uint16_t vert_offset;
+	uint16_t min_vert;
+	int mirror_flip;
+/* HTC_END */
 };
 
 struct sensor_eeprom_data_t {
@@ -1051,16 +941,98 @@ struct sensor_eeprom_data_t {
 	uint16_t index;
 };
 
-struct mirror_flip {
-	int32_t x_mirror;
-	int32_t y_flip;
+#if 1 /* HTC_START Hayden Huang 20111006 YUV Sensor */
+enum antibanding_mode{
+	CAMERA_ANTI_BANDING_50HZ,
+	CAMERA_ANTI_BANDING_60HZ,
+	CAMERA_ANTI_BANDING_AUTO,
 };
 
-struct cord {
-	uint32_t x;
-	uint32_t y;
+enum brightness_t{
+	CAMERA_BRIGHTNESS_N3,
+	CAMERA_BRIGHTNESS_N2,
+	CAMERA_BRIGHTNESS_N1,
+	CAMERA_BRIGHTNESS_D,
+	CAMERA_BRIGHTNESS_P1,
+	CAMERA_BRIGHTNESS_P2,
+	CAMERA_BRIGHTNESS_P3,
+	CAMERA_BRIGHTNESS_P4,
+	CAMERA_BRIGHTNESS_N4,
 };
 
+enum frontcam_t{
+	CAMERA_MIRROR,
+	CAMERA_REVERSE,
+	CAMERA_PORTRAIT_REVERSE, /* 0916 for 3rd party */
+};
+
+enum wb_mode{
+	CAMERA_AWB_AUTO,/*auto*/
+	CAMERA_AWB_CLOUDY,/*Cloudy*/
+	CAMERA_AWB_INDOOR_HOME,/*Fluorescent*/
+	CAMERA_AWB_INDOOR_OFFICE,/*Incandescent*/
+	CAMERA_AWB_SUNNY,/*daylight*/
+};
+
+enum iso_mode{
+  CAMERA_ISO_AUTO = 0,
+  CAMERA_ISO_DEBLUR,
+  CAMERA_ISO_100,
+  CAMERA_ISO_200,
+  CAMERA_ISO_400,
+  CAMERA_ISO_800,
+  CAMERA_ISO_1250,
+  CAMERA_ISO_1600,
+  CAMERA_ISO_MAX
+};
+
+enum sharpness_mode{
+	CAMERA_SHARPNESS_X0,
+	CAMERA_SHARPNESS_X1,
+	CAMERA_SHARPNESS_X2,
+	CAMERA_SHARPNESS_X3,
+	CAMERA_SHARPNESS_X4,
+	CAMERA_SHARPNESS_X5,
+	CAMERA_SHARPNESS_X6,
+};
+
+enum saturation_mode{
+	CAMERA_SATURATION_X0,
+	CAMERA_SATURATION_X05,
+	CAMERA_SATURATION_X1,
+	CAMERA_SATURATION_X15,
+	CAMERA_SATURATION_X2,
+};
+
+enum contrast_mode{
+	CAMERA_CONTRAST_P2,
+	CAMERA_CONTRAST_P1,
+	CAMERA_CONTRAST_D,
+	CAMERA_CONTRAST_N1,
+	CAMERA_CONTRAST_N2,
+};
+
+enum qtr_size_mode{
+	NORMAL_QTR_SIZE_MODE,
+	LARGER_QTR_SIZE_MODE,
+};
+
+enum sensor_af_mode{
+	SENSOR_AF_MODE_AUTO,
+	SENSOR_AF_MODE_NORMAL,
+	SENSOR_AF_MODE_MACRO,
+};
+#endif /* HTC_END Hayden Huang 20111006 YUV Sensor */
+
+/* HTC_START */
+// Ray add fuse id structure
+struct fuse_id{
+	uint32_t fuse_id_word1;
+	uint32_t fuse_id_word2;
+	uint32_t fuse_id_word3;
+	uint32_t fuse_id_word4;
+};
+/* HTC_END */
 struct sensor_cfg_data {
 	int cfgtype;
 	int mode;
@@ -1086,18 +1058,22 @@ struct sensor_cfg_data {
 		struct sensor_calib_data calib_info;
 		struct sensor_output_info_t output_info;
 		struct sensor_eeprom_data_t eeprom_data;
-		/* QRD */
-		uint16_t antibanding;
-		uint8_t contrast;
-		uint8_t saturation;
-		uint8_t sharpness;
-		int8_t brightness;
-		int ae_mode;
-		uint8_t wb_val;
-		int8_t exp_compensation;
-		struct cord aec_cord;
-		int is_autoflash;
-		struct mirror_flip mirror_flip;
+		/* HTC_START */
+		/* Ray add fuse to member */
+		struct fuse_id fuse;
+		/* HTC_END */
+#if 1 /* HTC_START Hayden Huang 20111006 YUV Sensor */
+		enum antibanding_mode antibanding_value;
+		enum brightness_t brightness_value;
+		enum frontcam_t frontcam_value;
+		enum wb_mode wb_value;
+		enum iso_mode iso_value;
+		enum sharpness_mode sharpness_value;
+		enum saturation_mode saturation_value;
+		enum contrast_mode  contrast_value;
+		enum qtr_size_mode qtr_size_mode_value;
+		enum sensor_af_mode af_mode_value;
+#endif /* HTC_END Hayden Huang 20111006 YUV Sensor */
 	} cfg;
 };
 
@@ -1130,6 +1106,7 @@ struct msm_actuator_cfg_data {
 		struct msm_actuator_move_params_t move;
 		struct msm_actuator_set_info_t set_info;
 		struct msm_actuator_get_info_t get_info;
+		int16_t curr_step_pos; /* HTC Angie 20111212 - Rawchip */
 	} cfg;
 };
 
@@ -1182,7 +1159,6 @@ struct msm_mctl_node_info {
 	int num_mctl_nodes;
 	const char *mctl_node_name[MSM_MAX_CAMERA_SENSORS];
 };
-
 struct flash_ctrl_data {
 	int flashtype;
 	union {
@@ -1204,6 +1180,7 @@ struct msm_camsensor_info {
 	uint8_t flash_enabled;
 	int8_t total_steps;
 	uint8_t support_3d;
+	uint8_t use_rawchip; /* HTC Angie 20111121 - Rawchip */
 };
 
 #define V4L2_SINGLE_PLANE	0

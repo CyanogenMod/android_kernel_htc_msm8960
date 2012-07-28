@@ -803,6 +803,9 @@ wait_for_iobuf:
 
 	jbd_debug(3, "JBD: commit phase 5\n");
 	write_lock(&journal->j_state_lock);
+	if (commit_transaction->t_state != T_COMMIT_DFLUSH)
+		printk(KERN_ERR "jbd2: wrong t_state %d\n",
+			commit_transaction->t_state);
 	J_ASSERT(commit_transaction->t_state == T_COMMIT_DFLUSH);
 	commit_transaction->t_state = T_COMMIT_JFLUSH;
 	write_unlock(&journal->j_state_lock);

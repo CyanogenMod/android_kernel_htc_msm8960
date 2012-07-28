@@ -142,10 +142,16 @@ struct pm_gpio {
  * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
  */
 int pm8xxx_gpio_config(int gpio, struct pm_gpio *param);
+int pm8xxx_dump_gpios(struct seq_file *m, int curr_len, char *gpio_buffer);
 #else
 static inline int pm8xxx_gpio_config(int gpio, struct pm_gpio *param)
 {
 	return -ENXIO;
+}
+static inline int pm8xxx_dump_gpios(struct seq_file *m, int curr_len, char *gpio_buffer)
+{
+	return curr_len;
+
 }
 #endif
 

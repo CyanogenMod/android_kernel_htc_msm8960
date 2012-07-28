@@ -19,6 +19,7 @@
 #define SUBSYS_NAME_MAX_LENGTH 40
 
 enum {
+	RESET_NONE = 0,
 	RESET_SOC = 1,
 	RESET_SUBSYS_COUPLED,
 	RESET_SUBSYS_INDEPENDENT,
@@ -42,6 +43,7 @@ struct subsys_data {
 
 	void *restart_order;
 	struct subsys_data *single_restart_list[1];
+	int enable_ssr;
 };
 
 #if defined(CONFIG_MSM_SUBSYSTEM_RESTART)
@@ -49,6 +51,8 @@ struct subsys_data {
 int get_restart_level(void);
 int subsystem_restart(const char *subsys_name);
 int ssr_register_subsystem(struct subsys_data *subsys);
+void ssr_set_restart_reason(char *reason);
+extern int ssr_have_set_restart_reason;
 
 #else
 

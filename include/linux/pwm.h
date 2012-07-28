@@ -30,4 +30,9 @@ int __weak pwm_enable(struct pwm_device *pwm);
  */
 void __weak pwm_disable(struct pwm_device *pwm);
 
+int pm8xxx_pwm_lut_config(struct pwm_device *pwm, int period_us,
+			  int duty_pct[], int duty_time_ms, int start_idx,
+			  int idx_len, int pause_lo, int pause_hi, int flags);
+
+int pm8xxx_pwm_lut_enable(struct pwm_device *pwm, int start);
 #endif /* __LINUX_PWM_H */

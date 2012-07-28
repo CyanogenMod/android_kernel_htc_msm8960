@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,14 +27,42 @@
 
 #define BUFF_SIZE_128 128
 
+#define CAM_VAF_MINUV                 2800000
+#define CAM_VAF_MAXUV                 2800000
+#define CAM_VDIG_MINUV                    1200000
+#define CAM_VDIG_MAXUV                    1200000
+#define CAM_VANA_MINUV                    2800000
+#define CAM_VANA_MAXUV                    2850000
+#define CAM_CSI_VDD_MINUV                  1200000
+#define CAM_CSI_VDD_MAXUV                  1200000
+
+#define CAM_VAF_LOAD_UA               300000
+#define CAM_VDIG_LOAD_UA                  105000
+#define CAM_VANA_LOAD_UA                  85600
+#define CAM_CSI_LOAD_UA                    20000
+
+static struct clk *camio_cam_clk;
+
 static struct clk *camio_jpeg_clk;
 static struct clk *camio_jpeg_pclk;
 static struct regulator *fs_ijpeg;
+#if 0 /* HTC_START Hayden Huang 20111005
+	these are regulator for QCT's sensor;
+	we do not need these.*/
+static struct regulator *cam_vana;
+static struct regulator *cam_vio;
+static struct regulator *cam_vdig;
+static struct regulator *cam_vaf;
+static struct regulator *mipi_csi_vdd;
+#endif /* HTC_END Hayden Huang 20111005 */
 
+static struct msm_camera_io_clk camio_clk;
 static struct platform_device *camio_dev;
 static struct resource *s3drw_io, *s3dctl_io;
 static struct resource *s3drw_mem, *s3dctl_mem;
 void __iomem *s3d_rw, *s3d_ctl;
+struct msm_bus_scale_pdata *cam_bus_scale_table;
+
 
 void msm_io_w(u32 data, void __iomem *addr)
 {
@@ -112,12 +140,219 @@ void msm_io_memcpy(void __iomem *dest_addr, void __iomem *src_addr, u32 len)
 	msm_io_dump(dest_addr, len);
 }
 
+static int msm_camera_vreg_enable(struct platform_device *pdev)
+{
+#if 0 /* HTC_START Hayden Huang 20111005 */
+	if (mipi_csi_vdd == NULL) {
+		mipi_csi_vdd = regulator_get(&pdev->dev, "mipi_csi_vdd");
+		if (IS_ERR(mipi_csi_vdd)) {
+			CDBG("%s: VREG MIPI CSI VDD get failed\n", __func__);
+			mipi_csi_vdd = NULL;
+			return -ENODEV;
+		}
+		if (regulator_set_voltage(mipi_csi_vdd, CAM_CSI_VDD_MINUV,
+			CAM_CSI_VDD_MAXUV)) {
+			CDBG("%s: VREG MIPI CSI VDD set voltage failed\n",
+				__func__);
+			goto mipi_csi_vdd_put;
+		}
+		if (regulator_set_optimum_mode(mipi_csi_vdd,
+			CAM_CSI_LOAD_UA) < 0) {
+			CDBG("%s: VREG MIPI CSI set optimum mode failed\n",
+				__func__);
+			goto mipi_csi_vdd_release;
+		}
+		if (regulator_enable(mipi_csi_vdd)) {
+			CDBG("%s: VREG MIPI CSI VDD enable failed\n",
+				__func__);
+			goto mipi_csi_vdd_disable;
+		}
+	}
+	if (cam_vana == NULL) {
+		cam_vana = regulator_get(&pdev->dev, "cam_vana");
+		if (IS_ERR(cam_vana)) {
+			CDBG("%s: VREG CAM VANA get failed\n", __func__);
+			cam_vana = NULL;
+			goto mipi_csi_vdd_disable;
+		}
+		if (regulator_set_voltage(cam_vana, CAM_VANA_MINUV,
+			CAM_VANA_MAXUV)) {
+			CDBG("%s: VREG CAM VANA set voltage failed\n",
+				__func__);
+			goto cam_vana_put;
+		}
+		if (regulator_set_optimum_mode(cam_vana,
+			CAM_VANA_LOAD_UA) < 0) {
+			CDBG("%s: VREG CAM VANA set optimum mode failed\n",
+				__func__);
+			goto cam_vana_release;
+		}
+		if (regulator_enable(cam_vana)) {
+			CDBG("%s: VREG CAM VANA enable failed\n", __func__);
+			goto cam_vana_disable;
+		}
+	}
+	if (cam_vio == NULL) {
+		cam_vio = regulator_get(&pdev->dev, "cam_vio");
+		if (IS_ERR(cam_vio)) {
+			CDBG("%s: VREG VIO get failed\n", __func__);
+			cam_vio = NULL;
+			goto cam_vana_disable;
+		}
+		if (regulator_enable(cam_vio)) {
+			CDBG("%s: VREG VIO enable failed\n", __func__);
+			goto cam_vio_put;
+		}
+	}
+	if (cam_vdig == NULL) {
+		cam_vdig = regulator_get(&pdev->dev, "cam_vdig");
+		if (IS_ERR(cam_vdig)) {
+			CDBG("%s: VREG CAM VDIG get failed\n", __func__);
+			cam_vdig = NULL;
+			goto cam_vio_disable;
+		}
+		if (regulator_set_voltage(cam_vdig, CAM_VDIG_MINUV,
+			CAM_VDIG_MAXUV)) {
+			CDBG("%s: VREG CAM VDIG set voltage failed\n",
+				__func__);
+			goto cam_vdig_put;
+		}
+		if (regulator_set_optimum_mode(cam_vdig,
+			CAM_VDIG_LOAD_UA) < 0) {
+			CDBG("%s: VREG CAM VDIG set optimum mode failed\n",
+				__func__);
+			goto cam_vdig_release;
+		}
+		if (regulator_enable(cam_vdig)) {
+			CDBG("%s: VREG CAM VDIG enable failed\n", __func__);
+			goto cam_vdig_disable;
+		}
+	}
+	if (cam_vaf == NULL) {
+		cam_vaf = regulator_get(&pdev->dev, "cam_vaf");
+		if (IS_ERR(cam_vaf)) {
+			CDBG("%s: VREG CAM VAF get failed\n", __func__);
+			cam_vaf = NULL;
+			goto cam_vdig_disable;
+		}
+		if (regulator_set_voltage(cam_vaf, CAM_VAF_MINUV,
+			CAM_VAF_MAXUV)) {
+			CDBG("%s: VREG CAM VAF set voltage failed\n",
+				__func__);
+			goto cam_vaf_put;
+		}
+		if (regulator_set_optimum_mode(cam_vaf,
+			CAM_VAF_LOAD_UA) < 0) {
+			CDBG("%s: VREG CAM VAF set optimum mode failed\n",
+				__func__);
+			goto cam_vaf_release;
+		}
+		if (regulator_enable(cam_vaf)) {
+			CDBG("%s: VREG CAM VAF enable failed\n", __func__);
+			goto cam_vaf_disable;
+		}
+	}
+#endif /* HTC_END Hayden Huang 20111005 */
+	return 0;
+
+#if 0 /* HTC_START Hayden Huang 20111005 */
+cam_vaf_disable:
+	regulator_set_optimum_mode(cam_vaf, 0);
+cam_vaf_release:
+	regulator_set_voltage(cam_vaf, 0, CAM_VAF_MAXUV);
+	regulator_disable(cam_vaf);
+cam_vaf_put:
+	regulator_put(cam_vaf);
+	cam_vaf = NULL;
+cam_vdig_disable:
+	regulator_set_optimum_mode(cam_vdig, 0);
+cam_vdig_release:
+	regulator_set_voltage(cam_vdig, 0, CAM_VDIG_MAXUV);
+	regulator_disable(cam_vdig);
+cam_vdig_put:
+	regulator_put(cam_vdig);
+	cam_vdig = NULL;
+cam_vio_disable:
+	regulator_disable(cam_vio);
+cam_vio_put:
+	regulator_put(cam_vio);
+	cam_vio = NULL;
+cam_vana_disable:
+	regulator_set_optimum_mode(cam_vana, 0);
+cam_vana_release:
+	regulator_set_voltage(cam_vana, 0, CAM_VANA_MAXUV);
+	regulator_disable(cam_vana);
+cam_vana_put:
+	regulator_put(cam_vana);
+	cam_vana = NULL;
+mipi_csi_vdd_disable:
+	regulator_set_optimum_mode(mipi_csi_vdd, 0);
+mipi_csi_vdd_release:
+	regulator_set_voltage(mipi_csi_vdd, 0, CAM_CSI_VDD_MAXUV);
+	regulator_disable(mipi_csi_vdd);
+
+mipi_csi_vdd_put:
+	regulator_put(mipi_csi_vdd);
+	mipi_csi_vdd = NULL;
+	return -ENODEV;
+#endif /* HTC_END Hayden Huang 20111005 */
+}
+
+static void msm_camera_vreg_disable(void)
+{
+#if 0 /* HTC_START Hayden Huang 20111005 */
+	if (mipi_csi_vdd) {
+		regulator_set_voltage(mipi_csi_vdd, 0, CAM_CSI_VDD_MAXUV);
+		regulator_set_optimum_mode(mipi_csi_vdd, 0);
+		regulator_disable(mipi_csi_vdd);
+		regulator_put(mipi_csi_vdd);
+		mipi_csi_vdd = NULL;
+	}
+
+	if (cam_vana) {
+		regulator_set_voltage(cam_vana, 0, CAM_VANA_MAXUV);
+		regulator_set_optimum_mode(cam_vana, 0);
+		regulator_disable(cam_vana);
+		regulator_put(cam_vana);
+		cam_vana = NULL;
+	}
+
+	if (cam_vio) {
+		regulator_disable(cam_vio);
+		regulator_put(cam_vio);
+		cam_vio = NULL;
+	}
+
+	if (cam_vdig) {
+		regulator_set_voltage(cam_vdig, 0, CAM_VDIG_MAXUV);
+		regulator_set_optimum_mode(cam_vdig, 0);
+		regulator_disable(cam_vdig);
+		regulator_put(cam_vdig);
+		cam_vdig = NULL;
+	}
+
+	if (cam_vaf) {
+		regulator_set_voltage(cam_vaf, 0, CAM_VAF_MAXUV);
+		regulator_set_optimum_mode(cam_vaf, 0);
+		regulator_disable(cam_vaf);
+		regulator_put(cam_vaf);
+		cam_vaf = NULL;
+	}
+#endif /* HTC_END Hayden Huang 20111005 */
+}
+
 int msm_camio_clk_enable(enum msm_camio_clk_type clktype)
 {
 	int rc = 0;
 	struct clk *clk = NULL;
 
 	switch (clktype) {
+	case CAMIO_CAM_MCLK_CLK:
+		camio_cam_clk =
+		clk = clk_get(&camio_dev->dev, "cam_clk");
+		msm_camio_clk_rate_set_2(clk, camio_clk.mclk_clk_rate);
+		break;
+
 	case CAMIO_JPEG_CLK:
 		camio_jpeg_clk =
 		clk = clk_get(NULL, "ijpeg_clk");
@@ -150,6 +385,10 @@ int msm_camio_clk_disable(enum msm_camio_clk_type clktype)
 	struct clk *clk = NULL;
 
 	switch (clktype) {
+	case CAMIO_CAM_MCLK_CLK:
+		clk = camio_cam_clk;
+		break;
+
 	case CAMIO_JPEG_CLK:
 		clk = camio_jpeg_clk;
 		break;
@@ -172,6 +411,12 @@ int msm_camio_clk_disable(enum msm_camio_clk_type clktype)
 		pr_err("%s(%d) failed %d\n", __func__, clktype, rc);
 
 	return rc;
+}
+
+void msm_camio_clk_rate_set(int rate)
+{
+	struct clk *clk = camio_cam_clk;
+	clk_set_rate(clk, rate);
 }
 
 void msm_camio_clk_rate_set_2(struct clk *clk, int rate)
@@ -212,15 +457,69 @@ int msm_camio_jpeg_clk_enable(void)
 		pr_err("%s: Regulator FS_IJPEG enable failed\n", __func__);
 		regulator_put(fs_ijpeg);
 	}
-
 	rc = msm_camio_clk_enable(CAMIO_JPEG_CLK);
 	if (rc < 0)
 		return rc;
 	rc = msm_camio_clk_enable(CAMIO_JPEG_PCLK);
 	if (rc < 0)
 		return rc;
-
 	CDBG("%s: exit %d\n", __func__, rc);
+	return rc;
+}
+
+static int config_gpio_table(int gpio_en)
+{
+	struct msm_camera_sensor_info *sinfo = camio_dev->dev.platform_data;
+	struct msm_camera_gpio_conf *gpio_conf = sinfo->gpio_conf;
+	int rc = 0, i = 0;
+
+#if 1 /* HTC_START Hayden Huang 20111005 */
+	if (gpio_conf == NULL || gpio_conf->cam_gpio_tbl == NULL) {
+		pr_err("%s: Invalid NULL cam gpio config table\n", __func__);
+		return -EFAULT;
+	}
+
+	if (gpio_en) {
+		for (i = 0; i < gpio_conf->cam_gpio_tbl_size; i++) {
+			rc = gpio_request(gpio_conf->cam_gpio_tbl[i],
+				 "CAM_GPIO");
+			if (rc < 0) {
+				pr_err("%s not able to get gpio\n", __func__);
+				for (i--; i >= 0; i--)
+					gpio_free(gpio_conf->cam_gpio_tbl[i]);
+					break;
+			}
+		}
+	} else {
+		for (i = 0; i < gpio_conf->cam_gpio_tbl_size; i++)
+			gpio_free(gpio_conf->cam_gpio_tbl[i]);
+	}
+#else /* QCT gpio function */
+	if (gpio_conf->cam_gpio_tbl == NULL || gpio_conf->cam_gpiomux_conf_tbl
+		== NULL) {
+		pr_err("%s: Invalid NULL cam gpio config table\n", __func__);
+		return -EFAULT;
+	}
+
+	if (gpio_en) {
+		msm_gpiomux_install((struct msm_gpiomux_config *)gpio_conf->
+			cam_gpiomux_conf_tbl,
+			gpio_conf->cam_gpiomux_conf_tbl_size);
+		for (i = 0; i < gpio_conf->cam_gpio_tbl_size; i++) {
+			rc = gpio_request(gpio_conf->cam_gpio_tbl[i],
+				 "CAM_GPIO");
+			if (rc < 0) {
+				pr_err("%s not able to get gpio\n", __func__);
+				for (i--; i >= 0; i--)
+					gpio_free(gpio_conf->cam_gpio_tbl[i]);
+					break;
+			}
+		}
+	} else {
+		for (i = 0; i < gpio_conf->cam_gpio_tbl_size; i++)
+			gpio_free(gpio_conf->cam_gpio_tbl[i]);
+	}
+#endif /* HTC_END Hayden Huang 20111005 */
 	return rc;
 }
 
@@ -290,6 +589,109 @@ void msm_camio_3d_disable(void)
 	release_mem_region(s3drw_mem->start, resource_size(s3drw_mem));
 }
 
+static struct pm8xxx_mpp_config_data privacy_light_on_config = {
+	.type		= PM8XXX_MPP_TYPE_SINK,
+	.level		= PM8XXX_MPP_CS_OUT_5MA,
+	.control	= PM8XXX_MPP_CS_CTRL_MPP_LOW_EN,
+};
+
+static struct pm8xxx_mpp_config_data privacy_light_off_config = {
+	.type		= PM8XXX_MPP_TYPE_SINK,
+	.level		= PM8XXX_MPP_CS_OUT_5MA,
+	.control	= PM8XXX_MPP_CS_CTRL_DISABLE,
+};
+
+int msm_camio_sensor_clk_on(struct platform_device *pdev)
+{
+	int rc = 0;
+	struct msm_camera_sensor_info *sinfo = pdev->dev.platform_data;
+	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
+	camio_dev = pdev;
+	camio_clk = camdev->ioclk;
+
+	msm_camera_vreg_enable(pdev);
+
+	rc = camdev->camera_csi_on();
+	if (rc < 0)
+		pr_info("%s camera_csi_on failed\n", __func__);
+
+	if (sinfo->sensor_platform_info->privacy_light) {
+		struct msm8960_privacy_light_cfg *privacy_light_config =
+			sinfo->sensor_platform_info->privacy_light_info;
+		pm8xxx_mpp_config(privacy_light_config->mpp,
+						  &privacy_light_on_config);
+	}
+	msleep(20);
+	rc = config_gpio_table(1);
+
+	return rc;
+}
+
+int msm_camio_sensor_clk_off(struct platform_device *pdev)
+{
+	int rc = 0;
+	struct msm_camera_sensor_info *sinfo = pdev->dev.platform_data;
+	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
+
+	msm_camera_vreg_disable();
+
+	rc = camdev->camera_csi_off();
+	if (rc < 0)
+		pr_info("%s camera_csi_off failed\n", __func__);
+
+	if (sinfo->sensor_platform_info->privacy_light) {
+		struct msm8960_privacy_light_cfg *privacy_light_config =
+			sinfo->sensor_platform_info->privacy_light_info;
+		pm8xxx_mpp_config(privacy_light_config->mpp,
+						  &privacy_light_off_config);
+	}
+	rc = config_gpio_table(0);
+
+	return rc;
+}
+
+void msm_camio_vfe_blk_reset(void)
+{
+	return;
+}
+
+int msm_camio_probe_on(struct platform_device *pdev)
+{
+	int rc = 0;
+	struct msm_camera_sensor_info *sinfo = pdev->dev.platform_data;
+	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
+	camio_dev = pdev;
+	camio_clk = camdev->ioclk;
+
+	rc = config_gpio_table(1);
+	if (rc < 0)
+		return rc;
+
+	msm_camera_vreg_enable(pdev);
+	rc = camdev->camera_csi_on();
+	if (rc < 0)
+		pr_info("%s camera_csi_on failed\n", __func__);
+
+	return rc;
+}
+
+int msm_camio_probe_off(struct platform_device *pdev)
+{
+	int rc = 0;
+	struct msm_camera_sensor_info *sinfo = pdev->dev.platform_data;
+	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
+
+	msm_camera_vreg_disable();
+
+	rc = camdev->camera_csi_off();
+	if (rc < 0)
+		pr_info("%s camera_csi_off failed\n", __func__);
+
+	rc = config_gpio_table(0);
+
+	return rc;
+}
+
 void msm_camio_mode_config(enum msm_cam_mode mode)
 {
 	uint32_t val;
@@ -307,13 +709,16 @@ void msm_camio_mode_config(enum msm_cam_mode mode)
 	}
 }
 
-void msm_camio_bus_scale_cfg(struct msm_bus_scale_pdata *cam_bus_scale_table,
-		enum msm_bus_perf_setting perf_setting)
+void msm_camio_set_perf_lvl(enum msm_bus_perf_setting perf_setting)
 {
 	static uint32_t bus_perf_client;
+	struct msm_camera_sensor_info *sinfo = camio_dev->dev.platform_data;
+	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
+
 	int rc = 0;
 	switch (perf_setting) {
 	case S_INIT:
+		cam_bus_scale_table = camdev->cam_bus_scale_table;
 		bus_perf_client =
 			msm_bus_scale_register_client(cam_bus_scale_table);
 		if (!bus_perf_client) {
@@ -321,11 +726,11 @@ void msm_camio_bus_scale_cfg(struct msm_bus_scale_pdata *cam_bus_scale_table,
 			bus_perf_client = 0;
 			return;
 		}
-		CDBG("%s: S_INIT rc = %u\n", __func__, bus_perf_client);
+		pr_info("%s: S_INIT rc = %u\n", __func__, bus_perf_client);
 		break;
 	case S_EXIT:
 		if (bus_perf_client) {
-			CDBG("%s: S_EXIT\n", __func__);
+			pr_info("%s: S_EXIT\n", __func__);
 			msm_bus_scale_unregister_client(bus_perf_client);
 		} else
 			CDBG("%s: Bus Client NOT Registered!!!\n", __func__);
@@ -334,7 +739,7 @@ void msm_camio_bus_scale_cfg(struct msm_bus_scale_pdata *cam_bus_scale_table,
 		if (bus_perf_client) {
 			rc = msm_bus_scale_client_update_request(
 				bus_perf_client, 1);
-			CDBG("%s: S_PREVIEW rc = %d\n", __func__, rc);
+			pr_info("%s: S_PREVIEW rc = %d\n", __func__, rc);
 		} else
 			CDBG("%s: Bus Client NOT Registered!!!\n", __func__);
 		break;
@@ -342,7 +747,7 @@ void msm_camio_bus_scale_cfg(struct msm_bus_scale_pdata *cam_bus_scale_table,
 		if (bus_perf_client) {
 			rc = msm_bus_scale_client_update_request(
 				bus_perf_client, 2);
-			CDBG("%s: S_VIDEO rc = %d\n", __func__, rc);
+			pr_info("%s: S_VIDEO rc = %d\n", __func__, rc);
 		} else
 			CDBG("%s: Bus Client NOT Registered!!!\n", __func__);
 		break;
@@ -350,7 +755,7 @@ void msm_camio_bus_scale_cfg(struct msm_bus_scale_pdata *cam_bus_scale_table,
 		if (bus_perf_client) {
 			rc = msm_bus_scale_client_update_request(
 				bus_perf_client, 3);
-			CDBG("%s: S_CAPTURE rc = %d\n", __func__, rc);
+			pr_info("%s: S_CAPTURE rc = %d\n", __func__, rc);
 		} else
 			CDBG("%s: Bus Client NOT Registered!!!\n", __func__);
 		break;
@@ -358,7 +763,7 @@ void msm_camio_bus_scale_cfg(struct msm_bus_scale_pdata *cam_bus_scale_table,
 		if (bus_perf_client) {
 			rc = msm_bus_scale_client_update_request(
 				bus_perf_client, 4);
-			CDBG("%s: S_ZSL rc = %d\n", __func__, rc);
+			pr_info("%s: S_ZSL rc = %d\n", __func__, rc);
 		} else
 			CDBG("%s: Bus Client NOT Registered!!!\n", __func__);
 		break;

@@ -250,6 +250,7 @@ static inline void suspend_thaw_processes(void)
 /* kernel/power/wakelock.c */
 extern struct workqueue_struct *suspend_work_queue;
 extern struct wake_lock main_wake_lock;
+extern struct wake_lock no_suspend_wake_lock;
 extern suspend_state_t requested_suspend_state;
 extern void suspend_sys_sync_queue(void);
 extern int suspend_sys_sync_wait(void);
@@ -269,8 +270,27 @@ ssize_t  wake_unlock_store(struct kobject *kobj, struct kobj_attribute *attr,
 			const char *buf, size_t n);
 #endif
 
+#ifdef CONFIG_POWERSTATE
+ssize_t power_state_start_show(struct kobject *kobj, struct kobj_attribute *attr,
+			char *buf);
+ssize_t power_state_start_store(struct kobject *kobj, struct kobj_attribute *attr,
+			const char *buf, size_t n);
+ssize_t power_state_end_show(struct kobject *kobj, struct kobj_attribute *attr,
+			char *buf);
+ssize_t power_state_end_store(struct kobject *kobj, struct kobj_attribute *attr,
+			const char *buf, size_t n);
+ssize_t power_state_trigger_show(struct kobject *kobj, struct kobj_attribute *attr,
+			char *buf);
+ssize_t power_state_trigger_store(struct kobject *kobj, struct kobj_attribute *attr,
+			const char *buf, size_t n);
+#endif
+
 #ifdef CONFIG_EARLYSUSPEND
 /* kernel/power/earlysuspend.c */
 void request_suspend_state(suspend_state_t state);
 suspend_state_t get_suspend_state(void);
+#ifdef CONFIG_HTC_ONMODE_CHARGING
+void request_onchg_state(int on);
+int get_onchg_state(void);
+#endif
 #endif

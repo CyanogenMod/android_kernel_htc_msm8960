@@ -28,6 +28,9 @@
 
 extern struct irq_chip msm_gpio_irq_extn;
 
+extern void register_gpio_int_mask(unsigned int gpio, unsigned int idle);
+extern void unregister_gpio_int_mask(unsigned int gpio, unsigned int idle);
+
 static inline int gpio_get_value(unsigned gpio)
 {
 	return __gpio_get_value(gpio);
@@ -237,5 +240,6 @@ static inline int msm_gpio_install_direct_irq(unsigned gpio, unsigned irq,
 	return -ENOSYS;
 }
 #endif
+int msm_dump_gpios(struct seq_file *m, int curr_len, char *gpio_buffer);
 
 #endif /* __ASM_ARCH_MSM_GPIO_H */

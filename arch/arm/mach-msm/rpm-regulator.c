@@ -28,6 +28,30 @@
 #include "rpm_resources.h"
 #include "rpm-regulator-private.h"
 
+#ifdef pr_debug
+#undef pr_debug
+#endif
+#define pr_debug(fmt, args...) \
+	printk(KERN_DEBUG "[VREG] " pr_fmt(fmt), ## args)
+
+#ifdef pr_err
+#undef pr_err
+#endif
+#define pr_err(fmt, args...) \
+	printk(KERN_ERR "[VREG] " pr_fmt(fmt), ## args)
+
+#ifdef pr_warning
+#undef pr_warning
+#endif
+#define pr_warning(fmt, args...) \
+	printk(KERN_WARNING "[VREG] " pr_fmt(fmt), ## args)
+
+#ifdef pr_info
+#undef pr_info
+#endif
+#define pr_info(fmt, args...) \
+	printk(KERN_INFO "[VREG] " pr_fmt(fmt), ## args)
+
 /* Debug Definitions */
 
 enum {

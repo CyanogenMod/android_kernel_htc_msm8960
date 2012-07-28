@@ -38,6 +38,7 @@ struct msm_xo_voter *msm_xo_get(enum msm_xo_ids xo_id, const char *voter);
 void msm_xo_put(struct msm_xo_voter *xo_voter);
 int msm_xo_mode_vote(struct msm_xo_voter *xo_voter, enum msm_xo_modes xo_mode);
 int __init msm_xo_init(void);
+int msm_xo_print_voters(void);
 #else
 static inline struct msm_xo_voter *msm_xo_get(enum msm_xo_ids xo_id,
 		const char *voter)
@@ -53,6 +54,7 @@ static inline int msm_xo_mode_vote(struct msm_xo_voter *xo_voter,
 	return 0;
 }
 static inline int msm_xo_init(void) { return 0; }
+static inline int msm_xo_print_voters(void) { return 0; }
 #endif /* CONFIG_MSM_XO */
 
 #endif

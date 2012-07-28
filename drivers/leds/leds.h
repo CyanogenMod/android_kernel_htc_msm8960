@@ -23,6 +23,10 @@ static inline void led_set_brightness(struct led_classdev *led_cdev,
 	if (value > led_cdev->max_brightness)
 		value = led_cdev->max_brightness;
 	led_cdev->brightness = value;
+
+	if (value > led_cdev->offset)
+	    value -= led_cdev->offset;
+
 	if (!(led_cdev->flags & LED_SUSPENDED))
 		led_cdev->brightness_set(led_cdev, value);
 }

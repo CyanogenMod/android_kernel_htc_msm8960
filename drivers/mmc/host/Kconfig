@@ -683,3 +683,9 @@ config MMC_USHC
 
 	  Note: These controllers only support SDIO cards and do not
 	  support MMC or SD memory cards.
+
+config MMC_SD_PLUG_TEST
+	boolean "SD card plug test support"
+	depends on MMC_MSM_SDC3_SUPPORT
+	help
+	  Select Y to enable SD card plug/unplug test

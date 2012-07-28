@@ -32,6 +32,7 @@ enum {
 	MSM_RPM_PAGE_CTRL,
 	MSM_RPM_PAGE_REQ,
 	MSM_RPM_PAGE_ACK,
+	MSM_RPM_PAGE_STAT,
 	MSM_RPM_PAGE_COUNT
 };
 
@@ -99,6 +100,10 @@ int msm_rpm_local_request_is_outstanding(void);
 int msm_rpm_get_status(struct msm_rpm_iv_pair *status, int count);
 int msm_rpm_set(int ctx, struct msm_rpm_iv_pair *req, int count);
 int msm_rpm_set_noirq(int ctx, struct msm_rpm_iv_pair *req, int count);
+#ifdef CONFIG_ARCH_MSM8X60
+void msm_rpm_lpm_init(uint32_t *lpm_setting, uint32_t num);
+#endif
+
 
 static inline int msm_rpm_set_nosleep(
 	int ctx, struct msm_rpm_iv_pair *req, int count)
@@ -129,9 +134,17 @@ static inline int msm_rpm_clear_nosleep(
 	return rc;
 }
 
+void msm_rpm_print_sleep_tick(void);
 int msm_rpm_register_notification(struct msm_rpm_notification *n,
 	struct msm_rpm_iv_pair *req, int count);
 int msm_rpm_unregister_notification(struct msm_rpm_notification *n);
 int msm_rpm_init(struct msm_rpm_platform_data *data);
+void msm_rpm_dump_stat(void);
+void msm_rpm_set_suspend_flag(bool app_from_suspend);
+
+#ifdef CONFIG_MSM_IDLE_STATS
+uint64_t msm_rpm_get_xo_time(void);
+uint64_t msm_rpm_get_vdd_time(void);
+#endif
 
 #endif /* __ARCH_ARM_MACH_MSM_RPM_H */

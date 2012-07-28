@@ -437,28 +437,43 @@ read_write_err:
 static int __pm8921_reset_pwr_off(struct pm8xxx_misc_chip *chip, int reset)
 {
 	int rc;
+	u8 reg, mask, val;
 
 	/* Enable SMPL if resetting is desired. */
+	mask = SLEEP_CTRL_SMPL_EN_MASK;
+	val = (reset ? SLEEP_CTRL_SMPL_EN_RESET : SLEEP_CTRL_SMPL_EN_PWR_OFF);
 	rc = pm8xxx_misc_masked_write(chip, REG_PM8921_SLEEP_CTRL,
-	       SLEEP_CTRL_SMPL_EN_MASK,
-	       (reset ? SLEEP_CTRL_SMPL_EN_RESET : SLEEP_CTRL_SMPL_EN_PWR_OFF));
+		mask, val);
 	if (rc) {
 		pr_err("pm8xxx_misc_masked_write failed, rc=%d\n", rc);
 		goto read_write_err;
 	}
-
+	pm8xxx_readb(chip->dev->parent, REG_PM8921_SLEEP_CTRL, &reg);
+	if ((reg & mask) != val) {
+		pr_err("%s: configure SMPL fail !(reg=0x%x)\n", __func__, reg);
+		rc = -EINVAL;
+		goto read_write_err;
+	}
 	/*
 	 * Select action to perform (reset or shutdown) when PS_HOLD goes low.
 	 * Also ensure that KPD, CBL0, and CBL1 pull ups are enabled and that
 	 * USB charging is enabled.
 	 */
+	mask = PON_CTRL_1_PULL_UP_MASK | PON_CTRL_1_USB_PWR_EN
+		| PON_CTRL_1_WD_EN_MASK;
+	val = PON_CTRL_1_PULL_UP_MASK | PON_CTRL_1_USB_PWR_EN
+		| (reset ? PON_CTRL_1_WD_EN_RESET : PON_CTRL_1_WD_EN_PWR_OFF);
+
 	rc = pm8xxx_misc_masked_write(chip, REG_PM8XXX_PON_CTRL_1,
-		PON_CTRL_1_PULL_UP_MASK | PON_CTRL_1_USB_PWR_EN
-		| PON_CTRL_1_WD_EN_MASK,
-		PON_CTRL_1_PULL_UP_MASK | PON_CTRL_1_USB_PWR_EN
-		| (reset ? PON_CTRL_1_WD_EN_RESET : PON_CTRL_1_WD_EN_PWR_OFF));
+		mask, val);
 	if (rc) {
 		pr_err("pm8xxx_misc_masked_write failed, rc=%d\n", rc);
+		goto read_write_err;
+	}
+	pm8xxx_readb(chip->dev->parent, REG_PM8XXX_PON_CTRL_1, &reg);
+	if ((reg & mask) != val) {
+		pr_err("%s: select action to perform when PS_HOLD goes low fail !(reg=0x%x)\n", __func__, reg);
+		rc = -EINVAL;
 		goto read_write_err;
 	}
 
@@ -733,7 +748,7 @@ int pm8xxx_watchdog_reset_control(int enable)
 			rc = pm8xxx_misc_masked_write(chip,
 				REG_PM8XXX_PON_CTRL_1, PON_CTRL_1_WD_EN_MASK,
 				(enable ? PON_CTRL_1_WD_EN_RESET
-					   : PON_CTRL_1_WD_EN_PWR_OFF));
+					: PON_CTRL_1_WD_EN_PWR_OFF));
 			break;
 		default:
 			/* WD reset control not supported */

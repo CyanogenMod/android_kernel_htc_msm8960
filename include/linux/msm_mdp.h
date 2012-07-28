@@ -68,9 +68,16 @@
 #define MDP_IMGTYPE2_START 0x10000
 #define MSMFB_DRIVER_VERSION	0xF9E8D701
 
+#define MSMFB_GET_GAMMA_CURVY    _IOWR(MSMFB_IOCTL_MAGIC, 201, struct gamma_curvy)
+
+#define MSMFB_GET_USB_PROJECTOR_INFO _IOR(MSMFB_IOCTL_MAGIC, 301, struct msmfb_usb_projector_info)
+#define MSMFB_SET_USB_PROJECTOR_INFO _IOW(MSMFB_IOCTL_MAGIC, 302, struct msmfb_usb_projector_info)
+
 enum {
 	NOTIFY_UPDATE_START,
 	NOTIFY_UPDATE_STOP,
+	NOTIFY_TERMINATE_BLOCKING,
+	NOTIFY_NUM,
 };
 
 enum {
@@ -438,6 +445,10 @@ struct msmfb_mixer_info_req {
 	struct mdp_mixer_info info[MAX_PIPE_PER_MIXER];
 };
 
+struct msmfb_usb_projector_info {
+	int usb_offset;
+	int latest_offset;
+};
 
 #ifdef __KERNEL__
 

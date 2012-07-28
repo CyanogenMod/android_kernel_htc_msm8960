@@ -193,9 +193,11 @@ void v4l2_event_queue(struct video_device *vdev, const struct v4l2_event *ev)
 		events->sequence++;
 
 		/* Do we have any free events? */
-		if (list_empty(&events->free))
+		if (list_empty(&events->free)) {
+			/* HTC_START Max 20120311, add log to indicate that there is no more free event queue */
+			pr_err("%s, no free event queues", __func__);
 			continue;
-
+		}
 		/* Take one and fill it. */
 		kev = list_first_entry(&events->free, struct v4l2_kevent, list);
 		kev->event.type = ev->type;

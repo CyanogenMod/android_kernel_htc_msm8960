@@ -127,8 +127,8 @@ static inline void __irq_set_handler_locked(unsigned int irq,
 					    irq_flow_handler_t handler)
 {
 	struct irq_desc *desc;
-
 	desc = irq_to_desc(irq);
+	BUG_ON(!desc);
 	desc->handle_irq = handler;
 }
 

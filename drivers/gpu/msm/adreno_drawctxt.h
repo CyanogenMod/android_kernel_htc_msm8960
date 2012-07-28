@@ -30,7 +30,7 @@
 #define CTXT_FLAGS_GMEM_SAVE		0x00000200
 /* gmem can be restored from shadow */
 #define CTXT_FLAGS_GMEM_RESTORE		0x00000400
-/* preamble packed in cmdbuffer for context switching */
+/*preamble packed in cmdbuffer for context switching*/
 #define CTXT_FLAGS_PREAMBLE		0x00000800
 /* shader must be copied to shadow */
 #define CTXT_FLAGS_SHADER_SAVE		0x00002000

@@ -15,7 +15,7 @@
 #define __ARCH_ARM_MACH_MSM_RPM_RESOURCES_H
 
 #include <mach/rpm.h>
-#include "pm.h"
+#include <mach/pm.h>
 
 
 struct msm_rpmrs_limits {
@@ -112,6 +112,7 @@ int msm_rpmrs_enter_sleep(uint32_t sclk_count, struct msm_rpmrs_limits *limits,
 void msm_rpmrs_exit_sleep(struct msm_rpmrs_limits *limits, bool from_idle,
 		bool notify_rpm, bool collapsed);
 
+void msm_rpmrs_lpm_init(uint32_t pxo, uint32_t l2_cache, uint32_t vdd_mem, uint32_t vdd_dig);
 int msm_rpmrs_levels_init(struct msm_rpmrs_level *levels, int size);
 
 #endif /* __ARCH_ARM_MACH_MSM_RPM_RESOURCES_H */

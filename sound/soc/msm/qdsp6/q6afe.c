@@ -77,7 +77,6 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 		if (data->opcode == APR_BASIC_RSP_RESULT) {
 			switch (payload[0]) {
 			case AFE_PORT_AUDIO_IF_CONFIG:
-			case AFE_PORT_MULTI_CHAN_HDMI_AUDIO_IF_CONFIG:
 			case AFE_PORT_CMD_STOP:
 			case AFE_PORT_CMD_START:
 			case AFE_PORT_CMD_LOOPBACK:
@@ -281,7 +280,7 @@ int afe_sizeof_cfg_cmd(u16 port_id)
 		ret_size = SIZEOF_CFG_CMD(afe_port_mi2s_cfg);
 		break;
 	case HDMI_RX:
-		ret_size = SIZEOF_CFG_CMD(afe_port_hdmi_multi_ch_cfg);
+		ret_size = SIZEOF_CFG_CMD(afe_port_hdmi_cfg);
 		break;
 	case SLIMBUS_0_RX:
 	case SLIMBUS_0_TX:
@@ -387,7 +386,7 @@ int afe_port_start_nowait(u16 port_id, union afe_port_config *afe_config,
 		ret = -EINVAL;
 		return ret;
 	}
-	pr_debug("%s: %d %d\n", __func__, port_id, rate);
+	pr_info("%s: %d %d\n", __func__, port_id, rate);
 
 	if ((port_id == RT_PROXY_DAI_001_RX) ||
 		(port_id == RT_PROXY_DAI_002_TX))
@@ -401,25 +400,13 @@ int afe_port_start_nowait(u16 port_id, union afe_port_config *afe_config,
 		ret = -ENODEV;
 		return ret;
 	}
-
-	if (port_id == HDMI_RX) {
-		config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+	config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
-		config.hdr.pkt_size = afe_sizeof_cfg_cmd(port_id);
-		config.hdr.src_port = 0;
-		config.hdr.dest_port = 0;
-		config.hdr.token = 0;
-		config.hdr.opcode = AFE_PORT_MULTI_CHAN_HDMI_AUDIO_IF_CONFIG;
-	} else {
-
-		config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
-				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
-		config.hdr.pkt_size = afe_sizeof_cfg_cmd(port_id);
-		config.hdr.src_port = 0;
-		config.hdr.dest_port = 0;
-		config.hdr.token = 0;
-		config.hdr.opcode = AFE_PORT_AUDIO_IF_CONFIG;
-	}
+	config.hdr.pkt_size = afe_sizeof_cfg_cmd(port_id);
+	config.hdr.src_port = 0;
+	config.hdr.dest_port = 0;
+	config.hdr.token = 0;
+	config.hdr.opcode = AFE_PORT_AUDIO_IF_CONFIG;
 
 	if (afe_validate_port(port_id) < 0) {
 
@@ -1441,7 +1428,7 @@ int afe_port_stop_nowait(int port_id)
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
-	pr_debug("%s: port_id=%d\n", __func__, port_id);
+	pr_info("%s: port_id=%d\n", __func__, port_id);
 	port_id = afe_convert_virtual_to_portid(port_id);
 
 	stop.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
@@ -1479,7 +1466,7 @@ int afe_close(int port_id)
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
-	pr_debug("%s: port_id=%d\n", __func__, port_id);
+	pr_info("%s: port_id=%d\n", __func__, port_id);
 	port_id = afe_convert_virtual_to_portid(port_id);
 
 	stop.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
@@ -1511,6 +1498,7 @@ int afe_close(int port_id)
 					msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
+                BUG();
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
@@ -1526,11 +1514,11 @@ static int __init afe_init(void)
 	this_afe.apr = NULL;
 #ifdef CONFIG_DEBUG_FS
 	debugfs_afelb = debugfs_create_file("afe_loopback",
-	S_IFREG | S_IWUGO, NULL, (void *) "afe_loopback",
+	S_IFREG | S_IWUSR, NULL, (void *) "afe_loopback",
 	&afe_debug_fops);
 
 	debugfs_afelb_gain = debugfs_create_file("afe_loopback_gain",
-	S_IFREG | S_IWUGO, NULL, (void *) "afe_loopback_gain",
+	S_IFREG | S_IWUSR, NULL, (void *) "afe_loopback_gain",
 	&afe_debug_fops);
 
 

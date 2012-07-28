@@ -1,5 +1,5 @@
 #ifndef _ARCH_ARM_MACH_MSM_MDM_IOCTLS_H
-#define _ARXH_ARM_MACH_MSM_MDM_IOCTLS_H
+#define _ARCH_ARM_MACH_MSM_MDM_IOCTLS_H
 
 
 #define CHARM_CODE		0xCC
@@ -10,6 +10,13 @@
 #define NORMAL_BOOT_DONE	_IOW(CHARM_CODE, 5, int)
 #define RAM_DUMP_DONE		_IOW(CHARM_CODE, 6, int)
 #define WAIT_FOR_RESTART	_IOR(CHARM_CODE, 7, int)
+
+/* +++ Added by HTC +++ */
+#define GET_CIPHER_RAMDUMP_MODE	_IO(CHARM_CODE, 96)
+#define ENCRYPT_BUFFER			_IO(CHARM_CODE, 97)
+#define SET_ENCRYPT_BUFFER_PARM	_IO(CHARM_CODE, 98)
+#define RELEASE_CHARM			_IO(CHARM_CODE, 99)
+/* --- Added by HTC --- */
 
 enum charm_boot_type {
 	CHARM_NORMAL_BOOT = 0,

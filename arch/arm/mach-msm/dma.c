@@ -307,7 +307,7 @@ void msm_dmov_enqueue_cmd_ext(unsigned id, struct msm_dmov_cmd *cmd)
 	} else {
 		if (!dmov_conf[adm].channel_active) {
 			dmov_conf[adm].clk_ctl = CLK_TO_BE_DIS;
-			mod_timer(&dmov_conf[adm].timer, jiffies + HZ);
+			mod_timer(&dmov_conf[adm].timer, jiffies + (HZ/10));
 		}
 		if (list_empty(&dmov_conf[adm].active_commands[ch]))
 			PRINT_ERROR("msm_dmov_enqueue_cmd_ext(%d), stalled, "
@@ -512,7 +512,7 @@ static irqreturn_t msm_datamover_irq_handler(int irq, void *dev_id)
 	if (!dmov_conf[adm].channel_active && valid) {
 		disable_irq_nosync(dmov_conf[adm].irq);
 		dmov_conf[adm].clk_ctl = CLK_TO_BE_DIS;
-		mod_timer(&dmov_conf[adm].timer, jiffies + HZ);
+		mod_timer(&dmov_conf[adm].timer, jiffies + (HZ/10));
 	}
 
 	spin_unlock_irqrestore(&dmov_conf[adm].lock, irq_flags);
@@ -563,7 +563,6 @@ static struct dev_pm_ops msm_dmov_dev_pm_ops = {
 static int msm_dmov_init_clocks(struct platform_device *pdev)
 {
 	int adm = (pdev->id >= 0) ? pdev->id : 0;
-	int ret;
 
 	dmov_conf[adm].clk = clk_get(&pdev->dev, "core_clk");
 	if (IS_ERR(dmov_conf[adm].clk)) {
@@ -572,6 +571,7 @@ static int msm_dmov_init_clocks(struct platform_device *pdev)
 		return -ENOENT;
 	}
 
+#ifndef CONFIG_ARCH_MSM7X30
 	dmov_conf[adm].pclk = clk_get(&pdev->dev, "iface_clk");
 	if (IS_ERR(dmov_conf[adm].pclk)) {
 		dmov_conf[adm].pclk = NULL;
@@ -583,10 +583,10 @@ static int msm_dmov_init_clocks(struct platform_device *pdev)
 		dmov_conf[adm].ebiclk = NULL;
 		/* ebiclk not present on all SoCs, don't bail on failure */
 	} else {
-		ret = clk_set_rate(dmov_conf[adm].ebiclk, 27000000);
-		if (ret)
+		if (clk_set_rate(dmov_conf[adm].ebiclk, 27000000))
 			return -ENOENT;
 	}
+#endif
 
 	return 0;
 }

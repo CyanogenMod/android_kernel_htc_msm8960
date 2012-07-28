@@ -974,6 +974,7 @@ struct file {
 #ifdef CONFIG_DEBUG_WRITECOUNT
 	unsigned long f_mnt_write_state;
 #endif
+	int record_pid;
 };
 
 struct file_handle {

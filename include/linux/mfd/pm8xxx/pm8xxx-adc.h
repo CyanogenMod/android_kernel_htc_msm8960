@@ -107,6 +107,10 @@ enum pm8xxx_adc_channels {
 #define PM8XXX_AMUX_MPP_6	0x6
 #define PM8XXX_AMUX_MPP_7	0x7
 #define PM8XXX_AMUX_MPP_8	0x8
+#define PM8XXX_AMUX_MPP_9	0x9
+#define PM8XXX_AMUX_MPP_10	0xA
+#define PM8XXX_AMUX_MPP_11	0xB
+#define PM8XXX_AMUX_MPP_12	0xC
 
 #define PM8XXX_ADC_DEV_NAME	"pm8xxx-adc"
 
@@ -245,6 +249,16 @@ struct pm8xxx_adc_map_pt {
 };
 
 /**
+ * struct pm8xxx_adc_map_table - Map the graph representation for ADC channel
+ * @table: a set of adc_map_pt to represent ADC digitized code (or ADC voltage)
+ * @size: number of pt in table
+ */
+struct pm8xxx_adc_map_table {
+	const struct pm8xxx_adc_map_pt *table;
+	int32_t size;
+};
+
+/**
  * struct pm8xxx_adc_scaling_ratio - Represent scaling ratio for adc input
  * @num: Numerator scaling parameter
  * @den: Denominator scaling parameter
@@ -304,6 +318,13 @@ struct pm8xxx_adc_chan_result {
 
 #if defined(CONFIG_SENSORS_PM8XXX_ADC)					\
 			|| defined(CONFIG_SENSORS_PM8XXX_ADC_MODULE)
+/**
+ * pm8xxx_adc_set_adcmap_btm_table() - set table of battery thermal
+ * channel for mapping battery temperature to/from adc channel voltage.
+ * @adcmap_table:	deci-Celsius to/from mili-volts mapping table.
+ */
+void pm8xxx_adc_set_adcmap_btm_table(
+			struct pm8xxx_adc_map_table *adcmap_table);
 /**
  * pm8xxx_adc_scale_default() - Scales the pre-calibrated digital output
  *		of an ADC to the ADC reference and compensates for the
@@ -397,6 +418,9 @@ int32_t pm8xxx_adc_scale_batt_id(int32_t adc_code,
 			const struct pm8xxx_adc_chan_properties *chan_prop,
 			struct pm8xxx_adc_chan_result *chan_rslt);
 #else
+static inline void pm8xxx_adc_set_adcmap_btm_table(
+			struct pm8xxx_adc_map_table *adcmap_table);
+{ return };
 static inline int32_t pm8xxx_adc_scale_default(int32_t adc_code,
 			const struct pm8xxx_adc_properties *adc_prop,
 			const struct pm8xxx_adc_chan_properties *chan_prop,
@@ -497,6 +521,7 @@ int32_t pm8xxx_adc_batt_scaler(struct pm8xxx_adc_arb_btm_param *,
  * @adc_channel: Channel properties of the ADC arbiter
  * @adc_num_board_channel: Number of channels added in the board file
  * @adc_mpp_base: PM8XXX MPP0 base passed from board file. This is used
+ * @adc_map_btm_table: mV <-> temperature mapping table passed from board file.
  *		  to offset the PM8XXX MPP passed to configure the
  *		  the MPP to AMUX mapping.
  */
@@ -505,6 +530,8 @@ struct pm8xxx_adc_platform_data {
 	struct pm8xxx_adc_amux		*adc_channel;
 	uint32_t			adc_num_board_channel;
 	uint32_t			adc_mpp_base;
+	struct pm8xxx_adc_map_table	*adc_map_btm_table;
+	void				(*pm8xxx_adc_device_register)(void);
 };
 
 /* Public API */
@@ -581,6 +608,18 @@ uint32_t pm8xxx_adc_btm_end(void);
  *			events are triggered.
  */
 uint32_t pm8xxx_adc_btm_configure(struct pm8xxx_adc_arb_btm_param *);
+
+/**
+ * pm8xxx_adc_btm_is_cool() - get btm battery cool status
+ * @param:	none.
+ */
+int pm8xxx_adc_btm_is_cool(void);
+
+/**
+ * pm8xxx_adc_btm_is_warm() - get btm battery warm status
+ * @param:	none.
+ */
+int pm8xxx_adc_btm_is_warm(void);
 #else
 static inline uint32_t pm8xxx_adc_read(uint32_t channel,
 				struct pm8xxx_adc_chan_result *result)
@@ -596,6 +635,10 @@ static inline uint32_t pm8xxx_adc_btm_end(void)
 static inline uint32_t pm8xxx_adc_btm_configure(
 		struct pm8xxx_adc_arb_btm_param *param)
 { return -ENXIO; }
+static inline int pm8xxx_adc_btm_is_cool(void)
+{ return 0; }
+static inline int pm8xxx_adc_btm_is_warm(void)
+{ return 0; }
 #endif
 
 #endif /* PM8XXX_ADC_H */

@@ -21,6 +21,8 @@
 #include <linux/types.h>
 #include <linux/usb/otg.h>
 #include <linux/wakelock.h>
+#include <mach/board.h>
+#include <mach/msm_xo.h>
 #include <linux/pm_qos_params.h>
 
 /**
@@ -149,8 +151,7 @@ enum usb_bam_pipe_dir {
  *              for msm_otg driver.
  * @phy_init_seq: PHY configuration sequence. val, reg pairs
  *              terminated by -1.
- * @vbus_power: VBUS power on/off routine.It should return result
- *		as success(zero value) or failure(non-zero value).
+ * @vbus_power: VBUS power on/off routine.
  * @power_budget: VBUS power budget in mA (0 will be treated as 500mA).
  * @mode: Supported mode (OTG/peripheral/host).
  * @otg_control: OTG switch controlled by user/Id pin
@@ -158,16 +159,18 @@ enum usb_bam_pipe_dir {
  *              OTG switch is controller by user.
  * @pmic_id_irq: IRQ number assigned for PMIC USB ID line.
  * @mhl_enable: indicates MHL connector or not.
+ * @ido_3v3_name: the regulator provide 3.075(3.3)V to PHY
+ * @ldo_1v8_name: the regulator provide 1.8V to PHY
+ * @vddcx_name: digital core voltage, provide reference voltage in charger
+		detection block in 28nm/45nm PHY
  * @disable_reset_on_disconnect: perform USB PHY and LINK reset
  *              on USB cable disconnection.
  * @swfi_latency: miminum latency to allow swfi.
- * @enable_dcd: Enable Data Contact Detection circuit. if not set
- *              wait for 600msec before proceeding to primary
- *              detection.
- */
+ * @ldo_power_collapse: indicates ldo 3p3/1p8 could power collapse
+*/
 struct msm_otg_platform_data {
 	int *phy_init_seq;
-	int (*vbus_power)(bool on);
+	void (*vbus_power)(bool on);
 	unsigned power_budget;
 	enum usb_mode_type mode;
 	enum otg_control_type otg_control;
@@ -176,9 +179,12 @@ struct msm_otg_platform_data {
 	void (*setup_gpio)(enum usb_otg_state state);
 	int pmic_id_irq;
 	bool mhl_enable;
+	char *ldo_3v3_name;
+	char *ldo_1v8_name;
+	char *vddcx_name;
 	bool disable_reset_on_disconnect;
 	u32 swfi_latency;
-	bool enable_dcd;
+	bool ldo_power_collapse;
 };
 
 /**
@@ -190,7 +196,7 @@ struct msm_otg_platform_data {
  * @pclk: clock struct of iface_clk.
  * @phy_reset_clk: clock struct of phy_clk.
  * @core_clk: clock struct of core_bus_clk.
- * @regs: ioremapped register base address.
+* @regs: ioremapped register base address.
  * @inputs: OTG state machine inputs(Id, SessValid etc).
  * @sm_work: OTG state machine work.
  * @in_lpm: indicates low power mode (LPM) state.
@@ -210,7 +216,6 @@ struct msm_otg_platform_data {
  * @pm_qos_req_dma: miminum DMA latency to vote against idle power
 	collapse when cable is connected.
  * @id_timer: The timer used for polling ID line to detect ACA states.
- * @xo_handle: TCXO buffer handle
  */
 struct msm_otg {
 	struct otg_transceiver otg;
@@ -235,12 +240,12 @@ struct msm_otg {
 	enum usb_chg_state chg_state;
 	enum usb_chg_type chg_type;
 	u8 dcd_retries;
-	struct wake_lock wlock;
+	struct wake_lock usb_otg_wlock;
+	struct wake_lock cable_detect_wlock;
 	struct notifier_block usbdev_nb;
 	unsigned mA_port;
 	struct timer_list id_timer;
 	unsigned long caps;
-	struct msm_xo_voter *xo_handle;
 	/*
 	 * Allowing PHY power collpase turns off the HSUSB 3.3v and 1.8v
 	 * analog regulators while going to low power mode.
@@ -263,6 +268,14 @@ struct msm_otg {
 #define PHY_PWR_COLLAPSED		BIT(0)
 #define PHY_RETENTIONED			BIT(1)
 #define PHY_OTG_COMP_DISABLED		BIT(2)
+	struct work_struct notifier_work;
+	enum usb_connect_type connect_type;
+	int connect_type_ready;
+	struct workqueue_struct *usb_wq;
+	struct timer_list ac_detect_timer;
+	int ac_detect_count;
+
+	struct msm_xo_voter *xo_handle; /*handle to vote for PXO buffer*/
 	struct pm_qos_request_list pm_qos_req_dma;
 	int reset_counter;
 };

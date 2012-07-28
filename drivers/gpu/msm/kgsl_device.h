@@ -16,6 +16,7 @@
 #include <linux/idr.h>
 #include <linux/wakelock.h>
 #include <linux/earlysuspend.h>
+#include <linux/pm_qos_params.h>
 
 #include "kgsl.h"
 #include "kgsl_mmu.h"
@@ -126,6 +127,7 @@ struct kgsl_event {
 	void (*func)(struct kgsl_device *, void *, u32);
 	void *priv;
 	struct list_head list;
+	struct kgsl_device_private *owner;
 };
 
 
@@ -147,6 +149,7 @@ struct kgsl_device {
 	struct work_struct idle_check_ws;
 	struct timer_list idle_timer;
 	struct kgsl_pwrctrl pwrctrl;
+	bool idle_timer_enabled;
 	int open_count;
 
 	struct atomic_notifier_head ts_notifier_list;
@@ -154,7 +157,6 @@ struct kgsl_device {
 	uint32_t state;
 	uint32_t requested_state;
 
-	struct list_head memqueue;
 	unsigned int active_cnt;
 	struct completion suspend_gate;
 

@@ -21,6 +21,14 @@
 #include <asm/cacheflush.h>
 
 #include <mach/scm.h>
+#include <mach/msm_watchdog.h>
+
+static int simlock_mask;
+static int unlock_mask;
+static char *simlock_code = "";
+static int security_level;
+
+module_param_named(simlock_code, simlock_code, charp, S_IRUGO | S_IWUSR | S_IWGRP);
 
 #define SCM_ENOMEM		-5
 #define SCM_EOPNOTSUPP		-4
@@ -73,6 +81,38 @@ struct scm_response {
 	u32	len;
 	u32	buf_offset;
 	u32	is_complete;
+};
+
+struct oem_simlock_unlock_req {
+	u32	unlock;
+	void *code;
+};
+
+struct oem_log_oper_req {
+	u32	address;
+	u32	size;
+	u32	buf_addr;
+	u32	buf_len;
+	int	revert;
+};
+
+struct oem_access_item_req {
+	u32	is_write;
+	u32	id;
+	u32	buf_len;
+	void *buf;
+};
+
+struct oem_3rd_party_syscall_req {
+	u32 id;
+	void *buf;
+	u32 len;
+};
+
+struct oem_key_ladder_req {
+	u32	id;
+	u32	buf_len;
+	void *buf;
 };
 
 /**
@@ -202,7 +242,7 @@ static int __scm_call(const struct scm_command *cmd)
 
 static u32 cacheline_size;
 
-static void scm_inv_range(unsigned long start, unsigned long end)
+void scm_inv_range(unsigned long start, unsigned long end)
 {
 	start = round_down(start, cacheline_size);
 	end = round_up(end, cacheline_size);
@@ -214,6 +254,7 @@ static void scm_inv_range(unsigned long start, unsigned long end)
 	dsb();
 	isb();
 }
+EXPORT_SYMBOL(scm_inv_range);
 
 /**
  * scm_call() - Send an SCM command
@@ -366,6 +407,150 @@ u32 scm_get_version(void)
 }
 EXPORT_SYMBOL(scm_get_version);
 
+int secure_read_simlock_mask(void)
+{
+	int ret;
+	u32 dummy;
+
+	ret = scm_call(SCM_SVC_OEM, TZ_HTC_SVC_READ_SIMLOCK_MASK,
+			&dummy, sizeof(dummy), NULL, 0);
+
+	pr_info("TZ_HTC_SVC_READ_SIMLOCK_MASK ret = %d\n", ret);
+	if (ret > 0)
+		ret &= 0x1F;
+	pr_info("TZ_HTC_SVC_READ_SIMLOCK_MASK modified ret = %d\n", ret);
+
+	return ret;
+}
+EXPORT_SYMBOL(secure_read_simlock_mask);
+
+int secure_simlock_unlock(unsigned int unlock, unsigned char *code)
+{
+	int ret;
+	struct oem_simlock_unlock_req req;
+
+	req.unlock = unlock;
+	req.code = (void *)virt_to_phys(code);
+
+	ret = scm_call(SCM_SVC_OEM, TZ_HTC_SVC_SIMLOCK_UNLOCK,
+			&req, sizeof(req), NULL, 0);
+
+	pr_info("TZ_HTC_SVC_SIMLOCK_UNLOCK ret = %d\n", ret);
+	return ret;
+}
+EXPORT_SYMBOL(secure_simlock_unlock);
+
+int secure_get_security_level(void)
+{
+	int ret;
+	u32 dummy;
+
+	ret = scm_call(SCM_SVC_OEM, TZ_HTC_SVC_GET_SECURITY_LEVEL,
+			&dummy, sizeof(dummy), NULL, 0);
+
+	pr_info("TZ_HTC_SVC_GET_SECURITY_LEVEL ret = %d\n", ret);
+	if (ret > 0)
+		ret &= 0x0F;
+	pr_info("TZ_HTC_SVC_GET_SECURITY_LEVEL modified ret = %d\n", ret);
+
+	return ret;
+}
+EXPORT_SYMBOL(secure_get_security_level);
+
+int secure_memprot(void)
+{
+	int ret;
+	u32 dummy;
+
+	ret = scm_call(SCM_SVC_OEM, TZ_HTC_SVC_MEMPROT,
+			&dummy, sizeof(dummy), NULL, 0);
+
+	pr_info("TZ_HTC_SVC_MEMPROT ret = %d\n", ret);
+	return ret;
+}
+EXPORT_SYMBOL(secure_memprot);
+
+int secure_log_operation(unsigned int address, unsigned int size,
+		unsigned int buf_addr, unsigned buf_len, int revert)
+{
+	int ret;
+	struct oem_log_oper_req req;
+	req.address = address;
+	req.size = size;
+	req.buf_addr = buf_addr;
+	req.buf_len = buf_len;
+	req.revert = revert;
+	ret = scm_call(SCM_SVC_OEM, TZ_HTC_SVC_LOG_OPERATOR,
+			&req, sizeof(req), NULL, 0);
+	pr_info("TZ_HTC_SVC_LOG_OPERATOR ret = %d\n", ret);
+	return ret;
+}
+EXPORT_SYMBOL(secure_log_operation);
+
+int secure_access_item(unsigned int is_write, unsigned int id, unsigned int buf_len, unsigned char *buf)
+{
+	int ret;
+	struct oem_access_item_req req;
+
+	req.is_write = is_write;
+	req.id = id;
+	req.buf_len = buf_len;
+	req.buf = (void *)virt_to_phys(buf);
+
+	ret = scm_call(SCM_SVC_OEM, TZ_HTC_SVC_ACCESS_ITEM,
+			&req, sizeof(req), NULL, 0);
+
+	/* Invalid cache for coherence */
+	scm_inv_range((unsigned long)buf, (unsigned long)buf + buf_len);
+
+	pr_info("TZ_HTC_SVC_ACCESS_ITEM id %d ret = %d\n", id, ret);
+	return ret;
+}
+
+int scm_pas_enable_dx_bw(void);
+void scm_pas_disable_bw(void);
+
+int secure_3rd_party_syscall(unsigned int id, unsigned char *buf, int len)
+{
+	int ret;
+	int bus_ret;
+	struct oem_3rd_party_syscall_req req;
+	unsigned long start, end;
+
+	req.id = id;
+	req.len = len;
+	req.buf = (void *)virt_to_phys(buf);
+
+	bus_ret = scm_pas_enable_dx_bw();
+	pet_watchdog();
+	ret = scm_call(SCM_SVC_OEM, TZ_HTC_SVC_3RD_PARTY,
+			&req, sizeof(req), NULL, 0);
+	start = (unsigned long)buf;
+	end = start + len;
+	scm_inv_range(start, end);
+	if (!bus_ret)
+		scm_pas_disable_bw();
+
+	return ret;
+}
+
+int secure_key_ladder(unsigned int id, unsigned int buf_len, unsigned char *buf)
+{
+	int ret;
+	struct oem_key_ladder_req req;
+
+	req.id = id;
+	req.buf_len = buf_len;
+	req.buf = (void *)virt_to_phys(buf);
+
+	ret = scm_call(SCM_SVC_OEM, TZ_HTC_SVC_KEY_LADDER,
+			&req, sizeof(req), NULL, 0);
+
+	pr_info("TZ_HTC_SVC_KEY_LADDER id %d ret = %d\n", id, ret);
+	return ret;
+}
+EXPORT_SYMBOL(secure_key_ladder);
+
 #define IS_CALL_AVAIL_CMD	1
 int scm_is_call_available(u32 svc_id, u32 cmd_id)
 {
@@ -392,3 +577,77 @@ static int scm_init(void)
 	return 0;
 }
 early_initcall(scm_init);
+static int lock_set_func(const char *val, struct kernel_param *kp)
+{
+	int ret;
+
+	printk(KERN_INFO "%s started(%d)...\n", __func__, strlen(val));
+	ret = param_set_int(val, kp);
+	printk(KERN_INFO "%s finished(%d): %d...\n", __func__, ret, simlock_mask);
+
+	return ret;
+}
+
+static int lock_get_func(char *val, struct kernel_param *kp)
+{
+	int ret;
+
+	simlock_mask = secure_read_simlock_mask();
+	ret = param_get_int(val, kp);
+	printk(KERN_INFO "%s: %d, %d(%x)...\n", __func__, ret, simlock_mask, simlock_mask);
+
+	return ret;
+}
+
+static int unlock_set_func(const char *val, struct kernel_param *kp)
+{
+	int ret, ret2;
+	static unsigned char scode[17];
+
+	printk(KERN_INFO "%s started(%d)...\n", __func__, strlen(val));
+	ret = param_set_int(val, kp);
+	ret2 = strlen(simlock_code);
+	strcpy(scode, simlock_code);
+	scode[ret2 - 1] = 0;
+	printk(KERN_INFO "%s finished(%d): %d, '%s'...\n", __func__, ret, unlock_mask, scode);
+	ret2 = secure_simlock_unlock(unlock_mask, scode);
+	printk(KERN_INFO "secure_simlock_unlock ret %d...\n", ret2);
+
+	return ret;
+}
+
+static int unlock_get_func(char *val, struct kernel_param *kp)
+{
+	int ret;
+
+	ret = param_get_int(val, kp);
+	printk(KERN_INFO "%s: %d, %d(%x)...\n", __func__, ret, unlock_mask, unlock_mask);
+
+	return ret;
+}
+
+static int level_set_func(const char *val, struct kernel_param *kp)
+{
+	int ret;
+
+	printk(KERN_INFO "%s started(%d)...\n", __func__, strlen(val));
+	ret = param_set_int(val, kp);
+	printk(KERN_INFO "%s finished(%d): %d...\n", __func__, ret, security_level);
+
+	return ret;
+}
+
+static int level_get_func(char *val, struct kernel_param *kp)
+{
+	int ret;
+
+	security_level = secure_get_security_level();
+	ret = param_get_int(val, kp);
+	printk(KERN_INFO "%s: %d, %d(%x)...\n", __func__, ret, security_level, security_level);
+
+	return ret;
+}
+
+module_param_call(simlock_mask, lock_set_func, lock_get_func, &simlock_mask, S_IRUGO | S_IWUSR | S_IWGRP);
+module_param_call(unlock_mask, unlock_set_func, unlock_get_func, &unlock_mask, S_IRUGO | S_IWUSR | S_IWGRP);
+module_param_call(security_level, level_set_func, level_get_func, &security_level, S_IRUGO | S_IWUSR | S_IWGRP);

@@ -354,7 +354,7 @@ config LEDS_BD2802
 
 config LEDS_MSM_PMIC
         tristate "LED Support for Qualcomm PMIC connected LEDs"
-        default n
+        default y
         depends on ARCH_MSM
         help
           This option enables support for LEDs connected over PMIC
@@ -462,6 +462,13 @@ config LEDS_TRIGGERS
 	  These triggers allow kernel events to drive the LEDs and can
 	  be configured via sysfs. If unsure, say Y.
 
+config LEDS_PM8058
+	tristate "LED Support for PM8058"
+	depends on PMIC8058_PWM
+	help
+	  This option enables support for LEDs connected to PM8058
+	  LED driver chips accessed via the SSBI bus and rpc.
+
 comment "LED Triggers"
 
 config LEDS_TRIGGER_TIMER
@@ -526,6 +533,16 @@ config LEDS_TRIGGER_SLEEP
 	depends on LEDS_TRIGGERS && HAS_EARLYSUSPEND
 	help
 	  This turns LEDs on when the screen is off but the cpu still running.
+
+config FLASHLIGHT_TPS61310
+	tristate "TI TPS61310 flashlight"
+	help
+	  Say Y here to enable the TI TPS61310 flashlight
+
+config FLASHLIGHT_AAT
+	tristate "AAT flashlight"
+	help
+	  Say Y here to enable the AAT flashlight
 
 comment "iptables trigger is under Netfilter config (LED target)"
 	depends on LEDS_TRIGGERS

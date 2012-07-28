@@ -12,11 +12,13 @@
 #include <sound/soc.h>
 #include <sound/jack.h>
 
+#define TABLA_VERSION_1_0	0
+#define TABLA_VERSION_1_1	1
+#define TABLA_VERSION_2_0	2
+
 #define TABLA_NUM_REGISTERS 0x400
 #define TABLA_MAX_REGISTER (TABLA_NUM_REGISTERS-1)
 #define TABLA_CACHE_SIZE TABLA_NUM_REGISTERS
-#define TABLA_1_X_ONLY_REGISTERS 3
-#define TABLA_2_HIGHER_ONLY_REGISTERS 3
 
 #define TABLA_REG_VAL(reg, val)		{reg, 0, val}
 
@@ -33,8 +35,6 @@
 				SND_JACK_BTN_6 | SND_JACK_BTN_7)
 
 extern const u8 tabla_reg_readable[TABLA_CACHE_SIZE];
-extern const u32 tabla_1_reg_readable[TABLA_1_X_ONLY_REGISTERS];
-extern const u32 tabla_2_reg_readable[TABLA_2_HIGHER_ONLY_REGISTERS];
 extern const u8 tabla_reg_defaults[TABLA_CACHE_SIZE];
 
 enum tabla_micbias_num {
@@ -202,30 +202,4 @@ extern void *tabla_mbhc_cal_btn_det_mp(const struct tabla_mbhc_btn_detect_cfg
 	      (sizeof(TABLA_MBHC_CAL_BTN_DET_PTR(cali)->_v_btn_low[0]) + \
 	       sizeof(TABLA_MBHC_CAL_BTN_DET_PTR(cali)->_v_btn_high[0])))) \
 	)
-
-/* minimum size of calibration data assuming there is only one button and
- * one rload.
- */
-#define TABLA_MBHC_CAL_MIN_SIZE ( \
-	sizeof(struct tabla_mbhc_general_cfg) + \
-	sizeof(struct tabla_mbhc_plug_detect_cfg) + \
-	sizeof(struct tabla_mbhc_plug_type_cfg) + \
-	sizeof(struct tabla_mbhc_btn_detect_cfg) + \
-	sizeof(struct tabla_mbhc_imped_detect_cfg) + \
-	(sizeof(u16) * 2))
-
-#define TABLA_MBHC_CAL_BTN_SZ(cfg_ptr) ( \
-	    sizeof(struct tabla_mbhc_btn_detect_cfg) + \
-	    (cfg_ptr->num_btn * (sizeof(cfg_ptr->_v_btn_low[0]) + \
-				 sizeof(cfg_ptr->_v_btn_high[0]))))
-
-#define TABLA_MBHC_CAL_IMPED_MIN_SZ ( \
-	    sizeof(struct tabla_mbhc_imped_detect_cfg) + \
-	    sizeof(u16) * 2)
-
-#define TABLA_MBHC_CAL_IMPED_SZ(cfg_ptr) ( \
-	    sizeof(struct tabla_mbhc_imped_detect_cfg) + \
-	    (cfg_ptr->_n_rload * (sizeof(cfg_ptr->_rload[0]) + \
-				 sizeof(cfg_ptr->_alpha[0]))))
-
 
