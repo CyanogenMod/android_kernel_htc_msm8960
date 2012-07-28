@@ -106,7 +106,7 @@ static void compr_event_handler(uint32_t opcode,
 	struct audio_buffer *buf = NULL;
 	int i = 0;
 
-	pr_debug("[AUD]%s opcode =%08x, start %d +++\n", __func__, opcode, ((&prtd!=NULL)?atomic_read(&prtd->start):-1));
+	pr_debug("[AUD]%s opcode =%08x, start %d +++\n", __func__, opcode, atomic_read(&prtd->start));
 	switch (opcode) {
 	case ASM_DATA_EVENT_WRITE_DONE: {
 		uint32_t *ptrmem = (uint32_t *)&param;
@@ -204,7 +204,7 @@ static void compr_event_handler(uint32_t opcode,
 		pr_debug("[AUD]%s: Not Supported Event opcode[0x%x]\n", __func__, opcode);
 		break;
 	}
-	pr_debug("[AUD]%s opcode =%08x, start %d ---\n", __func__, opcode, ((&prtd!=NULL)?atomic_read(&prtd->start):-1));
+	pr_debug("[AUD]%s opcode =%08x, start %d ---\n", __func__, opcode, atomic_read(&prtd->start));
 }
 
 static int msm_compr_playback_prepare(struct snd_pcm_substream *substream)
