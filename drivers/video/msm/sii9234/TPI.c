@@ -915,14 +915,8 @@ static void MhlTxDrvProcessDisconnection(void)
 
 	TPI_DEBUG_PRINT(("Drv: MhlTxDrvProcessDisconnection\n"));
 
-#ifdef CONFIG_CABLE_DETECT_ACCESSORY
-#ifdef CONFIG_INTERNAL_CHARGING_SUPPORT
-	/*cable detect recognise wrong device as MHL, do cable out in the following*/
-	if(fwPowerState == POWER_STATE_D0_NO_MHL && (gConnectMHL == false))
-		fwPowerState = POWER_STATE_D0_MHL;
-#endif
-#endif
-
+        if(fwPowerState == POWER_STATE_D0_NO_MHL)
+               fwPowerState = POWER_STATE_D0_MHL;
 
 	I2C_WriteByte(TPI_SLAVE_ADDR, 0xA0, 0xD0);
 

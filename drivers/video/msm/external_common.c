@@ -1061,7 +1061,7 @@ static void hdmi_edid_extract_audio_data_blocks(const uint8 *in_buf)
 }
 
 #ifdef CONFIG_FB_MSM_HDMI_MHL_SUPERDEMO
-static void hdmi_edid_monitor_desc(const uint8 *data_buf)
+static void hdmi_edid_monitor_desc(const uint8 *data_buf, uint32 *disp_mode)
 {
 	int i;
 	uint8 data_type;
@@ -1103,6 +1103,8 @@ static void hdmi_edid_monitor_desc(const uint8 *data_buf)
 			struct st_demotv_data_v1 data_v1;
 			memcpy(&data_v1, &demotv_data, sizeof(demotv_data));
 
+			external_common_state->demotv_desc_found = true;
+
 			for (i=0; i<13; i++)
 				checksum += desc_data[i];
 
@@ -1112,12 +1114,9 @@ static void hdmi_edid_monitor_desc(const uint8 *data_buf)
 				break;
 			}
 
-			external_common_state->demotv_desc_found = true;
-
 			DEV_INFO("%s: DEMO TV EDID data:\n", __func__);
 			DEV_INFO("	version: %d\n", data_v1.version);
-			DEV_INFO("	ID: \"%c%c\"\n",
-				(data_v1.tv_id & 0xFF00) >> 8, data_v1.tv_id & 0x00FF);
+			DEV_INFO("	ID: %04X\n", data_v1.tv_id);
 			DEV_INFO("	1st preferred timing: %d\n", data_v1.timing_1st);
 			DEV_INFO("	2nd preferred timing: %d\n", data_v1.timing_2nd);
 			if (data_v1.features & DEMOTV_BIT_OPTICAL)
@@ -1162,7 +1161,7 @@ static void hdmi_edid_detail_desc(const uint8 *data_buf, uint32 *disp_mode)
 	/* hTC: detailed timing descriptor could be other kinds of descriptors */
 	if (data_buf[DEMOTV_DESC_FLAG0] == 0 && data_buf[DEMOTV_DESC_FLAG0+1] == 0)
 		if (data_buf[DEMOTV_DESC_FLAG1] == 0)
-			hdmi_edid_monitor_desc(data_buf);
+			hdmi_edid_monitor_desc(data_buf, disp_mode);
 
 #if 0 /* for debug */
 		hdmi_edid_monitor_desc(dd, disp_mode);
@@ -1404,7 +1403,6 @@ static void hdmi_edid_get_display_mode(const uint8 *data_buf,
 		 /* EDID_BLOCK_SIZE = 0x80  Each page size in the EDID ROM */
 		desc_offset = edid_blk1[0x02];
 #ifdef CONFIG_FB_MSM_HDMI_MHL_SUPERDEMO
-               i = 0;
 		while (i < (edid_blk1[0x03] & 0x0F)) {/* total number of DTDs */
 #else
 		while (0 != edid_blk1[desc_offset]) {

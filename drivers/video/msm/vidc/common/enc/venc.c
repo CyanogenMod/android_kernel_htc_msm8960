@@ -27,11 +27,11 @@
 #include <linux/workqueue.h>
 #include <linux/android_pmem.h>
 #include <linux/clk.h>
+#include <media/msm/vidc_type.h>
+#include <media/msm/vcd_api.h>
+#include <media/msm/vidc_init.h>
 
-#include "vidc_type.h"
-#include "vcd_api.h"
 #include "venc_internal.h"
-#include "vidc_init.h"
 #include "vcd_res_tracker_api.h"
 
 #define VID_ENC_NAME	"msm_vidc_enc"
@@ -1581,6 +1581,34 @@ static long vid_enc_ioctl(struct file *file,
 					&vcd_property_hdr, &live_mode);
 		if (vcd_status) {
 			pr_err(" Setting metabuffer mode failed");
+			return -EIO;
+		}
+		break;
+	}
+	case VEN_IOCTL_SET_EXTRADATA:
+	case VEN_IOCTL_GET_EXTRADATA:
+	{
+		u32 extradata_flag;
+		DBG("VEN_IOCTL_(G)SET_EXTRADATA\n");
+		if (copy_from_user(&venc_msg, arg, sizeof(venc_msg)))
+			return -EFAULT;
+		if (cmd == VEN_IOCTL_SET_EXTRADATA) {
+			if (copy_from_user(&extradata_flag, venc_msg.in,
+					sizeof(u32)))
+				return -EFAULT;
+			result = vid_enc_set_get_extradata(client_ctx,
+					&extradata_flag, true);
+		} else {
+			result = vid_enc_set_get_extradata(client_ctx,
+					&extradata_flag, false);
+			if (result) {
+				if (copy_to_user(venc_msg.out, &extradata_flag,
+						sizeof(u32)))
+					return -EFAULT;
+			}
+		}
+		if (!result) {
+			ERR("setting VEN_IOCTL_(G)SET_LIVE_MODE failed\n");
 			return -EIO;
 		}
 		break;

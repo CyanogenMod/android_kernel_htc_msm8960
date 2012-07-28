@@ -1643,9 +1643,12 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 	kgsl_check_idle(dev_priv->device);
 	return result;
 
- error_put_file_ptr:
-	if (entry->priv_data)
+error_put_file_ptr:
+	if (memtype == KGSL_USER_MEM_TYPE_ION) {
+		ion_free(kgsl_ion_client, entry->priv_data);
+	} else if (entry->priv_data) {
 		fput(entry->priv_data);
+	}
 
 error:
 	kfree(entry);

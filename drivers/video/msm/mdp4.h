@@ -21,7 +21,6 @@ extern struct mdp_dma_data dma_wb_data;
 extern struct msm_fb_data_type *display1_mfd;
 extern unsigned int mdp_hist_frame_cnt;
 extern struct completion mdp_hist_comp;
-extern boolean mdp_is_hist_start;
 extern boolean mdp_is_in_isr;
 extern uint32 mdp_intr_mask;
 extern spinlock_t mdp_spin_lock;

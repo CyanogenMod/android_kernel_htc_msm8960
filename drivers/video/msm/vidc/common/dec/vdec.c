@@ -29,11 +29,11 @@
 #include <linux/clk.h>
 #include <linux/timer.h>
 #include <mach/msm_subsystem_map.h>
+#include <media/msm/vidc_type.h>
+#include <media/msm/vcd_api.h>
+#include <media/msm/vidc_init.h>
 #include "vcd_res_tracker_api.h"
-#include "vidc_type.h"
-#include "vcd_api.h"
 #include "vdec_internal.h"
-#include "vidc_init.h"
 
 
 
@@ -236,6 +236,8 @@ static void vid_dec_output_frame_done(struct video_client_ctx *client_ctx,
 	s32 buffer_index = -1;
 	enum vdec_picture pic_type;
 	u32 ion_flag = 0;
+	u32 data1 = 0;
+	u32 data2 = 0;
 
 	if (!client_ctx || !vcd_frame_data) {
 		ERR("vid_dec_input_frame_done() NULL pointer\n");
@@ -263,12 +265,22 @@ static void vid_dec_output_frame_done(struct video_client_ctx *client_ctx,
 	}
 
 	kernel_vaddr = (unsigned long)vcd_frame_data->virtual;
+/* HTC_START */
+	if (probe_kernel_address(kernel_vaddr, data1)) {
+		pr_info("Before vidc_lookup_addr_table: invalid address");
+	}
+/* HTC_END */
 
 	if (vidc_lookup_addr_table(client_ctx, BUFFER_TYPE_OUTPUT,
 				      false, &user_vaddr, &kernel_vaddr,
 				      &phy_addr, &pmem_fd, &file,
 				      &buffer_index) ||
 		(vcd_frame_data->flags & VCD_FRAME_FLAG_EOS)) {
+/* HTC_START */
+		if (probe_kernel_address(kernel_vaddr, data2)) {
+			pr_info("After vidc_lookup_addr_table: invalid address");
+		}
+/* HTC_END */
 		/* Buffer address in user space */
 		vdec_msg->vdec_msg_info.msgdata.output_frame.bufferaddr =
 		    (u8 *) user_vaddr;
@@ -337,6 +349,9 @@ static void vid_dec_output_frame_done(struct video_client_ctx *client_ctx,
 	if (vcd_frame_data->data_len > 0) {
 		ion_flag = vidc_get_fd_info(client_ctx, BUFFER_TYPE_OUTPUT,
 				pmem_fd, kernel_vaddr, buffer_index);
+/* HTC_START */
+		rmb();
+/* HTC_END */
 		if (ion_flag == CACHED) {
 			invalidate_caches(kernel_vaddr,
 					(unsigned long)vcd_frame_data->data_len,
@@ -2113,8 +2128,10 @@ static int vid_dec_release_secure(struct inode *inode, struct file *file)
 	struct video_client_ctx *client_ctx = file->private_data;
 
 	INFO("msm_vidc_dec: Inside %s()", __func__);
-	res_trk_close_secure_session();
+	vidc_cleanup_addr_table(client_ctx, BUFFER_TYPE_OUTPUT);
+	vidc_cleanup_addr_table(client_ctx, BUFFER_TYPE_INPUT);
 	vid_dec_close_client(client_ctx);
+	res_trk_close_secure_session();
 	vidc_release_firmware();
 #ifndef USE_RES_TRACKER
 	vidc_disable_clk();
@@ -2127,13 +2144,15 @@ static int vid_dec_release(struct inode *inode, struct file *file)
 {
 	struct video_client_ctx *client_ctx = file->private_data;
 
-	DBG("msm_vidc_dec: Inside %s()", __func__);
+	INFO("msm_vidc_dec: Inside %s()", __func__);
+	vidc_cleanup_addr_table(client_ctx, BUFFER_TYPE_OUTPUT);
+	vidc_cleanup_addr_table(client_ctx, BUFFER_TYPE_INPUT);
 	vid_dec_close_client(client_ctx);
 	vidc_release_firmware();
 #ifndef USE_RES_TRACKER
 	vidc_disable_clk();
 #endif
-	DBG("msm_vidc_dec: Return from %s()", __func__);
+	INFO("msm_vidc_dec: Return from %s()", __func__);
 	return 0;
 }
 

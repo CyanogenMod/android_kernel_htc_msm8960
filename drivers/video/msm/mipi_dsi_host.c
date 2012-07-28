@@ -165,7 +165,7 @@ void mipi_dsi_turn_off_clks(void)
 	}
 	mipi_dsi_clk_on = 0;
 	local_bh_disable();
-	mipi_dsi_clk_disable(true);
+	mipi_dsi_clk_disable();
 	mipi_dsi_ahb_ctrl(0);
 	local_bh_enable();
 }
