@@ -222,7 +222,7 @@ struct mmc_host {
 	struct delayed_work	clk_gate_work; /* delayed clock gate */
 	unsigned int		clk_old;	/* old clock value cache */
 	spinlock_t		clk_lock;	/* lock for clk fields */
-	struct mutex		clk_gate_mutex;	/* mutex for clock gating */
+	struct mutex clk_gate_mutex; /* mutex for clock gating */
 	struct device_attribute clkgate_delay_attr;
 	unsigned long		clkgate_delay;
 #endif
@@ -265,6 +265,7 @@ struct mmc_host {
 	int			claim_cnt;	/* "claim" nesting count */
 
 	struct delayed_work	detect;
+	struct delayed_work	remove;
 	struct wake_lock	detect_wake_lock;
 	int                     detect_change;  /* card detect flag */
 
@@ -274,9 +275,11 @@ struct mmc_host {
 	unsigned int		bus_resume_flags;
 #define MMC_BUSRESUME_MANUAL_RESUME	(1 << 0)
 #define MMC_BUSRESUME_NEEDS_RESUME	(1 << 1)
+#define MMC_BUSRESUME_FAILS_RESUME	(1 << 2)
 
 	unsigned int		sdio_irqs;
 	struct task_struct	*sdio_irq_thread;
+
 	atomic_t		sdio_irq_thread_abort;
 
 	mmc_pm_flag_t		pm_flags;	/* requested pm features */
@@ -342,6 +345,8 @@ static inline void *mmc_priv(struct mmc_host *host)
 #define mmc_hostname(x)	(dev_name(&(x)->class_dev))
 #define mmc_bus_needs_resume(host) ((host)->bus_resume_flags & MMC_BUSRESUME_NEEDS_RESUME)
 #define mmc_bus_manual_resume(host) ((host)->bus_resume_flags & MMC_BUSRESUME_MANUAL_RESUME)
+#define mmc_bus_fails_resume(host)  \
+	((host)->bus_resume_flags & MMC_BUSRESUME_FAILS_RESUME)
 
 static inline void mmc_set_bus_resume_policy(struct mmc_host *host, int manual)
 {
@@ -349,6 +354,11 @@ static inline void mmc_set_bus_resume_policy(struct mmc_host *host, int manual)
 		host->bus_resume_flags |= MMC_BUSRESUME_MANUAL_RESUME;
 	else
 		host->bus_resume_flags &= ~MMC_BUSRESUME_MANUAL_RESUME;
+}
+
+static inline void mmc_init_bus_resume_flags(struct mmc_host *host)
+{
+	host->bus_resume_flags = 0;
 }
 
 extern int mmc_resume_bus(struct mmc_host *host);

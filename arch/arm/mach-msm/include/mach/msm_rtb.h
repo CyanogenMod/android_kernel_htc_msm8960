@@ -19,8 +19,12 @@ enum logk_event_type {
 	LOGK_WRITEL,
 	LOGK_LOGBUF,
 	LOGK_HOTPLUG,
-	LOGK_GRAPHICS_MMU,
+	LOGK_PM,
 	LOGK_OTHER,
+};
+
+struct msm_rtb_platform_data {
+	unsigned int size;
 };
 
 #if defined(CONFIG_MSM_RTB)

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,7 +45,7 @@ static int msm_vb2_ops_queue_setup(struct vb2_queue *vq,
 	struct msm_cam_v4l2_device *pcam = pcam_inst->pcam;
 	int i;
 
-	D("%s\n", __func__);
+	pr_info("%s\n", __func__);
 	if (!pcam || !(*num_buffers)) {
 		pr_err("%s error : invalid input\n", __func__);
 		return -EINVAL;
@@ -186,8 +186,6 @@ static int msm_vb2_ops_buf_finish(struct vb2_buffer *vb)
 	buf->state = MSM_BUFFER_STATE_DEQUEUED;
 	D("%s: inst=0x%x, buf=0x, %x, idx=%d\n", __func__,
 	(uint32_t)pcam_inst, (uint32_t)buf, vb->v4l2_buf.index);
-	D("%s: inst=%p, buf=%x, idx=%d\n", __func__,
-	pcam_inst, (uint32_t)buf, vb->v4l2_buf.index);
 	return 0;
 }
 
@@ -203,7 +201,7 @@ static void msm_vb2_ops_buf_cleanup(struct vb2_buffer *vb)
 	pcam_inst = vb2_get_drv_priv(vb->vb2_queue);
 	pcam = pcam_inst->pcam;
 	buf = container_of(vb, struct msm_frame_buffer, vidbuf);
-
+	pr_info("%s\n", __func__);
 	if (pcam_inst->vid_fmt.type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		for (i = 0; i < vb->num_planes; i++) {
 			mem = vb2_plane_cookie(vb, i);
@@ -272,19 +270,17 @@ static void msm_vb2_ops_buf_queue(struct vb2_buffer *vb)
 	unsigned long flags = 0;
 	struct vb2_queue *vq = vb->vb2_queue;
 	struct msm_frame_buffer *buf;
-	D("%s\n", __func__);
+
 	if (!vb || !vq) {
 		pr_err("%s error : input is NULL\n", __func__);
 		return ;
 	}
 	pcam_inst = vb2_get_drv_priv(vq);
 	pcam = pcam_inst->pcam;
-	D("%s pcam_inst=%p,(vb=0x%p),idx=%d,len=%d\n",
-		__func__, pcam_inst,
-	vb, vb->v4l2_buf.index, vb->v4l2_buf.length);
-	D("%s pcam_inst=%p, idx=%d\n", __func__, pcam_inst,
-		vb->v4l2_buf.index);
 	buf = container_of(vb, struct msm_frame_buffer, vidbuf);
+	D("%s pcam_inst=%p,(vb=0x%p)(%lx),idx=%d,len=%d\n",
+		__func__, pcam_inst, vb, videobuf2_to_pmem_contig(vb, 0),
+		vb->v4l2_buf.index, vb->v4l2_buf.length);
 	spin_lock_irqsave(&pcam_inst->vq_irqlock, flags);
 	/* we are returning a buffer to the queue */
 	list_add_tail(&buf->list, &pcam_inst->free_vq);
@@ -417,7 +413,6 @@ int msm_mctl_buf_done_proc(
 	return 0;
 }
 
-
 int msm_mctl_buf_done(struct msm_cam_media_controller *p_mctl,
 			int image_mode, struct msm_free_buf *fbuf,
 			uint32_t frame_id)
@@ -428,7 +423,7 @@ int msm_mctl_buf_done(struct msm_cam_media_controller *p_mctl,
 
 	msm_mctl_check_pp(p_mctl, image_mode, &pp_divert_type, &pp_type);
 	D("%s: pp_type=%d, pp_divert_type = %d, frame_id = 0x%x",
-		__func__, pp_type, pp_divert_type, frame_id);
+		 __func__, pp_type, pp_divert_type, frame_id);
 	if (pp_type || pp_divert_type)
 		rc = msm_mctl_do_pp_divert(p_mctl,
 		image_mode, fbuf, frame_id, pp_type);
@@ -454,22 +449,6 @@ int msm_mctl_buf_init(struct msm_cam_v4l2_device *pcam)
 	return 0;
 }
 
-static int is_buffer_queued(struct msm_cam_v4l2_device *pcam, int image_mode)
-{
-	int idx;
-	int ret = 0;
-	struct msm_frame_buffer *buf = NULL;
-	struct msm_cam_v4l2_dev_inst *pcam_inst = NULL;
-	idx = pcam->mctl_node.dev_inst_map[image_mode]->my_index;
-	pcam_inst = pcam->mctl_node.dev_inst[idx];
-	list_for_each_entry(buf, &pcam_inst->free_vq, list) {
-		if (buf->state != MSM_BUFFER_STATE_QUEUED)
-			continue;
-		ret = 1;
-	}
-	return ret;
-}
-
 struct msm_cam_v4l2_dev_inst *msm_mctl_get_pcam_inst(
 				struct msm_cam_media_controller *pmctl,
 				int image_mode)
@@ -478,43 +457,34 @@ struct msm_cam_v4l2_dev_inst *msm_mctl_get_pcam_inst(
 	struct msm_cam_v4l2_device *pcam = pmctl->sync.pcam_sync;
 	int idx;
 
+	/* HTC_START add protection for pcam */
+	if (!pcam) {
+		pr_err("%s pcam is null\n", __func__);
+		return pcam_inst;
+	}
+	/* HTC_END add protection for pcam */
+
+	D("%s image_node %d\n", __func__, image_mode);
 	if (image_mode >= 0) {
 		/* Valid image mode. Search the mctl node first.
 		 * If mctl node doesnt have the instance, then
 		 * search in the user's video node */
-		if (pmctl->vfe_output_mode == VFE_OUTPUTS_MAIN_AND_THUMB
-		|| pmctl->vfe_output_mode == VFE_OUTPUTS_THUMB_AND_MAIN) {
-			if (pcam->mctl_node.dev_inst_map[image_mode]
-			&& is_buffer_queued(pcam, image_mode)) {
-				idx =
-				pcam->mctl_node.dev_inst_map[image_mode]
-				->my_index;
-				pcam_inst = pcam->mctl_node.dev_inst[idx];
-				D("%s Found instance %p in mctl node device\n",
-				  __func__, pcam_inst);
-			} else if (pcam->dev_inst_map[image_mode]) {
-				idx = pcam->dev_inst_map[image_mode]->my_index;
-				pcam_inst = pcam->dev_inst[idx];
-				D("%s Found instance %p in video device",
+		if (pcam->mctl_node.dev_inst_map[image_mode]) {
+			idx =
+			pcam->mctl_node.dev_inst_map[image_mode]->my_index;
+			pcam_inst = pcam->mctl_node.dev_inst[idx];
+			D("%s Found instance %p in mctl node device\n",
 				__func__, pcam_inst);
-			}
-		} else {
-			if (pcam->mctl_node.dev_inst_map[image_mode]) {
-				idx = pcam->mctl_node.dev_inst_map[image_mode]
-				->my_index;
-				pcam_inst = pcam->mctl_node.dev_inst[idx];
-				D("%s Found instance %p in mctl node device\n",
+		} else if (pcam->dev_inst_map[image_mode]) {
+			idx = pcam->dev_inst_map[image_mode]->my_index;
+			pcam_inst = pcam->dev_inst[idx];
+			D("%s Found instance %p in video device",
 				__func__, pcam_inst);
-			} else if (pcam->dev_inst_map[image_mode]) {
-				idx = pcam->dev_inst_map[image_mode]->my_index;
-				pcam_inst = pcam->dev_inst[idx];
-				D("%s Found instance %p in video device",
-				__func__, pcam_inst);
-			}
 		}
 	} else
 		pr_err("%s Invalid image mode %d. Return NULL\n",
 			__func__, image_mode);
+
 	return pcam_inst;
 }
 
@@ -525,7 +495,7 @@ int msm_mctl_reserve_free_buf(
 {
 	struct msm_cam_v4l2_dev_inst *pcam_inst = pref_pcam_inst;
 	unsigned long flags = 0;
-	struct videobuf2_contig_pmem *mem;
+	struct videobuf2_contig_pmem *mem = NULL;
 	struct msm_frame_buffer *buf = NULL;
 	int rc = -EINVAL, i;
 	uint32_t buf_idx, plane_offset = 0;
@@ -544,7 +514,9 @@ int msm_mctl_reserve_free_buf(
 		pcam_inst = msm_mctl_get_pcam_inst(pmctl, image_mode);
 
 	if (!pcam_inst || !pcam_inst->streamon) {
-		pr_err("%s: stream is turned off\n", __func__);
+		if (pcam_inst)
+			pr_info("%s: pcam_inst %p stream is off\n", __func__, pcam_inst);
+		pr_info("%s: stream is turned off\n", __func__);
 		return rc;
 	}
 	spin_lock_irqsave(&pcam_inst->vq_irqlock, flags);
@@ -571,7 +543,6 @@ int msm_mctl_reserve_free_buf(
 				videobuf2_to_pmem_contig(&buf->vidbuf, i) +
 				pcam_inst->buf_offset[buf_idx][i].data_offset +
 				plane_offset;
-
 			}
 		} else {
 			mem = vb2_plane_cookie(&buf->vidbuf, 0);
@@ -583,16 +554,29 @@ int msm_mctl_reserve_free_buf(
 		}
 		free_buf->vb = (uint32_t)buf;
 		buf->state = MSM_BUFFER_STATE_RESERVED;
-		D("%s inst=0x%p, idx=%d, paddr=0x%x, "
-			"ch1 addr=0x%x\n", __func__,
-			pcam_inst, buf->vidbuf.v4l2_buf.index,
-			free_buf->ch_paddr[0], free_buf->ch_paddr[1]);
+		if (pcam_inst->no_free_buf_cnt) {
+			pcam_inst->no_free_buf_cnt = 0;
+			pr_info("%s inst=0x%p, idx=%d, paddr=0x%x, "
+				"ch1 addr=0x%x\n", __func__,
+				pcam_inst, buf->vidbuf.v4l2_buf.index,
+				free_buf->ch_paddr[0], free_buf->ch_paddr[1]);
+		}
+		/*invalidate cache if required*/
+		if (mem && (ION_IS_CACHED(mem->ion_flags) == CACHED)) {
+			D("%s do caching 0x%lX, size = %ld\n", __func__, (unsigned long)mem->kernel_vaddr, mem->size);
+			invalidate_caches((unsigned long)mem->kernel_vaddr,
+			mem->size, (unsigned long)mem->phyaddr);
+		}
 		rc = 0;
 		break;
 	}
-	if (rc != 0)
-		D("%s:No free buffer available: inst = 0x%p ",
-				__func__, pcam_inst);
+	if (rc != 0) {
+		++pcam_inst->no_free_buf_cnt;
+		if (pcam_inst->no_free_buf_cnt < 50 ||
+			pcam_inst->no_free_buf_cnt % 5 == 0)
+			pr_info("%s:No free buffer available: inst = 0x%p, cnt %d\n",
+				__func__, pcam_inst, pcam_inst->no_free_buf_cnt);
+	}
 	spin_unlock_irqrestore(&pcam_inst->vq_irqlock, flags);
 	return rc;
 }
@@ -634,8 +618,60 @@ int msm_mctl_release_free_buf(struct msm_cam_media_controller *pmctl,
 	return rc;
 }
 
-int msm_mctl_buf_done_pp(struct msm_cam_media_controller *pmctl,
-	int image_mode, struct msm_free_buf *frame, int dirty, int node_type)
+/* HTC_START ben 20111111 HDR */
+/*
+ * This function returns buffer to free_vq directly
+ */
+int msm_mctl_return_free_buf(struct msm_cam_media_controller *pmctl,
+				int image_node, struct msm_free_buf *free_buf)
+{
+	int idx = 0;
+	struct msm_frame_buffer *buf = NULL;
+	struct msm_cam_v4l2_dev_inst *pcam_inst;
+	unsigned long flags = 0;
+	uint32_t buf_phyaddr = 0;
+	int rc = -EINVAL;
+
+	if (!free_buf)
+		return rc;
+
+	idx = msm_mctl_img_mode_to_inst_index(pmctl, image_node, 0);
+	if (idx < 0) {
+		pr_err("%s Invalid instance, buffer not released\n", __func__);
+		return idx;
+	}
+	pcam_inst = pmctl->sync.pcam_sync->dev_inst[idx];
+	if (!pcam_inst) {
+		pr_err("%s Invalid instance, cannot send buf to user",
+			__func__);
+		return rc;
+	}
+
+	spin_lock_irqsave(&pcam_inst->vq_irqlock, flags);
+
+	if (!list_empty(&pcam_inst->free_vq)) {
+		list_for_each_entry(buf, &pcam_inst->free_vq, list) {
+			buf_phyaddr =
+				(uint32_t) videobuf2_to_pmem_contig(&buf->vidbuf, 0);
+			if (free_buf->ch_paddr[0] == buf_phyaddr) {
+				D("%s buf = 0x%x ", __func__, free_buf->ch_paddr[0]);
+				buf->state = MSM_BUFFER_STATE_QUEUED;
+				rc = 0;
+				break;
+			}
+		}
+	}
+	if (rc != 0)
+		pr_err("%s invalid buffer address ", __func__);
+
+	spin_unlock_irqrestore(&pcam_inst->vq_irqlock, flags);
+	return rc;
+}
+/* HTC_END ben 20111111 HDR */
+
+int msm_mctl_buf_done_pp(
+		struct msm_cam_media_controller *pmctl,
+		int image_mode, struct msm_free_buf *frame, int dirty, int node_type)
 {
 	struct msm_cam_v4l2_dev_inst *pcam_inst;
 	int rc = 0, idx;
@@ -684,7 +720,7 @@ struct msm_frame_buffer *msm_mctl_get_free_buf(
 	}
 	pcam_inst = pmctl->sync.pcam_sync->dev_inst[idx];
 	if (!pcam_inst->streamon) {
-		D("%s: stream 0x%p is off\n", __func__, pcam_inst);
+		pr_err("%s: stream 0x%p is off\n", __func__, pcam_inst);
 		return NULL;
 	}
 	spin_lock_irqsave(&pcam_inst->vq_irqlock, flags);
@@ -698,7 +734,7 @@ struct msm_frame_buffer *msm_mctl_get_free_buf(
 		}
 	}
 	if (rc != 0) {
-		D("%s:No free buffer available: inst = 0x%p ",
+		pr_info("%s:No free buffer available: inst = 0x%p ",
 				__func__, pcam_inst);
 		buf = NULL;
 	}
@@ -723,7 +759,7 @@ int msm_mctl_put_free_buf(
 	}
 	pcam_inst = pmctl->sync.pcam_sync->dev_inst[idx];
 	if (!pcam_inst->streamon) {
-		D("%s: stream 0x%p is off\n", __func__, pcam_inst);
+		pr_err("%s: stream 0x%p is off\n", __func__, pcam_inst);
 		return rc;
 	}
 	spin_lock_irqsave(&pcam_inst->vq_irqlock, flags);

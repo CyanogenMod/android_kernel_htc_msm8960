@@ -47,6 +47,7 @@
 #include <mach/msm_serial_hs_lite.h>
 #include <asm/mach-types.h>
 #include "msm_serial_hs_hwreg.h"
+#include <mach/board_htc.h>
 
 struct msm_hsl_port {
 	struct uart_port	uart;
@@ -62,6 +63,8 @@ struct msm_hsl_port {
 	unsigned int            old_snap_state;
 	unsigned int		ver_id;
 };
+
+static int msm_serial_hsl_enable;
 
 #define UARTDM_VERSION_11_13	0
 #define UARTDM_VERSION_14	1
@@ -112,6 +115,7 @@ static const unsigned int regmap[][UARTDM_LAST] = {
 };
 
 static struct of_device_id msm_hsl_match_table[] = {
+	{ .compatible = "qcom,msm-lsuart-v14" },
 	{	.compatible = "qcom,msm-lsuart-v14",
 		.data = (void *)UARTDM_VERSION_14
 	},
@@ -1066,6 +1070,33 @@ static struct msm_hsl_port msm_hsl_uart_ports[] = {
 			.line = 2,
 		},
 	},
+	{
+		.uart = {
+			.iotype = UPIO_MEM,
+			.ops = &msm_hsl_uart_pops,
+			.flags = UPF_BOOT_AUTOCONF,
+			.fifosize = 64,
+			.line = 3,
+		},
+	},
+	{
+		.uart = {
+			.iotype = UPIO_MEM,
+			.ops = &msm_hsl_uart_pops,
+			.flags = UPF_BOOT_AUTOCONF,
+			.fifosize = 64,
+			.line = 4,
+		},
+	},
+	{
+		.uart = {
+			.iotype = UPIO_MEM,
+			.ops = &msm_hsl_uart_pops,
+			.flags = UPF_BOOT_AUTOCONF,
+			.fifosize = 64,
+			.line = 5,
+		},
+	},
 };
 
 #define UART_NR	ARRAY_SIZE(msm_hsl_uart_ports)
@@ -1501,6 +1532,13 @@ static int __init msm_serial_hsl_init(void)
 {
 	int ret;
 
+	/* Switch Uart Debug by Kernel Flag  */
+	if (get_kernel_flag() & KERNEL_FLAG_SERIAL_HSL_ENABLE)
+		msm_serial_hsl_enable = 1;
+
+	if (!msm_serial_hsl_enable)
+		msm_hsl_uart_driver.cons = NULL;
+
 	ret = uart_register_driver(&msm_hsl_uart_driver);
 	if (unlikely(ret))
 		return ret;
@@ -1522,7 +1560,8 @@ static void __exit msm_serial_hsl_exit(void)
 {
 	debugfs_remove_recursive(debug_base);
 #ifdef CONFIG_SERIAL_MSM_HSL_CONSOLE
-	unregister_console(&msm_hsl_console);
+	if (msm_serial_hsl_enable)
+		unregister_console(&msm_hsl_console);
 #endif
 	platform_driver_unregister(&msm_hsl_platform_driver);
 	uart_unregister_driver(&msm_hsl_uart_driver);

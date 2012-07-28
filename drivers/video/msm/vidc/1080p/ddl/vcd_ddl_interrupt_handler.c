@@ -321,8 +321,10 @@ static u32 ddl_decoder_seq_done_callback(struct ddl_context *ddl_context,
 		parse_hdr_crop_data(ddl, &seq_hdr_info);
 		if (decoder->codec.codec == VCD_CODEC_H264 &&
 			seq_hdr_info.level > VIDC_1080P_H264_LEVEL4) {
-			DDL_MSG_ERROR("WARNING: H264MaxLevelExceeded : %d",
+/* HTC START */
+			DDL_MSG_HIGH("H264 LEVEL(%d) > LEVEL4",
 				seq_hdr_info.level);
+/* HTC END */
 		}
 		ddl_set_default_decoder_buffer_req(decoder, false);
 		if (decoder->header_in_start) {

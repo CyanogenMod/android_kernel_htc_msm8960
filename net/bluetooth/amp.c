@@ -1034,8 +1034,8 @@ static u8 createphyslink_handler(struct amp_ctx *ctx, u8 evt_type, void *data)
 	struct sk_buff *skb = data;
 	struct a2mp_cmd_hdr *hdr;
 	struct hci_ev_cmd_status *cs = data;
-	struct amp_ctx *cplctx;
-	struct a2mp_discover_req dreq;
+//	struct amp_ctx *cplctx;
+//	struct a2mp_discover_req dreq;
 	struct a2mp_discover_rsp *drsp;
 	u16 *efm;
 	struct a2mp_getinfo_req greq;
@@ -1075,6 +1075,9 @@ static u8 createphyslink_handler(struct amp_ctx *ctx, u8 evt_type, void *data)
 
 	switch (ctx->state) {
 	case AMP_CPL_INIT:
+		result = -EAGAIN;
+		goto cpl_finished;
+/*
 		cplctx = get_ctx_type(ctx, AMP_CREATEPHYSLINK);
 		if (cplctx) {
 			BT_DBG("deferred to %p", cplctx);
@@ -1088,6 +1091,7 @@ static u8 createphyslink_handler(struct amp_ctx *ctx, u8 evt_type, void *data)
 		dreq.ext_feat = 0;
 		send_a2mp_cmd(ctx->mgr, ctx->rsp_ident, A2MP_DISCOVER_REQ,
 							sizeof(dreq), &dreq);
+*/
 		break;
 
 	case AMP_CPL_DISC_RSP:

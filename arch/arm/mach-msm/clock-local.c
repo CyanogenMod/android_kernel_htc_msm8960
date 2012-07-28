@@ -466,6 +466,9 @@ static int _rcg_clk_set_rate(struct rcg_clk *clk, struct clk_freq_tbl *nf)
 	if (nf == cf)
 		return 0;
 
+	if (nf->src_clk == &gnd_clk.c)
+		return -EINVAL;
+
 	if (clk->enabled) {
 		/* Enable source clock dependency for the new freq. */
 		rc = clk_enable(nf->src_clk);

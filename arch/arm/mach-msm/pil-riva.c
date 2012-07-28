@@ -21,6 +21,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/workqueue.h>
 #include <linux/clk.h>
+#include <linux/wakelock.h>
 
 #include <mach/msm_iomap.h>
 
@@ -86,22 +87,33 @@ struct riva_data {
 	bool use_cxo;
 	struct delayed_work work;
 	struct regulator *pll_supply;
+	struct wake_lock wlock;
 };
 
-static void pil_riva_make_proxy_votes(struct device *dev)
+static int pil_riva_make_proxy_votes(struct device *dev)
 {
 	struct riva_data *drv = dev_get_drvdata(dev);
 	int ret;
 
+	wake_lock(&drv->wlock);
+	ret = regulator_enable(drv->pll_supply);
+	if (ret) {
+		dev_err(dev, "failed to enable pll supply\n");
+		goto err;
+	}
 	if (drv->use_cxo) {
 		ret = clk_prepare_enable(drv->xo);
-		if (ret)
+		if (ret) {
 			dev_err(dev, "failed to enable xo\n");
+			goto err_clk;
+		}
 	}
-	ret = regulator_enable(drv->pll_supply);
-	if (ret)
-		dev_err(dev, "failed to enable pll supply\n");
 	schedule_delayed_work(&drv->work, msecs_to_jiffies(PROXY_VOTE_TIMEOUT));
+	return 0;
+err_clk:
+	regulator_disable(drv->pll_supply);
+err:
+	return ret;
 }
 
 static void pil_riva_remove_proxy_votes(struct work_struct *work)
@@ -110,6 +122,7 @@ static void pil_riva_remove_proxy_votes(struct work_struct *work)
 	regulator_disable(drv->pll_supply);
 	if (drv->use_cxo)
 		clk_disable_unprepare(drv->xo);
+	wake_unlock(&drv->wlock);
 }
 
 static void pil_riva_remove_proxy_votes_now(struct device *dev)
@@ -147,6 +160,8 @@ static int pil_riva_reset(struct pil_desc *pil)
 	unsigned long start_addr = drv->start_addr;
 	int ret;
 
+	printk(KERN_ERR "pil_riva_reset enter\n");
+
 	ret = clk_prepare_enable(drv->xo);
 	if (ret)
 		return ret;
@@ -156,7 +171,14 @@ static int pil_riva_reset(struct pil_desc *pil)
 	writel_relaxed(reg, base + RIVA_PMU_A2XB_CFG);
 
 	drv->use_cxo = cxo_is_needed(drv);
-	pil_riva_make_proxy_votes(pil->dev);
+	ret = pil_riva_make_proxy_votes(pil->dev);
+	if (ret) {
+		reg &= ~RIVA_PMU_A2XB_CFG_EN;
+		writel_relaxed(reg, base + RIVA_PMU_A2XB_CFG);
+		mb();
+		clk_disable_unprepare(drv->xo);
+		return ret;
+	}
 
 	/* Program PLL 13 to 960 MHz */
 	reg = readl_relaxed(RIVA_PLL_MODE);
@@ -240,6 +262,7 @@ static int pil_riva_reset(struct pil_desc *pil)
 	writel_relaxed(reg, base + RIVA_PMU_OVRD_VAL);
 	clk_disable_unprepare(drv->xo);
 
+	printk(KERN_INFO "pil_riva_reset exit\n");
 	return 0;
 }
 
@@ -249,7 +272,9 @@ static int pil_riva_shutdown(struct pil_desc *pil)
 	u32 reg;
 	int ret;
 
+	printk(KERN_INFO "pil_riva_shutdown enter\n");
 	ret = clk_prepare_enable(drv->xo);
+	printk(KERN_INFO "pil_riva_shutdown (clk_prepare_enable) ret = %d\n", ret);
 	if (ret)
 		return ret;
 	/* Put cCPU and cCPU clock into reset */
@@ -260,19 +285,24 @@ static int pil_riva_shutdown(struct pil_desc *pil)
 	reg |= RIVA_PMU_OVRD_EN_CCPU_RESET | RIVA_PMU_OVRD_EN_CCPU_CLK;
 	writel_relaxed(reg, drv->base + RIVA_PMU_OVRD_EN);
 	mb();
+	printk(KERN_INFO "pil_riva_shutdown (Put cCPU and cCPU clock into reset) finish\n");
 
 	/* Assert reset to Riva */
 	writel_relaxed(1, RIVA_RESET);
 	mb();
 	usleep_range(1000, 2000);
+	printk(KERN_INFO "pil_riva_shutdown (Assert reset to Riva) finish\n");
 
 	/* Deassert reset to Riva */
 	writel_relaxed(0, RIVA_RESET);
 	mb();
+	printk(KERN_INFO "pil_riva_shutdown (Deassert reset to Riva) finish\n");
 
 	clk_disable_unprepare(drv->xo);
+	printk(KERN_INFO "pil_riva_shutdown (clk_disable_unprepare) finish\n");
 	pil_riva_remove_proxy_votes_now(pil->dev);
 
+	printk(KERN_INFO "pil_riva_shutdown exit\n");
 	return 0;
 }
 
@@ -294,13 +324,17 @@ static int pil_riva_reset_trusted(struct pil_desc *pil)
 	struct riva_data *drv = dev_get_drvdata(pil->dev);
 	int ret;
 
+	printk(KERN_INFO "pil_riva_reset_trusted enter\n");
+
 	ret = clk_prepare_enable(drv->xo);
 	if (ret)
 		return ret;
 	/* Proxy-vote for resources RIVA needs */
-	pil_riva_make_proxy_votes(pil->dev);
-	ret = pas_auth_and_reset(PAS_RIVA);
+	ret = pil_riva_make_proxy_votes(pil->dev);
+	if (!ret)
+		ret = pas_auth_and_reset(PAS_RIVA);
 	clk_disable_unprepare(drv->xo);
+	printk(KERN_INFO "pil_riva_reset_trusted exit\n");
 	return ret;
 }
 
@@ -309,6 +343,8 @@ static int pil_riva_shutdown_trusted(struct pil_desc *pil)
 	int ret;
 	struct riva_data *drv = dev_get_drvdata(pil->dev);
 
+	printk(KERN_INFO "pil_riva_shutdown_trusted enter\n");
+
 	ret = clk_prepare_enable(drv->xo);
 	if (ret)
 		return ret;
@@ -316,6 +352,7 @@ static int pil_riva_shutdown_trusted(struct pil_desc *pil)
 	pil_riva_remove_proxy_votes_now(pil->dev);
 	clk_disable_unprepare(drv->xo);
 
+	printk(KERN_INFO "pil_riva_shutdown_trusted exit\n");
 	return ret;
 }
 
@@ -383,6 +420,7 @@ static int __devinit pil_riva_probe(struct platform_device *pdev)
 		ret = PTR_ERR(drv->xo);
 		goto err;
 	}
+	wake_lock_init(&drv->wlock, WAKE_LOCK_SUSPEND, "riva-wlock");
 	INIT_DELAYED_WORK(&drv->work, pil_riva_remove_proxy_votes);
 
 	ret = msm_pil_register(desc);
@@ -390,7 +428,8 @@ static int __devinit pil_riva_probe(struct platform_device *pdev)
 		goto err_register;
 	return 0;
 err_register:
-	cancel_delayed_work_sync(&drv->work);
+	flush_delayed_work_sync(&drv->work);
+	wake_lock_destroy(&drv->wlock);
 	clk_put(drv->xo);
 err:
 	regulator_put(drv->pll_supply);
@@ -400,7 +439,8 @@ err:
 static int __devexit pil_riva_remove(struct platform_device *pdev)
 {
 	struct riva_data *drv = platform_get_drvdata(pdev);
-	cancel_delayed_work_sync(&drv->work);
+	flush_delayed_work_sync(&drv->work);
+	wake_lock_destroy(&drv->wlock);
 	clk_put(drv->xo);
 	regulator_put(drv->pll_supply);
 	return 0;

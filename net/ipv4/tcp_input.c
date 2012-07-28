@@ -2013,6 +2013,12 @@ int tcp_use_frto(struct sock *sk)
 		return 0;
 
 	skb = tcp_write_queue_head(sk);
+
+#ifdef CONFIG_HTC_NETWORK_MODIFY
+	if (IS_ERR(skb) || (!skb))
+		printk(KERN_ERR "[NET] skb is NULL in %s!\n", __func__);
+#endif
+
 	if (tcp_skb_is_last(sk, skb))
 		return 1;
 	skb = tcp_write_queue_next(sk, skb);	/* Skips head */
@@ -2083,6 +2089,12 @@ void tcp_enter_frto(struct sock *sk)
 	tp->undo_retrans = 0;
 
 	skb = tcp_write_queue_head(sk);
+
+#ifdef CONFIG_HTC_NETWORK_MODIFY
+	if (IS_ERR(skb) || (!skb))
+		printk(KERN_ERR "[NET] skb is NULL in %s!\n", __func__);
+#endif
+
 	if (TCP_SKB_CB(skb)->sacked & TCPCB_RETRANS)
 		tp->undo_marker = 0;
 	if (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_RETRANS) {
@@ -2481,6 +2493,11 @@ static void tcp_timeout_skbs(struct sock *sk)
 	if (tp->scoreboard_skb_hint == NULL)
 		skb = tcp_write_queue_head(sk);
 
+#ifdef CONFIG_HTC_NETWORK_MODIFY
+	if (IS_ERR(skb) || (!skb))
+		printk(KERN_ERR "[NET] skb is NULL in %s!\n", __func__);
+#endif
+
 	tcp_for_write_queue_from(skb, sk) {
 		if (skb == tcp_send_head(sk))
 			break;
@@ -2517,6 +2534,11 @@ static void tcp_mark_head_lost(struct sock *sk, int packets, int mark_head)
 		skb = tcp_write_queue_head(sk);
 		cnt = 0;
 	}
+
+#ifdef CONFIG_HTC_NETWORK_MODIFY
+	if (IS_ERR(skb) || (!skb))
+		printk(KERN_ERR "[NET] skb is NULL in %s!\n", __func__);
+#endif
 
 	tcp_for_write_queue_from(skb, sk) {
 		if (skb == tcp_send_head(sk))

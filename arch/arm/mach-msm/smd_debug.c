@@ -23,6 +23,133 @@
 #include <mach/msm_iomap.h>
 
 #include "smd_private.h"
+#include <linux/platform_device.h>
+
+
+#if CONFIG_SMD_OFFSET_HTC_MODEM_INFO_STAT
+/*
+htc_modem_info[0]: htc_modem_info_dch_time;
+htc_modem_info[1]: htc_modem_info_fach_time;
+htc_modem_info[2]: htc_modem_info_3g_cs_bar1_time;
+htc_modem_info[3]: htc_modem_info_3g_cs_bar2_time;
+htc_modem_info[4]: htc_modem_info_3g_cs_bar3_time;
+htc_modem_info[5]: htc_modem_info_3g_cs_bar4_time;
+htc_modem_info[6]: htc_modem_info_3g_ps_bar1_time;
+htc_modem_info[7]: htc_modem_info_3g_ps_bar2_time;
+htc_modem_info[8]: htc_modem_info_3g_ps_bar3_time;
+htc_modem_info[9]: htc_modem_info_3g_ps_bar4_time;
+htc_modem_info[10]: htc_modem_info_2g_cs_bar1_time;
+htc_modem_info[11]: htc_modem_info_2g_cs_bar2_time;
+htc_modem_info[12]: htc_modem_info_2g_cs_bar3_time;
+htc_modem_info[13]: htc_modem_info_2g_cs_bar4_time;
+htc_modem_info[14]: htc_modem_info_cs_bar1_time_1x;
+htc_modem_info[15]: htc_modem_info_cs_bar2_time_1x;
+htc_modem_info[16]: htc_modem_info_cs_bar3_time_1x;
+htc_modem_info[17]: htc_modem_info_cs_bar4_time_1x;
+htc_modem_info[18]: htc_modem_info_cs_bar5_time_1x;
+htc_modem_info[19]: htc_modem_info_ps_bar1_time_ev;
+htc_modem_info[20]: htc_modem_info_ps_bar2_time_ev;
+htc_modem_info[21]: htc_modem_info_ps_bar3_time_ev;
+htc_modem_info[22]: htc_modem_info_ps_bar4_time_ev;
+htc_modem_info[23]: htc_modem_info_ps_bar5_time_ev;
+htc_modem_info[24]: htc_modem_info_ps_bar1_time_lte;
+htc_modem_info[25]: htc_modem_info_ps_bar2_time_lte;
+htc_modem_info[26]: htc_modem_info_ps_bar3_time_lte;
+htc_modem_info[27]: htc_modem_info_ps_bar4_time_lte;
+htc_modem_info[28]: htc_modem_info_ps_bar5_time_lte;
+*/
+
+#define STAT_NUM 29
+
+struct smem_htc_modem_info_stat {
+
+	uint32_t htc_modem_info[STAT_NUM];
+};
+
+struct smem_htc_modem_info_stat_attr {
+	struct attribute attr;
+	ssize_t (*show)(struct device *dev, struct smem_htc_modem_info_stat_attr *, char *);
+	ssize_t (*store)(struct device *dev, struct smem_htc_modem_info_stat_attr *, char *);
+};
+
+struct kobject *htc_modem_info_stat_kobj;
+static ssize_t show_smem_htc_modem_info_stat_attr(struct device *dev,
+						struct smem_htc_modem_info_stat_attr *attr,
+						char *buf);
+
+struct mutex smem_htc_modem_info_stat_lock;
+static struct smem_htc_modem_info_stat *htc_modem_info_stat;
+static struct smem_htc_modem_info_stat *get_smem_htc_modem_info_stat(void)
+{
+       return (struct smem_htc_modem_info_stat *)
+               (MSM_SHARED_RAM_BASE + CONFIG_SMD_OFFSET_HTC_MODEM_INFO_STAT);
+}
+
+#define HTC_MODEM_INFO_ATTR(_name)                        \
+{                                       \
+	.attr = { .name = #_name, .mode = S_IRUGO },  \
+	.show = show_smem_htc_modem_info_stat_attr,                  \
+	.store = NULL,                              \
+}
+
+static struct smem_htc_modem_info_stat_attr smem_htc_modem_info_stat_attrs[] = {
+	HTC_MODEM_INFO_ATTR(dch_time),
+	HTC_MODEM_INFO_ATTR(fach_time),
+	HTC_MODEM_INFO_ATTR(3g_cs_bar1_time),
+	HTC_MODEM_INFO_ATTR(3g_cs_bar2_time),
+	HTC_MODEM_INFO_ATTR(3g_cs_bar3_time),
+	HTC_MODEM_INFO_ATTR(3g_cs_bar4_time),
+	HTC_MODEM_INFO_ATTR(3g_ps_bar1_time),
+	HTC_MODEM_INFO_ATTR(3g_ps_bar2_time),
+	HTC_MODEM_INFO_ATTR(3g_ps_bar3_time),
+	HTC_MODEM_INFO_ATTR(3g_ps_bar4_time),
+	HTC_MODEM_INFO_ATTR(2g_cs_bar1_time),
+	HTC_MODEM_INFO_ATTR(2g_cs_bar2_time),
+	HTC_MODEM_INFO_ATTR(2g_cs_bar3_time),
+	HTC_MODEM_INFO_ATTR(2g_cs_bar4_time),
+	HTC_MODEM_INFO_ATTR(1x_cs_bar1_time),
+	HTC_MODEM_INFO_ATTR(1x_cs_bar2_time),
+	HTC_MODEM_INFO_ATTR(1x_cs_bar3_time),
+	HTC_MODEM_INFO_ATTR(1x_cs_bar4_time),
+	HTC_MODEM_INFO_ATTR(1x_cs_bar5_time),
+	HTC_MODEM_INFO_ATTR(ev_ps_bar1_time),
+	HTC_MODEM_INFO_ATTR(ev_ps_bar2_time),
+	HTC_MODEM_INFO_ATTR(ev_ps_bar3_time),
+	HTC_MODEM_INFO_ATTR(ev_ps_bar4_time),
+	HTC_MODEM_INFO_ATTR(ev_ps_bar5_time),
+	HTC_MODEM_INFO_ATTR(lte_ps_bar1_time),
+	HTC_MODEM_INFO_ATTR(lte_ps_bar2_time),
+	HTC_MODEM_INFO_ATTR(lte_ps_bar3_time),
+	HTC_MODEM_INFO_ATTR(lte_ps_bar4_time),
+	HTC_MODEM_INFO_ATTR(lte_ps_bar5_time),
+};
+
+static ssize_t show_smem_htc_modem_info_stat_attr(struct device *dev,
+                      struct smem_htc_modem_info_stat_attr *attr,
+                      char *buf)
+{
+	int i = 0;
+	const ptrdiff_t off = attr - smem_htc_modem_info_stat_attrs;
+
+	if (!htc_modem_info_stat) {
+		pr_err("%s: htc_modem_info_stat is NULL", __func__);
+		return sprintf(buf, "%d\n", 0);
+	}
+
+	mutex_lock(&smem_htc_modem_info_stat_lock);
+	if (off >= 0 && off < STAT_NUM)
+		i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",
+				htc_modem_info_stat->htc_modem_info[off]);
+	else
+		i = -EINVAL;
+	mutex_unlock(&smem_htc_modem_info_stat_lock);
+
+	if (i < 0)
+		pr_err("%s: attribute is not supported: %d", __func__, off);
+
+	return i;
+}
+#endif
 
 #if defined(CONFIG_DEBUG_FS)
 
@@ -680,7 +807,10 @@ static void debug_create(const char *name, mode_t mode,
 static int __init smd_debugfs_init(void)
 {
 	struct dentry *dent;
-
+#if CONFIG_SMD_OFFSET_HTC_MODEM_INFO_STAT
+	int i;
+	int ret;
+#endif
 	dent = debugfs_create_dir("smd", 0);
 	if (IS_ERR(dent))
 		return PTR_ERR(dent);
@@ -697,7 +827,23 @@ static int __init smd_debugfs_init(void)
 
 	/* NNV: this is google only stuff */
 	debug_create("build", 0444, dent, debug_read_build_id);
+#if CONFIG_SMD_OFFSET_HTC_MODEM_INFO_STAT
+	htc_modem_info_stat = get_smem_htc_modem_info_stat();
+	mutex_init(&smem_htc_modem_info_stat_lock);
+	htc_modem_info_stat_kobj = kobject_create_and_add("htc_modem_info", NULL);
+	if (htc_modem_info_stat_kobj == NULL) {
+		pr_err("smd_debugfs_init: create htc_modem_info_stat_kobj failed\n");
+		return 0;
+	}
 
+	for (i = 0; i < ARRAY_SIZE(smem_htc_modem_info_stat_attrs); i++) {
+		ret = sysfs_create_file(htc_modem_info_stat_kobj, &smem_htc_modem_info_stat_attrs[i].attr);
+		if (ret)
+			pr_err("%s: sysfs_create_file for attr %d failed\n", __func__, i);
+	}
+#else
+	pr_info("%s: No htc_modem_info statistics\n", __func__);
+#endif
 	return 0;
 }
 

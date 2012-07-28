@@ -65,7 +65,7 @@ static void hci_le_connect(struct hci_conn *conn)
 	cp.peer_addr_type = conn->dst_type;
 	cp.conn_interval_min = cpu_to_le16(0x0008);
 	cp.conn_interval_max = cpu_to_le16(0x0100);
-	cp.supervision_timeout = cpu_to_le16(0x0064);
+	cp.supervision_timeout = cpu_to_le16(1000);
 	cp.min_ce_len = cpu_to_le16(0x0001);
 	cp.max_ce_len = cpu_to_le16(0x0001);
 
@@ -340,6 +340,14 @@ static void hci_conn_idle(unsigned long arg)
 	hci_conn_enter_sniff_mode(conn);
 }
 
+static void encryption_disabled_timeout(unsigned long userdata)
+{
+	struct hci_conn *conn = (struct hci_conn *)userdata;
+	BT_DBG("conn %p Grace Prd Exp ", conn);
+
+	hci_encrypt_cfm(conn, 0, 0);
+}
+
 struct hci_conn *hci_conn_add(struct hci_dev *hdev, int type,
 					__u16 pkt_type, bdaddr_t *dst)
 {
@@ -392,6 +400,8 @@ struct hci_conn *hci_conn_add(struct hci_dev *hdev, int type,
 
 	setup_timer(&conn->disc_timer, hci_conn_timeout, (unsigned long)conn);
 	setup_timer(&conn->idle_timer, hci_conn_idle, (unsigned long)conn);
+	setup_timer(&conn->encrypt_pause_timer, encryption_disabled_timeout,
+			(unsigned long)conn);
 
 	atomic_set(&conn->refcnt, 0);
 
@@ -434,6 +444,7 @@ int hci_conn_del(struct hci_conn *conn)
 	del_timer(&conn->idle_timer);
 	del_timer(&conn->disc_timer);
 	del_timer(&conn->smp_timer);
+	del_timer(&conn->encrypt_pause_timer);
 
 	if (conn->type == ACL_LINK) {
 		struct hci_conn *sco = conn->link;
@@ -470,6 +481,11 @@ int hci_conn_del(struct hci_conn *conn)
 	hci_conn_put_device(conn);
 
 	hci_dev_put(hdev);
+
+	/* free it if no handle */
+	if (conn->handle == 0)
+		kfree(conn);
+
 
 	return 0;
 }
@@ -728,7 +744,7 @@ void hci_disconnect(struct hci_conn *conn, __u8 reason)
 {
 	BT_DBG("conn %p", conn);
 
-	hci_proto_disconn_cfm(conn, reason);
+	hci_proto_disconn_cfm(conn, reason, 0);
 }
 EXPORT_SYMBOL(hci_disconnect);
 
@@ -787,6 +803,10 @@ static int hci_conn_auth(struct hci_conn *conn, __u8 sec_level, __u8 auth_type)
 
 	if (!test_and_set_bit(HCI_CONN_AUTH_PEND, &conn->pend)) {
 		struct hci_cp_auth_requested cp;
+
+		/* encrypt must be pending if auth is also pending */
+		set_bit(HCI_CONN_ENCRYPT_PEND, &conn->pend);
+
 		cp.handle = cpu_to_le16(conn->handle);
 		hci_send_cmd(conn->hdev, HCI_OP_AUTH_REQUESTED,
 							sizeof(cp), &cp);
@@ -817,7 +837,7 @@ int hci_conn_security(struct hci_conn *conn, __u8 sec_level, __u8 auth_type)
 		return 0;
 	} else if (conn->link_mode & HCI_LM_ENCRYPT) {
 		return hci_conn_auth(conn, sec_level, auth_type);
-	} else if (test_and_set_bit(HCI_CONN_ENCRYPT_PEND, &conn->pend)) {
+	} else if (test_bit(HCI_CONN_ENCRYPT_PEND, &conn->pend)) {
 		return 0;
 	}
 
@@ -1027,7 +1047,7 @@ void hci_chan_modify(struct hci_chan *chan,
 EXPORT_SYMBOL(hci_chan_modify);
 
 /* Drop all connection on the device */
-void hci_conn_hash_flush(struct hci_dev *hdev)
+void hci_conn_hash_flush(struct hci_dev *hdev, u8 is_process)
 {
 	struct hci_conn_hash *h = &hdev->conn_hash;
 	struct list_head *p;
@@ -1043,7 +1063,7 @@ void hci_conn_hash_flush(struct hci_dev *hdev)
 
 		c->state = BT_CLOSED;
 
-		hci_proto_disconn_cfm(c, 0x16);
+		hci_proto_disconn_cfm(c, 0x16, is_process);
 		hci_conn_del(c);
 	}
 }

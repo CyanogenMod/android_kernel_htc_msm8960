@@ -66,6 +66,7 @@ struct smd_pkt_dev {
 
 	int blocking_write;
 	int is_open;
+	int poll_mode;
 	unsigned ch_size;
 	uint open_modem_wait;
 
@@ -74,6 +75,7 @@ struct smd_pkt_dev {
 	struct completion ch_allocated;
 	struct wake_lock pa_wake_lock;		/* Packet Arrival Wake lock*/
 	struct work_struct packet_arrival_work;
+	struct spinlock pa_spinlock;
 } *smd_pkt_devp[NUM_SMD_PKT_PORTS];
 
 struct class *smd_pkt_classp;
@@ -101,7 +103,7 @@ do { \
 #endif
 
 #ifdef DEBUG
-#define D(x...) if (msm_smd_pkt_debug_mask) printk(x)
+#define D(x...) if (msm_smd_pkt_debug_mask) printk("[SMD] "x)
 #else
 #define D(x...) do {} while (0)
 #endif
@@ -117,11 +119,15 @@ static ssize_t open_timeout_store(struct device *d,
 		if (smd_pkt_devp[i]->devicep == d)
 			break;
 	}
+	if(i >= NUM_SMD_PKT_PORTS) {
+		pr_err("[SMD] %s: unable to find device\n", __func__);
+		return -EINVAL;
+	}
 	if (!strict_strtoul(buf, 10, &tmp)) {
 		smd_pkt_devp[i]->open_modem_wait = tmp;
 		return n;
 	} else {
-		pr_err("%s: unable to convert: %s to an int\n", __func__,
+		pr_err("[SMD] %s: unable to convert: %s to an int\n", __func__,
 			buf);
 		return -EINVAL;
 	}
@@ -135,6 +141,10 @@ static ssize_t open_timeout_show(struct device *d,
 	for (i = 0; i < NUM_SMD_PKT_PORTS; ++i) {
 		if (smd_pkt_devp[i]->devicep == d)
 			break;
+	}
+	if(i >= NUM_SMD_PKT_PORTS) {
+		pr_err("[SMD] %s: unable to find device\n", __func__);
+		return -EINVAL;
 	}
 	return snprintf(buf, PAGE_SIZE, "%d\n",
 			smd_pkt_devp[i]->open_modem_wait);
@@ -226,6 +236,7 @@ ssize_t smd_pkt_read(struct file *file,
 	int pkt_size;
 	struct smd_pkt_dev *smd_pkt_devp;
 	struct smd_channel *chl;
+	unsigned long flags;
 
 	D(KERN_ERR "%s: read %i bytes\n",
 	  __func__, count);
@@ -254,7 +265,7 @@ wait_for_packet:
 		/* qualify error message */
 		if (r != -ERESTARTSYS) {
 			/* we get this anytime a signal comes in */
-			printk(KERN_ERR "ERROR:%s:%i:%s: "
+			printk(KERN_ERR "[SMD] ERROR:%s:%i:%s: "
 			       "wait_event_interruptible ret %i\n",
 			       __FILE__,
 			       __LINE__,
@@ -277,7 +288,7 @@ wait_for_packet:
 	}
 
 	if (pkt_size > count) {
-		pr_err("packet size %i > buffer size %i,", pkt_size, count);
+		pr_err("[SMD] packet size %i > buffer size %i,", pkt_size, count);
 		mutex_unlock(&smd_pkt_devp->rx_lock);
 		return -ETOOSMALL;
 	}
@@ -305,6 +316,16 @@ wait_for_packet:
 	} while (pkt_size != bytes_read);
 	D_DUMP_BUFFER("read: ", bytes_read, buf);
 	mutex_unlock(&smd_pkt_devp->rx_lock);
+
+	mutex_lock(&smd_pkt_devp->ch_lock);
+	spin_lock_irqsave(&smd_pkt_devp->pa_spinlock, flags);
+	if (smd_pkt_devp->poll_mode &&
+	    !smd_cur_packet_size(smd_pkt_devp->ch)) {
+		wake_unlock(&smd_pkt_devp->pa_wake_lock);
+		smd_pkt_devp->poll_mode = 0;
+	}
+	spin_unlock_irqrestore(&smd_pkt_devp->pa_spinlock, flags);
+	mutex_unlock(&smd_pkt_devp->ch_lock);
 
 	D(KERN_ERR "%s: just read %i bytes\n",
 	  __func__, bytes_read);
@@ -350,7 +371,7 @@ ssize_t smd_pkt_write(struct file *file,
 	r = smd_write_start(smd_pkt_devp->ch, count);
 	if (r < 0) {
 		mutex_unlock(&smd_pkt_devp->tx_lock);
-		pr_err("%s: Error %d @ smd_write_start\n", __func__, r);
+		pr_err("[SMD] %s: Error %d @ smd_write_start\n", __func__, r);
 		return r;
 	}
 
@@ -399,6 +420,7 @@ static unsigned int smd_pkt_poll(struct file *file, poll_table *wait)
 	if (!smd_pkt_devp)
 		return POLLERR;
 
+	smd_pkt_devp->poll_mode = 1;
 	poll_wait(file, &smd_pkt_devp->ch_read_wait_queue, wait);
 	if (smd_read_avail(smd_pkt_devp->ch))
 		mask |= POLLIN | POLLRDNORM;
@@ -409,6 +431,7 @@ static unsigned int smd_pkt_poll(struct file *file, poll_table *wait)
 static void check_and_wakeup_reader(struct smd_pkt_dev *smd_pkt_devp)
 {
 	int sz;
+	unsigned long flags;
 
 	if (!smd_pkt_devp || !smd_pkt_devp->ch)
 		return;
@@ -427,6 +450,9 @@ static void check_and_wakeup_reader(struct smd_pkt_dev *smd_pkt_devp)
 
 	/* here we have a packet of size sz ready */
 	wake_up(&smd_pkt_devp->ch_read_wait_queue);
+	spin_lock_irqsave(&smd_pkt_devp->pa_spinlock, flags);
+	wake_lock(&smd_pkt_devp->pa_wake_lock);
+	spin_unlock_irqrestore(&smd_pkt_devp->pa_spinlock, flags);
 	schedule_work(&smd_pkt_devp->packet_arrival_work);
 	D(KERN_ERR "%s: after wake_up\n", __func__);
 }
@@ -473,7 +499,7 @@ static void ch_notify(void *priv, unsigned event)
 		break;
 	case SMD_EVENT_CLOSE:
 		smd_pkt_devp->is_open = 0;
-		printk(KERN_ERR "%s: smd closed\n",
+		printk(KERN_ERR "[SMD] %s: smd closed\n",
 		       __func__);
 
 		/* put port into reset state */
@@ -633,7 +659,7 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 				if (r == 0)
 					r = -ETIMEDOUT;
 				if (r < 0) {
-					pr_err("%s: wait failed for smd port:"
+					pr_err("[SMD] %s: wait failed for smd port:"
 					       " %d\n", __func__, r);
 					goto release_pil;
 				}
@@ -646,10 +672,19 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 					   smd_pkt_devp,
 					   ch_notify);
 		if (r < 0) {
-			pr_err("%s: %s open failed %d\n", __func__,
+			/* HTC: don't print out open failed message because we try on upper layer
+				it prints too many at the init stage, but smd still not ready
+				RIL can still got this message from radio log
+			*/
+			/*
+			pr_err("[SMD] %s: %s open failed %d\n", __func__,
 			       smd_ch_name[smd_pkt_devp->i], r);
+			*/
 			goto release_pil;
-		}
+		} else
+			/* HTC: return 0 -> success */
+			pr_info("[SMD] %s: %s open success return %d\n", __func__,
+					smd_ch_name[smd_pkt_devp->i], r);
 
 		r = wait_event_interruptible_timeout(
 				smd_pkt_devp->ch_opened_wait_queue,
@@ -658,10 +693,10 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 			r = -ETIMEDOUT;
 
 		if (r < 0) {
-			pr_err("%s: wait failed for smd open: %d\n",
+			pr_err("[SMD] %s: wait failed for smd open: %d\n",
 			       __func__, r);
 		} else if (!smd_pkt_devp->is_open) {
-			pr_err("%s: Invalid open notification\n", __func__);
+			pr_err("[SMD] %s: Invalid open notification\n", __func__);
 			r = -ENODEV;
 		} else {
 			smd_disable_read_intr(smd_pkt_devp->ch);
@@ -697,6 +732,7 @@ int smd_pkt_release(struct inode *inode, struct file *file)
 		r = smd_close(smd_pkt_devp->ch);
 		smd_pkt_devp->ch = 0;
 		smd_pkt_devp->blocking_write = 0;
+		smd_pkt_devp->poll_mode = 0;
 		if (smd_pkt_devp->pil)
 			pil_put(smd_pkt_devp->pil);
 	}
@@ -729,7 +765,7 @@ static int __init smd_pkt_init(void)
 			       NUM_SMD_PKT_PORTS,
 			       DEVICE_NAME);
 	if (IS_ERR_VALUE(r)) {
-		printk(KERN_ERR "ERROR:%s:%i:%s: "
+		printk(KERN_ERR "[SMD] ERROR:%s:%i:%s: "
 		       "alloc_chrdev_region() ret %i.\n",
 		       __FILE__,
 		       __LINE__,
@@ -740,7 +776,7 @@ static int __init smd_pkt_init(void)
 
 	smd_pkt_classp = class_create(THIS_MODULE, DEVICE_NAME);
 	if (IS_ERR(smd_pkt_classp)) {
-		printk(KERN_ERR "ERROR:%s:%i:%s: "
+		printk(KERN_ERR "[SMD] ERROR:%s:%i:%s: "
 		       "class_create() ENOMEM\n",
 		       __FILE__,
 		       __LINE__,
@@ -753,7 +789,7 @@ static int __init smd_pkt_init(void)
 		smd_pkt_devp[i] = kzalloc(sizeof(struct smd_pkt_dev),
 					 GFP_KERNEL);
 		if (IS_ERR(smd_pkt_devp[i])) {
-			printk(KERN_ERR "ERROR:%s:%i:%s kmalloc() ENOMEM\n",
+			printk(KERN_ERR "[SMD] ERROR:%s:%i:%s kmalloc() ENOMEM\n",
 			       __FILE__,
 			       __LINE__,
 			       __func__);
@@ -766,8 +802,10 @@ static int __init smd_pkt_init(void)
 		init_waitqueue_head(&smd_pkt_devp[i]->ch_read_wait_queue);
 		init_waitqueue_head(&smd_pkt_devp[i]->ch_write_wait_queue);
 		smd_pkt_devp[i]->is_open = 0;
+		smd_pkt_devp[i]->poll_mode = 0;
 		init_waitqueue_head(&smd_pkt_devp[i]->ch_opened_wait_queue);
 
+		spin_lock_init(&smd_pkt_devp[i]->pa_spinlock);
 		mutex_init(&smd_pkt_devp[i]->ch_lock);
 		mutex_init(&smd_pkt_devp[i]->rx_lock);
 		mutex_init(&smd_pkt_devp[i]->tx_lock);
@@ -781,7 +819,7 @@ static int __init smd_pkt_init(void)
 			     1);
 
 		if (IS_ERR_VALUE(r)) {
-			printk(KERN_ERR "%s:%i:%s: cdev_add() ret %i\n",
+			printk(KERN_ERR "[SMD] %s:%i:%s: cdev_add() ret %i\n",
 			       __FILE__,
 			       __LINE__,
 			       __func__,
@@ -798,7 +836,7 @@ static int __init smd_pkt_init(void)
 				      smd_pkt_dev_name[i]);
 
 		if (IS_ERR(smd_pkt_devp[i]->devicep)) {
-			printk(KERN_ERR "%s:%i:%s: "
+			printk(KERN_ERR "[SMD] %s:%i:%s: "
 			       "device_create() ENOMEM\n",
 			       __FILE__,
 			       __LINE__,
@@ -810,7 +848,7 @@ static int __init smd_pkt_init(void)
 		}
 		if (device_create_file(smd_pkt_devp[i]->devicep,
 					&dev_attr_open_timeout))
-			pr_err("%s: unable to create device attr on #%d\n",
+			pr_err("[SMD] %s: unable to create device attr on #%d\n",
 				__func__, i);
 
 		smd_pkt_devp[i]->driver.probe = smd_pkt_dummy_probe;
@@ -823,7 +861,7 @@ static int __init smd_pkt_init(void)
 
 	INIT_DELAYED_WORK(&loopback_work, loopback_probe_worker);
 
-	D(KERN_INFO "SMD Packet Port Driver Initialized.\n");
+	D(KERN_INFO "[SMD] SMD Packet Port Driver Initialized.\n");
 	return 0;
 
  error2:

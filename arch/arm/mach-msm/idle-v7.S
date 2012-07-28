@@ -31,6 +31,63 @@
 #define SCM_CMD_TERMINATE_PC 0x2
 #endif
 
+/*
+PHY define in msm_iomap-8960.h, VIRT define in msm_iomap.h
+The counters to check kernel exit for both cpu's
+kernel foot print for cpu0  		: phy 0x889F1000 : virt 0xFE703000
+kernel foot print for cpu1  		: phy 0x889F1004 : virt 0xFE703004
+kernel exit counter from cpu0		: phy 0x889F1008 : virt 0xFE703008
+kernel exit counter from cpu1		: phy 0x889F100C : virt 0xFE70300C
+msm_pm_boot_entry			: phy 0x889F1010 : virt 0xFE703010
+msm_pm_boot_vector			: phy 0x889F1014 : virt 0xFE703014
+reset vector for cpu0(init)		: phy 0x889F1018 : virt 0xFE703018
+reset vector for cpu1(init)		: phy 0x889F101C : virt 0xFE70301C
+cpu0 reset vector address		: phy 0x889F1020 : virt 0xFE703020
+cpu1 reset vector address		: phy 0x889F1024 : virt 0xFE703024
+cpu0 reset vector address value		: phy 0x889F1028 : virt 0xFE703028
+cpu1 reset vector address value		: phy 0x889F102C : virt 0xFE70302C
+cpu0 frequency				: phy 0x889F1030 : virt 0xFE703030
+cpu1 frequency				: phy 0x889F1034 : virt 0xFE703034
+L2 frequency				: phy 0x889F1038 : virt 0xFE703038
+acpuclk_set_rate footprint cpu0		: phy 0x889F103C : virt 0xFE70303C
+acpuclk_set_rate footprint cpu1		: phy 0x889F1040 : virt 0xFE703040
+*/
+
+#define MSM_KERNEL_FOOTPRINT_PHYS	0x889F1000
+#define MSM_KERNEL_FOOTPRINT_VIRT	0xFE703000
+
+#define CPU_FOOT_PRINT_MAGIC			0xACBDFE00
+#define CPU_FOOT_PRINT_BASE_CPU0_PHY	(MSM_KERNEL_FOOTPRINT_PHYS + 0)
+#define CPU_FOOT_PRINT_BASE_CPU0_VIRT	(MSM_KERNEL_FOOTPRINT_VIRT + 0)
+#define CPU0_EXIT_COUNT_PHYS	(MSM_KERNEL_FOOTPRINT_PHYS + 0x8)
+#define CPU_RESET_VECTOR_PHYS		(MSM_KERNEL_FOOTPRINT_PHYS + 0x20)
+#define CPU_RESET_VECTOR_VALUE_PHYS	(MSM_KERNEL_FOOTPRINT_PHYS + 0x28)
+
+/* r0 already has the cpu number */
+.macro set_cpu_foot_print_virt, x
+	stmfd	sp!, {r5-r7}
+	ldr	r5, =cur_cpu
+	ldr	r5, [r5]
+	ldr	r6, =CPU_FOOT_PRINT_BASE_CPU0_VIRT
+	ldr	r7, =(CPU_FOOT_PRINT_MAGIC | \x)	/* make status number. */
+	str	r7, [r6, r5, LSL #2]
+	dsb						/* ensure data are written. */
+	ldmfd	sp!, {r5-r7}
+.endm
+
+#define CPU_RESET_VECTOR_CPU0_BASE		(MSM_KERNEL_FOOTPRINT_VIRT + 0x18)
+/* Store reset factor for two cpu*/
+.macro store_reset_vector_for_each_cpu
+	stmfd	sp!, {r5-r7}
+	ldr     r5, =cur_cpu
+	ldr     r5, [r5]                        /* get current cpu number */
+	ldr     r6, =msm_pm_boot_vector
+	ldr     r7, [r6, r5, LSL #2]            /* get the reset vector of cpu*/
+	ldr     r6, =CPU_RESET_VECTOR_CPU0_BASE
+	str     r7, [r6, r5, LSL #2]            /* store it */
+	ldmfd	sp!, {r5-r7}
+.endm
+
 ENTRY(msm_arch_idle)
 	wfi
 #ifdef CONFIG_ARCH_MSM8X60
@@ -51,8 +108,13 @@ ENTRY(msm_pm_collapse)
 	ands	r1, r1, #15		/* What CPU am I */
 	addne	r0, r0, #CPU_SAVED_STATE_SIZE
 #endif
+	ldr	r2, =cur_cpu
+	str	r1, [r2]			/* store current cpu number for later use. */
 
 	stmia   r0!, {r4-r14}
+
+	store_reset_vector_for_each_cpu
+
 	mrc     p15, 0, r1, c1, c0, 0 /* MMU control */
 	mrc     p15, 0, r2, c2, c0, 0 /* TTBR0 */
 	mrc     p15, 0, r3, c3, c0, 0 /* dacr */
@@ -104,6 +166,8 @@ skip:	ldr	r0, =saved_state
 	sub	r1, r1, r0
 	bl	v7_flush_kern_dcache_area
 
+	set_cpu_foot_print_virt 1
+
 	mrc     p15, 0, r4, c1, c0, 0    /* read current CR    */
 	bic     r0, r4, #(1 << 2)        /* clear dcache bit   */
 	bic     r0, r0, #(1 << 12)       /* clear icache bit   */
@@ -149,6 +213,17 @@ ENTRY(msm_pm_collapse_exit)
 	mov     r1, #'A'
 	str     r1, [r0, #0x00C]
 #endif
+	ldr	r1, =CPU0_EXIT_COUNT_PHYS
+	ldr     r2, [r1]
+	add 	r2, r2, #1
+	str	r2, [r1]
+	dsb
+
+	ldr	r1, =CPU_FOOT_PRINT_BASE_CPU0_PHY
+	ldr	r2, =0xACBDFE04	/* make status number. */
+	str	r2, [r1]
+	dsb
+
 	ldr     r1, =saved_state_end
 	ldr     r2, =msm_pm_collapse_exit
 	adr     r3, msm_pm_collapse_exit
@@ -236,13 +311,31 @@ ENTRY(msm_pm_boot_entry)
 	mrc     p15, 0, r0, c0, c0, 5    /* MPIDR                          */
 	and     r0, r0, #15              /* what CPU am I                  */
 
+	ldr	r1, =CPU_FOOT_PRINT_BASE_CPU0_PHY
+	ldr	r2, =0xACBDFE02	/* make status number. */
+	str	r2, [r1, r0, LSL #2]
+	dsb						/* ensure data are written. */
+
 	ldr     r1, =msm_pm_boot_vector
 	ldr     r2, =msm_pm_boot_entry
 	adr     r3, msm_pm_boot_entry
 	add     r1, r1, r3               /* translate virt to phys addr    */
 	sub     r1, r1, r2
 
+	ldr	r3, =CPU_FOOT_PRINT_BASE_CPU0_PHY
+	ldr	r2, =0xACBDFE03	/* make status number. */
+	str	r2, [r3, r0, LSL #2]
+	dsb
+
 	add     r1, r1, r0, LSL #2       /* locate boot vector for our cpu */
+
+	ldr	r2, =CPU_RESET_VECTOR_PHYS
+	str	r1, [r2, r0, LSL#2]
+	ldr	r3, [r1]
+	ldr	r2, =CPU_RESET_VECTOR_VALUE_PHYS
+	str	r3, [r2, r0, LSL#2]
+	dsb						/* ensure data are written. */
+
 	ldr     pc, [r1]                 /* jump                           */
 
 ENTRY(msm_pm_write_boot_vector)
@@ -260,6 +353,11 @@ ENTRY(msm_pm_set_l2_flush_flag)
 	ldr r1, =msm_pm_flush_l2_flag
 	str r0, [r1]
 	bx lr
+
+ENTRY(get_pm_boot_vector_symbol_address)
+	ldr     r2, =msm_pm_boot_vector
+	str	r2, [r0]
+	bx	lr
 
 	.data
 
@@ -285,3 +383,6 @@ msm_pm_boot_vector:
  */
 msm_pm_flush_l2_flag:
 	.long 0x1
+
+cur_cpu:
+	.space	4 /* store current cpu number */

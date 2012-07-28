@@ -21,6 +21,10 @@ config SUSPEND_FREEZER
 config HAS_WAKELOCK
 	bool
 
+config POWERSTATE
+	bool "collect power state information of each driver"
+	default n
+
 config HAS_EARLYSUSPEND
 	bool
 
@@ -62,6 +66,13 @@ config EARLYSUSPEND
 	---help---
 	  Call early suspend handlers when the user requested sleep state
 	  changes.
+
+config NO_SUSPEND
+	bool "No suspend"
+	depends on EARLYSUSPEND
+	default n
+	---help---
+	Prevent device suspend after early suspend
 
 choice
 	prompt "User-space screen access"

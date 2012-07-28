@@ -417,7 +417,7 @@ int psmouse_reset(struct psmouse *psmouse)
 static int genius_detect(struct psmouse *psmouse, bool set_properties)
 {
 	struct ps2dev *ps2dev = &psmouse->ps2dev;
-	unsigned char param[4];
+	unsigned char param[4] = {0, 0, 0, 0};
 
 	param[0] = 3;
 	ps2_command(ps2dev, param, PSMOUSE_CMD_SETRES);

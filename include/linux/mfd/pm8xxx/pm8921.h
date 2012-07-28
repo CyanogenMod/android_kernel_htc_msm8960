@@ -110,6 +110,16 @@
 #define PM8921_TEMPSTAT_IRQ		PM8921_IRQ_BLOCK_BIT(6, 7)
 #define PM8921_RESOUT_IRQ		PM8921_IRQ_BLOCK_BIT(6, 4)
 
+#define PM8921_USB_OTG_OCP_IRQ		PM8921_IRQ_BLOCK_BIT(6, 0)
+#define PM8921_LVS7_OCP_IRQ		PM8921_IRQ_BLOCK_BIT(13, 7)
+#define PM8921_LVS6_OCP_IRQ		PM8921_IRQ_BLOCK_BIT(13, 6)
+#define PM8921_LVS5_OCP_IRQ		PM8921_IRQ_BLOCK_BIT(13, 5)
+#define PM8921_LVS4_OCP_IRQ		PM8921_IRQ_BLOCK_BIT(13, 4)
+#define PM8921_LVS3_OCP_IRQ		PM8921_IRQ_BLOCK_BIT(13, 3)
+#define PM8921_LVS2_OCP_IRQ		PM8921_IRQ_BLOCK_BIT(13, 2)
+#define PM8921_LVS1_OCP_IRQ		PM8921_IRQ_BLOCK_BIT(13, 1)
+#define PM8921_HDMI_MVS_OCP_IRQ		PM8921_IRQ_BLOCK_BIT(13, 0)
+
 /* PMIC I/O Resources */
 #define PM8921_RTC_BASE 0x11D
 
@@ -131,5 +141,5 @@ struct pm8921_platform_data {
 	struct pm8xxx_vibrator_platform_data	*vibrator_pdata;
 	struct pm8xxx_ccadc_platform_data	*ccadc_pdata;
 };
-
+int pmic_vreg_dump(char *vreg_buffer, int curr_len);
 #endif

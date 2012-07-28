@@ -26,6 +26,29 @@
 
 static struct class *leds_class;
 
+void led_brightness_switch(char *led_name, int state)
+{
+	struct led_classdev *led_cdev;
+	static int brightness = 255;
+
+	if (!led_name)
+		return;
+
+	down_read(&leds_list_lock);
+	list_for_each_entry(led_cdev, &leds_list, node) {
+		if (!strcmp(led_name, led_cdev->name)) {
+			if(state == 0) {
+				brightness = led_cdev->brightness;
+				led_set_brightness(led_cdev, 0);
+			} else {
+				led_set_brightness(led_cdev, brightness);
+			}
+		}
+	}
+	up_read(&leds_list_lock);
+}
+EXPORT_SYMBOL_GPL(led_brightness_switch);
+
 static void led_update_brightness(struct led_classdev *led_cdev)
 {
 	if (led_cdev->brightness_get)
@@ -66,6 +89,39 @@ static ssize_t led_brightness_store(struct device *dev,
 	return ret;
 }
 
+static ssize_t led_offset_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+
+	/* no lock needed for this */
+	led_update_brightness(led_cdev);
+
+	return snprintf(buf, LED_BUFF_SIZE, "%u\n", led_cdev->offset);
+}
+
+static ssize_t led_offset_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	ssize_t ret = -EINVAL;
+	char *after;
+	unsigned long state = simple_strtoul(buf, &after, 10);
+	size_t count = after - buf;
+
+	if (isspace(*after))
+		count++;
+
+	if (count == size) {
+		ret = count;
+
+		led_cdev->offset = state;
+		led_set_brightness(led_cdev, led_cdev->brightness);
+	}
+
+	return ret;
+}
+
 static ssize_t led_max_brightness_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
 {
@@ -95,6 +151,7 @@ static ssize_t led_max_brightness_show(struct device *dev,
 
 static struct device_attribute led_class_attrs[] = {
 	__ATTR(brightness, 0644, led_brightness_show, led_brightness_store),
+	__ATTR(offset, 0644, led_offset_show, led_offset_store),
 	__ATTR(max_brightness, 0644, led_max_brightness_show,
 			led_max_brightness_store),
 #ifdef CONFIG_LEDS_TRIGGERS

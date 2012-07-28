@@ -1723,6 +1723,10 @@ void *vmalloc_user(unsigned long size)
 			     PAGE_KERNEL, -1, __builtin_return_address(0));
 	if (ret) {
 		area = find_vm_area(ret);
+		if (!area) {
+			vfree(ret);
+			return NULL;
+		}
 		area->flags |= VM_USERMAP;
 	}
 	return ret;
@@ -1826,6 +1830,10 @@ void *vmalloc_32_user(unsigned long size)
 			     -1, __builtin_return_address(0));
 	if (ret) {
 		area = find_vm_area(ret);
+		if (!area) {
+			vfree(ret);
+			return NULL;
+		}
 		area->flags |= VM_USERMAP;
 	}
 	return ret;

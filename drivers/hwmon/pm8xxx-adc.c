@@ -165,6 +165,7 @@ static const struct pm8xxx_adc_scaling_ratio pm8xxx_amux_scaling_ratio[] = {
 };
 
 static struct pm8xxx_adc *pmic_adc;
+static struct regulator *pa_therm;
 
 static struct pm8xxx_adc_scale_fn adc_scale_fn[] = {
 	[ADC_SCALE_DEFAULT] = {pm8xxx_adc_scale_default},
@@ -238,26 +239,27 @@ static int32_t pm8xxx_adc_arb_cntrl(uint32_t arb_cntrl,
 
 static int32_t pm8xxx_adc_patherm_power(bool on)
 {
-	static struct regulator *pa_therm;
-	struct pm8xxx_adc *adc_pmic = pmic_adc;
 	int rc = 0;
-	if (on) {
-		pa_therm = regulator_get(adc_pmic->dev,
-						"pa_therm");
-		if (IS_ERR(pa_therm)) {
-			rc = PTR_ERR(pa_therm);
-			pr_err("failed to request pa_therm vreg "
-					"with error %d\n", rc);
-			return rc;
-		}
 
+/*Only for Jewel XA and XB. L14 is used for XO, so can't be off*/
+#if defined (CONFIG_PA_THERMAL_L14_HW_WORKAROUND)
+	if (system_rev <= 1)
+		return rc;
+#endif
+
+	if (!pa_therm) {
+		pr_err("pm8xxx adc pa_therm not valid\n");
+		return -EINVAL;
+	}
+
+	if (on) {
 		rc = regulator_set_voltage(pa_therm,
 				PM8XXX_ADC_PA_THERM_VREG_UV_MIN,
 				PM8XXX_ADC_PA_THERM_VREG_UV_MAX);
 		if (rc < 0) {
 			pr_err("failed to set the voltage for "
 					"pa_therm with error %d\n", rc);
-			goto fail;
+			return rc;
 		}
 
 		rc = regulator_set_optimum_mode(pa_therm,
@@ -265,24 +267,24 @@ static int32_t pm8xxx_adc_patherm_power(bool on)
 		if (rc < 0) {
 			pr_err("failed to set optimum mode for "
 					"pa_therm with error %d\n", rc);
-			goto fail;
+			return rc;
 		}
 
-		if (regulator_enable(pa_therm)) {
-			pr_err("failed to enable pa_therm vreg with "
-						"error %d\n", rc);
-			goto fail;
+		rc = regulator_enable(pa_therm);
+		if (rc < 0) {
+			pr_err("failed to enable pa_therm vreg "
+					"with error %d\n", rc);
+			return rc;
 		}
 	} else {
-		if (pa_therm != NULL) {
-			regulator_disable(pa_therm);
-			regulator_put(pa_therm);
+		rc = regulator_disable(pa_therm);
+		if (rc < 0) {
+			pr_err("failed to disable pa_therm vreg "
+					"with error %d\n", rc);
+			return rc;
 		}
 	}
 
-	return rc;
-fail:
-	regulator_put(pa_therm);
 	return rc;
 }
 
@@ -293,7 +295,7 @@ static int32_t pm8xxx_adc_channel_power_enable(uint32_t channel,
 
 	switch (channel)
 	case ADC_MPP_1_AMUX8:
-		pm8xxx_adc_patherm_power(power_cntrl);
+		rc = pm8xxx_adc_patherm_power(power_cntrl);
 
 	return rc;
 }
@@ -668,6 +670,7 @@ uint32_t pm8xxx_adc_read(enum pm8xxx_adc_channels channel,
 	struct pm8xxx_adc *adc_pmic = pmic_adc;
 	int i = 0, rc = 0, rc_fail, amux_prescaling, scale_type;
 	enum pm8xxx_adc_premux_mpp_scale_type mpp_scale;
+	static int timeout_count = 0;
 
 	if (!pm8xxx_adc_initialized)
 		return -ENODEV;
@@ -725,7 +728,15 @@ uint32_t pm8xxx_adc_read(enum pm8xxx_adc_channels channel,
 		goto fail;
 	}
 
-	wait_for_completion(&adc_pmic->adc_rslt_completion);
+	rc = wait_for_completion_timeout(&adc_pmic->adc_rslt_completion, HZ);
+	if (!rc) {
+		disable_irq(adc_pmic->adc_irq);
+		timeout_count++;
+		pr_err("%s: wait_for_completion_timeout:%d,ch=%d,(count=%d)",
+				__func__, rc, channel, timeout_count);
+		rc = -ETIMEDOUT;
+		goto fail;
+	}
 
 	rc = pm8xxx_adc_read_adc_code(&result->adc_code);
 	if (rc) {
@@ -768,6 +779,9 @@ uint32_t pm8xxx_adc_mpp_config_read(uint32_t mpp_num,
 {
 	struct pm8xxx_adc *adc_pmic = pmic_adc;
 	int rc = 0;
+
+	if (!pm8xxx_adc_initialized)
+		return -ENODEV;
 
 	if (!adc_pmic->mpp_base) {
 		rc = -EINVAL;
@@ -998,6 +1012,34 @@ uint32_t pm8xxx_adc_btm_end(void)
 }
 EXPORT_SYMBOL_GPL(pm8xxx_adc_btm_end);
 
+int pm8xxx_adc_btm_is_cool(void)
+{
+	if (pmic_adc == NULL) {
+		pr_err("PMIC ADC not valid\n");
+		return 0;
+	}
+	if (pmic_adc->batt->btm_cool_fn == NULL) {
+		return 0;
+	}
+
+	return irq_read_line(pmic_adc->btm_cool_irq);
+}
+EXPORT_SYMBOL_GPL(pm8xxx_adc_btm_is_cool);
+
+int pm8xxx_adc_btm_is_warm(void)
+{
+	if (pmic_adc == NULL) {
+		pr_err("PMIC ADC not valid\n");
+		return 0;
+	}
+	if (pmic_adc->batt->btm_warm_fn == NULL) {
+		return 0;
+	}
+
+	return irq_read_line(pmic_adc->btm_warm_irq);
+}
+EXPORT_SYMBOL_GPL(pm8xxx_adc_btm_is_warm);
+
 static ssize_t pm8xxx_adc_show(struct device *dev,
 			struct device_attribute *devattr, char *buf)
 {
@@ -1138,6 +1180,10 @@ static int __devexit pm8xxx_adc_teardown(struct platform_device *pdev)
 	wake_lock_destroy(&adc_pmic->adc_wakelock);
 	platform_set_drvdata(pdev, NULL);
 	pmic_adc = NULL;
+	if (!pa_therm) {
+		regulator_put(pa_therm);
+		pa_therm = NULL;
+	}
 	for (i = 0; i < adc_pmic->adc_num_board_channel; i++)
 		device_remove_file(adc_pmic->dev,
 				&adc_pmic->sens_attr[i].dev_attr);
@@ -1184,6 +1230,11 @@ static int __devinit pm8xxx_adc_probe(struct platform_device *pdev)
 	adc_pmic->adc_num_board_channel = pdata->adc_num_board_channel;
 	adc_pmic->adc_num_channel = ADC_MPP_2_CHANNEL_NONE;
 	adc_pmic->mpp_base = pdata->adc_mpp_base;
+
+	if (pdata->adc_map_btm_table)
+		pm8xxx_adc_set_adcmap_btm_table(pdata->adc_map_btm_table);
+	else
+		pr_warn("default adcmap_btm_table is applied.\n");
 
 	mutex_init(&adc_pmic->adc_lock);
 	mutex_init(&adc_pmic->mpp_adc_lock);
@@ -1253,6 +1304,17 @@ static int __devinit pm8xxx_adc_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to initialize pm8xxx hwmon adc\n");
 	}
 	adc_pmic->hwmon = hwmon_device_register(adc_pmic->dev);
+
+	pa_therm = regulator_get(adc_pmic->dev, "pa_therm");
+	if (IS_ERR(pa_therm)) {
+		rc = PTR_ERR(pa_therm);
+		pr_err("failed to request pa_therm vreg with error %d\n", rc);
+		pa_therm = NULL;
+	}
+
+	if (pdata->pm8xxx_adc_device_register)
+		pdata->pm8xxx_adc_device_register();
+
 	return 0;
 }
 

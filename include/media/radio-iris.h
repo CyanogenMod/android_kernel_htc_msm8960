@@ -590,7 +590,8 @@ enum iris_evt_t {
 	IRIS_EVT_NEW_SRCH_LIST,
 	IRIS_EVT_NEW_AF_LIST,
 	IRIS_EVT_TXRDSDAT,
-	IRIS_EVT_TXRDSDONE
+	IRIS_EVT_TXRDSDONE,
+	IRIS_EVT_RADIO_DISABLED
 };
 enum emphasis_type {
 	FM_RX_EMP75 = 0x0,
@@ -674,7 +675,7 @@ enum search_t {
 
 /* Band limits */
 #define REGION_US_EU_BAND_LOW              87500
-#define REGION_US_EU_BAND_HIGH             107900
+#define REGION_US_EU_BAND_HIGH             108000
 #define REGION_JAPAN_STANDARD_BAND_LOW     76000
 #define REGION_JAPAN_STANDARD_BAND_HIGH    90000
 #define REGION_JAPAN_WIDE_BAND_LOW         90000

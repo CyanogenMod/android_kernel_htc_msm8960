@@ -51,6 +51,7 @@
  * start of the mapped gpu regs (the vaddr returned by mmap) as the argument.
  */
 #define HW3D_REVOKE_GPU		_IOW(PMEM_IOCTL_MAGIC, 8, unsigned int)
+#define PMEM_CACHE_FLUSH	_IOW(PMEM_IOCTL_MAGIC, 8, unsigned int)
 #define HW3D_GRANT_GPU		_IOW(PMEM_IOCTL_MAGIC, 9, unsigned int)
 #define HW3D_WAIT_FOR_INTERRUPT	_IOW(PMEM_IOCTL_MAGIC, 10, unsigned int)
 
@@ -137,6 +138,12 @@ struct android_pmem_platform_data
 	const char* name;
 	/* size of memory region */
 	unsigned long size;
+	/* start physical address of memory region
+	 * if start is 0 or negative value, use android default behavior.
+	 * otherwise, just assign it to pmem info base.
+	 * android will handle remaining remap things.
+	 */
+	unsigned long start;
 
 	enum pmem_allocator_type allocator_type;
 	/* treated as a 'hidden' variable in the board files. Can be

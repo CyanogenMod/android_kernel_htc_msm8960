@@ -75,7 +75,7 @@ static struct snd_soc_dai_driver msm_fe_dais[] = {
 			.rates = SNDRV_PCM_RATE_8000_48000,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE,
 			.channels_min = 1,
-			.channels_max = 6,
+			.channels_max = 2,
 			.rate_min =     8000,
 			.rate_max =	48000,
 		},
@@ -235,6 +235,28 @@ static struct snd_soc_dai_driver msm_fe_dais[] = {
 		},
 		.ops = &msm_fe_dai_ops,
 		.name = "AFE-PROXY",
+	},
+	{
+		.playback = {
+			.stream_name = "AUXPCM Hostless Playback",
+			.rates = SNDRV_PCM_RATE_8000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.channels_min = 1,
+			.channels_max = 1,
+			.rate_min =     8000,
+			.rate_max =     8000,
+		},
+		.capture = {
+			.stream_name = "AUXPCM Hostless Capture",
+			.rates = SNDRV_PCM_RATE_8000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.channels_min = 1,
+			.channels_max = 1,
+			.rate_min =     8000,
+			.rate_max =    48000,
+		},
+		.ops = &msm_fe_dai_ops,
+		.name = "AUXPCM_HOSTLESS",
 	},
 };
 

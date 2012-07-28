@@ -17,6 +17,7 @@
 #include <linux/sched.h>
 
 #include <mach/socinfo.h>
+#include <mach/debug_display.h>
 
 #include "kgsl.h"
 #include "kgsl_pwrscale.h"
@@ -374,7 +375,7 @@ adreno_getchipid(struct kgsl_device *device)
 	* adreno 22x gpus are indicated by coreid 2,
 	* but REG_RBBM_PERIPHID1 always contains 0 for this field
 	*/
-	if (cpu_is_msm8960() || cpu_is_msm8x60() || cpu_is_msm8930())
+	if (cpu_is_msm8960() || cpu_is_msm8x60())
 		chipid = 2 << 24;
 	else
 		chipid = (coreid & 0xF) << 24;
@@ -460,7 +461,13 @@ adreno_probe(struct platform_device *pdev)
 	adreno_debugfs_init(device);
 
 	kgsl_pwrscale_init(device);
-	kgsl_pwrscale_attach_policy(device, ADRENO_DEFAULT_PWRSCALE_POLICY);
+	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 3) {
+		PR_DISP_INFO("V3 chip, enable GPU DCVS\n");
+		kgsl_pwrscale_attach_policy(device, &kgsl_pwrscale_policy_tz);
+	} else {
+		PR_DISP_INFO("V1/V2 chip, disable GPU DCVS\n");
+		kgsl_pwrscale_attach_policy(device, NULL);
+	}
 
 	device->flags &= ~KGSL_FLAGS_SOFT_RESET;
 	return 0;
@@ -554,7 +561,7 @@ static int adreno_start(struct kgsl_device *device, unsigned int init_ram)
 	adreno_regwrite(device, REG_SQ_VS_PROGRAM, 0x00000000);
 	adreno_regwrite(device, REG_SQ_PS_PROGRAM, 0x00000000);
 
-	if (cpu_is_msm8960() || cpu_is_msm8930())
+	if (cpu_is_msm8960())
 		adreno_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0x200);
 	else
 		adreno_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0);
@@ -750,6 +757,15 @@ adreno_dump_and_recover(struct kgsl_device *device)
 		else
 			kgsl_pwrctrl_set_state(device, KGSL_STATE_ACTIVE);
 		complete_all(&device->recovery_gate);
+
+		/* HTC: Always trigger system panic for GPU Hang problem */
+		if (result) {
+			hr_msleep(10000);
+			panic("GPU Hang");
+		} else {
+			hr_msleep(1000);
+			pr_warn("Recoverable GPU Hang (skipped)\n");
+		}
 	}
 done:
 	return result;
@@ -972,8 +988,7 @@ const struct kgsl_memdesc *adreno_find_region(struct kgsl_device *device,
 		if (!kgsl_mmu_pt_equal(priv->pagetable, pt_base))
 			continue;
 		spin_lock(&priv->mem_lock);
-		entry = kgsl_sharedmem_find_region(priv, gpuaddr,
-						sizeof(unsigned int));
+		entry = kgsl_sharedmem_find_region(priv, gpuaddr, size);
 		if (entry) {
 			result = &entry->memdesc;
 			spin_unlock(&priv->mem_lock);
@@ -983,15 +998,6 @@ const struct kgsl_memdesc *adreno_find_region(struct kgsl_device *device,
 		spin_unlock(&priv->mem_lock);
 	}
 	mutex_unlock(&kgsl_driver.process_mutex);
-
-	BUG_ON(!mutex_is_locked(&device->mutex));
-	list_for_each_entry(entry, &device->memqueue, list) {
-		if (kgsl_gpuaddr_in_memdesc(&entry->memdesc, gpuaddr, size)) {
-			result = &entry->memdesc;
-			return result;
-		}
-
-	}
 
 	while (1) {
 		struct adreno_context *adreno_context = NULL;
@@ -1110,6 +1116,7 @@ static int kgsl_check_interrupt_timestamp(struct kgsl_device *device,
 			cmds[1] = 0;
 			adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_NONE,
 				&cmds[0], 2);
+
 		}
 		mutex_unlock(&device->mutex);
 	}
@@ -1166,56 +1173,57 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 	msecs_first = (msecs <= 100) ? ((msecs + 4) / 5) : 100;
 	msecs_part = (msecs - msecs_first + 3) / 4;
 	for (retries = 0; retries < 5; retries++) {
-		if (kgsl_check_timestamp(device, timestamp)) {
-			/* if the timestamp happens while we're not
-			 * waiting, there's a chance that an interrupt
-			 * will not be generated and thus the timestamp
-			 * work needs to be queued.
+		if (!kgsl_check_timestamp(device, timestamp)) {
+			adreno_poke(device);
+			io_cnt = (io_cnt + 1) % 100;
+			if (io_cnt <
+				pwr->pwrlevels[pwr->active_pwrlevel].
+					io_fraction)
+				io = 0;
+			mutex_unlock(&device->mutex);
+			/* We need to make sure that the process is
+			 * placed in wait-q before its condition is called
 			 */
-			queue_work(device->work_queue, &device->ts_expired_ws);
-			status = 0;
-			goto done;
-		}
-		adreno_poke(device);
-		io_cnt = (io_cnt + 1) % 100;
-		if (io_cnt <
-		    pwr->pwrlevels[pwr->active_pwrlevel].io_fraction)
-			io = 0;
-		mutex_unlock(&device->mutex);
-		/* We need to make sure that the process is
-		 * placed in wait-q before its condition is called
-		 */
-		status = kgsl_wait_event_interruptible_timeout(
-				device->wait_queue,
-				kgsl_check_interrupt_timestamp(device,
-					timestamp),
-				msecs_to_jiffies(retries ?
-					msecs_part : msecs_first), io);
-		mutex_lock(&device->mutex);
+			status = kgsl_wait_event_interruptible_timeout(
+					device->wait_queue,
+					kgsl_check_interrupt_timestamp(device,
+						timestamp),
+					msecs_to_jiffies(retries ?
+						msecs_part : msecs_first), io);
+			mutex_lock(&device->mutex);
 
-		if (status > 0) {
-			/*completed before the wait finished */
-			status = 0;
-			goto done;
-		} else if (status < 0) {
-			/*an error occurred*/
-			goto done;
+			if (status > 0) {
+				/*completed before the wait finished */
+				status = 0;
+				goto done;
+			} else if (status < 0) {
+				/*an error occurred*/
+				goto done;
+			}
+			/*this wait timed out*/
 		}
-		/*this wait timed out*/
 	}
-	status = -ETIMEDOUT;
-	KGSL_DRV_ERR(device,
-		     "Device hang detected while waiting for timestamp: %x,"
-		      "last submitted(rb->timestamp): %x, wptr: %x\n",
-		      timestamp, adreno_dev->ringbuffer.timestamp,
-		      adreno_dev->ringbuffer.wptr);
-	if (!adreno_dump_and_recover(device)) {
-		/* wait for idle after recovery as the
-		 * timestamp that this process wanted
-		 * to wait on may be invalid */
-		if (!adreno_idle(device, KGSL_TIMEOUT_DEFAULT))
-			status = 0;
+	if (!kgsl_check_timestamp(device, timestamp)) {
+		status = -ETIMEDOUT;
+		KGSL_DRV_ERR(device,
+			"Device hang detected while waiting "
+			"for timestamp: %x, last "
+			"submitted(rb->timestamp): %x, wptr: "
+			"%x\n", timestamp,
+			adreno_dev->ringbuffer.timestamp,
+			adreno_dev->ringbuffer.wptr);
+		if (!adreno_dump_and_recover(device)) {
+			/* wait for idle after recovery as the
+			 * timestamp that this process wanted
+			 * to wait on may be invalid */
+			if (!adreno_idle(device,
+				KGSL_TIMEOUT_DEFAULT))
+				status = 0;
+		}
+	} else {
+		status = 0;
 	}
+
 done:
 	return (int)status;
 }

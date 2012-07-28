@@ -1530,8 +1530,6 @@ static int snd_compressed_ioctl(struct snd_pcm_substream *substream,
 	if (PCM_RUNTIME_CHECK(substream))
 		return -ENXIO;
 	runtime = substream->runtime;
-	if (runtime->status->state != SNDRV_PCM_STATE_OPEN)
-		return -EBADFD;
 	pr_err("%s called with cmd = %d\n", __func__, cmd);
 	err = substream->ops->ioctl(substream, cmd, arg);
 	return err;
@@ -2527,6 +2525,13 @@ static int snd_pcm_tstamp(struct snd_pcm_substream *substream, int __user *_arg)
 	return 0;
 }
 		
+
+static int snd_pcm_enable_effect(struct snd_pcm_substream *substream, int __user *_arg)
+{
+	pr_info("%s: is called\n", __func__);
+	return substream->ops->ioctl(substream, SNDRV_PCM_IOCTL1_ENABLE_EFFECT, _arg);
+}
+
 static int snd_pcm_common_ioctl1(struct file *file,
 				 struct snd_pcm_substream *substream,
 				 unsigned int cmd, void __user *arg)
@@ -2590,6 +2595,8 @@ static int snd_pcm_common_ioctl1(struct file *file,
 		snd_pcm_stream_unlock_irq(substream);
 		return res;
 	}
+	case SNDRV_PCM_IOCTL_ENABLE_EFFECT:
+		return snd_pcm_enable_effect(substream, arg);
 	case SNDRV_COMPRESS_GET_CAPS:
 	case SNDRV_COMPRESS_GET_CODEC_CAPS:
 	case SNDRV_COMPRESS_SET_PARAMS:

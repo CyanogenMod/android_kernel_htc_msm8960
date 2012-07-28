@@ -18,8 +18,10 @@
 #include <linux/gpio_event.h>
 #include <linux/interrupt.h>
 #include <linux/slab.h>
+#include <mach/board.h>
 
 struct gpio_axis_state {
+	int debug_log;
 	struct gpio_event_input_devs *input_devs;
 	struct gpio_event_axis_info *info;
 	uint32_t pos;
@@ -69,8 +71,8 @@ static void gpio_event_update_axis(struct gpio_axis_state *as, int report)
 	for (i = ai->count - 1; i >= 0; i--)
 		state = (state << 1) | gpio_get_value(ai->gpio[i]);
 	pos = ai->map(ai, state);
-	if (ai->flags & GPIOEAF_PRINT_RAW)
-		pr_info("axis %d-%d raw %x, pos %d -> %d\n",
+	if ((ai->flags & GPIOEAF_PRINT_RAW) && (as->debug_log))
+		KEY_LOGD("axis %d-%d raw %x, pos %d -> %d\n",
 			ai->type, ai->code, state, old_pos, pos);
 	if (report && pos != old_pos) {
 		if (ai->type == EV_REL) {
@@ -79,20 +81,20 @@ static void gpio_event_update_axis(struct gpio_axis_state *as, int report)
 			if (change > ai->decoded_size / 2)
 				change -= ai->decoded_size;
 			if (change == ai->decoded_size / 2) {
-				if (ai->flags & GPIOEAF_PRINT_EVENT)
-					pr_info("axis %d-%d unknown direction, "
+				if ((ai->flags & GPIOEAF_PRINT_EVENT) && (as->debug_log))
+					KEY_LOGD("axis %d-%d unknown direction, "
 						"pos %d -> %d\n", ai->type,
 						ai->code, old_pos, pos);
 				change = 0; /* no closest direction */
 			}
-			if (ai->flags & GPIOEAF_PRINT_EVENT)
-				pr_info("axis %d-%d change %d\n",
+			if ((ai->flags & GPIOEAF_PRINT_EVENT) && (as->debug_log))
+				KEY_LOGD("axis %d-%d change %d\n",
 					ai->type, ai->code, change);
 			input_report_rel(as->input_devs->dev[ai->dev],
 						ai->code, change);
 		} else {
-			if (ai->flags & GPIOEAF_PRINT_EVENT)
-				pr_info("axis %d-%d now %d\n",
+			if ((ai->flags & GPIOEAF_PRINT_EVENT) && (as->debug_log))
+				KEY_LOGD("axis %d-%d now %d\n",
 					ai->type, ai->code, pos);
 			input_event(as->input_devs->dev[ai->dev],
 					ai->type, ai->code, pos);
@@ -136,10 +138,15 @@ int gpio_event_axis_func(struct gpio_event_input_devs *input_devs,
 			ret = -ENOMEM;
 			goto err_alloc_axis_state_failed;
 		}
+		if (board_build_flag() == 0)
+			as->debug_log = 0;
+		else
+			as->debug_log = 1;
+
 		as->input_devs = input_devs;
 		as->info = ai;
 		if (ai->dev >= input_devs->count) {
-			pr_err("gpio_event_axis: bad device index %d >= %d "
+			KEY_LOGE("gpio_event_axis: bad device index %d >= %d "
 				"for %d:%d\n", ai->dev, input_devs->count,
 				ai->type, ai->code);
 			ret = -EINVAL;

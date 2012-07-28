@@ -10,9 +10,11 @@
  * GNU General Public License for more details.
  *
  */
+#include <linux/ion.h>
 #include <mach/msm_memtypes.h>
 #include "vcd_ddl.h"
 #include "vcd_ddl_shared_mem.h"
+
 
 struct ddl_context *ddl_get_context(void)
 {
@@ -253,6 +255,15 @@ u32 ddl_decoder_dpb_init(struct ddl_client_context *ddl)
 				memset(frame[i].vcd_frm.virtual + luma_size,
 					 0x80808080,
 					frame[i].vcd_frm.alloc_len - luma_size);
+				if (frame[i].vcd_frm.ion_flag == CACHED) {
+					clean_and_invalidate_caches(
+					(unsigned long)frame[i].
+					vcd_frm.virtual,
+					(unsigned long)frame[i].
+					vcd_frm.alloc_len,
+					(unsigned long)frame[i].
+					vcd_frm.physical);
+				}
 			} else {
 				DDL_MSG_ERROR("luma size error");
 				return VCD_ERR_FAIL;
@@ -850,49 +861,49 @@ u32 ddl_allocate_enc_hw_buffers(struct ddl_client_context *ddl)
 				status = VCD_ERR_ALLOC_FAIL;
 		}
 		if (buf_size.sz_col_zero > 0) {
-			enc_bufs->col_zero.mem_type = DDL_MM_MEM;
+			enc_bufs->col_zero.mem_type = DDL_CMD_MEM;
 			ptr = ddl_pmem_alloc(&enc_bufs->col_zero,
 				buf_size.sz_col_zero, DDL_KILO_BYTE(2));
 		if (!ptr)
 			status = VCD_ERR_ALLOC_FAIL;
 		}
 		if (buf_size.sz_md > 0) {
-			enc_bufs->md.mem_type = DDL_MM_MEM;
+			enc_bufs->md.mem_type = DDL_CMD_MEM;
 			ptr = ddl_pmem_alloc(&enc_bufs->md, buf_size.sz_md,
 				DDL_KILO_BYTE(2));
 			if (!ptr)
 				status = VCD_ERR_ALLOC_FAIL;
 		}
 		if (buf_size.sz_pred > 0) {
-			enc_bufs->pred.mem_type = DDL_MM_MEM;
+			enc_bufs->pred.mem_type = DDL_CMD_MEM;
 			ptr = ddl_pmem_alloc(&enc_bufs->pred,
 				buf_size.sz_pred, DDL_KILO_BYTE(2));
 			if (!ptr)
 				status = VCD_ERR_ALLOC_FAIL;
 		}
 		if (buf_size.sz_nbor_info > 0) {
-			enc_bufs->nbor_info.mem_type = DDL_MM_MEM;
+			enc_bufs->nbor_info.mem_type = DDL_CMD_MEM;
 			ptr = ddl_pmem_alloc(&enc_bufs->nbor_info,
 				buf_size.sz_nbor_info, DDL_KILO_BYTE(2));
 			if (!ptr)
 				status = VCD_ERR_ALLOC_FAIL;
 		}
 		if (buf_size.sz_acdc_coef > 0) {
-			enc_bufs->acdc_coef.mem_type = DDL_MM_MEM;
+			enc_bufs->acdc_coef.mem_type = DDL_CMD_MEM;
 			ptr = ddl_pmem_alloc(&enc_bufs->acdc_coef,
 				buf_size.sz_acdc_coef, DDL_KILO_BYTE(2));
 			if (!ptr)
 				status = VCD_ERR_ALLOC_FAIL;
 		}
 		if (buf_size.sz_mb_info > 0) {
-			enc_bufs->mb_info.mem_type = DDL_MM_MEM;
+			enc_bufs->mb_info.mem_type = DDL_CMD_MEM;
 			ptr = ddl_pmem_alloc(&enc_bufs->mb_info,
 				buf_size.sz_mb_info, DDL_KILO_BYTE(2));
 			if (!ptr)
 				status = VCD_ERR_ALLOC_FAIL;
 		}
 		if (buf_size.sz_context > 0) {
-			enc_bufs->context.mem_type = DDL_MM_MEM;
+			enc_bufs->context.mem_type = DDL_CMD_MEM;
 			ptr = ddl_pmem_alloc(&enc_bufs->context,
 				buf_size.sz_context, DDL_KILO_BYTE(2));
 			if (!ptr)

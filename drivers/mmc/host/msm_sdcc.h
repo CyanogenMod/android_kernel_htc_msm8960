@@ -210,13 +210,17 @@
 
 #define NR_SG		128
 
-#define MSM_MMC_IDLE_TIMEOUT	5000 /* msecs */
+#ifdef CONFIG_WIMAX
+#define MSM_MMC_WIMAX_IDLE_TIMEOUT	1000 /* msecs */
+#endif
 
+#define MSM_MMC_IDLE_TIMEOUT	250 /* msecs */
+#define MSM_EMMC_IDLE_TIMEOUT	20 /* msecs */
 /*
  * Set the request timeout to 10secs to allow
  * bad cards/controller to respond.
  */
-#define MSM_MMC_REQ_TIMEOUT	10000 /* msecs */
+#define MSM_MMC_REQ_TIMEOUT	5000 /* msecs */
 #define MSM_MMC_DISABLE_TIMEOUT        200 /* msecs */
 
 /*
@@ -356,6 +360,9 @@ struct msmsdcc_host {
 	u32			sdcc_version;
 
 	unsigned int		oldstat;
+#ifdef CONFIG_WIMAX
+    unsigned long       irq_time;
+#endif
 
 	struct msmsdcc_dma_data	dma;
 	struct msmsdcc_sps_data sps;
@@ -398,27 +405,41 @@ struct msmsdcc_host {
 	bool sdio_gpio_lpm;
 	bool irq_wake_enabled;
 	struct pm_qos_request_list pm_qos_req_dma;
+	unsigned int	use_pio;
+
+	unsigned int	irq_status[5];
+	unsigned int	irq_counter;
+
+#ifdef CONFIG_WIMAX
+    bool        is_runtime_resumed;
+#endif
 };
 
 int msmsdcc_set_pwrsave(struct mmc_host *mmc, int pwrsave);
-int msmsdcc_sdio_al_lpm(struct mmc_host *mmc, bool enable);
+int msmsdcc_sdio_al_lpm(struct mmc_host *mmc, bool enable, int wlock_timeout);
 
 #ifdef CONFIG_MSM_SDIO_AL
 
 static inline int msmsdcc_lpm_enable(struct mmc_host *mmc)
 {
-	return msmsdcc_sdio_al_lpm(mmc, true);
+	return msmsdcc_sdio_al_lpm(mmc, true, 1);
 }
 
 static inline int msmsdcc_lpm_disable(struct mmc_host *mmc)
 {
-	struct msmsdcc_host *host = mmc_priv(mmc);
-	int ret;
-
-	ret = msmsdcc_sdio_al_lpm(mmc, false);
-	wake_unlock(&host->sdio_wlock);
-	return ret;
+	return msmsdcc_sdio_al_lpm(mmc, false, 1);
 }
+#endif
+
+#ifdef CONFIG_WIMAX
+extern int mmc_wimax_get_status(void);
+extern void mmc_wimax_enable_host_wakeup(int on);
+extern int mmc_wimax_get_irq_log(void);
+
+extern void mmc_wimax_set_FWWakeupHostEvent(int on);
+extern int mmc_wimax_get_FWWakeupHostEvent(void);
+
+extern int mmc_wimax_get_disable_irq_config(void);
 #endif
 
 #endif

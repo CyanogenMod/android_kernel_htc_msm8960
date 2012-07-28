@@ -21,9 +21,9 @@
 #include <linux/interrupt.h>
 #include <linux/memory_alloc.h>
 #include <asm/sizes.h>
+#include <media/msm/vidc_init.h>
 #include "vidc.h"
 #include "vcd_res_tracker.h"
-#include "vidc_init.h"
 
 static unsigned int vidc_clk_table[3] = {
 	48000000, 133330000, 200000000
@@ -436,6 +436,7 @@ int res_trk_update_bus_perf_level(struct vcd_dev_ctxt *dev_ctxt, u32 perf_level)
 
 	if (dev_ctxt->reqd_perf_lvl + dev_ctxt->curr_perf_lvl == 0)
 		bus_clk_index = 2;
+
 	bus_clk_index = (bus_clk_index << 1) + (client_type + 1);
 	VCDRES_MSG_LOW("%s(), bus_clk_index = %d", __func__, bus_clk_index);
 	VCDRES_MSG_LOW("%s(),context.pcl = %x", __func__, resource_context.pcl);
@@ -637,7 +638,7 @@ int res_trk_get_mem_type(void)
 		if (res_trk_check_for_sec_session())
 			mem_type = resource_context.cmd_mem_type;
 		else
-			mem_type = resource_context.memtype;
+			mem_type = resource_context.cmd_mem_type;
 		break;
 	default:
 		return mem_type;

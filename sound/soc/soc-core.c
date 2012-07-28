@@ -790,7 +790,9 @@ int soc_pcm_close(struct snd_pcm_substream *substream)
 
 	if (platform->driver->ops && platform->driver->ops->close)
 		platform->driver->ops->close(substream);
+
 	cpu_dai->runtime = NULL;
+	printk(KERN_INFO "[AUD] soc_pcm_close(), set runtume null\n");
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		/* start delayed pop wq here for playback streams */
@@ -1144,6 +1146,11 @@ int snd_soc_suspend(struct device *dev)
 	struct snd_soc_codec *codec;
 	int i;
 
+	if (!card->instantiated) {
+		dev_dbg(card->dev, "uninsantiated card found card->name = %s\n",
+			card->name);
+		return 0;
+	}
 	/* If the initialization of this soc device failed, there is no codec
 	 * associated with it. Just bail out in this case.
 	 */
@@ -1212,6 +1219,11 @@ int snd_soc_suspend(struct device *dev)
 
 	/* close any waiting streams and save state */
 	for (i = 0; i < card->num_rtd; i++) {
+		/* do not flush delayed work to trigger DAPM when DAi is ignore_suspend */
+		if (card->rtd[i].dai_link->ignore_suspend ||
+				card->rtd[i].dai_link->no_pcm)
+			continue;
+
 		flush_delayed_work_sync(&card->rtd[i].delayed_work);
 		card->rtd[i].codec->dapm.suspend_bias_level = card->rtd[i].codec->dapm.bias_level;
 	}
@@ -1397,6 +1409,11 @@ int snd_soc_resume(struct device *dev)
 	struct snd_soc_card *card = dev_get_drvdata(dev);
 	int i, ac97_control = 0;
 
+	if (!card->instantiated) {
+		dev_dbg(card->dev, "uninsantiated card found card->name = %s\n",
+			card->name);
+		return 0;
+	}
 	/* AC97 devices might have other drivers hanging off them so
 	 * need to resume immediately.  Other drivers don't have that
 	 * problem and may take a substantial amount of time to resume

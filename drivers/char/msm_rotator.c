@@ -29,12 +29,14 @@
 #include <linux/major.h>
 #include <linux/regulator/consumer.h>
 #include <linux/ion.h>
+#include <linux/wakelock.h>
 #ifdef CONFIG_MSM_BUS_SCALING
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
 #endif
 
 #define DRIVER_NAME "msm_rotator"
+
 
 #define MSM_ROTATOR_BASE (msm_rotator_dev->io_base)
 #define MSM_ROTATOR_INTR_ENABLE			(MSM_ROTATOR_BASE+0x0020)
@@ -139,6 +141,7 @@ struct msm_rotator_dev {
 #define COMPONENT_8BITS 3
 
 static struct msm_rotator_dev *msm_rotator_dev;
+static struct wake_lock idlelock;
 
 enum {
 	CLK_EN,
@@ -569,18 +572,11 @@ static int msm_rotator_ycrycb(struct msm_rotator_img_info *info,
 			      unsigned int in_paddr,
 			      unsigned int out_paddr,
 			      unsigned int use_imem,
-			      int new_session,
-			      unsigned int out_chroma_paddr)
+			      int new_session)
 {
 	int bpp;
-	uint32_t dst_format;
 
-	if (info->src.format == MDP_YCRYCB_H2V1)
-		dst_format = MDP_Y_CRCB_H2V1;
-	else
-		return -EINVAL;
-
-	if (info->dst.format != dst_format)
+	if (info->src.format != info->dst.format)
 		return -EINVAL;
 
 	bpp = get_bpp(info->src.format);
@@ -591,25 +587,15 @@ static int msm_rotator_ycrycb(struct msm_rotator_img_info *info,
 	iowrite32(out_paddr +
 			((info->dst_y * info->dst.width) + info->dst_x),
 		  MSM_ROTATOR_OUTP0_ADDR);
-	iowrite32(out_chroma_paddr +
-			((info->dst_y * info->dst.width)/2 + info->dst_x),
-		  MSM_ROTATOR_OUTP1_ADDR);
 
 	if (new_session) {
-		iowrite32(info->src.width * bpp,
+		iowrite32(info->src.width,
 			  MSM_ROTATOR_SRC_YSTRIDE1);
-		if (info->rotations & MDP_ROT_90)
-			iowrite32(info->dst.width |
-				  (info->dst.width*2) << 16,
-				  MSM_ROTATOR_OUT_YSTRIDE1);
-		else
-			iowrite32(info->dst.width |
-				  (info->dst.width) << 16,
-				  MSM_ROTATOR_OUT_YSTRIDE1);
-
+		iowrite32(info->dst.width,
+			  MSM_ROTATOR_OUT_YSTRIDE1);
 		iowrite32(GET_PACK_PATTERN(CLR_Y, CLR_CR, CLR_Y, CLR_CB, 8),
 			  MSM_ROTATOR_SRC_UNPACK_PATTERN1);
-		iowrite32(GET_PACK_PATTERN(0, 0, CLR_CR, CLR_CB, 8),
+		iowrite32(GET_PACK_PATTERN(CLR_Y, CLR_CR, CLR_Y, CLR_CB, 8),
 			  MSM_ROTATOR_OUT_PACK_PATTERN1);
 		iowrite32((1  << 18) | 		/* chroma sampling 1=H2V1 */
 			  (ROTATIONS_TO_BITMASK(info->rotations) << 9) |
@@ -1053,8 +1039,7 @@ static int msm_rotator_do_rotate(unsigned long arg)
 	case MDP_YCRYCB_H2V1:
 		rc = msm_rotator_ycrycb(msm_rotator_dev->img_info[s],
 				in_paddr, out_paddr, use_imem,
-				msm_rotator_dev->last_session_idx != s,
-				out_chroma_paddr);
+				msm_rotator_dev->last_session_idx != s);
 		break;
 	default:
 		rc = -EINVAL;
@@ -1071,8 +1056,13 @@ static int msm_rotator_do_rotate(unsigned long arg)
 	msm_rotator_dev->processing = 1;
 	iowrite32(0x1, MSM_ROTATOR_START);
 
+	wake_lock(&idlelock);
+
 	wait_event(msm_rotator_dev->wq,
 		   (msm_rotator_dev->processing == 0));
+
+	wake_unlock(&idlelock);
+
 	status = (unsigned char)ioread32(MSM_ROTATOR_INTR_STATUS);
 	if ((status & 0x03) != 0x01)
 		rc = -EFAULT;
@@ -1308,7 +1298,7 @@ msm_rotator_open(struct inode *inode, struct file *filp)
 	if (i == MAX_SESSIONS)
 		return -EBUSY;
 
-	filp->private_data = (void *)current->pid;
+	filp->private_data = (void *)filp;
 
 	return 0;
 }
@@ -1394,6 +1384,7 @@ static int __devinit msm_rotator_probe(struct platform_device *pdev)
 	msm_rotator_dev->imem_clk_state = CLK_DIS;
 	INIT_DELAYED_WORK(&msm_rotator_dev->imem_clk_work,
 			  msm_rotator_imem_clk_work_f);
+	wake_lock_init(&idlelock, WAKE_LOCK_IDLE, "display_rotator_idle");
 	msm_rotator_dev->imem_clk = NULL;
 	msm_rotator_dev->pdev = pdev;
 

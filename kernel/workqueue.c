@@ -44,6 +44,28 @@
 
 #include "workqueue_sched.h"
 
+#define WQ_NAME			"events"
+#define WQ_HIST_LEN			(20)
+
+
+static int wq_pos = 0;
+static unsigned long wq_hist[WQ_HIST_LEN];
+int print_workqueue(void)
+{
+	char func_sym[KSYM_SYMBOL_LEN];
+	int i = wq_pos, count = 0;
+
+	do {
+		sprint_symbol(func_sym, wq_hist[i]);
+		printk(KERN_INFO "[wq_list] %s[%d]: %s\n", WQ_NAME, count--, func_sym);
+
+		if (--i < 0)
+			i = WQ_HIST_LEN - 1;
+	} while (wq_pos != i);
+
+	return 0;
+}
+
 enum {
 	/* global_cwq flags */
 	GCWQ_MANAGE_WORKERS	= 1 << 0,	/* need to manage workers */
@@ -137,6 +159,7 @@ struct worker {
 	unsigned int		flags;		/* X: flags */
 	int			id;		/* I: worker id */
 	struct work_struct	rebind_work;	/* L: rebind worker to cpu */
+	struct work_struct	*previous_work;	/* HTC: previous processed work */
 };
 
 /*
@@ -1893,6 +1916,7 @@ __acquires(&gcwq->lock)
 	/* we're done with it, release */
 	hlist_del_init(&worker->hentry);
 	worker->current_work = NULL;
+	worker->previous_work = work;
 	worker->current_cwq = NULL;
 	cwq_dec_nr_in_flight(cwq, work_color, false);
 }

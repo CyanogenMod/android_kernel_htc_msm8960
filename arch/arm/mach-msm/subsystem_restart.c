@@ -34,6 +34,11 @@
 
 #include "smd_private.h"
 
+#include <mach/restart.h>
+#include <mach/board_htc.h>
+#include <mach/msm_smsm.h>
+#include <mach/pm.h>
+
 struct subsys_soc_restart_order {
 	const char * const *subsystem_list;
 	int count;
@@ -56,6 +61,13 @@ struct restart_log {
 
 static int restart_level;
 static int enable_ramdumps;
+static wait_queue_head_t subsystem_restart_wq;
+static char subsystem_restart_reason[256];
+
+static enum {
+	SUBSYSTEM_RESTART_STATE_NONE,
+	SUBSYSTEM_RESTART_STATE_ACTION,
+} subsystem_restart_state;
 
 static LIST_HEAD(restart_log_list);
 static LIST_HEAD(subsystem_list);
@@ -114,6 +126,15 @@ int get_restart_level()
 }
 EXPORT_SYMBOL(get_restart_level);
 
+int ssr_have_set_restart_reason;
+
+void ssr_set_restart_reason(char *reason)
+{
+	set_ramdump_reason(reason);
+	ssr_have_set_restart_reason = 1;
+}
+EXPORT_SYMBOL(ssr_set_restart_reason);
+
 static void restart_level_changed(void)
 {
 	struct subsys_data *subsys;
@@ -158,6 +179,10 @@ static int restart_level_set(const char *val, struct kernel_param *kp)
 
 	case RESET_SUBSYS_MIXED:
 		pr_info("Phase 2+ behavior activated.\n");
+	break;
+
+	case RESET_NONE:
+		pr_info("Subsystem restart deactivated\n");
 	break;
 
 	default:
@@ -359,7 +384,7 @@ static int subsystem_restart_thread(void *data)
 	mutex_lock(&soc_order_reg_lock);
 
 	pr_debug("[%p]: Starting restart sequence for %s\n", current,
-			r_work->subsys->name);
+		r_work->subsys->name);
 
 	_send_notification_to_order(restart_list,
 				restart_list_count,
@@ -410,12 +435,29 @@ static int subsystem_restart_thread(void *data)
 			continue;
 
 		pr_info("[%p]: Powering up %s\n", current,
-					restart_list[i]->name);
+			restart_list[i]->name);
+
+		/* QCA debug + */
+		if (strcmp(restart_list[i]->name, "riva")==0) {
+			pr_info("[WLAN][%p]: delay 1 seconds calling power up callback %s\n", current,
+			restart_list[i]->name);
+			mdelay(1000);
+		}
+		/* QCA debug - */
 
 		if (restart_list[i]->powerup(subsys) < 0)
 			panic("%s[%p]: Failed to powerup %s!", __func__,
 				current, restart_list[i]->name);
+
+		/* QCA debug + */
+		if (strcmp(restart_list[i]->name, "riva")==0) {
+			pr_info("[WLAN][%p]: Powering up finished. delay 1 seconds %s\n", current,
+			restart_list[i]->name);
+			mdelay(1000);
+		}
+		/* QCA debug - */
 	}
+
 
 	_send_notification_to_order(restart_list,
 				restart_list_count,
@@ -439,6 +481,7 @@ int subsystem_restart(const char *subsys_name)
 	struct subsys_data *subsys;
 	struct task_struct *tsk;
 	struct restart_thread_data *data = NULL;
+	char restart_reason[256];
 
 	if (!subsys_name) {
 		pr_err("Invalid subsystem name.\n");
@@ -458,19 +501,32 @@ int subsystem_restart(const char *subsys_name)
 		return -EINVAL;
 	}
 
-	if (restart_level != RESET_SOC) {
-		data = kzalloc(sizeof(struct restart_thread_data), GFP_KERNEL);
-		if (!data) {
+	if (restart_level != RESET_SOC && restart_level != RESET_NONE) {
+		/* Check independent SSR enable status here */
+#if defined(CONFIG_MSM_SSR_INDEPENDENT)
+		if ((!subsys->enable_ssr) ||
+			((get_radio_flag() & 0x8) && (!(get_kernel_flag() & KERNEL_FLAG_ENABLE_SSR_MODEM)) && (!strncmp(subsys_name, "modem", SUBSYS_NAME_MAX_LENGTH))) ||
+			(get_restart_reason() == RESTART_REASON_RIL_FATAL)) {
+#else
+		if (!subsys->enable_ssr) {
+#endif
 			restart_level = RESET_SOC;
-			pr_warn("Failed to alloc restart data. Resetting.\n");
+			pr_warn("%s: %s did not enable SSR, reset SOC instead.\n",
+				__func__, subsys_name);
 		} else {
-			if (restart_level == RESET_SUBSYS_COUPLED ||
-					restart_level == RESET_SUBSYS_MIXED)
-				data->coupled = 1;
-			else
-				data->coupled = 0;
+			data = kzalloc(sizeof(struct restart_thread_data), GFP_KERNEL);
+			if (!data) {
+				restart_level = RESET_SOC;
+				pr_warn("Failed to alloc restart data. Resetting.\n");
+			} else {
+				if (restart_level == RESET_SUBSYS_COUPLED ||
+						restart_level == RESET_SUBSYS_MIXED)
+					data->coupled = 1;
+				else
+					data->coupled = 0;
 
-			data->subsys = subsys;
+				data->subsys = subsys;
+			}
 		}
 	}
 
@@ -479,8 +535,28 @@ int subsystem_restart(const char *subsys_name)
 	case RESET_SUBSYS_COUPLED:
 	case RESET_SUBSYS_MIXED:
 	case RESET_SUBSYS_INDEPENDENT:
-		pr_debug("Restarting %s [level=%d]!\n", subsys_name,
+		pr_info("Restarting %s [level=%d]!\n", subsys_name,
 				restart_level);
+
+		if (!strncmp(subsys_name, "modem",
+			SUBSYS_NAME_MAX_LENGTH)) {
+			/* If fatal was called by modem, check for reset reason in
+			 * shared memory and overwrite any current reset reason
+			 * if modem has provided a reset reason.
+			 */
+			smd_diag_ssr(subsystem_restart_reason);
+		}
+		else
+		{
+			/* Only print "<subsystem name> fatal" when no reset
+			 * reason has been set by any subsystem.
+			 */
+			sprintf(subsystem_restart_reason, "%s fatal", subsys_name);
+			pr_info("%s: %s\n", __func__, subsystem_restart_reason);
+		}
+
+		subsystem_restart_state = SUBSYSTEM_RESTART_STATE_ACTION;
+		wake_up(&subsystem_restart_wq);
 
 		/* Let the kthread handle the actual restarting. Using a
 		 * workqueue will not work since all restart requests are
@@ -497,8 +573,30 @@ int subsystem_restart(const char *subsys_name)
 		break;
 
 	case RESET_SOC:
+		/* If fatal was called by modem, check for reset reason in
+		 * shared memory and overwrite any current reset reason
+		 * if modem has provided a reset reason.
+		 */
+		if (!strncmp(subsys_name, "modem",
+			SUBSYS_NAME_MAX_LENGTH)) {
+			smd_diag();
+		}
+
+		/* Only print "<subsystem name> fatal" when no reset
+		 * reason has been set by any subsystem.
+		 */
+		if (!ssr_have_set_restart_reason) {
+			sprintf(restart_reason, "%s fatal", subsys_name);
+			ssr_set_restart_reason(restart_reason);
+		}
+
 		panic("subsys-restart: Resetting the SoC - %s crashed.",
-			subsys->name);
+				subsys->name);
+		break;
+
+	case RESET_NONE:
+		pr_info("%s: restart_level set to RESET_NONE, skip reset.\n",
+				__func__);
 		break;
 
 	default:
@@ -590,11 +688,143 @@ static int __init ssr_init_soc_restart_orders(void)
 	return 0;
 }
 
+static ssize_t subsystem_restart_reason_show(struct kobject *kobj,
+				      struct kobj_attribute *attr, char *buf)
+{
+	char *s = buf;
+	int ret;
+
+	ret = wait_event_interruptible(subsystem_restart_wq,
+				       subsystem_restart_state != SUBSYSTEM_RESTART_STATE_NONE);
+	printk(KERN_INFO "%s: state = %d", __func__, subsystem_restart_state);
+	if (ret && subsystem_restart_state == SUBSYSTEM_RESTART_STATE_NONE)
+		return ret;
+	else
+	{
+		subsystem_restart_state = SUBSYSTEM_RESTART_STATE_NONE;
+		s += sprintf(buf, subsystem_restart_reason);
+	}
+
+	printk(KERN_INFO "%s: state = %d, buf = %s", __func__, subsystem_restart_state, buf);
+	return s - buf;
+}
+
+static ssize_t subsystem_restart_modem_trigger_show(struct kobject *kobj,
+				      struct kobj_attribute *attr, char *buf)
+{
+	char *s = buf;
+	int ret = 0;
+
+       if (get_kernel_flag() & KERNEL_FLAG_ENABLE_SSR_MODEM)
+       {
+		pr_info("%s: trigger modem restart\n", __func__);
+
+		ret = smsm_change_state_ssr(SMSM_APPS_STATE, 0, SMSM_RESET, KERNEL_FLAG_ENABLE_SSR_MODEM);
+
+		if(ret == 0)
+			pr_info("%s: set smsm state SMSM_RESET success\n", __func__);
+		else
+		{
+			pr_info("%s: set smsm state SMSM_RESET faild => ret = %d\n", __func__, ret);
+			s += sprintf(buf, "Failed");
+			return s - buf;
+		}
+		s += sprintf(buf, "Success");
+       }
+	else
+	{
+		pr_info("%s: kernel_flag = 0x%X\n", __func__, (int)get_kernel_flag());
+		s += sprintf(buf, "Please check whether kernel flag 6 is 0x800");
+	}
+
+	return s - buf;
+}
+
+static ssize_t subsystem_restart_wcnss_trigger_show(struct kobject *kobj,
+				      struct kobj_attribute *attr, char *buf)
+{
+	char *s = buf;
+	int ret = 0;
+
+       if (get_kernel_flag() & KERNEL_FLAG_ENABLE_SSR_WCNSS)
+       {
+		pr_info("%s: trigger wcnss restart\n", __func__);
+
+		ret = smsm_change_state_ssr(SMSM_APPS_STATE, 0, SMSM_RESET, KERNEL_FLAG_ENABLE_SSR_WCNSS);
+
+		if(ret == 0)
+			pr_info("%s: set smsm state SMSM_RESET success\n", __func__);
+		else
+		{
+			pr_info("%s: set smsm state SMSM_RESET faild => ret = %d\n", __func__, ret);
+			s += sprintf(buf, "Failed");
+			return s - buf;
+		}
+		s += sprintf(buf, "Success");
+       }
+	else
+	{
+		pr_info("%s: kernel_flag = 0x%X\n", __func__, (int)get_kernel_flag());
+		s += sprintf(buf, "Please check whether kernel flag 6 is 0x1000");
+	}
+
+	return s - buf;
+}
+
+#define subsystem_restart_ro_attr(_name) \
+static struct kobj_attribute _name##_attr = {	\
+	.attr	= {				\
+		.name = __stringify(_name),	\
+		.mode = 0444,			\
+	},					\
+	.show	= _name##_show,			\
+	.store	= NULL,		\
+}
+
+subsystem_restart_ro_attr(subsystem_restart_reason);
+subsystem_restart_ro_attr(subsystem_restart_modem_trigger);
+subsystem_restart_ro_attr(subsystem_restart_wcnss_trigger);
+
+static struct attribute *g[] = {
+	&subsystem_restart_reason_attr.attr,
+	&subsystem_restart_modem_trigger_attr.attr,
+	&subsystem_restart_wcnss_trigger_attr.attr,
+	NULL,
+};
+
+static struct attribute_group attr_group = {
+	.attrs = g,
+};
+
 static int __init subsys_restart_init(void)
 {
 	int ret = 0;
+	struct kobject *properties_kobj;
 
+	ssr_have_set_restart_reason = 0;
+
+#if defined(CONFIG_MSM_SSR_INDEPENDENT)
+	restart_level = RESET_SUBSYS_INDEPENDENT;
+#else
 	restart_level = RESET_SOC;
+#endif
+
+	if (get_kernel_flag() & (KERNEL_FLAG_ENABLE_SSR_MODEM | KERNEL_FLAG_ENABLE_SSR_WCNSS))
+		restart_level = RESET_SUBSYS_INDEPENDENT;
+
+	pr_info("%s: restart_level set to %d, board_mfg_mode %d\n", __func__, restart_level, board_mfg_mode());
+
+	init_waitqueue_head(&subsystem_restart_wq);
+	subsystem_restart_state = SUBSYSTEM_RESTART_STATE_NONE;
+
+	properties_kobj = kobject_create_and_add("subsystem_restart_properties", NULL);
+	if (properties_kobj) {
+		ret = sysfs_create_group(properties_kobj, &attr_group);
+		if (ret) {
+			pr_err("subsys_restart_init: sysfs_create_group failed\n");
+			return ret;
+		}
+	}
 
 	ret = ssr_init_soc_restart_orders();
 

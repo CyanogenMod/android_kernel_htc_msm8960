@@ -63,22 +63,13 @@
 
 #define SSBI_TIMEOUT_US			100
 
-/* SSBI_FSM Read and Write commands for the FSM9xxx SSBI implementation */
-#define SSBI_FSM_CMD_REG_ADDR_SHFT  (0x08)
-
-#define SSBI_FSM_CMD_READ(AD) \
-	(SSBI_CMD_RDWRN | (((AD) & 0xFFFF) << SSBI_FSM_CMD_REG_ADDR_SHFT))
-
-#define SSBI_FSM_CMD_WRITE(AD, DT) \
-	((((AD) & 0xFFFF) << SSBI_FSM_CMD_REG_ADDR_SHFT) | ((DT) & 0xFF))
-
 struct msm_ssbi {
 	struct device		*dev;
 	struct device		*slave;
 	void __iomem		*base;
-	bool			 use_rlock;
+	bool			use_rlock;
 	spinlock_t		lock;
-	remote_spinlock_t	 rspin_lock;
+	remote_spinlock_t	rspin_lock;
 	enum msm_ssbi_controller_type controller_type;
 	int (*read)(struct msm_ssbi *, u16 addr, u8 *buf, int len);
 	int (*write)(struct msm_ssbi *, u16 addr, u8 *buf, int len);
@@ -125,11 +116,6 @@ msm_ssbi_read_bytes(struct msm_ssbi *ssbi, u16 addr, u8 *buf, int len)
 		ssbi_writel(ssbi, mode2, SSBI2_MODE2);
 	}
 
-	if (ssbi->controller_type == FSM_SBI_CTRL_SSBI)
-		cmd = SSBI_FSM_CMD_READ(addr);
-	else
-		cmd = SSBI_CMD_RDWRN | ((addr & 0xff) << 16);
-
 	while (len) {
 		ret = ssbi_wait_mask(ssbi, SSBI_STATUS_READY, 0);
 		if (ret)
@@ -163,13 +149,7 @@ msm_ssbi_write_bytes(struct msm_ssbi *ssbi, u16 addr, u8 *buf, int len)
 		if (ret)
 			goto err;
 
-		if (ssbi->controller_type == FSM_SBI_CTRL_SSBI)
-			ssbi_writel(ssbi, SSBI_FSM_CMD_WRITE(addr, *buf),
-				SSBI2_CMD);
-		else
-			ssbi_writel(ssbi, ((addr & 0xff) << 16) | *buf,
-				SSBI2_CMD);
-
+		ssbi_writel(ssbi, ((addr & 0xff) << 16) | *buf, SSBI2_CMD);
 		ret = ssbi_wait_mask(ssbi, 0, SSBI_STATUS_MCHN_BUSY);
 		if (ret)
 			goto err;
@@ -255,8 +235,10 @@ int msm_ssbi_read(struct device *dev, u16 addr, u8 *buf, int len)
 	unsigned long flags;
 	int ret;
 
-	if (ssbi->dev != dev)
+	if ((!ssbi) || (ssbi->dev != dev)) {
+		pr_err("[%s] Error.\n", __func__);
 		return -ENXIO;
+	}
 
 	if (ssbi->use_rlock) {
 		remote_spin_lock_irqsave(&ssbi->rspin_lock, flags);
@@ -278,8 +260,10 @@ int msm_ssbi_write(struct device *dev, u16 addr, u8 *buf, int len)
 	unsigned long flags;
 	int ret;
 
-	if (ssbi->dev != dev)
+	if ((!ssbi) || (ssbi->dev != dev)) {
+		pr_err("[%s] Error.\n", __func__);
 		return -ENXIO;
+	}
 
 	if (ssbi->use_rlock) {
 		remote_spin_lock_irqsave(&ssbi->rspin_lock, flags);

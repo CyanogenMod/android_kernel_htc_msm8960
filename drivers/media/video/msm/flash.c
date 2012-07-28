@@ -21,6 +21,7 @@
 #include <mach/pmic.h>
 #include <mach/camera.h>
 #include <mach/gpio.h>
+#include <linux/htc_flashlight.h>
 
 struct i2c_client *sx150x_client;
 struct timer_list timer_flash;
@@ -143,6 +144,46 @@ static int config_flash_gpio_table(enum msm_cam_flash_stat stat,
 		}
 	}
 	return rc;
+}
+
+int msm_camera_flash(
+	struct msm_camera_sensor_flash_src *flash_src,
+	unsigned led_state)
+{
+	int flash_level = 0;
+	pr_info("[FLT] %s state %d\n", __func__, led_state);
+
+	if (flash_src->camera_flash)
+		switch (led_state) {
+		case MSM_CAMERA_LED_HIGH:
+			flash_level = FL_MODE_FLASH;
+			break;
+		case MSM_CAMERA_LED_LOW:
+			flash_level = FL_MODE_PRE_FLASH;
+			break;
+		case MSM_CAMERA_LED_OFF:
+		case MSM_CAMERA_LED_INIT:
+		case MSM_CAMERA_LED_RELEASE:
+			flash_level = FL_MODE_OFF;
+			break;
+		case FL_MODE_TORCH_LEVEL_1:
+		case FL_MODE_TORCH_LEVEL_2:
+		case FL_MODE_FLASH_LEVEL1:
+		case FL_MODE_FLASH_LEVEL2:
+		case FL_MODE_FLASH_LEVEL3:
+		case FL_MODE_FLASH_LEVEL4:
+		case FL_MODE_FLASH_LEVEL5:
+		case FL_MODE_FLASH_LEVEL6:
+		case FL_MODE_FLASH_LEVEL7:
+
+			flash_level = led_state;
+			break;
+		default:
+			pr_err("[FLT] %s: invalid flash level %d.\n", __func__, led_state);
+			return -EINVAL;
+		}
+
+	return flash_src->camera_flash(flash_level);
 }
 
 int msm_camera_flash_current_driver(
@@ -293,7 +334,6 @@ err1:
 		if (sc628a_client) {
 			gpio_set_value_cansleep(external->led_en, 1);
 			gpio_set_value_cansleep(external->led_flash_en, 1);
-			usleep_range(2000, 3000);
 		}
 		rc = sc628a_i2c_write_b_flash(0x02, 0x06);
 		break;
@@ -302,7 +342,6 @@ err1:
 		if (sc628a_client) {
 			gpio_set_value_cansleep(external->led_en, 1);
 			gpio_set_value_cansleep(external->led_flash_en, 1);
-			usleep_range(2000, 3000);
 		}
 		rc = sc628a_i2c_write_b_flash(0x02, 0x49);
 		break;
@@ -428,9 +467,12 @@ int32_t msm_camera_flash_set_led_state(
 		break;
 
 	case MSM_CAMERA_FLASH_SRC_CURRENT_DRIVER:
-		rc = msm_camera_flash_current_driver(
-			&fdata->flash_src->_fsrc.current_driver_src,
-			led_state);
+		if (fdata->flash_src->camera_flash)
+			rc = msm_camera_flash(fdata->flash_src, led_state);
+		else
+			rc = msm_camera_flash_current_driver(
+				&fdata->flash_src->_fsrc.current_driver_src,
+				led_state);
 		break;
 
 	case MSM_CAMERA_FLASH_SRC_EXT:

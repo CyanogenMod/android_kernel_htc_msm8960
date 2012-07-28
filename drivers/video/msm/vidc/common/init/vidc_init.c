@@ -31,20 +31,20 @@
 #include <mach/clk.h>
 #include <linux/pm_runtime.h>
 #include <mach/msm_subsystem_map.h>
-#include "vcd_api.h"
+#include <media/msm/vcd_api.h>
+#include <media/msm/vidc_init.h>
 #include "vidc_init_internal.h"
-#include "vidc_init.h"
 #include "vcd_res_tracker_api.h"
 
 #if DEBUG
-#define DBG(x...) printk(KERN_DEBUG x)
+#define DBG(x...) printk(KERN_DEBUG "[VID] " x)
 #else
 #define DBG(x...)
 #endif
 
 #define VIDC_NAME "msm_vidc_reg"
 
-#define ERR(x...) printk(KERN_ERR x)
+#define ERR(x...) printk(KERN_ERR "[VID] " x)
 
 static struct vidc_dev *vidc_device_p;
 static dev_t vidc_dev_num;
@@ -63,7 +63,7 @@ struct workqueue_struct *vidc_timer_wq;
 static irqreturn_t vidc_isr(int irq, void *dev);
 static spinlock_t vidc_spin_lock;
 
-u32 vidc_msg_timing, vidc_msg_pmem;
+u32 vidc_msg_timing, vidc_msg_pmem, vidc_msg_register;
 
 #ifdef VIDC_ENABLE_DBGFS
 struct dentry *vidc_debugfs_root;
@@ -311,6 +311,8 @@ static int __init vidc_init(void)
 				(u32 *) &vidc_msg_timing);
 		vidc_debugfs_file_create(root, "vidc_msg_pmem",
 				(u32 *) &vidc_msg_pmem);
+		vidc_debugfs_file_create(root, "vidc_msg_register",
+				(u32 *) &vidc_msg_register);
 	}
 #endif
 	return 0;
@@ -363,6 +365,79 @@ void vidc_release_firmware(void)
 	mutex_unlock(&vidc_device_p->lock);
 }
 EXPORT_SYMBOL(vidc_release_firmware);
+
+u32 vidc_get_fd_info(struct video_client_ctx *client_ctx,
+		enum buffer_dir buffer, int pmem_fd,
+		unsigned long kvaddr, int index)
+{
+	struct buf_addr_table *buf_addr_table;
+	u32 rc = 0;
+	if (!client_ctx)
+		return false;
+	if (buffer == BUFFER_TYPE_INPUT)
+		buf_addr_table = client_ctx->input_buf_addr_table;
+	else
+		buf_addr_table = client_ctx->output_buf_addr_table;
+	if (buf_addr_table[index].pmem_fd == pmem_fd) {
+		if (buf_addr_table[index].kernel_vaddr == kvaddr)
+			rc = buf_addr_table[index].buff_ion_flag;
+	}
+	return rc;
+}
+EXPORT_SYMBOL(vidc_get_fd_info);
+
+void vidc_cleanup_addr_table(struct video_client_ctx *client_ctx,
+				enum buffer_dir buffer)
+{
+	u32 *num_of_buffers = NULL;
+	u32 i = 0;
+	struct buf_addr_table *buf_addr_table;
+	if (buffer == BUFFER_TYPE_INPUT) {
+		buf_addr_table = client_ctx->input_buf_addr_table;
+		num_of_buffers = &client_ctx->num_of_input_buffers;
+		DBG("%s(): buffer = INPUT\n", __func__);
+
+	} else {
+		buf_addr_table = client_ctx->output_buf_addr_table;
+		num_of_buffers = &client_ctx->num_of_output_buffers;
+		DBG("%s(): buffer = OUTPUT\n", __func__);
+	}
+
+	if (!*num_of_buffers)
+		goto bail_out_cleanup;
+	if (!client_ctx->user_ion_client)
+		goto bail_out_cleanup;
+	for (i = 0; i < *num_of_buffers; ++i) {
+		if (buf_addr_table[i].client_data) {
+			msm_subsystem_unmap_buffer(
+			(struct msm_mapped_buffer *)
+			buf_addr_table[i].client_data);
+			buf_addr_table[i].client_data = NULL;
+		}
+		if (buf_addr_table[i].buff_ion_handle) {
+			ion_unmap_kernel(client_ctx->user_ion_client,
+					buf_addr_table[i].buff_ion_handle);
+			ion_free(client_ctx->user_ion_client,
+					buf_addr_table[i].buff_ion_handle);
+			buf_addr_table[i].buff_ion_handle = NULL;
+		}
+	}
+	if (client_ctx->vcd_h264_mv_buffer.client_data) {
+		msm_subsystem_unmap_buffer((struct msm_mapped_buffer *)
+		client_ctx->vcd_h264_mv_buffer.client_data);
+		client_ctx->vcd_h264_mv_buffer.client_data = NULL;
+	}
+	if (client_ctx->h264_mv_ion_handle) {
+		ion_unmap_kernel(client_ctx->user_ion_client,
+				client_ctx->h264_mv_ion_handle);
+		ion_free(client_ctx->user_ion_client,
+				client_ctx->h264_mv_ion_handle);
+		client_ctx->h264_mv_ion_handle = NULL;
+	}
+bail_out_cleanup:
+	return;
+}
+EXPORT_SYMBOL(vidc_cleanup_addr_table);
 
 u32 vidc_lookup_addr_table(struct video_client_ctx *client_ctx,
 	enum buffer_dir buffer,
@@ -459,7 +534,7 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 	struct msm_mapped_buffer *mapped_buffer = NULL;
 	size_t ion_len;
 	struct ion_handle *buff_ion_handle = NULL;
-	unsigned long ionflag;
+	unsigned long ionflag = 0;
 
 	if (!client_ctx || !length)
 		return false;
@@ -556,10 +631,13 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 		buf_addr_table[*num_of_buffers].phy_addr = phys_addr;
 		buf_addr_table[*num_of_buffers].buff_ion_handle =
 						buff_ion_handle;
+		buf_addr_table[*num_of_buffers].buff_ion_flag =
+						ionflag;
 		*num_of_buffers = *num_of_buffers + 1;
 		DBG("%s() : client_ctx = %p, user_virt_addr = 0x%08lx, "
-			"kernel_vaddr = 0x%08lx inserted!", __func__,
-			client_ctx, user_vaddr, *kernel_vaddr);
+			"kernel_vaddr = 0x%08lx phys_addr=%lu inserted!",
+			__func__, client_ctx, user_vaddr, *kernel_vaddr,
+			phys_addr);
 	}
 	mutex_unlock(&client_ctx->enrty_queue_lock);
 	return true;

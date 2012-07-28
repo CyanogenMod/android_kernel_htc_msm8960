@@ -22,6 +22,13 @@
 #include <linux/rcupdate.h>
 #include <linux/workqueue.h>
 
+#if FD_DEBUG
+#include <mach/msm_watchdog.h>
+#include <linux/mount.h>
+
+#define FD_CHECK_CRITERION 300
+#endif
+
 struct fdtable_defer {
 	spinlock_t lock;
 	struct work_struct wq;
@@ -425,6 +432,54 @@ struct files_struct init_files = {
 	.file_lock	= __SPIN_LOCK_UNLOCKED(init_task.file_lock),
 };
 
+#if FD_DEBUG
+static void fd_print(struct files_struct *files, unsigned int fd)
+{
+	int i;
+	struct file *file_test;
+	unsigned long flag;
+
+	spin_lock_irqsave(&files->file_lock, flag);
+	for (i = 0; i < fd; i++) {
+		file_test = fcheck_files(files, i);
+		if (!file_test)
+			continue;
+		else {
+			 printk(KERN_INFO "[FD%d][PID=%d][%s][%s]\n"
+				, i
+				, file_test->record_pid
+				, file_test->f_path.dentry->d_name.name
+				, file_test->f_path.mnt->mnt_mountpoint->d_name.name
+				);
+		}
+	}
+	spin_unlock_irqrestore(&files->file_lock, flag);
+	printk(KERN_INFO "[FD] %u files print end\n", fd);
+}
+
+void fd_num_check(struct files_struct *files, unsigned int fd)
+{
+	static unsigned int fd_check = FD_CHECK_CRITERION;
+
+	if (unlikely(fd_check < fd)) {
+		fd_check += 50;
+			printk(KERN_INFO "[FD:%s] pid:%d(%s)(parent:%d/%s) now open %u files.\n"
+					 , __func__
+					 , current->pid, current->comm
+					 , current->parent->pid, current->parent->comm, fd
+					 );
+			/* Pet watchdog before printing debug FD list to prevent dogbark */
+			pet_watchdog();
+			set_dog_pet_footprint();
+			fd_print(files, fd);
+	}
+
+}
+EXPORT_SYMBOL(fd_num_check);
+#endif
+
+
+
 /*
  * allocate a file descriptor, mark it busy.
  */
@@ -476,6 +531,9 @@ repeat:
 
 out:
 	spin_unlock(&files->file_lock);
+#if FD_DEBUG
+	fd_num_check(files, fd);
+#endif
 	return error;
 }
 

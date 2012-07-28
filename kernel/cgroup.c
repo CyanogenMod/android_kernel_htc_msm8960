@@ -5054,6 +5054,8 @@ struct cgroup_subsys_state *css_lookup(struct cgroup_subsys *ss, int id)
 	if (unlikely(!cssid))
 		return NULL;
 
+	BUG_ON(!cssid->css);
+
 	return rcu_dereference(cssid->css);
 }
 EXPORT_SYMBOL_GPL(css_lookup);

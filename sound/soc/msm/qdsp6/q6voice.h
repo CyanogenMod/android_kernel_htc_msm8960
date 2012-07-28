@@ -637,6 +637,8 @@ struct cvs_start_record_cmd {
 #define VSS_MEDIA_ID_G729		0x00010FD0
 /* G.729AB (contains two 10ms vocoder frames. */
 
+#define VSS_IVOCPROC_CMD_SET_MUTE			0x000110EF
+
 #define VOICE_CMD_SET_PARAM				0x00011006
 #define VOICE_CMD_GET_PARAM				0x00011007
 #define VOICE_EVT_GET_PARAM_ACK				0x00011008
@@ -729,6 +731,22 @@ struct vss_ivocproc_cmd_register_volume_cal_table_t {
 	/* Size of the volume calibration table in bytes. */
 } __packed;
 
+struct vss_ivocproc_cmd_set_mute_t {
+	uint16_t direction;
+	/*
+	* 0 : TX only.
+	* 1 : RX only.
+	* 2 : TX and Rx.
+	*/
+	uint16_t mute_flag;
+	/*
+	* Mute, un-mute.
+	*
+	* 0 : Disable.
+	* 1 : Enable.
+	*/
+} __packed;
+
 struct cvp_create_full_ctl_session_cmd {
 	struct apr_hdr hdr;
 	struct vss_ivocproc_cmd_create_full_control_session_t cvp_session;
@@ -770,6 +788,11 @@ struct cvp_deregister_vol_cal_table_cmd {
 	struct apr_hdr hdr;
 } __packed;
 
+struct cvp_set_mute_cmd {
+	struct apr_hdr hdr;
+	struct vss_ivocproc_cmd_set_mute_t cvp_set_mute;
+} __packed;
+
 /* CB for up-link packets. */
 typedef void (*ul_cb_fn)(uint8_t *voc_pkt,
 			 uint32_t pkt_len,
@@ -785,6 +808,7 @@ struct mvs_driver_info {
 	uint32_t media_type;
 	uint32_t rate;
 	uint32_t network_type;
+	uint32_t dtx_mode;
 	ul_cb_fn ul_cb;
 	dl_cb_fn dl_cb;
 	void *private_data;
@@ -847,6 +871,11 @@ struct voice_data {
 	struct voice_rec_route_state rec_route_state;
 };
 
+struct cal_mem {
+	uint32_t phy;
+	void *buf;
+};
+
 #define MAX_VOC_SESSIONS 2
 #define SESSION_ID_BASE 0xFFF0
 
@@ -863,6 +892,9 @@ struct common_data {
 	/* APR to CVP in the Q6 */
 	void *apr_q6_cvp;
 
+	struct cal_mem cvp_cal;
+	struct cal_mem cvs_cal;
+
 	struct mutex common_lock;
 
 	struct mvs_driver_info mvs_info;
@@ -876,7 +908,8 @@ void voc_register_mvs_cb(ul_cb_fn ul_cb,
 
 void voc_config_vocoder(uint32_t media_type,
 			uint32_t rate,
-			uint32_t network_type);
+			uint32_t network_type,
+			uint32_t dtx_mode);
 
 enum {
 	DEV_RX = 0,
@@ -902,6 +935,8 @@ int voc_set_rxtx_port(uint16_t session_id,
 		      uint32_t dev_type);
 int voc_set_rx_vol_index(uint16_t session_id, uint32_t dir, uint32_t voc_idx);
 int voc_set_tx_mute(uint16_t session_id, uint32_t dir, uint32_t mute);
+int voc_set_rx_device_mute(uint16_t session_id, uint32_t mute);
+int voc_get_rx_device_mute(uint16_t session_id);
 int voc_disable_cvp(uint16_t session_id);
 int voc_enable_cvp(uint16_t session_id);
 int voc_set_route_flag(uint16_t session_id, uint8_t path_dir, uint8_t set);

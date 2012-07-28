@@ -69,12 +69,13 @@ extern uint32_t SMSM_NUM_HOSTS;
 #define SMSM_APPS_SHUTDOWN     0x00400000
 #define SMSM_SMD_LOOPBACK      0x00800000
 #define SMSM_RUN_QUIET         0x01000000
+#define SMSM_ERASE_EFS        0x01000000
 #define SMSM_MODEM_WAIT        0x02000000
 #define SMSM_MODEM_BREAK       0x04000000
 #define SMSM_MODEM_CONTINUE    0x08000000
 #define SMSM_SYSTEM_REBOOT_USR 0x20000000
 #define SMSM_SYSTEM_PWRDWN_USR 0x40000000
-#define SMSM_UNKNOWN           0x80000000
+#define SMSM_CACHE_FLUSH_DONE  0x80000000	/* Modified by HTC */
 
 #define SMSM_WKUP_REASON_RPC	0x00000001
 #define SMSM_WKUP_REASON_INT	0x00000002
@@ -99,6 +100,8 @@ void *smem_alloc2(unsigned id, unsigned size_in);
 void *smem_get_entry(unsigned id, unsigned *size);
 int smsm_change_state(uint32_t smsm_entry,
 		      uint32_t clear_mask, uint32_t set_mask);
+int smsm_change_state_ssr(uint32_t smsm_entry,
+		      uint32_t clear_mask, uint32_t set_mask, uint32_t kernel_flag);
 int smsm_change_intr_mask(uint32_t smsm_entry,
 			  uint32_t clear_mask, uint32_t set_mask);
 int smsm_get_intr_mask(uint32_t smsm_entry, uint32_t *intr_mask);

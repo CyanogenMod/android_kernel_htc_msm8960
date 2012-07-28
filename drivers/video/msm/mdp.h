@@ -42,6 +42,13 @@ extern uint32 mdp_hw_revision;
 extern ulong mdp4_display_intf;
 extern spinlock_t mdp_spin_lock;
 extern int mdp_rev;
+#if 1 /* HTC_CSP_START */
+extern atomic_t need_soft_reset;
+#endif /* HTC_CSP_END */
+
+extern struct workqueue_struct *mdp_hist_wq;
+extern struct work_struct mdp_histogram_worker;
+extern boolean mdp_is_hist_valid;
 
 #define MDP4_REVISION_V1		0
 #define MDP4_REVISION_V2		1
@@ -218,6 +225,12 @@ struct mdp_dma_data {
 	struct semaphore mutex;
 	struct completion comp;
 	struct completion dmap_comp;
+};
+
+struct mdp_reg {
+	uint32_t reg;
+	uint32_t val;
+	uint32_t mask;
 };
 
 #define MDP_CMD_DEBUG_ACCESS_BASE   (MDP_BASE+0x10000)
@@ -605,6 +618,10 @@ struct mdp_dma_data {
 #define MDP_EBI2_LCD0		(msm_mdp_base + 0x003c)
 #define MDP_EBI2_LCD1		(msm_mdp_base + 0x0040)
 #define MDP_EBI2_PORTMAP_MODE	(msm_mdp_base + 0x005c)
+
+#define MDP_DMA_P_HIST_INTR_STATUS	(msm_mdp_base + 0x94014)
+#define MDP_DMA_P_HIST_INTR_CLEAR	(msm_mdp_base + 0x94018)
+#define MDP_DMA_P_HIST_INTR_ENABLE	(msm_mdp_base + 0x9401C)
 #endif
 
 #define MDP_FULL_BYPASS_WORD43  (msm_mdp_base + 0x101ac)
@@ -715,6 +732,7 @@ unsigned long mdp_perf_level2clk_rate(uint32 perf_level);
 
 #ifdef CONFIG_MSM_BUS_SCALING
 int mdp_bus_scale_update_request(uint32_t index);
+int mdp_bus_scale_table_num(void);
 #endif
 
 #ifdef MDP_HW_VSYNC
@@ -732,6 +750,8 @@ void mdp_dma_s_update(struct msm_fb_data_type *mfd);
 int mdp_start_histogram(struct fb_info *info);
 int mdp_stop_histogram(struct fb_info *info);
 int mdp_histogram_ctrl(boolean en);
+void __mdp_histogram_kickoff(void);
+void __mdp_histogram_reset(void);
 void mdp_footswitch_ctrl(boolean on);
 
 #ifdef CONFIG_FB_MSM_MDP303

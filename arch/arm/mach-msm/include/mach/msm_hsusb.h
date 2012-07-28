@@ -156,7 +156,6 @@ struct msm_otg_platform_data {
 	/* pmic notfications apis */
 	int (*pmic_vbus_notif_init) (void (*callback)(int online), int init);
 	int (*pmic_id_notif_init) (void (*callback)(int online), int init);
-	int (*phy_id_setup_init) (int init);
 	int (*pmic_register_vbus_sn) (void (*callback)(int online));
 	void (*pmic_unregister_vbus_sn) (void (*callback)(int online));
 	int (*pmic_enable_ldo) (int);
@@ -184,5 +183,8 @@ struct msm_usb_host_platform_data {
 	int  (*vbus_init)(int init);
 	struct clk *ebi1_clk;
 };
+
+void htc_mode_enable(int enable);
+int check_htc_mode_status(void);
 
 #endif

@@ -112,6 +112,39 @@ static int __init msm_xo_debugfs_init(void)
 late_initcall(msm_xo_debugfs_init);
 #endif
 
+static void msm_xo_print_xo(struct msm_xo *xo,
+		const char *name)
+{
+	struct msm_xo_voter *voter;
+
+	if(xo->mode == MSM_XO_MODE_OFF)
+              return;
+	pr_info("%-20s%s\n", name, msm_xo_mode_to_str(xo->mode));
+	list_for_each_entry(voter, &xo->voters, list)
+		pr_info(" %s %-16s %s\n",
+				xo->mode == voter->mode ? "*" : " ",
+				voter->name,
+				msm_xo_mode_to_str(voter->mode));
+}
+
+int msm_xo_print_voters(void)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&msm_xo_lock, flags);
+	msm_xo_print_xo(&msm_xo_sources[MSM_XO_TCXO_D0], "TCXO D0");
+	msm_xo_print_xo(&msm_xo_sources[MSM_XO_TCXO_D1], "TCXO D1");
+	msm_xo_print_xo(&msm_xo_sources[MSM_XO_TCXO_A0], "TCXO A0");
+	msm_xo_print_xo(&msm_xo_sources[MSM_XO_TCXO_A1], "TCXO A1");
+	msm_xo_print_xo(&msm_xo_sources[MSM_XO_TCXO_A2], "TCXO A2");
+	msm_xo_print_xo(&msm_xo_sources[MSM_XO_CORE], "TCXO Core");
+	msm_xo_print_xo(&msm_xo_sources[MSM_XO_PXO], "PXO during sleep");
+	msm_xo_print_xo(&msm_xo_sources[MSM_XO_CXO], "CXO");
+	spin_unlock_irqrestore(&msm_xo_lock, flags);
+
+	return 0;
+}
+EXPORT_SYMBOL(msm_xo_print_voters);
 static int msm_xo_update_vote(struct msm_xo *xo)
 {
 	int ret;

@@ -43,6 +43,11 @@ struct lpass_ssr {
 
 static struct lpass_ssr lpass_ssr_8960;
 static int q6_crash_shutdown;
+#if defined (CONFIG_MSM_LPASS_SSR_ENABLE)
+static int enable_lpass_ssr = 1;
+#else
+static int enable_lpass_ssr = 0;
+#endif
 
 static int riva_notifier_cb(struct notifier_block *this, unsigned long code,
 								void *ss_handle)
@@ -70,6 +75,8 @@ static void lpass_fatal_fn(struct work_struct *work)
 {
 	pr_err("%s %s: Watchdog bite received from Q6!\n", MODULE_NAME,
 		__func__);
+	ssr_set_restart_reason(
+		"lpass fatal: Watchdog bite received from Q6!");
 	panic(MODULE_NAME ": Resetting the SoC");
 }
 
@@ -84,6 +91,8 @@ static void lpass_smsm_state_cb(void *data, uint32_t old_state,
 		pr_err("%s: LPASS SMSM state changed to SMSM_RESET,"
 			" new_state = 0x%x, old_state = 0x%x\n", __func__,
 			new_state, old_state);
+		ssr_set_restart_reason(
+			"lpass fatal: SMSM state changed to SMSM_RESET!");
 		panic(MODULE_NAME ": Resetting the SoC");
 	}
 }
@@ -157,11 +166,33 @@ static struct subsys_data lpass_8960 = {
 	.shutdown = lpass_shutdown,
 	.powerup = lpass_powerup,
 	.ramdump = lpass_ramdump,
-	.crash_shutdown = lpass_crash_shutdown
+	.crash_shutdown = lpass_crash_shutdown,
+	.enable_ssr = 0
 };
+
+static int enable_lpass_ssr_set(const char *val, struct kernel_param *kp)
+{
+	int ret;
+
+	ret = param_set_int(val, kp);
+	if (ret)
+		return ret;
+
+	if (enable_lpass_ssr)
+		pr_info(MODULE_NAME ": Subsystem restart activated for Lpass.\n");
+
+	lpass_8960.enable_ssr = enable_lpass_ssr;
+
+	return 0;
+}
+
+module_param_call(enable_lpass_ssr, enable_lpass_ssr_set, param_get_int,
+			&enable_lpass_ssr, S_IRUGO | S_IWUSR);
 
 static int __init lpass_restart_init(void)
 {
+	lpass_8960.enable_ssr = enable_lpass_ssr;
+
 	return ssr_register_subsystem(&lpass_8960);
 }
 

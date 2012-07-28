@@ -163,7 +163,7 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 	sector_t block_in_file;
 	sector_t last_block;
 	sector_t last_block_in_file;
-	sector_t blocks[MAX_BUF_PER_PAGE];
+	sector_t blocks[MAX_BUF_PER_PAGE] = { 0 };
 	unsigned page_block;
 	unsigned first_hole = blocks_per_page;
 	struct block_device *bdev = NULL;
@@ -456,7 +456,7 @@ static int __mpage_writepage(struct page *page, struct writeback_control *wbc,
 	const unsigned blocks_per_page = PAGE_CACHE_SIZE >> blkbits;
 	sector_t last_block;
 	sector_t block_in_file;
-	sector_t blocks[MAX_BUF_PER_PAGE];
+	sector_t blocks[MAX_BUF_PER_PAGE] = { 0 };
 	unsigned page_block;
 	unsigned first_unmapped = blocks_per_page;
 	struct block_device *bdev = NULL;

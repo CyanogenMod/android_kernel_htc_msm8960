@@ -37,6 +37,16 @@
 #endif
 #include "timer.h"
 
+#define WDT0_RST        0x38
+#define WDT0_EN         0x40
+#define WDT0_STS        0x44
+#define WDT0_BARK_TIME  0x4C
+#define WDT0_BITE_TIME  0x5C
+
+#define WDT_HZ          32768
+
+static void __iomem *msm_tmr0_base;
+
 enum {
 	MSM_TIMER_DEBUG_SYNC = 1U << 0,
 };
@@ -66,6 +76,7 @@ enum {
 	DGT_CLK_CTL_DIV_3 = 2,
 	DGT_CLK_CTL_DIV_4 = 3,
 };
+#define TIMER_STATUS            0x0088
 #define TIMER_ENABLE_EN              1
 #define TIMER_ENABLE_CLR_ON_MATCH_EN 2
 
@@ -102,7 +113,7 @@ enum {
 struct msm_clock {
 	struct clock_event_device   clockevent;
 	struct clocksource          clocksource;
-	unsigned int		    irq;
+	unsigned int                irq;
 	void __iomem                *regbase;
 	uint32_t                    freq;
 	uint32_t                    shift;
@@ -112,9 +123,10 @@ struct msm_clock {
 	uint32_t                    index;
 	void __iomem                *global_counter;
 	void __iomem                *local_counter;
+	uint32_t                    status_mask;
 	union {
-		struct clock_event_device		*evt;
-		struct clock_event_device __percpu	**percpu_evt;
+		struct clock_event_device               *evt;
+		struct clock_event_device __percpu      **percpu_evt;
 	};
 };
 
@@ -214,7 +226,7 @@ static uint32_t msm_read_timer_count(struct msm_clock *clock, int global)
 	if (!(clock->flags & MSM_CLOCK_FLAGS_UNSTABLE_COUNT))
 		return __raw_readl(addr);
 
-	t1 = __raw_readl(addr);
+	t1 = __raw_readl_no_log(addr);
 	t2 = __raw_readl_no_log(addr);
 	if ((t2-t1) <= 1)
 		return t2;
@@ -346,6 +358,7 @@ static void msm_timer_set_mode(enum clock_event_mode mode,
 		chip = irq_get_chip(clock->irq);
 		if (chip && chip->irq_unmask)
 			chip->irq_unmask(irq_get_irq_data(clock->irq));
+
 		if (clock != &msm_clocks[MSM_CLOCK_GPT])
 			__raw_writel(TIMER_ENABLE_EN,
 				msm_clocks[MSM_CLOCK_GPT].regbase +
@@ -977,6 +990,11 @@ static void __init msm_timer_init(void)
 	struct msm_clock *dgt = &msm_clocks[MSM_CLOCK_DGT];
 	struct msm_clock *gpt = &msm_clocks[MSM_CLOCK_GPT];
 
+	msm_tmr0_base = msm_timer_get_timer0_base();
+	__raw_writel(1, msm_tmr0_base + WDT0_RST);
+
+	printk("%s\n", __func__);
+
 	if (cpu_is_msm7x01() || cpu_is_msm7x25() || cpu_is_msm7x27() ||
 	    cpu_is_msm7x25a() || cpu_is_msm7x27a() || cpu_is_msm7x25aa() ||
 	    cpu_is_msm7x27aa()) {
@@ -996,15 +1014,21 @@ static void __init msm_timer_init(void)
 		dgt->regbase = MSM_TMR_BASE + 0x10;
 	} else if (cpu_is_fsm9xxx())
 		dgt->freq = 4800000;
-	else if (cpu_is_msm7x30() || cpu_is_msm8x55())
+	else if (cpu_is_msm7x30() || cpu_is_msm8x55()) {
+		gpt->status_mask = BIT(10);
+		dgt->status_mask = BIT(2);
 		dgt->freq = 6144000;
-	else if (cpu_is_msm8x60()) {
+	} else if (cpu_is_msm8x60()) {
 		global_timer_offset = MSM_TMR0_BASE - MSM_TMR_BASE;
+		gpt->status_mask = BIT(10);
+		dgt->status_mask = BIT(2);
 		dgt->freq = 6750000;
 		__raw_writel(DGT_CLK_CTL_DIV_4, MSM_TMR_BASE + DGT_CLK_CTL);
 	} else if (cpu_is_msm9615()) {
 		dgt->freq = 6750000;
 		__raw_writel(DGT_CLK_CTL_DIV_4, MSM_TMR_BASE + DGT_CLK_CTL);
+		gpt->status_mask = BIT(10);
+		dgt->status_mask = BIT(2);
 		gpt->freq = 32765;
 		gpt_hz = 32765;
 		sclk_hz = 32765;
@@ -1014,6 +1038,8 @@ static void __init msm_timer_init(void)
 		global_timer_offset = MSM_TMR0_BASE - MSM_TMR_BASE;
 		dgt->freq = 6750000;
 		__raw_writel(DGT_CLK_CTL_DIV_4, MSM_TMR_BASE + DGT_CLK_CTL);
+		gpt->status_mask = BIT(10);
+		dgt->status_mask = BIT(2);
 		gpt->freq = 32765;
 		gpt_hz = 32765;
 		sclk_hz = 32765;
@@ -1037,8 +1063,7 @@ static void __init msm_timer_init(void)
 		struct clock_event_device *ce = &clock->clockevent;
 		struct clocksource *cs = &clock->clocksource;
 		__raw_writel(0, clock->regbase + TIMER_ENABLE);
-		__raw_writel(1, clock->regbase + TIMER_CLEAR);
-		__raw_writel(0, clock->regbase + TIMER_COUNT_VAL);
+		__raw_writel(0, clock->regbase + TIMER_CLEAR);
 		__raw_writel(~0, clock->regbase + TIMER_MATCH_VAL);
 
 		if ((clock->freq << clock->shift) == gpt_hz) {
@@ -1098,6 +1123,11 @@ static void __init msm_timer_init(void)
 		if (chip && chip->irq_mask)
 			chip->irq_mask(irq_get_irq_data(clock->irq));
 
+		if (clock->status_mask)
+			while (__raw_readl(MSM_TMR_BASE + TIMER_STATUS) &
+			       clock->status_mask)
+				;
+
 		clockevents_register_device(ce);
 	}
 	msm_sched_clock_init();
@@ -1129,6 +1159,10 @@ int __cpuinit local_timer_setup(struct clock_event_device *evt)
 		__raw_writel(0, clock->regbase + TIMER_CLEAR);
 		__raw_writel(~0, clock->regbase + TIMER_MATCH_VAL);
 		__get_cpu_var(first_boot) = false;
+		if (clock->status_mask)
+			while (__raw_readl(MSM_TMR_BASE + TIMER_STATUS) &
+			       clock->status_mask)
+				;
 	}
 	evt->irq = clock->irq;
 	evt->name = "local_timer";

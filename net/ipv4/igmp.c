@@ -767,7 +767,7 @@ static int igmp_xmarksources(struct ip_mc_list *pmc, int nsrcs, __be32 *srcs)
 			break;
 		for (i=0; i<nsrcs; i++) {
 			/* skip inactive filters */
-			if (psf->sf_count[MCAST_INCLUDE] ||
+			if (pmc->sfcount[MCAST_INCLUDE] ||
 			    pmc->sfcount[MCAST_EXCLUDE] !=
 			    psf->sf_count[MCAST_EXCLUDE])
 				continue;

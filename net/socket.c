@@ -105,6 +105,10 @@
 #include <linux/sockios.h>
 #include <linux/atalk.h>
 
+#ifdef CONFIG_UID_STAT
+#include <linux/uid_stat.h>
+#endif
+
 static int sock_no_open(struct inode *irrelevant, struct file *dontcare);
 static ssize_t sock_aio_read(struct kiocb *iocb, const struct iovec *iov,
 			 unsigned long nr_segs, loff_t pos);
@@ -509,8 +513,15 @@ const struct file_operations bad_sock_fops = {
  *	an inode not a file.
  */
 
+int add_or_remove_port(struct sock *sk, int add_or_remove);	/* SSD_RIL: Garbage_Filter_TCP */
+
 void sock_release(struct socket *sock)
 {
+	/* ++SSD_RIL: Garbage_Filter_TCP */
+	if (sock->sk != NULL)
+		add_or_remove_port(sock->sk, 0);
+	/* --SSD_RIL: Garbage_Filter_TCP */
+
 	if (sock->ops) {
 		struct module *owner = sock->ops->owner;
 
@@ -546,7 +557,9 @@ static inline int __sock_sendmsg_nosec(struct kiocb *iocb, struct socket *sock,
 				       struct msghdr *msg, size_t size)
 {
 	struct sock_iocb *si = kiocb_to_siocb(iocb);
-
+#ifdef CONFIG_UID_STAT
+	int err;
+#endif
 	sock_update_classid(sock->sk);
 
 	si->sock = sock;
@@ -554,7 +567,14 @@ static inline int __sock_sendmsg_nosec(struct kiocb *iocb, struct socket *sock,
 	si->msg = msg;
 	si->size = size;
 
+#ifdef CONFIG_UID_STAT
+	err = sock->ops->sendmsg(iocb, sock, msg, size);
+	if(err > 0)
+		uid_stat_tcp_snd(current_uid(), err);
+	return err;
+#else
 	return sock->ops->sendmsg(iocb, sock, msg, size);
+#endif
 }
 
 static inline int __sock_sendmsg(struct kiocb *iocb, struct socket *sock,
@@ -694,7 +714,9 @@ static inline int __sock_recvmsg_nosec(struct kiocb *iocb, struct socket *sock,
 				       struct msghdr *msg, size_t size, int flags)
 {
 	struct sock_iocb *si = kiocb_to_siocb(iocb);
-
+#ifdef CONFIG_UID_STAT
+	int err;
+#endif
 	sock_update_classid(sock->sk);
 
 	si->sock = sock;
@@ -702,8 +724,14 @@ static inline int __sock_recvmsg_nosec(struct kiocb *iocb, struct socket *sock,
 	si->msg = msg;
 	si->size = size;
 	si->flags = flags;
-
+#ifdef CONFIG_UID_STAT
+	err = sock->ops->recvmsg(iocb, sock, msg, size, flags);
+	if(err > 0)
+		uid_stat_tcp_rcv(current_uid(), err);
+	return err;
+#else
 	return sock->ops->recvmsg(iocb, sock, msg, size, flags);
+#endif
 }
 
 static inline int __sock_recvmsg(struct kiocb *iocb, struct socket *sock,
@@ -1270,6 +1298,13 @@ int __sock_create(struct net *net, int family, int type, int protocol,
 		goto out_sock_release;
 	*res = sock;
 
+	/* ++SSD_RIL: Garbage_Filter_UDP */
+	#ifdef CONFIG_ARCH_MSM8960
+	if (sock->sk->sk_protocol == IPPROTO_UDP)
+		add_or_remove_port(sock->sk, 1);
+	#endif
+	/* --SSD_RIL: Garbage_Filter_UDP */
+
 	return 0;
 
 out_module_busy:
@@ -1467,6 +1502,10 @@ SYSCALL_DEFINE2(listen, int, fd, int, backlog)
 			err = sock->ops->listen(sock, backlog);
 
 		fput_light(sock->file, fput_needed);
+		/* ++SSD_RIL: Garbage_Filter_TCP */
+		if (sock->sk != NULL)
+			add_or_remove_port(sock->sk, 1);
+		/* --SSD_RIL: Garbage_Filter_TCP */
 	}
 	return err;
 }

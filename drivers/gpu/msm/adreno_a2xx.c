@@ -836,7 +836,7 @@ static unsigned int *build_sys2gmem_cmds(struct adreno_device *adreno_dev,
 		*cmds++ = cp_type3_packet(CP_REG_TO_MEM, 2);
 		*cmds++ = REG_TP0_CHICKEN;
 		*cmds++ = tmp_ctx.chicken_restore;
-
+ 
 		*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
 		*cmds++ = 0;
 	}
@@ -1307,6 +1307,7 @@ static int a2xx_create_gpustate_shadow(struct adreno_device *adreno_dev,
 	drawctxt->flags |= CTXT_FLAGS_STATE_SHADOW;
 
 	/* build indirect command buffers to save & restore regs/constants */
+	adreno_idle(&adreno_dev->dev, KGSL_TIMEOUT_DEFAULT);
 	build_regrestore_cmds(adreno_dev, drawctxt);
 	build_regsave_cmds(adreno_dev, drawctxt);
 
@@ -1347,6 +1348,8 @@ static int a2xx_create_gmem_shadow(struct adreno_device *adreno_dev,
 		tmp_ctx.cmd = build_chicken_restore_cmds(drawctxt);
 
 	/* build indirect command buffers to save & restore gmem */
+	/* Idle because we are reading PM override registers */
+	adreno_idle(&adreno_dev->dev, KGSL_TIMEOUT_DEFAULT);
 	drawctxt->context_gmem_shadow.gmem_save_commands = tmp_ctx.cmd;
 	tmp_ctx.cmd =
 	    build_gmem2sys_cmds(adreno_dev, drawctxt,
@@ -1452,7 +1455,7 @@ static void a2xx_drawctxt_save(struct adreno_device *adreno_dev,
 			 */
 			adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_NONE,
 				context->shader_fixup, 3);
-
+ 
 			context->flags |= CTXT_FLAGS_SHADER_RESTORE;
 		}
 	}
@@ -1547,25 +1550,17 @@ static void a2xx_drawctxt_restore(struct adreno_device *adreno_dev,
 	if (!(context->flags & CTXT_FLAGS_PREAMBLE)) {
 
 		/* restore registers and constants. */
-		adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_NONE,
+		adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_PMODE,
 			context->reg_restore, 3);
 
 		/* restore shader instructions & partitioning. */
 		if (context->flags & CTXT_FLAGS_SHADER_RESTORE) {
 			adreno_ringbuffer_issuecmds(device,
-				KGSL_CMD_FLAGS_NONE,
+				KGSL_CMD_FLAGS_PMODE,
 				context->shader_restore, 3);
 		}
 	}
-
-	if (adreno_is_a20x(adreno_dev)) {
-		cmds[0] = cp_type3_packet(CP_SET_BIN_BASE_OFFSET, 1);
-		cmds[1] = context->bin_base_offset;
-		adreno_ringbuffer_issuecmds(device, KGSL_CMD_FLAGS_NONE,
-			cmds, 2);
-	}
 }
-
 /*
  * Interrupt management
  *

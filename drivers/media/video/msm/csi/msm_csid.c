@@ -117,7 +117,7 @@ static irqreturn_t msm_csid_irq(int irq_num, void *data)
 	uint32_t irq;
 	struct csid_device *csid_dev = data;
 	irq = msm_io_r(csid_dev->base + CSID_IRQ_STATUS_ADDR);
-	CDBG("%s CSID_IRQ_STATUS_ADDR = 0x%x\n", __func__, irq);
+	pr_info("%s CSID_IRQ_STATUS_ADDR = 0x%x\n", __func__, irq);
 	msm_io_w(irq, csid_dev->base + CSID_IRQ_CLEAR_CMD_ADDR);
 	return IRQ_HANDLED;
 }
@@ -165,6 +165,9 @@ static int msm_csid_init(struct v4l2_subdev *sd, uint32_t *csid_version)
 #if DBG_CSID
 	enable_irq(csid_dev->irq->start);
 #endif
+
+	csid_dev->hw_version =
+		msm_io_r(csid_dev->base + CSID_HW_VERSION_ADDR);
 
 	*csid_version = csid_dev->hw_version;
 
@@ -262,17 +265,6 @@ static int __devinit csid_probe(struct platform_device *pdev)
 		goto csid_no_resource;
 	}
 	disable_irq(new_csid_dev->irq->start);
-
-	new_csid_dev->base = ioremap(new_csid_dev->mem->start,
-		resource_size(new_csid_dev->mem));
-	if (!new_csid_dev->base) {
-		rc = -ENOMEM;
-		goto csid_no_resource;
-	}
-
-	new_csid_dev->hw_version =
-		msm_io_r(new_csid_dev->base + CSID_HW_VERSION_ADDR);
-	iounmap(new_csid_dev->base);
 
 	new_csid_dev->pdev = pdev;
 	return 0;

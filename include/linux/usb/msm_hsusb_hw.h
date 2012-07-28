@@ -30,9 +30,10 @@
 #define USBCMD_RESET   2
 #define USB_USBINTR          (MSM_USB_BASE + 0x0148)
 
-#define PORTSC_PHCD            (1 << 23) /* phy suspend mode */
-#define PORTSC_PTS_MASK         (3 << 30)
-#define PORTSC_PTS_ULPI         (3 << 30)
+#define PORTSC_LS		(3 << 10) /* Read - Port's Line status */
+#define PORTSC_PHCD		(1 << 23) /* phy suspend mode */
+#define PORTSC_PTS_MASK		(3 << 30)
+#define PORTSC_PTS_ULPI		(3 << 30)
 
 #define USB_ULPI_VIEWPORT    (MSM_USB_BASE + 0x0170)
 #define ULPI_RUN              (1 << 30)

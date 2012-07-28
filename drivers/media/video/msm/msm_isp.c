@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,7 +26,6 @@
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-device.h>
 #include <media/msm_isp.h>
-#include <media/msm_gemini.h>
 
 #include "msm.h"
 
@@ -35,6 +34,10 @@
 #else
 #define D(fmt, args...) do {} while (0)
 #endif
+#define ERR_USER_COPY(to) pr_err("%s(%d): copy %s user\n", \
+				__func__, __LINE__, ((to) ? "to" : "from"))
+#define ERR_COPY_FROM_USER() ERR_USER_COPY(0)
+#define ERR_COPY_TO_USER() ERR_USER_COPY(1)
 
 #define MSM_FRAME_AXI_MAX_BUF 32
 
@@ -64,20 +67,6 @@ void msm_isp_sync_free(void *ptr)
 		if (atomic_read(&qcmd->on_heap))
 			kfree(qcmd);
 	}
-}
-
-static int msm_isp_notify_VFE_BUF_FREE_EVT(struct v4l2_subdev *sd, void *arg)
-{
-	struct msm_vfe_cfg_cmd cfgcmd;
-	struct msm_camvfe_params vfe_params;
-	int rc;
-
-	cfgcmd.cmd_type = CMD_VFE_BUFFER_RELEASE;
-	cfgcmd.value = NULL;
-	vfe_params.vfe_cfg = &cfgcmd;
-	vfe_params.data = NULL;
-	rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
-	return 0;
 }
 
 int msm_isp_vfe_msg_to_img_mode(struct msm_cam_media_controller *pmctl,
@@ -147,8 +136,9 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 	struct msm_cam_v4l2_device *pcam = sync->pcam_sync;
 
 	int vfe_id = vdata->evt_msg.msg_id;
+
 	if (!pcam) {
-		pr_debug("%s pcam is null. return\n", __func__);
+		pr_err("%s pcam is null. return\n", __func__);
 		msm_isp_sync_free(vdata);
 		return rc;
 	}
@@ -158,8 +148,7 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 	switch (vdata->type) {
 	case VFE_MSG_V32_START:
 	case VFE_MSG_V32_START_RECORDING:
-	case VFE_MSG_V2X_PREVIEW:
-		D("%s Got V32_START_*: Getting ping addr id = %d",
+		pr_info("%s Got V32_START_*: Getting ping addr id = %d",
 						__func__, vfe_id);
 		msm_mctl_reserve_free_buf(&pcam->mctl, NULL,
 					image_mode, &free_buf);
@@ -177,8 +166,7 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 		rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
 		break;
 	case VFE_MSG_V32_CAPTURE:
-	case VFE_MSG_V2X_CAPTURE:
-		pr_debug("%s Got V32_CAPTURE: getting buffer for id = %d",
+		pr_info("%s Got V32_CAPTURE: getting buffer for id = %d",
 						__func__, vfe_id);
 		msm_mctl_reserve_free_buf(&pcam->mctl, NULL,
 					image_mode, &free_buf);
@@ -189,7 +177,8 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 		rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
 		temp_free_buf = free_buf;
 		if (msm_mctl_reserve_free_buf(&pcam->mctl, NULL,
-					image_mode, &free_buf)) {
+			image_mode, &free_buf)) {
+			pr_info("V32_CAPTURE: use same buffer for both ping and pong\n");
 			/* Write the same buffer into PONG */
 			free_buf = temp_free_buf;
 		}
@@ -197,19 +186,6 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 		cfgcmd.value = &vfe_id;
 		vfe_params.vfe_cfg = &cfgcmd;
 		vfe_params.data = (void *)&free_buf;
-		rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
-		break;
-	case VFE_MSG_V32_JPEG_CAPTURE:
-		free_buf.num_planes = 1;
-		free_buf.ch_paddr[0] = IMEM_Y_OFFSET;
-		free_buf.ch_paddr[1] = IMEM_CBCR_OFFSET;
-		cfgcmd.cmd_type = CMD_CONFIG_PING_ADDR;
-		cfgcmd.value = &vfe_id;
-		vfe_params.vfe_cfg = &cfgcmd;
-		vfe_params.data = (void *)&free_buf;
-		rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
-		/* Write the same buffer into PONG */
-		cfgcmd.cmd_type = CMD_CONFIG_PONG_ADDR;
 		rc = v4l2_subdev_call(sd, core, ioctl, 0, &vfe_params);
 		break;
 	case VFE_MSG_OUTPUT_IRQ:
@@ -230,6 +206,102 @@ static int msm_isp_notify_VFE_BUF_EVT(struct v4l2_subdev *sd, void *arg)
 	msm_isp_sync_free(vdata);
 	return rc;
 }
+
+/* HTC_START ben 20111111 HDR */
+/*
+ * This function enables/disables dropframe mode
+ */
+static int msm_enable_dropframe(struct v4l2_subdev *sd,
+			struct msm_sync *sync, void __user *arg)
+{
+	int dropframe_enabled;
+
+	if (copy_from_user(&dropframe_enabled, arg, sizeof(dropframe_enabled))) {
+		ERR_COPY_FROM_USER();
+		return -EFAULT;
+	} else {
+		atomic_set(&sync->dropframe_enabled, dropframe_enabled);
+		pr_info("%s: set dropframe_enabled %d", __func__, atomic_read(&sync->dropframe_enabled));
+
+		/* reset dropframe_num if dropframe is disabled */
+		if (!dropframe_enabled)
+			atomic_set(&sync->snap_dropframe_num, 0);
+	}
+
+	return 0;
+}
+
+/*
+ * This function sets number of snapshot frames to drop
+ */
+static int msm_set_dropframe_num(struct v4l2_subdev *sd,
+			struct msm_sync *sync, void __user *arg)
+{
+	int snap_dropframe_num;
+
+	if (copy_from_user(&snap_dropframe_num, arg, sizeof(snap_dropframe_num))) {
+		ERR_COPY_FROM_USER();
+		return -EFAULT;
+	} else {
+		atomic_set(&sync->snap_dropframe_num, snap_dropframe_num);
+		pr_info("%s: set snap_dropframe_num %d", __func__, atomic_read(&sync->snap_dropframe_num));
+	}
+
+	return 0;
+}
+
+/*
+ * This function decides whether to drop frame or not
+ */
+static int msm_isp_should_drop_frame(struct msm_sync *sync, uint8_t msgid)
+{
+	int drop_frame = 0;
+
+	switch (msgid) {
+	case VFE_MSG_OUTPUT_PRIMARY:
+		{
+			atomic_set(&sync->snap_dropframe, 0);
+
+			if (atomic_read(&sync->dropframe_enabled)) {
+				/*
+				 * sync->snap_dropframe_num -
+				 *	= 0 : no drop
+				 *	> 0 : drop frame count
+				 *	= -1 : drop all frames
+				 */
+				if (atomic_read(&sync->snap_dropframe_num) == 0) { /* no drop -> drop all frames*/
+					atomic_sub(1, &sync->snap_dropframe_num);
+				} else { /* drop frames */
+					atomic_set(&sync->snap_dropframe, 1);
+					/* countdown snap_dropframe_num */
+					if (atomic_read(&sync->snap_dropframe_num) > 0)
+						atomic_sub(1, &sync->snap_dropframe_num);
+					drop_frame = 1;
+				}
+			}
+		}
+		break;
+	case VFE_MSG_OUTPUT_SECONDARY:
+		{
+			/* drop this snapshot frame if its coupled thumbnail frame is dropped */
+			if (atomic_read(&sync->snap_dropframe))
+				drop_frame = 1;
+		}
+		break;
+	default:
+		break;
+	}
+
+	if (atomic_read(&sync->dropframe_enabled))
+		pr_info("%s: FRAME (%d): drop_frame %d [enable %d num %d drop_snap %d]",
+				__func__, msgid, drop_frame,
+				atomic_read(&sync->dropframe_enabled),
+				atomic_read(&sync->snap_dropframe_num),
+				atomic_read(&sync->snap_dropframe));
+
+	return drop_frame;
+}
+/* HTC_END ben 20111111 HDR */
 
 /*
  * This function executes in interrupt context.
@@ -254,9 +326,6 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 	if (notification == NOTIFY_VFE_BUF_EVT)
 		return msm_isp_notify_VFE_BUF_EVT(sd, arg);
 
-	if (notification == NOTIFY_VFE_BUF_FREE_EVT)
-		return msm_isp_notify_VFE_BUF_FREE_EVT(sd, arg);
-
 	isp_event = kzalloc(sizeof(struct msm_isp_event_ctrl), GFP_ATOMIC);
 	if (!isp_event) {
 		pr_err("%s Insufficient memory. return", __func__);
@@ -277,6 +346,17 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 
 		isp_event->isp_data.isp_msg.msg_id = isp_msg->msg_id;
 		isp_event->isp_data.isp_msg.frame_id = isp_msg->sof_count;
+
+/* HTC_START ben 20120229 HDR */
+		if(atomic_read(&sync->dropframe_enabled) &&
+			atomic_read(&sync->snap_dropframe_num) == 0 &&
+			isp_msg->msg_id == MSG_ID_SOF_ACK)
+		{
+			isp_event->isp_data.isp_msg.msg_id = MSG_ID_HDR_SOF_ACK;
+			pr_info("%s MSG_ID_HDR_SOF_ACK", __func__);
+		}
+/* HTC_END ben 20120229 HDR */
+
 		break;
 	}
 	case NOTIFY_VFE_MSG_OUT: {
@@ -310,6 +390,25 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 		}
 
 		if (!rc) {
+/* HTC_START ben 20111111 HDR */
+#if 1
+			if (msm_isp_should_drop_frame(sync, msgid)) {
+				msgid = msm_isp_vfe_msg_to_img_mode(pmctl, msgid);
+				/* return dropped frame buffer to free_vq directly */
+				msm_mctl_return_free_buf(pmctl, msgid, &(isp_output->buf));
+				return rc;
+			} else {
+				isp_event->isp_data.isp_msg.frame_id =
+					isp_output->frameCounter;
+				isp_event->isp_data.isp_msg.msg_id =
+					isp_output->output_id;
+				buf = isp_output->buf;
+				msgid = msm_isp_vfe_msg_to_img_mode(pmctl, msgid);
+				BUG_ON(msgid < 0);
+				msm_mctl_buf_done(pmctl, msgid,
+					&buf, isp_output->frameCounter);
+			}
+#else
 			isp_event->isp_data.isp_msg.msg_id =
 				isp_output->output_id;
 			isp_event->isp_data.isp_msg.frame_id =
@@ -319,36 +418,8 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 			BUG_ON(msgid < 0);
 			msm_mctl_buf_done(pmctl, msgid,
 				&buf, isp_output->frameCounter);
-		}
-		}
-		break;
-	case NOTIFY_VFE_MSG_COMP_STATS: {
-		struct msm_stats_buf *stats = (struct msm_stats_buf *)arg;
-		struct msm_stats_buf *stats_buf = NULL;
-
-		isp_event->isp_data.isp_msg.msg_id = MSG_ID_STATS_COMPOSITE;
-		stats->aec.buff = msm_pmem_stats_ptov_lookup(&pmctl->sync,
-					stats->aec.buff, &(stats->aec.fd));
-		stats->awb.buff = msm_pmem_stats_ptov_lookup(&pmctl->sync,
-					stats->awb.buff, &(stats->awb.fd));
-		stats->af.buff = msm_pmem_stats_ptov_lookup(&pmctl->sync,
-					stats->af.buff, &(stats->af.fd));
-		stats->ihist.buff = msm_pmem_stats_ptov_lookup(&pmctl->sync,
-					stats->ihist.buff, &(stats->ihist.fd));
-		stats->rs.buff = msm_pmem_stats_ptov_lookup(&pmctl->sync,
-					stats->rs.buff, &(stats->rs.fd));
-		stats->cs.buff = msm_pmem_stats_ptov_lookup(&pmctl->sync,
-					stats->cs.buff, &(stats->cs.fd));
-
-		stats_buf = kmalloc(sizeof(struct msm_stats_buf), GFP_ATOMIC);
-		if (!stats_buf) {
-			pr_err("%s: out of memory.\n", __func__);
-			rc = -ENOMEM;
-		} else {
-			*stats_buf = *stats;
-			isp_event->isp_data.isp_msg.len	=
-				sizeof(struct msm_stats_buf);
-			isp_event->isp_data.isp_msg.data = stats_buf;
+#endif
+/* HTC_END ben 20111111 HDR */
 		}
 		}
 		break;
@@ -423,7 +494,7 @@ static int msm_isp_notify(struct v4l2_subdev *sd,
 
 /* This function is called by open() function, so we need to init HW*/
 static int msm_isp_open(struct v4l2_subdev *sd,
-	struct v4l2_subdev *sd_vpe, struct v4l2_subdev *gemini_sdev,
+	struct v4l2_subdev *sd_vpe,
 	struct msm_sync *sync)
 {
 	/* init vfe and senor, register sync callbacks for init*/
@@ -449,8 +520,7 @@ static int msm_isp_open(struct v4l2_subdev *sd,
 	return rc;
 }
 
-static void msm_isp_release(struct msm_sync *psync,
-		struct v4l2_subdev *gemini_sdev)
+static void msm_isp_release(struct msm_sync *psync)
 {
 	D("%s\n", __func__);
 	msm_vfe_subdev_release(psync->pdev);
@@ -458,7 +528,7 @@ static void msm_isp_release(struct msm_sync *psync,
 }
 
 static int msm_config_vfe(struct v4l2_subdev *sd,
-	struct msm_sync *sync, void __user *arg)
+		struct msm_sync *sync, void __user *arg)
 {
 	struct msm_vfe_cfg_cmd cfgcmd;
 	struct msm_pmem_region region[8];
@@ -502,19 +572,6 @@ static int msm_config_vfe(struct v4l2_subdev *sd,
 		axi_data.bufnum1 =
 			msm_pmem_region_lookup(&sync->pmem_stats,
 			MSM_PMEM_AWB, &region[0],
-			NUM_STAT_OUTPUT_BUFFERS);
-		if (!axi_data.bufnum1) {
-			pr_err("%s %d: pmem region lookup error\n",
-				__func__, __LINE__);
-			return -EINVAL;
-		}
-		axi_data.region = &region[0];
-		return msm_isp_subdev_ioctl(sd, &cfgcmd,
-							&axi_data);
-	case CMD_STATS_AEC_AWB_ENABLE:
-		axi_data.bufnum1 =
-			msm_pmem_region_lookup(&sync->pmem_stats,
-			MSM_PMEM_AEC_AWB, &region[0],
 			NUM_STAT_OUTPUT_BUFFERS);
 		if (!axi_data.bufnum1) {
 			pr_err("%s %d: pmem region lookup error\n",
@@ -767,8 +824,6 @@ static int msm_put_stats_buffer(struct v4l2_subdev *sd,
 			cfgcmd.cmd_type = CMD_STATS_RS_BUF_RELEASE;
 		else if (buf.type == STAT_CS)
 			cfgcmd.cmd_type = CMD_STATS_CS_BUF_RELEASE;
-		else if (buf.type == STAT_AEAW)
-			cfgcmd.cmd_type = CMD_STATS_BUF_RELEASE;
 
 		else {
 			pr_err("%s: invalid buf type %d\n",
@@ -832,6 +887,16 @@ static int msm_isp_config(struct msm_cam_media_controller *pmctl,
 	case MSM_CAM_IOCTL_RELEASE_STATS_BUFFER:
 		rc = msm_put_stats_buffer(sd, &pmctl->sync, argp);
 		break;
+
+/* HTC_START ben 20111111 HDR */
+	case MSM_CAM_IOCTL_ENABLE_DROP_FRAME :
+		rc = msm_enable_dropframe(sd, &pmctl->sync, argp);
+		break;
+
+	case MSM_CAM_IOCTL_SET_DROP_FRAME_NUM :
+		rc = msm_set_dropframe_num(sd, &pmctl->sync, argp);
+		break;
+/* HTC_E ben 20111111 HDR */
 
 	default:
 		break;

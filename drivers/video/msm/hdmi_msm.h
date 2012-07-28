@@ -14,6 +14,7 @@
 #define __HDMI_MSM_H__
 
 #include <mach/msm_iomap.h>
+#include <linux/switch.h>
 #include "external_common.h"
 /* #define PORT_DEBUG */
 
@@ -49,6 +50,7 @@ struct hdmi_msm_cec_msg {
 
 #define QFPROM_BASE		((uint32)hdmi_msm_state->qfprom_io)
 #define HDMI_BASE		((uint32)hdmi_msm_state->hdmi_io)
+#define SWITCH_DEV_SUPPORT
 
 struct hdmi_msm_state_type {
 	boolean panel_power_on;
@@ -99,6 +101,9 @@ struct hdmi_msm_state_type {
 	void __iomem *hdmi_io;
 
 	struct external_common_state_type common;
+#ifdef SWITCH_DEV_SUPPORT
+	struct switch_dev hpd_switch;
+#endif
 };
 
 extern struct hdmi_msm_state_type *hdmi_msm_state;

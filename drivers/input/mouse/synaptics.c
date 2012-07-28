@@ -67,7 +67,7 @@ static int synaptics_mode_cmd(struct psmouse *psmouse, unsigned char mode)
 int synaptics_detect(struct psmouse *psmouse, bool set_properties)
 {
 	struct ps2dev *ps2dev = &psmouse->ps2dev;
-	unsigned char param[4];
+	unsigned char param[4] = {0, 0, 0, 0};
 
 	param[0] = 0;
 

@@ -41,15 +41,16 @@
 
 int mipi_dsi_clk_on;
 static struct completion dsi_dma_comp;
-static struct completion dsi_mdp_comp;
 static struct dsi_buf dsi_tx_buf;
 static int dsi_irq_enabled;
+static struct completion dsi_mdp_comp;
 static spinlock_t dsi_irq_lock;
 static spinlock_t dsi_mdp_lock;
 static int dsi_mdp_busy;
-
 static struct list_head pre_kickoff_list;
 static struct list_head post_kickoff_list;
+
+extern int dsi_done_cnt;
 
 enum {
 	STAT_DSI_START,
@@ -121,7 +122,6 @@ void mipi_dsi_disable_irq(void)
 		spin_unlock_irqrestore(&dsi_irq_lock, flags);
 		return;
 	}
-
 	dsi_irq_enabled = 0;
 	disable_irq(dsi_irq);
 	spin_unlock_irqrestore(&dsi_irq_lock, flags);
@@ -139,7 +139,6 @@ void mipi_dsi_disable_irq(void)
 		spin_unlock(&dsi_irq_lock);
 		return;
 	}
-
 	dsi_irq_enabled = 0;
 	disable_irq_nosync(dsi_irq);
 	spin_unlock(&dsi_irq_lock);
@@ -686,6 +685,40 @@ static int mipi_dsi_blank_pkt(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 	return dp->len;	/* 4 bytes */
 }
 
+/* Added for ESD fixup. Need to evaluate further to see if it does any impact.
+*/
+static int mipi_dsi_vsync_start(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
+{
+	uint32 *hp;
+
+	mipi_dsi_buf_reserve_hdr(dp, DSI_HOST_HDR_SIZE);
+	hp = dp->hdr;
+	*hp = 0;
+	*hp |= DSI_HDR_VC(cm->vc);
+	*hp |= DSI_HDR_DTYPE(DTYPE_VSYNC_START);
+	if (cm->last)
+		*hp |= DSI_HDR_LAST;
+	mipi_dsi_buf_push(dp, DSI_HOST_HDR_SIZE);
+
+	return dp->len;	/* 4 bytes */
+}
+
+static int mipi_dsi_hsync_start(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
+{
+	uint32 *hp;
+
+	mipi_dsi_buf_reserve_hdr(dp, DSI_HOST_HDR_SIZE);
+	hp = dp->hdr;
+	*hp = 0;
+	*hp |= DSI_HDR_VC(cm->vc);
+	*hp |= DSI_HDR_DTYPE(DTYPE_HSYNC_START);
+	if (cm->last)
+		*hp |= DSI_HDR_LAST;
+	mipi_dsi_buf_push(dp, DSI_HOST_HDR_SIZE);
+
+	return dp->len;	/* 4 bytes */
+}
+
 /*
  * prepare cmd buffer to be txed
  */
@@ -739,6 +772,12 @@ int mipi_dsi_cmd_dma_add(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 		break;
 	case DTYPE_PERIPHERAL_OFF:
 		len = mipi_dsi_peripheral_off(dp, cm);
+		break;
+	case DTYPE_VSYNC_START:
+		len = mipi_dsi_vsync_start(dp, cm);
+		break;
+	case DTYPE_HSYNC_START:
+		len = mipi_dsi_hsync_start(dp, cm);
 		break;
 	default:
 		pr_debug("%s: dtype=%x NOT supported\n",
@@ -1024,7 +1063,6 @@ void mipi_dsi_cmd_mdp_start(void)
 {
 	unsigned long flag;
 
-
 	if (!in_interrupt())
 		mipi_dsi_pre_kickoff_action();
 
@@ -1034,6 +1072,11 @@ void mipi_dsi_cmd_mdp_start(void)
 	mipi_dsi_enable_irq();
 	dsi_mdp_busy = TRUE;
 	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
+
+#ifdef MDP4_DSI_SW_TRIGGER
+	mb();	/* make sure all registers updated */
+	MIPI_OUTP(MIPI_DSI_BASE + 0x090, 0x01);	/* trigger */
+#endif
 }
 
 
@@ -1118,6 +1161,17 @@ int mipi_dsi_cmds_tx(struct msm_fb_data_type *mfd,
 	int i, video_mode;
 	unsigned long flag;
 
+/* DSI clock should be enabled before DSI register read*/
+#if 1 /* HTC_CSP_START */
+	if (mfd != 0 && mfd->panel_info.type == MIPI_CMD_PANEL) {
+#ifndef CONFIG_FB_MSM_MDP303
+		mdp4_dsi_cmd_dma_busy_wait(mfd);
+#else
+		mdp3_dsi_cmd_dma_busy_wait(mfd);
+#endif
+	}
+#endif /* HTC_CSP_END */
+
 	/* turn on cmd mode
 	* for video mode, do not send cmds more than
 	* one pixel line, since it only transmit it
@@ -1134,6 +1188,7 @@ int mipi_dsi_cmds_tx(struct msm_fb_data_type *mfd,
 		 * even it is video mode panel.
 		 */
 		/* make sure mdp dma is not txing pixel data */
+#if 0 /* HTC_CSP_START */
 		if (mfd->panel_info.type == MIPI_CMD_PANEL) {
 #ifndef CONFIG_FB_MSM_MDP303
 			mdp4_dsi_cmd_dma_busy_wait(mfd);
@@ -1141,6 +1196,7 @@ int mipi_dsi_cmds_tx(struct msm_fb_data_type *mfd,
 			mdp3_dsi_cmd_dma_busy_wait(mfd);
 #endif
 		}
+#endif /* HTC_CSP_END */
 	}
 
 	spin_lock_irqsave(&dsi_mdp_lock, flag);
@@ -1158,7 +1214,6 @@ int mipi_dsi_cmds_tx(struct msm_fb_data_type *mfd,
 			msleep(cm->wait);
 		cm++;
 	}
-
 	spin_lock_irqsave(&dsi_mdp_lock, flag);
 	dsi_mdp_busy = FALSE;
 	mipi_dsi_disable_irq();
@@ -1317,6 +1372,9 @@ int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
 int mipi_dsi_cmd_dma_tx(struct dsi_buf *tp)
 {
 	int len;
+#if 1 /* HTC_CSP_START */
+	long timeout;
+#endif /* HTC_CSP_END */
 
 #ifdef DSI_HOST_DEBUG
 	int i;
@@ -1347,7 +1405,19 @@ int mipi_dsi_cmd_dma_tx(struct dsi_buf *tp)
 	MIPI_OUTP(MIPI_DSI_BASE + 0x08c, 0x01);	/* trigger */
 	wmb();
 
+#if 0 /* HTC_CSP_START */
 	wait_for_completion(&dsi_dma_comp);
+#else
+	timeout = wait_for_completion_timeout(&dsi_dma_comp, HZ/10);
+
+	if (!timeout) {
+		u32 isr = MIPI_INP(MIPI_DSI_BASE + 0x010c);
+		MIPI_OUTP(MIPI_DSI_BASE + 0x010c, isr);
+		pr_err("%s timeout, isr=0x%08x\n", __func__, isr);
+		/* mipi_dsi_read_status_reg(); */
+		atomic_set(&need_soft_reset, 1);
+	}
+#endif /* HTC_CSP_END */
 
 	dma_unmap_single(&dsi_dev, tp->dmap, len, DMA_TO_DEVICE);
 	tp->dmap = 0;
@@ -1491,14 +1561,20 @@ irqreturn_t mipi_dsi_isr(int irq, void *ptr)
 
 	if (isr & DSI_INTR_CMD_MDP_DONE) {
 		mipi_dsi_mdp_stat_inc(STAT_DSI_MDP);
+		dsi_done_cnt++;
 		spin_lock(&dsi_mdp_lock);
 		dsi_mdp_busy = FALSE;
-		spin_unlock(&dsi_mdp_lock);
+#if 1 /* HTC_CSP_START */
 		complete(&dsi_mdp_comp);
 		mipi_dsi_disable_irq_nosync();
+#endif /* HTC_CSP_END */
+		spin_unlock(&dsi_mdp_lock);
+#if 0 /* HTC_CSP_START */
+		complete(&dsi_mdp_comp);
+		mipi_dsi_disable_irq_nosync();
+#endif /* HTC_CSP_END */
 		mipi_dsi_post_kickoff_action();
 	}
-
 
 	return IRQ_HANDLED;
 }

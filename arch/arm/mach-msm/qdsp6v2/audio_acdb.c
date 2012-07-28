@@ -848,7 +848,7 @@ static int acdb_mmap(struct file *file, struct vm_area_struct *vma)
 			result = -ENOMEM;
 		}
 	} else {
-		pr_err("%s: PMEM is not allocated, yet!\n", __func__);
+		pr_info("%s: PMEM is not allocated, yet!\n", __func__);
 		result = -ENODEV;
 	}
 

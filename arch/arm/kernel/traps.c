@@ -34,6 +34,7 @@
 #include <asm/traps.h>
 #include <asm/unwind.h>
 #include <asm/tls.h>
+#include <mach/restart.h>
 
 #include "signal.h"
 
@@ -259,6 +260,8 @@ static int __die(const char *str, int err, struct thread_info *thread, struct pt
 
 static DEFINE_RAW_SPINLOCK(die_lock);
 
+extern int ramdump_source;
+char ramdump_buf[256] = "";
 /*
  * This function is protected against re-entrancy.
  */
@@ -267,6 +270,7 @@ void die(const char *str, struct pt_regs *regs, int err)
 	struct thread_info *thread = current_thread_info();
 	int ret;
 	enum bug_trap_type bug_type = BUG_TRAP_TYPE_NONE;
+	char temp_buf[KSYM_SYMBOL_LEN];
 
 	oops_enter();
 
@@ -287,10 +291,25 @@ void die(const char *str, struct pt_regs *regs, int err)
 	raw_spin_unlock_irq(&die_lock);
 	oops_exit();
 
+	if(ramdump_source != RAMDUMP_BUG)
+	{
+		if(ramdump_source != RAMDUMP_UNKNOWN_INST)
+			sprintf(ramdump_buf, "%.*s", TASK_COMM_LEN, thread->task->comm);
+		strcat(ramdump_buf, " PC:");
+		sprint_symbol(temp_buf,
+			(unsigned long)__builtin_extract_return_addr((void *)instruction_pointer(regs)) );
+		strcat(ramdump_buf, temp_buf);
+		strcat(ramdump_buf, " LR:");
+		sprint_symbol(temp_buf, (unsigned long)__builtin_extract_return_addr((void *)regs->ARM_lr) );
+		strcat(ramdump_buf, temp_buf);
+	}
+
+
 	if (in_interrupt())
-		panic("Fatal exception in interrupt");
+		panic(ramdump_buf);
 	if (panic_on_oops)
-		panic("Fatal exception");
+		panic(ramdump_buf);
+	ramdump_source=0;
 	if (ret != NOTIFY_STOP)
 		do_exit(SIGSEGV);
 }
@@ -306,6 +325,7 @@ void arm_notify_die(const char *str, struct pt_regs *regs,
 	} else {
 		die(str, regs, err);
 	}
+	ramdump_source = 0;
 }
 
 #ifdef CONFIG_GENERIC_BUG
@@ -395,6 +415,8 @@ asmlinkage void __exception do_undefinstr(struct pt_regs *regs)
 		printk(KERN_INFO "%s (%d): undefined instruction: pc=%p\n",
 			current->comm, task_pid_nr(current), pc);
 		dump_instr(KERN_INFO, regs);
+		sprintf(ramdump_buf, "%s (%d): undefined instruction", current->comm, task_pid_nr(current));
+		ramdump_source = RAMDUMP_UNKNOWN_INST;
 	}
 #endif
 

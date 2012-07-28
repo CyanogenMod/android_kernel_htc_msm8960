@@ -1589,7 +1589,7 @@ static void hci_cc_fm_disable_rsp(struct radio_hci_dev *hdev,
 	if (status)
 		return;
 
-	iris_q_event(radio, IRIS_EVT_RADIO_READY);
+	iris_q_event(radio, IRIS_EVT_RADIO_DISABLED);
 
 	radio_hci_req_complete(hdev, status);
 }
@@ -2609,7 +2609,7 @@ static int iris_vidioc_g_ctrl(struct file *file, void *priv,
 
 		} else
 			retval = -EINVAL;
-
+		break;
 	case V4L2_CID_PRIVATE_INTF_HIGH_THRESHOLD:
 		retval = hci_cmd(HCI_FM_GET_DET_CH_TH_CMD, radio->fm_hdev);
 		if (retval < 0) {
@@ -3272,7 +3272,15 @@ static int iris_vidioc_g_frequency(struct file *file, void *priv,
 		struct v4l2_frequency *freq)
 {
 	struct iris_device *radio = video_get_drvdata(video_devdata(file));
+	int retval = 0;
 	if ((freq != NULL) && (radio != NULL)) {
+	    if (radio->mode == FM_RECV) {
+	        retval = hci_cmd(HCI_FM_GET_STATION_PARAM_CMD, radio->fm_hdev);
+	        if (retval < 0) {
+	            FMDERR("Get FREQ Failed");
+	            return -EINVAL;
+	        }
+	    }
 		freq->frequency =
 			radio->fm_st_rsp.station_rsp.station_freq * TUNE_PARAM;
 	} else

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,7 +15,7 @@
 #define _VCD_DDL_UTILS_H_
 
 #include <linux/delay.h>
-#include "vidc_type.h"
+#include <media/msm/vidc_type.h>
 
 extern u32 vidc_msg_pmem;
 extern u32 vidc_msg_timing;
@@ -34,17 +34,17 @@ do { \
 } while (0)
 
 #ifdef DDL_MSG_LOG
-#define DDL_MSG_LOW(x...)    printk(KERN_INFO x)
-#define DDL_MSG_MED(x...)    printk(KERN_INFO x)
-#define DDL_MSG_HIGH(x...)   printk(KERN_INFO x)
+#define DDL_MSG_LOW(x...)    printk(KERN_INFO "[VID] " x)
+#define DDL_MSG_MED(x...)    printk(KERN_INFO "[VID] " x)
+#define DDL_MSG_HIGH(x...)   printk(KERN_INFO "[VID] " x)
 #else
 #define DDL_MSG_LOW(x...)
 #define DDL_MSG_MED(x...)
 #define DDL_MSG_HIGH(x...)
 #endif
 
-#define DDL_MSG_ERROR(x...)  printk(KERN_INFO x)
-#define DDL_MSG_FATAL(x...)  printk(KERN_INFO x)
+#define DDL_MSG_ERROR(x...)  printk(KERN_INFO "[VID] " x)
+#define DDL_MSG_FATAL(x...)  printk(KERN_INFO "[VID] " x)
 
 #define DDL_ALIGN_SIZE(sz, guard_bytes, align_mask) \
 	(((u32)(sz) + guard_bytes) & align_mask)

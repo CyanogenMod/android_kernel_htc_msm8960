@@ -93,7 +93,7 @@ static int configure_iris_xo(struct device *dev, bool use_48mhz_xo, int on)
 	if (on) {
 		msm_riva_base = ioremap(MSM_RIVA_PHYS, SZ_256);
 		if (!msm_riva_base) {
-			pr_err("ioremap MSM_RIVA_PHYS failed\n");
+			pr_err("[WCNSS]ioremap MSM_RIVA_PHYS failed\n");
 			goto fail;
 		}
 
@@ -136,14 +136,14 @@ static int configure_iris_xo(struct device *dev, bool use_48mhz_xo, int on)
 			wlan_clock = msm_xo_get(MSM_XO_TCXO_A2, id);
 			if (IS_ERR(wlan_clock)) {
 				rc = PTR_ERR(wlan_clock);
-				pr_err("Failed to get MSM_XO_TCXO_A2 voter"
+				pr_err("[WCNSS]Failed to get MSM_XO_TCXO_A2 voter"
 							" (%d)\n", rc);
 				goto fail;
 			}
 
 			rc = msm_xo_mode_vote(wlan_clock, MSM_XO_MODE_ON);
 			if (rc < 0) {
-				pr_err("Configuring MSM_XO_MODE_ON failed"
+				pr_err("[WCNSS]Configuring MSM_XO_MODE_ON failed"
 							" (%d)\n", rc);
 				goto msm_xo_vote_fail;
 			}
@@ -152,7 +152,7 @@ static int configure_iris_xo(struct device *dev, bool use_48mhz_xo, int on)
 		if (wlan_clock != NULL && !use_48mhz_xo) {
 			rc = msm_xo_mode_vote(wlan_clock, MSM_XO_MODE_OFF);
 			if (rc < 0)
-				pr_err("Configuring MSM_XO_MODE_OFF failed"
+				pr_err("[WCNSS]Configuring MSM_XO_MODE_OFF failed"
 							" (%d)\n", rc);
 		}
 	}
@@ -186,7 +186,7 @@ static void wcnss_vregs_off(struct vregs_info regulators[], uint size)
 			rc = regulator_set_optimum_mode(
 					regulators[i].regulator, 0);
 			if (rc < 0)
-				pr_err("regulator_set_optimum_mode(%s) failed (%d)\n",
+				pr_err("[WCNSS]regulator_set_optimum_mode(%s) failed (%d)\n",
 						regulators[i].name, rc);
 		}
 
@@ -196,7 +196,7 @@ static void wcnss_vregs_off(struct vregs_info regulators[], uint size)
 					regulators[i].low_power_min,
 					regulators[i].max_voltage);
 			if (rc)
-				pr_err("regulator_set_voltage(%s) failed (%d)\n",
+				pr_err("[WCNSS]regulator_set_voltage(%s) failed (%d)\n",
 						regulators[i].name, rc);
 		}
 
@@ -204,7 +204,7 @@ static void wcnss_vregs_off(struct vregs_info regulators[], uint size)
 		if (regulators[i].state & VREG_ENABLE_MASK) {
 			rc = regulator_disable(regulators[i].regulator);
 			if (rc < 0)
-				pr_err("vreg %s disable failed (%d)\n",
+				pr_err("[WCNSS]vreg %s disable failed (%d)\n",
 						regulators[i].name, rc);
 		}
 
@@ -228,7 +228,7 @@ static int wcnss_vregs_on(struct device *dev,
 			regulator_get(dev, regulators[i].name);
 		if (IS_ERR(regulators[i].regulator)) {
 			rc = PTR_ERR(regulators[i].regulator);
-				pr_err("regulator get of %s failed (%d)\n",
+				pr_err("[WCNSS]regulator get of %s failed (%d)\n",
 					regulators[i].name, rc);
 				goto fail;
 		}
@@ -240,7 +240,7 @@ static int wcnss_vregs_on(struct device *dev,
 					regulators[i].nominal_min,
 					regulators[i].max_voltage);
 			if (rc) {
-				pr_err("regulator_set_voltage(%s) failed (%d)\n",
+				pr_err("[WCNSS]regulator_set_voltage(%s) failed (%d)\n",
 						regulators[i].name, rc);
 				goto fail;
 			}
@@ -252,7 +252,7 @@ static int wcnss_vregs_on(struct device *dev,
 			rc = regulator_set_optimum_mode(regulators[i].regulator,
 					regulators[i].uA_load);
 			if (rc < 0) {
-				pr_err("regulator_set_optimum_mode(%s) failed (%d)\n",
+				pr_err("[WCNSS]regulator_set_optimum_mode(%s) failed (%d)\n",
 						regulators[i].name, rc);
 				goto fail;
 			}
@@ -262,7 +262,7 @@ static int wcnss_vregs_on(struct device *dev,
 		/* Enable the regulator */
 		rc = regulator_enable(regulators[i].regulator);
 		if (rc) {
-			pr_err("vreg %s enable failed (%d)\n",
+			pr_err("[WCNSS]vreg %s enable failed (%d)\n",
 				regulators[i].name, rc);
 			goto fail;
 		}

@@ -37,7 +37,7 @@
 #include <mach/subsystem_notif.h>
 #include <mach/subsystem_restart.h>
 #include <linux/msm_charm.h>
-#include "msm_watchdog.h"
+#include <mach/msm_watchdog.h>
 #include "mdm_private.h"
 
 #define MDM_MODEM_TIMEOUT	6000
@@ -136,18 +136,8 @@ static DECLARE_WORK(mdm_fatal_work, mdm_fatal_fn);
 
 static void mdm_status_fn(struct work_struct *work)
 {
-	int value = gpio_get_value(mdm_drv->mdm2ap_status_gpio);
-
-	mdm_drv->status_cb(value);
-
-	MDM_DBG("%s: status:%d\n", __func__, value);
-
-	if ((value == 0) && mdm_drv->mdm_ready) {
-		MDM_DBG("%s: scheduling work now\n", __func__);
-		subsystem_restart(EXTERNAL_MODEM);
-	} else if (value == 1) {
-		MDM_DBG("%s: mdm is now ready\n", __func__);
-	}
+	MDM_DBG("%s: Reseting the mdm because status changed\n", __func__);
+	subsystem_restart(EXTERNAL_MODEM);
 }
 
 static DECLARE_WORK(mdm_status_work, mdm_status_fn);
@@ -219,9 +209,13 @@ static struct notifier_block mdm_panic_blk = {
 static irqreturn_t mdm_status_change(int irq, void *dev_id)
 {
 	MDM_DBG("%s: mdm sent status change interrupt\n", __func__);
-
-	queue_work(mdm_queue, &mdm_status_work);
-
+	if ((gpio_get_value(mdm_drv->mdm2ap_status_gpio) == 0)
+		 && mdm_drv->mdm_ready) {
+		MDM_DBG("%s: scheduling work now\n", __func__);
+		queue_work(mdm_queue, &mdm_status_work);
+	} else if (gpio_get_value(mdm_drv->mdm2ap_status_gpio) == 1) {
+		MDM_DBG("%s: mdm is now ready\n", __func__);
+	}
 	return IRQ_HANDLED;
 }
 
@@ -356,7 +350,6 @@ static void mdm_modem_initialize_data(struct platform_device  *pdev,
 	mdm_drv->power_down_mdm_cb          = p_mdm_cb->power_down_mdm_cb;
 	mdm_drv->normal_boot_done_cb        = p_mdm_cb->normal_boot_done_cb;
 	mdm_drv->debug_state_changed_cb     = p_mdm_cb->debug_state_changed_cb;
-	mdm_drv->status_cb                  = p_mdm_cb->status_cb;
 }
 
 int mdm_common_create(struct platform_device  *pdev,
@@ -439,8 +432,8 @@ errfatal_err:
 	}
 
 	ret = request_threaded_irq(irq, NULL, mdm_status_change,
-		IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_SHARED,
-		"mdm status", mdm_drv);
+		IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+		"mdm status", NULL);
 
 	if (ret < 0) {
 		pr_err("%s: MDM2AP_STATUS IRQ#%d request failed with error=%d"

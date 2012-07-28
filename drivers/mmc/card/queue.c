@@ -24,6 +24,8 @@
 
 #define MMC_QUEUE_SUSPENDED	(1 << 0)
 
+static struct scatterlist* sd_sg = NULL;
+
 /*
  * Prepare a MMC request. This just filters out odd stuff.
  */
@@ -45,6 +47,67 @@ static int mmc_prep_request(struct request_queue *q, struct request *req)
 	req->cmd_flags |= REQ_DONTPREP;
 
 	return BLKPREP_OK;
+}
+
+static int sd_queue_thread(void *d)
+{
+	struct mmc_queue *mq = d;
+	struct request_queue *q = mq->queue;
+	struct request *req;
+#ifdef CONFIG_MMC_PERF_PROFILING
+	ktime_t start, diff;
+	struct mmc_host *host = mq->card->host;
+	unsigned long bytes_xfer;
+#endif
+
+	current->flags |= PF_MEMALLOC;
+
+	down(&mq->thread_sem);
+	do {
+		req = NULL;     /* Must be set to NULL at each iteration */
+
+		spin_lock_irq(q->queue_lock);
+		set_current_state(TASK_INTERRUPTIBLE);
+		req = blk_fetch_request(q);
+		mq->req = req;
+		spin_unlock_irq(q->queue_lock);
+
+		if (!req) {
+			if (kthread_should_stop()) {
+				set_current_state(TASK_RUNNING);
+				break;
+			}
+			up(&mq->thread_sem);
+			schedule();
+			down(&mq->thread_sem);
+			continue;
+		}
+		set_current_state(TASK_RUNNING);
+
+#ifdef CONFIG_MMC_PERF_PROFILING
+		bytes_xfer = blk_rq_bytes(req);
+		if (rq_data_dir(req) == READ) {
+			start = ktime_get();
+			mq->issue_fn(mq, req);
+			diff = ktime_sub(ktime_get(), start);
+			host->perf.rbytes_mmcq += bytes_xfer;
+			host->perf.rtime_mmcq =
+				ktime_add(host->perf.rtime_mmcq, diff);
+		} else {
+			start = ktime_get();
+			mq->issue_fn(mq, req);
+			diff = ktime_sub(ktime_get(), start);
+			host->perf.wbytes_mmcq += bytes_xfer;
+			host->perf.wtime_mmcq =
+				ktime_add(host->perf.wtime_mmcq, diff);
+		}
+#else
+		mq->issue_fn(mq, req);
+#endif
+	} while (1);
+	up(&mq->thread_sem);
+
+	return 0;
 }
 
 static int mmc_queue_thread(void *d)
@@ -156,7 +219,6 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 	mq->queue = blk_init_queue(mmc_request, lock);
 	if (!mq->queue)
 		return -ENOMEM;
-
 	mq->queue->queuedata = mq;
 	mq->req = NULL;
 
@@ -171,6 +233,11 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 		if (mmc_can_secure_erase_trim(card))
 			queue_flag_set_unlocked(QUEUE_FLAG_SECDISCARD,
 						mq->queue);
+	}
+
+	if (!sd_sg) {
+		printk(KERN_INFO "[mmc] SD allocate SG memory (Once)\n");
+		sd_sg = kmalloc(sizeof(struct scatterlist) * host->max_segs, GFP_KERNEL);
 	}
 
 #ifdef CONFIG_MMC_BLOCK_BOUNCE
@@ -201,7 +268,15 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 			blk_queue_max_segments(mq->queue, bouncesz / 512);
 			blk_queue_max_segment_size(mq->queue, bouncesz);
 
-			mq->sg = kmalloc(sizeof(struct scatterlist),
+			if (mmc_card_sd(card)) {
+				if (!sd_sg) {
+					printk(KERN_INFO "[mmc] SD allocate SG memory\n");
+					sd_sg = kmalloc(sizeof(struct scatterlist), GFP_KERNEL);
+				} else
+					memset(sd_sg, 0, sizeof(struct scatterlist));
+				mq->sg = sd_sg;
+			} else
+				mq->sg = kmalloc(sizeof(struct scatterlist),
 				GFP_KERNEL);
 			if (!mq->sg) {
 				ret = -ENOMEM;
@@ -226,9 +301,18 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 			min(host->max_blk_count, host->max_req_size / 512));
 		blk_queue_max_segments(mq->queue, host->max_segs);
 		blk_queue_max_segment_size(mq->queue, host->max_seg_size);
+		if (mmc_card_sd(card)) {
+			if (!sd_sg) {
+				printk(KERN_INFO "[mmc] SD allocate SG memory\n");
+				sd_sg = kmalloc(sizeof(struct scatterlist) *
+				host->max_segs, GFP_KERNEL);
+			} else
+				memset(sd_sg, 0, sizeof(struct scatterlist) * host->max_segs);
+			mq->sg = sd_sg;
+		} else
+			mq->sg = kmalloc(sizeof(struct scatterlist) *
+				host->max_segs, GFP_KERNEL);
 
-		mq->sg = kmalloc(sizeof(struct scatterlist) *
-			host->max_segs, GFP_KERNEL);
 		if (!mq->sg) {
 			ret = -ENOMEM;
 			goto cleanup_queue;
@@ -238,8 +322,11 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 
 	sema_init(&mq->thread_sem, 1);
 
-	mq->thread = kthread_run(mmc_queue_thread, mq, "mmcqd/%d%s",
-		host->index, subname ? subname : "");
+	if (mmc_card_sd(card))
+		mq->thread = kthread_run(sd_queue_thread, mq, "sd-qd");
+	else
+		mq->thread = kthread_run(mmc_queue_thread, mq, "mmcqd/%d%s",
+					host->index, subname ? subname : "");
 
 	if (IS_ERR(mq->thread)) {
 		ret = PTR_ERR(mq->thread);
@@ -252,8 +339,9 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
  		kfree(mq->bounce_sg);
  	mq->bounce_sg = NULL;
  cleanup_queue:
- 	if (mq->sg)
+	if (mq->sg && mq->card->type != MMC_TYPE_SD)
 		kfree(mq->sg);
+
 	mq->sg = NULL;
 	if (mq->bounce_buf)
 		kfree(mq->bounce_buf);
@@ -282,8 +370,9 @@ void mmc_cleanup_queue(struct mmc_queue *mq)
  	if (mq->bounce_sg)
  		kfree(mq->bounce_sg);
  	mq->bounce_sg = NULL;
+	if (mq->card->type != MMC_TYPE_SD)
+		kfree(mq->sg);
 
-	kfree(mq->sg);
 	mq->sg = NULL;
 
 	if (mq->bounce_buf)

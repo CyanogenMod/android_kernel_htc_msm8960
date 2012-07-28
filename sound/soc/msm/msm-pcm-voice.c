@@ -129,7 +129,7 @@ static int msm_pcm_close(struct snd_pcm_substream *substream)
 
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_voice *prtd = runtime->private_data;
-	int ret;
+	int ret = 0;
 
 	mutex_lock(&prtd->lock);
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
@@ -213,6 +213,26 @@ static int msm_voice_mute_put(struct snd_kcontrol *kcontrol,
 	pr_debug("%s: mute=%d\n", __func__, mute);
 
 	voc_set_tx_mute(voc_get_session_id(VOICE_SESSION_NAME), TX_PATH, mute);
+
+	return 0;
+}
+
+static int msm_voice_rx_device_mute_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] =
+		voc_get_rx_device_mute(voc_get_session_id(VOICE_SESSION_NAME));
+	return 0;
+}
+
+static int msm_voice_rx_device_mute_put(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	int mute = ucontrol->value.integer.value[0];
+
+	pr_debug("%s: mute=%d\n", __func__, mute);
+
+	voc_set_rx_device_mute(voc_get_session_id(VOICE_SESSION_NAME), mute);
 
 	return 0;
 }
@@ -308,6 +328,9 @@ static int msm_voice_fens_get(struct snd_kcontrol *kcontrol,
 }
 
 static struct snd_kcontrol_new msm_voice_controls[] = {
+	SOC_SINGLE_EXT("Voice Rx Device Mute", SND_SOC_NOPM, 0, 1, 0,
+				msm_voice_rx_device_mute_get,
+				msm_voice_rx_device_mute_put),
 	SOC_SINGLE_EXT("Voice Tx Mute", SND_SOC_NOPM, 0, 1, 0,
 				msm_voice_mute_get, msm_voice_mute_put),
 	SOC_SINGLE_EXT("Voice Rx Volume", SND_SOC_NOPM, 0, 5, 0,

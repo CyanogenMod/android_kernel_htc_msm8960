@@ -291,15 +291,25 @@ u32 ddl_fw_init(struct ddl_buf_addr *dram_base)
 {
 
 	u8 *dest_addr;
-
+/*HTC_START*/
+	pr_info("[VID] enter ddl_fw_init()");
 	dest_addr = DDL_GET_ALIGNED_VITUAL(*dram_base);
 	if (vidc_video_codec_fw_size > dram_base->buffer_size ||
-		!vidc_video_codec_fw)
+		!vidc_video_codec_fw) {
+			pr_info("[VID] ddl_fw_init() failed");
+			return false;
+	}
+	pr_info("[VID] FW Addr / FW Size : %x/%d", (u32)vidc_video_codec_fw, vidc_video_codec_fw_size);
+	memset(dest_addr, 0, vidc_video_codec_fw_size);
+	memcpy(dest_addr, vidc_video_codec_fw, vidc_video_codec_fw_size);
+	msleep(10);
+	if (memcmp(dest_addr, vidc_video_codec_fw,
+		vidc_video_codec_fw_size)) {
+		pr_err("[VID] SMI MEMORY issue firmware is not good\n");
 		return false;
-	DDL_MSG_LOW("FW Addr / FW Size : %x/%d", (u32)vidc_video_codec_fw,
-		vidc_video_codec_fw_size);
-	memcpy(dest_addr, vidc_video_codec_fw,
-		vidc_video_codec_fw_size);
+	}
+/*HTC_END*/
+	pr_info("[VID] Firmware in SMI is good continue\n");
 	return true;
 }
 

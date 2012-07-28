@@ -83,6 +83,12 @@ enum tsens_trip_type {
 #define TSENS_UPPER_LIMIT_TH				0xdf
 #define TSENS_MIN_LIMIT_TH				0x38
 #define TSENS_MAX_LIMIT_TH				0xff
+/* HW system of view operating temperature is -30 ~ 90. Add some buffer for sensor detect accuracy is poor.
+ * Here is chip of view, the accuracy of the TSENS sensors is
+ * 99.5% devices at 60 degree [-3.7, +4], 99.5% devices at 90 degree - [-4.47, +4.9]
+ */
+#define TSENS_MIN_LIMIT_TEMP				-60
+#define TSENS_MAX_LIMIT_TEMP				120
 
 #define TSENS_S0_STATUS_ADDR			(MSM_CLK_CTL_BASE + 0x00003628)
 #define TSENS_STATUS_ADDR_OFFSET			2
@@ -121,11 +127,11 @@ struct tsens_tm_device_sensor {
 	int				offset;
 	int				calib_data;
 	int				calib_data_backup;
+	int				slope_mul_tsens_factor;
 };
 
 struct tsens_tm_device {
 	bool				prev_reading_avail;
-	int				slope_mul_tsens_factor;
 	int				tsens_factor;
 	uint32_t			tsens_num_sensor;
 	enum platform_type		hw_type;
@@ -133,30 +139,36 @@ struct tsens_tm_device {
 };
 
 struct tsens_tm_device *tmdev;
+static struct workqueue_struct *monitor_tsense_wq = NULL;
+struct delayed_work monitor_tsens_status_worker;
+static void monitor_tsens_status(struct work_struct *work);
+//static DECLARE_DELAYED_WORK(monitor_tsens_status_worker, monitor_tsens_status);
 
 /* Temperature on y axis and ADC-code on x-axis */
 static int tsens_tz_code_to_degC(int adc_code, int sensor_num)
 {
-	int degC, degcbeforefactor;
-	degcbeforefactor = adc_code * tmdev->slope_mul_tsens_factor
-				+ tmdev->sensor[sensor_num].offset;
+	int degcbeforefactor, degc;
+	degcbeforefactor = (adc_code *
+			tmdev->sensor[sensor_num].slope_mul_tsens_factor
+			+ tmdev->sensor[sensor_num].offset);
+
 	if (degcbeforefactor == 0)
-		degC = degcbeforefactor;
+		degc = degcbeforefactor;
 	else if (degcbeforefactor > 0)
-		degC = (degcbeforefactor + tmdev->tsens_factor/2)
-						/ tmdev->tsens_factor;
-	else  /* rounding for negative degrees */
-		degC = (degcbeforefactor - tmdev->tsens_factor/2)
-						/ tmdev->tsens_factor;
-	return degC;
+		degc = (degcbeforefactor + tmdev->tsens_factor/2)
+				/ tmdev->tsens_factor;
+	else
+		degc = (degcbeforefactor - tmdev->tsens_factor/2)
+				/ tmdev->tsens_factor;
+	return degc;
 }
 
 static int tsens_tz_degC_to_code(int degC, int sensor_num)
 {
 	int code = (degC * tmdev->tsens_factor -
-			tmdev->sensor[sensor_num].offset
-			+ tmdev->slope_mul_tsens_factor/2)
-			/ tmdev->slope_mul_tsens_factor;
+		tmdev->sensor[sensor_num].offset
+		+ tmdev->sensor[sensor_num].slope_mul_tsens_factor/2)
+		/ tmdev->sensor[sensor_num].slope_mul_tsens_factor;
 
 	if (code > TSENS_THRESHOLD_MAX_CODE)
 		code = TSENS_THRESHOLD_MAX_CODE;
@@ -538,6 +550,35 @@ static struct thermal_zone_device_ops tsens_thermal_zone_ops = {
 	.get_crit_temp = tsens_tz_get_crit_temp,
 };
 
+static void monitor_tsens_status(struct work_struct *work)
+{
+	unsigned int i, cntl, threshold, int_status, config;
+	int code;
+	int enable = 0;
+
+	cntl = readl_relaxed(TSENS_CNTL_ADDR);
+	threshold = readl_relaxed(TSENS_THRESHOLD_ADDR);
+	int_status = readl_relaxed(TSENS_INT_STATUS_ADDR);
+	config = readl_relaxed(TSENS_8960_CONFIG_ADDR);
+
+	pr_info("TSENS_CNTL_ADDR[0x%08X], TSENS_THRESHOLD_ADDR[0x%08X], TSENS_INT_STATUS_ADDR[0x%08X], TSENS_8960_CONFIG_ADDR[0x%08X]\n", cntl, threshold, int_status, config);
+
+	cntl &= (uint32_t) SENSORS_EN;
+	cntl >>= TSENS_SENSOR0_SHIFT;
+
+	for (i = 0; i < tmdev->tsens_num_sensor; i++) {
+		code = readl_relaxed(TSENS_S0_STATUS_ADDR
+			+ (i << TSENS_STATUS_ADDR_OFFSET));
+		enable = cntl & (0x1 << i);
+		if(enable > 0)
+			pr_info("Sensor %d = %d C\n", i, tsens_tz_code_to_degC(code, i));
+	}
+
+	if (monitor_tsense_wq) {
+		queue_delayed_work(monitor_tsense_wq, &monitor_tsens_status_worker, msecs_to_jiffies(60000));
+	}
+}
+
 static void notify_uspace_tsens_fn(struct work_struct *work)
 {
 	struct tsens_tm_device_sensor *tm = container_of(work,
@@ -594,6 +635,19 @@ static irqreturn_t tsens_isr(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static void tsens8960_sensor_mode_init(void)
+{
+	unsigned int reg_cntl = 0;
+
+	reg_cntl = readl_relaxed(TSENS_CNTL_ADDR);
+	if (tmdev->hw_type == MSM_8960 || tmdev->hw_type == MSM_9615) {
+		writel_relaxed(reg_cntl &
+				~((((1 << tmdev->tsens_num_sensor) - 1) >> 1)
+				<< (TSENS_SENSOR0_SHIFT + 1)), TSENS_CNTL_ADDR);
+		tmdev->sensor[TSENS_MAIN_SENSOR].mode = THERMAL_DEVICE_ENABLED;
+	}
+}
+
 static void tsens_disable_mode(void)
 {
 	unsigned int reg_cntl = 0;
@@ -614,9 +668,11 @@ static void tsens_disable_mode(void)
 static void tsens_hw_init(void)
 {
 	unsigned int reg_cntl = 0, reg_cfg = 0, reg_thr = 0;
+	int tsens_min_limit_th = 0, tsens_max_limit_th = 0;
+	int i, sort_max = 0, sort_min = 0;
 
-	reg_cntl = readl_relaxed(TSENS_CNTL_ADDR);
-	writel_relaxed(reg_cntl | TSENS_SW_RST, TSENS_CNTL_ADDR);
+	reg_cntl = readl(TSENS_CNTL_ADDR);
+	writel(reg_cntl | TSENS_SW_RST, TSENS_CNTL_ADDR);
 
 	if (tmdev->hw_type == MSM_8960 || tmdev->hw_type == MSM_9615) {
 		reg_cntl |= TSENS_8960_SLP_CLK_ENA |
@@ -625,14 +681,14 @@ static void tsens_hw_init(void)
 			TSENS_MIN_STATUS_MASK | TSENS_MAX_STATUS_MASK |
 			(((1 << tmdev->tsens_num_sensor) - 1) <<
 			TSENS_SENSOR0_SHIFT);
-		writel_relaxed(reg_cntl, TSENS_CNTL_ADDR);
-		reg_cntl |= TSENS_EN;
-		writel_relaxed(reg_cntl, TSENS_CNTL_ADDR);
+		writel(reg_cntl, TSENS_CNTL_ADDR);
 
-		reg_cfg = readl_relaxed(TSENS_8960_CONFIG_ADDR);
+		reg_cntl |= TSENS_EN;
+		writel(reg_cntl, TSENS_CNTL_ADDR);
+		reg_cfg = readl(TSENS_8960_CONFIG_ADDR);
 		reg_cfg = (reg_cfg & ~TSENS_8960_CONFIG_MASK) |
 			(TSENS_8960_CONFIG << TSENS_8960_CONFIG_SHIFT);
-		writel_relaxed(reg_cfg, TSENS_8960_CONFIG_ADDR);
+		writel(reg_cfg, TSENS_8960_CONFIG_ADDR);
 	} else if (tmdev->hw_type == MSM_8660) {
 		reg_cntl |= TSENS_8660_SLP_CLK_ENA | TSENS_EN |
 			(TSENS_MEASURE_PERIOD << 16) |
@@ -646,14 +702,35 @@ static void tsens_hw_init(void)
 		reg_cntl = (reg_cntl & ~TSENS_8660_CONFIG_MASK) |
 				(TSENS_8660_CONFIG << TSENS_8660_CONFIG_SHIFT);
 
-		writel_relaxed(reg_cntl, TSENS_CNTL_ADDR);
+		writel(reg_cntl, TSENS_CNTL_ADDR);
+	}
+
+	if (tmdev->tsens_num_sensor) {
+		for (i = 0; i < tmdev->tsens_num_sensor; i++) {
+			if (tmdev->sensor[i].offset > tmdev->sensor[sort_max].offset)
+				sort_max = i;
+			else  if (tmdev->sensor[i].offset < tmdev->sensor[sort_min].offset)
+				sort_min = i;
+		}
+		/* select the min and max temperatur to be limit threshold */
+		tsens_min_limit_th = tsens_tz_degC_to_code(TSENS_MIN_LIMIT_TEMP, sort_max);
+		tsens_max_limit_th = tsens_tz_degC_to_code(TSENS_MAX_LIMIT_TEMP, sort_min);
+
+		for (i = 0; i < tmdev->tsens_num_sensor; i++) {
+			pr_info("%s: sensor[%d] min_threshold %d, max_threshold %d\n",  __func__, i,
+				tsens_tz_code_to_degC(tsens_min_limit_th, i), tsens_tz_code_to_degC(tsens_max_limit_th,i));
+		}
+	}
+	else {
+		tsens_min_limit_th = TSENS_MIN_LIMIT_TH;
+		tsens_max_limit_th = TSENS_MAX_LIMIT_TH;
 	}
 
 	reg_thr |= (TSENS_LOWER_LIMIT_TH << TSENS_THRESHOLD_LOWER_LIMIT_SHIFT) |
 		(TSENS_UPPER_LIMIT_TH << TSENS_THRESHOLD_UPPER_LIMIT_SHIFT) |
-		(TSENS_MIN_LIMIT_TH << TSENS_THRESHOLD_MIN_LIMIT_SHIFT) |
-		(TSENS_MAX_LIMIT_TH << TSENS_THRESHOLD_MAX_LIMIT_SHIFT);
-	writel_relaxed(reg_thr, TSENS_THRESHOLD_ADDR);
+		(tsens_min_limit_th << TSENS_THRESHOLD_MIN_LIMIT_SHIFT) |
+		(tsens_max_limit_th << TSENS_THRESHOLD_MAX_LIMIT_SHIFT);
+	writel(reg_thr, TSENS_THRESHOLD_ADDR);
 }
 
 static int tsens_calib_sensors8660(void)
@@ -682,9 +759,12 @@ static int tsens_calib_sensors8660(void)
 	}
 
 	tmdev->sensor[TSENS_MAIN_SENSOR].offset = tmdev->tsens_factor *
-		TSENS_CAL_DEGC - tmdev->slope_mul_tsens_factor *
+		TSENS_CAL_DEGC -
+		tmdev->sensor[TSENS_MAIN_SENSOR].slope_mul_tsens_factor *
 		tmdev->sensor[TSENS_MAIN_SENSOR].calib_data;
 	tmdev->prev_reading_avail = false;
+	pr_info("%s:calib_data %d, calib_data_backup %d, offset %d\n", __func__, tmdev->sensor[TSENS_MAIN_SENSOR].calib_data,
+		 tmdev->sensor[TSENS_MAIN_SENSOR].calib_data_backup, tmdev->sensor[TSENS_MAIN_SENSOR].offset);
 	INIT_WORK(&tmdev->sensor[TSENS_MAIN_SENSOR].work,
 						notify_uspace_tsens_fn);
 
@@ -720,9 +800,12 @@ static int tsens_calib_sensors8960(void)
 			return -ENODEV;
 		}
 		tmdev->sensor[i].offset = tmdev->tsens_factor *
-			TSENS_CAL_DEGC - tmdev->slope_mul_tsens_factor *
+			TSENS_CAL_DEGC -
+			tmdev->sensor[i].slope_mul_tsens_factor *
 			tmdev->sensor[i].calib_data;
 		tmdev->prev_reading_avail = false;
+		pr_info("%s:[%d]calib_data %d, calib_data_backup %d, offset %d\n", __func__, i,
+			tmdev->sensor[i].calib_data, tmdev->sensor[i].calib_data_backup, tmdev->sensor[i].offset);
 		INIT_WORK(&tmdev->sensor[i].work, notify_uspace_tsens_fn);
 	}
 
@@ -754,7 +837,7 @@ static int tsens_calib_sensors(void)
 
 int msm_tsens_early_init(struct tsens_platform_data *pdata)
 {
-	int rc = 0;
+	int rc = 0, i;
 
 	if (!pdata) {
 		pr_err("No TSENS Platform data\n");
@@ -770,7 +853,8 @@ int msm_tsens_early_init(struct tsens_platform_data *pdata)
 		return -ENOMEM;
 	}
 
-	tmdev->slope_mul_tsens_factor = pdata->slope;
+	for (i = 0; i < pdata->tsens_num_sensor; i++)
+		tmdev->sensor[i].slope_mul_tsens_factor = pdata->slope[i];
 	tmdev->tsens_factor = pdata->tsens_factor;
 	tmdev->tsens_num_sensor = pdata->tsens_num_sensor;
 	tmdev->hw_type = pdata->hw_type;
@@ -790,6 +874,16 @@ int msm_tsens_early_init(struct tsens_platform_data *pdata)
 	}
 
 	tsens_hw_init();
+
+	if (monitor_tsense_wq == NULL) {
+		/* Create private workqueue... */
+		monitor_tsense_wq = create_workqueue("monitor_tsense_wq");
+		printk(KERN_INFO "Create monitor tsense workqueue(0x%x)...\n", (unsigned int)monitor_tsense_wq);
+	}
+	if (monitor_tsense_wq) {
+		INIT_DELAYED_WORK(&monitor_tsens_status_worker, monitor_tsens_status);
+		queue_delayed_work(monitor_tsense_wq, &monitor_tsens_status_worker, msecs_to_jiffies(0));
+	}
 
 	pr_info("msm_tsens_early_init: done\n");
 
@@ -822,6 +916,8 @@ static int __init tsens_tm_init(void)
 		tmdev->sensor[i].mode = THERMAL_DEVICE_DISABLED;
 	}
 
+	tsens8960_sensor_mode_init();
+
 	rc = request_irq(TSENS_UPPER_LOWER_INT, tsens_isr,
 		IRQF_TRIGGER_RISING, "tsens_interrupt", tmdev);
 	if (rc < 0) {
@@ -831,7 +927,7 @@ static int __init tsens_tm_init(void)
 		goto fail;
 	}
 
-	pr_notice("%s: OK\n", __func__);
+	pr_debug("%s: OK\n", __func__);
 	mb();
 	return 0;
 fail:

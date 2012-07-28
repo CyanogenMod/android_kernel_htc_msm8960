@@ -49,8 +49,6 @@ MODULE_PARM_DESC(ksgl_mmu_type,
 
 static struct ion_client *kgsl_ion_client;
 
-#ifdef CONFIG_GENLOCK
-
 /**
  * kgsl_add_event - Add a new timstamp event for the KGSL device
  * @device - KGSL device for the new event
@@ -62,9 +60,10 @@ static struct ion_client *kgsl_ion_client;
  */
 
 static int kgsl_add_event(struct kgsl_device *device, u32 ts,
-	void (*cb)(struct kgsl_device *, void *, u32), void *priv)
+	void (*cb)(struct kgsl_device *, void *, u32), void *priv,
+	struct kgsl_device_private *owner)
 {
-	struct kgsl_event *event;
+	struct kgsl_event *event, *event_tmp;
 	struct list_head *n;
 	unsigned int cur = device->ftbl->readtimestamp(device,
 		KGSL_TIMESTAMP_RETIRED);
@@ -79,6 +78,19 @@ static int kgsl_add_event(struct kgsl_device *device, u32 ts,
 		return 0;
 	}
 
+	/* HTC: purge expired event to make sure genlock can be release earlier */
+	/* Process expired events */
+	list_for_each_entry_safe(event, event_tmp, &device->events, list) {
+		if (timestamp_cmp(cur, event->timestamp) < 0)
+			break;
+
+		if (event->func)
+			event->func(device, event->priv, cur);
+
+		list_del(&event->list);
+		kfree(event);
+	}
+
 	event = kzalloc(sizeof(*event), GFP_KERNEL);
 	if (event == NULL)
 		return -ENOMEM;
@@ -86,6 +98,7 @@ static int kgsl_add_event(struct kgsl_device *device, u32 ts,
 	event->timestamp = ts;
 	event->priv = priv;
 	event->func = cb;
+	event->owner = owner;
 
 	/* Add the event in order to the list */
 
@@ -102,10 +115,39 @@ static int kgsl_add_event(struct kgsl_device *device, u32 ts,
 	if (n == &device->events)
 		list_add_tail(&event->list, &device->events);
 
-	queue_work(device->work_queue, &device->ts_expired_ws);
 	return 0;
 }
-#endif
+
+/**
+ * kgsl_cancel_events - Cancel all events for a process
+ * @device - KGSL device for the events to cancel
+ * @owner - driver instance that owns the events to cancel
+ *
+ */
+static void kgsl_cancel_events(struct kgsl_device *device,
+	struct kgsl_device_private *owner)
+{
+	struct kgsl_event *event, *event_tmp;
+	unsigned int cur = device->ftbl->readtimestamp(device,
+		KGSL_TIMESTAMP_RETIRED);
+
+	list_for_each_entry_safe(event, event_tmp, &device->events, list) {
+		if (event->owner != owner)
+			continue;
+		/*
+		 * "cancel" the events by calling their callback.
+		 * Currently, events are used for lock and memory
+		 * management, so if the process is dying the right
+		 * thing to do is release or free.
+		 */
+		if (event->func)
+			event->func(device, event->priv, cur);
+
+		list_del(&event->list);
+		kfree(event);
+	}
+}
+
 
 static inline struct kgsl_mem_entry *
 kgsl_mem_entry_create(void)
@@ -227,44 +269,10 @@ kgsl_destroy_context(struct kgsl_device_private *dev_priv,
 	idr_remove(&dev_priv->device->context_idr, id);
 }
 
-/* to be called when a process is destroyed, this walks the memqueue and
- * frees any entryies that belong to the dying process
- */
-static void kgsl_memqueue_cleanup(struct kgsl_device *device,
-				     struct kgsl_process_private *private)
-{
-	struct kgsl_mem_entry *entry, *entry_tmp;
-
-	if (!private)
-		return;
-
-	BUG_ON(!mutex_is_locked(&device->mutex));
-
-	list_for_each_entry_safe(entry, entry_tmp, &device->memqueue, list) {
-		if (entry->priv == private) {
-			list_del(&entry->list);
-			kgsl_mem_entry_put(entry);
-		}
-	}
-}
-
-static void kgsl_memqueue_freememontimestamp(struct kgsl_device *device,
-				  struct kgsl_mem_entry *entry,
-				  uint32_t timestamp,
-				  enum kgsl_timestamp_type type)
-{
-	BUG_ON(!mutex_is_locked(&device->mutex));
-
-	entry->free_timestamp = timestamp;
-
-	list_add_tail(&entry->list, &device->memqueue);
-}
-
 static void kgsl_timestamp_expired(struct work_struct *work)
 {
 	struct kgsl_device *device = container_of(work, struct kgsl_device,
 		ts_expired_ws);
-	struct kgsl_mem_entry *entry, *entry_tmp;
 	struct kgsl_event *event, *event_tmp;
 	uint32_t ts_processed;
 
@@ -273,15 +281,6 @@ static void kgsl_timestamp_expired(struct work_struct *work)
 	/* get current EOP timestamp */
 	ts_processed = device->ftbl->readtimestamp(device,
 		KGSL_TIMESTAMP_RETIRED);
-
-	/* Flush the freememontimestamp queue */
-	list_for_each_entry_safe(entry, entry_tmp, &device->memqueue, list) {
-		if (timestamp_cmp(ts_processed, entry->free_timestamp) < 0)
-			break;
-
-		list_del(&entry->list);
-		kgsl_mem_entry_put(entry);
-	}
 
 	/* Process expired events */
 	list_for_each_entry_safe(event, event_tmp, &device->events, list) {
@@ -304,10 +303,12 @@ static void kgsl_check_idle_locked(struct kgsl_device *device)
 	    device->state == KGSL_STATE_ACTIVE &&
 		device->requested_state == KGSL_STATE_NONE) {
 		kgsl_pwrctrl_request_state(device, KGSL_STATE_NAP);
-		if (kgsl_pwrctrl_sleep(device) != 0)
+		if (kgsl_pwrctrl_sleep(device) != 0) {
 			mod_timer(&device->idle_timer,
 				  jiffies +
 				  device->pwrctrl.interval_timeout);
+			device->idle_timer_enabled = true;
+		}
 	}
 }
 
@@ -424,8 +425,8 @@ static int kgsl_suspend_device(struct kgsl_device *device, pm_message_t state)
 			kgsl_pwrctrl_set_state(device, KGSL_STATE_SUSPEND);
 			break;
 		default:
-			KGSL_PWR_ERR(device, "suspend fail, device %d\n",
-					device->id);
+			KGSL_PWR_ERR(device, "suspend fail, device %d state %d\n",
+					device->id, device->state);
 			goto end;
 	}
 	kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
@@ -528,6 +529,12 @@ void kgsl_late_resume_driver(struct early_suspend *h)
 	KGSL_PWR_WARN(device, "late resume start\n");
 	mutex_lock(&device->mutex);
 	kgsl_pwrctrl_wake(device);
+	if (!device->idle_timer_enabled) {
+		mod_timer(&device->idle_timer,
+			jiffies + device->pwrctrl.interval_timeout);
+		KGSL_PWR_WARN(device, "enable idle_timer\n");
+	}
+	device->idle_timer_enabled = true;
 	device->pwrctrl.restore_slumber = 0;
 	kgsl_pwrctrl_pwrlevel_change(device, KGSL_PWRLEVEL_TURBO);
 	mutex_unlock(&device->mutex);
@@ -652,7 +659,7 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 	/* clean up any to-be-freed entries that belong to this
 	 * process and this device
 	 */
-	kgsl_memqueue_cleanup(device, private);
+	kgsl_cancel_events(device, dev_priv);
 
 	mutex_unlock(&device->mutex);
 	kfree(dev_priv);
@@ -997,6 +1004,16 @@ static long kgsl_ioctl_cmdstream_readtimestamp(struct kgsl_device_private
 	return 0;
 }
 
+static void kgsl_freemem_event_cb(struct kgsl_device *device,
+	void *priv, u32 timestamp)
+{
+	struct kgsl_mem_entry *entry = priv;
+	spin_lock(&entry->priv->mem_lock);
+	list_del(&entry->list);
+	spin_unlock(&entry->priv->mem_lock);
+	kgsl_mem_entry_put(entry);
+}
+
 static long kgsl_ioctl_cmdstream_freememontimestamp(struct kgsl_device_private
 						    *dev_priv, unsigned int cmd,
 						    void *data)
@@ -1007,13 +1024,11 @@ static long kgsl_ioctl_cmdstream_freememontimestamp(struct kgsl_device_private
 
 	spin_lock(&dev_priv->process_priv->mem_lock);
 	entry = kgsl_sharedmem_find(dev_priv->process_priv, param->gpuaddr);
-	if (entry)
-		list_del(&entry->list);
 	spin_unlock(&dev_priv->process_priv->mem_lock);
 
 	if (entry) {
-		kgsl_memqueue_freememontimestamp(dev_priv->device, entry,
-					param->timestamp, param->type);
+		result = kgsl_add_event(dev_priv->device, param->timestamp,
+					kgsl_freemem_event_cb, entry, dev_priv);
 	} else {
 		KGSL_DRV_ERR(dev_priv->device,
 			"invalid gpuaddr %08x\n", param->gpuaddr);
@@ -1628,9 +1643,12 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 	kgsl_check_idle(dev_priv->device);
 	return result;
 
- error_put_file_ptr:
-	if (entry->priv_data)
+error_put_file_ptr:
+	if (memtype == KGSL_USER_MEM_TYPE_ION) {
+		ion_free(kgsl_ion_client, entry->priv_data);
+	} else if (entry->priv_data) {
 		fput(entry->priv_data);
+	}
 
 error:
 	kfree(entry);
@@ -1678,8 +1696,10 @@ kgsl_ioctl_gpumem_alloc(struct kgsl_device_private *dev_priv,
 	int result;
 
 	entry = kgsl_mem_entry_create();
-	if (entry == NULL)
+	if (entry == NULL) {
+		KGSL_CORE_ERR("[%s] kgsl_mem_entry_create NULL\n", __func__);
 		return -ENOMEM;
+	}
 
 	result = kgsl_allocate_user(&entry->memdesc, private->pagetable,
 		param->size, param->flags);
@@ -1690,8 +1710,10 @@ kgsl_ioctl_gpumem_alloc(struct kgsl_device_private *dev_priv,
 		param->gpuaddr = entry->memdesc.gpuaddr;
 
 		kgsl_process_add_stats(private, entry->memtype, param->size);
-	} else
+	} else {
+		KGSL_CORE_ERR("[%s] kgsl_allocate_user, result:%d\n", __func__, result);
 		kfree(entry);
+	}
 
 	kgsl_check_idle(dev_priv->device);
 	return result;
@@ -1770,7 +1792,8 @@ static void kgsl_genlock_event_cb(struct kgsl_device *device,
  */
 
 static int kgsl_add_genlock_event(struct kgsl_device *device,
-	u32 timestamp, void __user *data, int len)
+	u32 timestamp, void __user *data, int len,
+	struct kgsl_device_private *owner)
 {
 	struct kgsl_genlock_event_priv *event;
 	struct kgsl_timestamp_event_genlock priv;
@@ -1795,7 +1818,8 @@ static int kgsl_add_genlock_event(struct kgsl_device *device,
 		return ret;
 	}
 
-	ret = kgsl_add_event(device, timestamp, kgsl_genlock_event_cb, event);
+	ret = kgsl_add_event(device, timestamp, kgsl_genlock_event_cb, event,
+				owner);
 	if (ret)
 		kfree(event);
 
@@ -1803,7 +1827,8 @@ static int kgsl_add_genlock_event(struct kgsl_device *device,
 }
 #else
 static long kgsl_add_genlock_event(struct kgsl_device *device,
-	u32 timestamp, void __user *data, int len)
+	u32 timestamp, void __user *data, int len,
+	struct kgsl_device_private *owner)
 {
 	return -EINVAL;
 }
@@ -1826,7 +1851,8 @@ static long kgsl_ioctl_timestamp_event(struct kgsl_device_private *dev_priv,
 	switch (param->type) {
 	case KGSL_TIMESTAMP_EVENT_GENLOCK:
 		ret = kgsl_add_genlock_event(dev_priv->device,
-			param->timestamp, param->priv, param->len);
+			param->timestamp, param->priv, param->len,
+			dev_priv);
 		break;
 	default:
 		ret = -EINVAL;
@@ -2176,6 +2202,7 @@ kgsl_register_device(struct kgsl_device *device)
 	ATOMIC_INIT_NOTIFIER_HEAD(&device->ts_notifier_list);
 
 	setup_timer(&device->idle_timer, kgsl_timer, (unsigned long) device);
+	device->idle_timer_enabled = true;
 	ret = kgsl_create_device_workqueue(device);
 	if (ret)
 		goto err_devlist;
@@ -2183,7 +2210,6 @@ kgsl_register_device(struct kgsl_device *device)
 	INIT_WORK(&device->idle_check_ws, kgsl_idle_check);
 	INIT_WORK(&device->ts_expired_ws, kgsl_timestamp_expired);
 
-	INIT_LIST_HEAD(&device->memqueue);
 	INIT_LIST_HEAD(&device->events);
 
 	ret = kgsl_mmu_init(device);
@@ -2197,8 +2223,7 @@ kgsl_register_device(struct kgsl_device *device)
 		goto err_close_mmu;
 
 	if (cpu_is_msm8x60())
-		wake_lock_init(&device->idle_wakelock,
-					   WAKE_LOCK_IDLE, device->name);
+		wake_lock_init(&device->idle_wakelock, WAKE_LOCK_IDLE, device->name);
 
 	idr_init(&device->context_idr);
 
@@ -2294,8 +2319,10 @@ int kgsl_device_platform_probe(struct kgsl_device *device,
 
 
 	status = kgsl_register_device(device);
-	if (!status)
+	if (!status) {
+		if (kgsl_ion_client == NULL) kgsl_ion_client = msm_ion_client_create(UINT_MAX, KGSL_NAME);
 		return status;
+	}
 
 	free_irq(device->pwrctrl.interrupt_num, NULL);
 	device->pwrctrl.have_irq = 0;

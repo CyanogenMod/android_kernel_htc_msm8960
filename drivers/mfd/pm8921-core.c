@@ -24,6 +24,7 @@
 #include <linux/mfd/pm8xxx/core.h>
 #include <linux/mfd/pm8xxx/regulator.h>
 #include <linux/leds-pm8xxx.h>
+#include <linux/syscore_ops.h>
 
 #define REG_HWREV		0x002  /* PMIC4 revision */
 #define REG_HWREV_2		0x0E8  /* PMIC4 revision 2 */
@@ -62,6 +63,8 @@ struct pm8921 {
 	struct pm8xxx_regulator_core_platform_data	*regulator_cdata;
 	u32						rev_registers;
 };
+
+static struct pm8921 *pmic8921_chip;
 
 static int pm8921_readb(const struct device *dev, u16 addr, u8 *val)
 {
@@ -408,16 +411,16 @@ static struct pm8xxx_vreg regulator_data[] = {
 	SMPS("8921_s7", "8921_s7_pc", 0x1F0, 0x1F5, 0x012, 0x1F2, SMPS_1500),
 	SMPS("8921_s8", "8921_s8_pc", 0x1F8, 0x1FD, 0x013, 0x1FA, SMPS_1500),
 
-	/* name		       pc_name	       ctrl */
-	VS("8921_lvs1",        "8921_lvs1_pc", 0x060),
-	VS300("8921_lvs2",		       0x062),
-	VS("8921_lvs3",        "8921_lvs3_pc", 0x064),
-	VS("8921_lvs4",        "8921_lvs4_pc", 0x066),
-	VS("8921_lvs5",        "8921_lvs5_pc", 0x068),
-	VS("8921_lvs6",        "8921_lvs6_pc", 0x06A),
-	VS("8921_lvs7",        "8921_lvs7_pc", 0x06C),
-	VS300("8921_usb_otg",		       0x06E),
-	VS300("8921_hdmi_mvs",		       0x070),
+	/* name		       pc_name	       ctrl   test */
+	VS("8921_lvs1",        "8921_lvs1_pc", 0x060, 0x061),
+	VS300("8921_lvs2",		       0x062, 0x063),
+	VS("8921_lvs3",        "8921_lvs3_pc", 0x064, 0x065),
+	VS("8921_lvs4",        "8921_lvs4_pc", 0x066, 0x067),
+	VS("8921_lvs5",        "8921_lvs5_pc", 0x068, 0x069),
+	VS("8921_lvs6",        "8921_lvs6_pc", 0x06A, 0x06B),
+	VS("8921_lvs7",        "8921_lvs7_pc", 0x06C, 0x06D),
+	VS300("8921_usb_otg",		       0x06E, 0x06F),
+	VS300("8921_hdmi_mvs",		       0x070, 0x071),
 
 	/*  name	ctrl */
 	NCP("8921_ncp", 0x090),
@@ -768,6 +771,45 @@ static const char * const pm8922_rev_names[] = {
 	[PM8XXX_REVISION_8922_2p0]	= "2.0",
 };
 
+
+extern int msm_show_resume_irq_mask;
+
+static void pm8921_show_resume_irq(void)
+{
+	int i, irq;
+	struct pm_irq_chip *chip = pmic8921_chip->irq_chip;
+
+	if (!msm_show_resume_irq_mask || !chip)
+		return;
+
+	for (i = 0; i < PM8921_NR_IRQS; i++) {
+		irq = i + pm8xxx_get_irq_base(chip);
+		if (pm8xxx_get_irq_wake_stat(chip,irq)) {
+			if(pm8xxx_get_irq_it_stat(chip, irq)) {
+				pr_warning("%s: %d triggered\n",
+				__func__, irq);
+				printk("[WAKEUP] Resume caused by pmic-%d\n",
+				irq - (NR_MSM_IRQS + NR_GPIO_IRQS));
+			}
+		}
+	}
+}
+
+static int pm8921_suspend(void)
+{
+	return 0;
+}
+
+static void pm8921_resume(void)
+{
+	pm8921_show_resume_irq();
+}
+
+static struct syscore_ops pm8921_pm = {
+	.suspend = pm8921_suspend,
+	.resume = pm8921_resume,
+};
+
 static int __devinit pm8921_probe(struct platform_device *pdev)
 {
 	const struct pm8921_platform_data *pdata = pdev->dev.platform_data;
@@ -845,6 +887,9 @@ static int __devinit pm8921_probe(struct platform_device *pdev)
 
 	/* gpio might not work if no irq device is found */
 	WARN_ON(pmic->irq_chip == NULL);
+
+	pmic8921_chip = pmic;
+        register_syscore_ops(&pm8921_pm);
 
 	return 0;
 

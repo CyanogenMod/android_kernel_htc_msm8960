@@ -15,6 +15,9 @@
 
 #include <linux/errno.h>
 #include <linux/power_supply.h>
+#ifdef CONFIG_HTC_BATT_8960
+#include <mach/htc_charger.h>
+#endif
 
 #define PM8921_CHARGER_DEV_NAME	"pm8921-charger"
 
@@ -63,9 +66,11 @@ enum pm8921_usb_debounce_time {
  *				after the battery has been fully charged
  * @term_current:	the charger current (mA) at which EOC happens
  * @cool_temp:		the temperature (degC) at which the battery is
- *			considered cool charging current and voltage is reduced
+ *			considered cool charging current and voltage is reduced.
+ *			Use INT_MIN to indicate not valid.
  * @warm_temp:		the temperature (degC) at which the battery is
- *			considered warm charging current and voltage is reduced
+ *			considered warm charging current and voltage is reduced.
+ *			Use INT_MIN to indicate not valid.
  * @temp_check_period:	The polling interval in seconds to check battery
  *			temeperature if it has gone to cool or warm temperature
  *			area
@@ -108,8 +113,8 @@ struct pm8921_charger_platform_data {
 	unsigned int			min_voltage;
 	unsigned int			resume_voltage_delta;
 	unsigned int			term_current;
-	unsigned int			cool_temp;
-	unsigned int			warm_temp;
+	int						cool_temp;
+	int						warm_temp;
 	unsigned int			temp_check_period;
 	unsigned int			max_bat_chg_current;
 	unsigned int			cool_bat_chg_current;
@@ -127,6 +132,7 @@ struct pm8921_charger_platform_data {
 	int				vin_min;
 	int				*thermal_mitigation;
 	int				thermal_levels;
+	int				mbat_in_gpio;
 	enum pm8921_chg_cold_thr	cold_thr;
 	enum pm8921_chg_hot_thr		hot_thr;
 };
@@ -136,6 +142,34 @@ enum pm8921_charger_source {
 	PM8921_CHG_SRC_USB,
 	PM8921_CHG_SRC_DC,
 };
+
+/**
+ * struct ext_chg_pm8921 -
+ * @name:		name of the external charger
+ * @ctx:		client context.
+ * @start_charging:	callback to start charging. Can be called from an
+ *			interrupt context
+ * @stop_charging:	callback to stop charging. Can be called from an
+ *			interrupt context
+ * @is_trickle:		callback to check if trickle charging.
+ *			Can be called from an interrupt context
+ *
+ */
+struct ext_chg_pm8921 {
+	const char	*name;
+	void		*ctx;
+	int		(*start_charging) (void *ctx);
+	int		(*stop_charging) (void *ctx);
+	bool		(*is_trickle) (void *ctx);
+};
+
+#ifdef CONFIG_HTC_BATT_8960
+/* struct to hook in htc_battery_cell.chg_param
+ * some charger parameters is depends on battery. */
+struct pm8921_charger_batt_param {
+	int max_voltage;
+};
+#endif /* CONFIG_HTC_BATT_8960 */
 
 #if defined(CONFIG_PM8921_CHARGER) || defined(CONFIG_PM8921_CHARGER_MODULE)
 void pm8921_charger_vbus_draw(unsigned int mA);
@@ -233,6 +267,28 @@ bool pm8921_is_battery_charging(int *source);
  */
 int pm8921_batt_temperature(void);
 /**
+ * register_external_dc_charger -
+ * @ext:	The structure representing an external charger
+ *
+ * RETURNS:	Negative error code is there was a problem. Zero for sucess
+ *
+ * The charger callbacks might be called even before this function
+ * completes. The external charger driver should be ready to handle
+ * it.
+ */
+int register_external_dc_charger(struct ext_chg_pm8921 *ext);
+
+/**
+ * unregister_external_dc_charger -
+ * @ext:	The structure representing an external charger
+ *
+ * The charger callbacks might be called even before this function
+ * completes. The external charger driver should be ready to handle
+ * it.
+ */
+void unregister_external_dc_charger(struct ext_chg_pm8921 *ext);
+
+/**
  * pm8921_usb_ovp_set_threshold -
  * Set the usb threshold as defined in by
  * enum usb_ov_threshold
@@ -257,6 +313,105 @@ int pm8921_usb_ovp_set_hystersis(enum pm8921_usb_debounce_time ms);
  *
  */
 int pm8921_usb_ovp_disable(int disable);
+
+#ifdef CONFIG_HTC_BATT_8960
+/********************************************/
+/* htc_gauge/htc_charger abstract interface */
+/********************************************/
+/**
+ * pm8921_get_batt_voltage - get battery voltage in mV
+ *
+ */
+int pm8921_get_batt_voltage(int *result);
+
+/**
+ * pm8921_get_batt_temperature - get battery temperature in C
+ *
+ */
+int pm8921_get_batt_temperature(int *result);
+
+/**
+ * pm8921_get_batt_id - get battery id in ?
+ *
+ */
+int pm8921_get_batt_id(int *result);
+
+/**
+ * pm8921_is_batt_temperature_fault
+ *
+ */
+int pm8921_is_batt_temperature_fault(int *result);
+
+/**
+ * pm8921_is_batt_temperature_fault
+ *
+ */
+int pm8921_is_batt_temp_fault_disable_chg(int *result);
+
+/**
+ * pm8921_is_batt_full
+ *
+ */
+int pm8921_is_batt_full(int *result);
+
+/**
+ * pm8921_get_charging_source
+ *
+ */
+int pm8921_get_charging_source(int *result);
+
+/**
+ * pm8921_get_charging_enabled
+ *
+ */
+int pm8921_get_charging_enabled(int *result);
+
+/**
+ * pm8921_pwrsrc_enabled
+ *
+ */
+int pm8921_pwrsrc_enable(bool enable);
+
+/**
+ * pm8921_set_pwrsrc_and_charger_enable
+ *
+ */
+int pm8921_set_pwrsrc_and_charger_enable(enum htc_power_source_type src,
+		bool chg_enable, bool pwrsrc_enable);
+
+/**
+ * pm8921_limit_charge_enable
+ *
+ */
+int pm8921_limit_charge_enable(bool enable);
+
+/**
+ * pm8921_is_charger_ovp
+ *
+ */
+int pm8921_is_charger_ovp(int *result);
+
+/**
+ * pm8921_dump_all
+ *
+ */
+int pm8921_dump_all(void);
+
+/**
+ * pm8921_charger_get_attr_text
+ *
+ */
+int pm8921_charger_get_attr_text(char *buf, int size);
+
+/**
+ * pm8921_gauge_get_attr_text
+ *
+ */
+int pm8921_gauge_get_attr_text(char *buf, int size);
+#endif /* CONFIG_HTC_BATT_8960 */
+/* for htc cable_detection driver */
+void pm8921_chg_disable_usbin_valid_irq(void);
+void pm8921_chg_enable_usbin_valid_irq(void);
 #else
 static inline void pm8921_charger_vbus_draw(unsigned int mA)
 {
@@ -313,6 +468,15 @@ static inline int pm8921_batt_temperature(void)
 {
 	return -ENXIO;
 }
+static inline int register_external_dc_charger(struct ext_chg_pm8921 *ext)
+{
+	pr_err("%s.not implemented.\n", __func__);
+	return -ENODEV;
+}
+static inline void unregister_external_dc_charger(struct ext_chg_pm8921 *ext)
+{
+	pr_err("%s.not implemented.\n", __func__);
+}
 static inline int pm8921_usb_ovp_set_threshold(enum pm8921_usb_ov_threshold ov)
 {
 	return -ENXIO;
@@ -324,6 +488,73 @@ static inline int pm8921_usb_ovp_set_hystersis(enum pm8921_usb_debounce_time ms)
 static inline int pm8921_usb_ovp_disable(int disable)
 {
 	return -ENXIO;
+}
+#ifdef CONFIG_HTC_BATT_8960
+/* htc_gauge/charger interface */
+static inline int pm8921_get_batt_voltage(int *result)
+{
+	return -ENXIO;
+}
+static inline int pm8921_get_batt_temperature(int *result)
+{
+	return -ENXIO;
+}
+static inline int pm8921_get_batt_id(int *result)
+{
+	return -ENXIO;
+}
+static inline int pm8921_is_batt_temperature_fault(int *result)
+{
+	return -ENXIO;
+}
+static inline int pm8921_is_batt_temp_fault_disable_chg(int *result)
+{
+	return -ENXIO;
+}
+static inline int pm8921_is_batt_full(int *result)
+{
+	return -ENXIO;
+}
+static inline int pm8921_get_charging_source(int *result)
+{
+	return -ENXIO;
+}
+static inline int pm8921_get_charging_enabled(int *result)
+{
+	return -ENXIO;
+}
+static inline int pm8921_pwrsrc_enable(bool enable)
+{
+	return -ENXIO;
+}
+static inline int pm8921_set_pwrsrc_and_charger_enable(enum htc_power_source_type src,
+		bool chg_enable, bool pwrsrc_enable)
+{
+	return -ENXIO;
+}
+static inline int pm8921_limit_charge_enable(bool enable)
+{
+	return -ENXIO;
+}
+static inline int pm8921_is_charger_ovp(int *result)
+{
+	return -ENXIO;
+}
+static inline int pm8921_charger_get_attr_text(char *buf, int size)
+{
+	return -ENXIO;
+}
+static inline int pm8921_gauge_get_attr_text(char *buf, int size)
+{
+	return -ENXIO;
+}
+#endif /* CONFIG_HTC_BATT_8960 */
+/* for htc cable_detection driver */
+static inline void pm8921_chg_disable_usbin_valid_irq(void)
+{
+}
+static inline void pm8921_chg_enable_usbin_valid_irq(void)
+{
 }
 #endif
 

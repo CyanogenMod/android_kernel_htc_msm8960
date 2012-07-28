@@ -105,10 +105,10 @@
 #include <net/xfrm.h>
 #include <net/netevent.h>
 #include <net/rtnetlink.h>
+#include <net/secure_seq.h>
 #ifdef CONFIG_SYSCTL
 #include <linux/sysctl.h>
 #endif
-#include <net/secure_seq.h>
 
 #define RT_FL_TOS(oldflp4) \
     ((u32)(oldflp4->flowi4_tos & (IPTOS_RT_MASK | RTO_ONLINK)))
@@ -716,18 +716,17 @@ static inline bool compare_hash_inputs(const struct rtable *rt1,
 				       const struct rtable *rt2)
 {
 	return ((((__force u32)rt1->rt_key_dst ^ (__force u32)rt2->rt_key_dst) |
-		((__force u32)rt1->rt_key_src ^ (__force u32)rt2->rt_key_src) |
-		(rt1->rt_route_iif ^ rt2->rt_route_iif)) == 0);
+			 ((__force u32)rt1->rt_key_src ^ (__force u32)rt2->rt_key_src) |
+			 (rt1->rt_route_iif ^ rt2->rt_route_iif)) == 0);
 }
 
 static inline int compare_keys(struct rtable *rt1, struct rtable *rt2)
 {
 	return (((__force u32)rt1->rt_key_dst ^ (__force u32)rt2->rt_key_dst) |
-		((__force u32)rt1->rt_key_src ^ (__force u32)rt2->rt_key_src) |
-		(rt1->rt_mark ^ rt2->rt_mark) |
-		(rt1->rt_key_tos ^ rt2->rt_key_tos) |
-		(rt1->rt_route_iif ^ rt2->rt_route_iif) |
-		(rt1->rt_oif ^ rt2->rt_oif)) == 0;
+			((__force u32)rt1->rt_key_src ^ (__force u32)rt2->rt_key_src) |
+			(rt1->rt_mark ^ rt2->rt_mark) |
+			(rt1->rt_key_tos ^ rt2->rt_key_tos) |
+			(rt1->rt_oif ^ rt2->rt_oif)) == 0;
 }
 
 static inline int compare_netns(struct rtable *rt1, struct rtable *rt2)
@@ -1704,7 +1703,7 @@ void ip_rt_get_source(u8 *addr, struct sk_buff *skb, struct rtable *rt)
 		memset(&fl4, 0, sizeof(fl4));
 		fl4.daddr = iph->daddr;
 		fl4.saddr = iph->saddr;
-		fl4.flowi4_tos = RT_TOS(iph->tos);
+		fl4.flowi4_tos = iph->tos;
 		fl4.flowi4_oif = rt->dst.dev->ifindex;
 		fl4.flowi4_iif = skb->dev->ifindex;
 		fl4.flowi4_mark = skb->mark;
@@ -2281,7 +2280,8 @@ int ip_route_input_common(struct sk_buff *skb, __be32 daddr, __be32 saddr,
 	     rth = rcu_dereference(rth->dst.rt_next)) {
 		if ((((__force u32)rth->rt_key_dst ^ (__force u32)daddr) |
 		     ((__force u32)rth->rt_key_src ^ (__force u32)saddr) |
-		     (rth->rt_route_iif ^ iif) |
+			 (rth->rt_route_iif ^ iif) |
+		     rth->rt_oif |
 		     (rth->rt_key_tos ^ tos)) == 0 &&
 		    rth->rt_mark == skb->mark &&
 		    net_eq(dev_net(rth->dst.dev), net) &&
@@ -2620,6 +2620,11 @@ static struct rtable *ip_route_output_slow(struct net *net, struct flowi4 *fl4)
 		fl4->saddr = FIB_RES_PREFSRC(net, res);
 
 	dev_out = FIB_RES_DEV(res);
+	if (dev_out == NULL)
+	{
+		printk(KERN_ERR "[NET] dev_null is NULL in %s!\n", __func__);
+		goto out;
+	}
 	fl4->flowi4_oif = dev_out->ifindex;
 
 
@@ -2955,6 +2960,11 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void 
 	if (err)
 		goto errout_free;
 
+#ifdef CONFIG_HTC_NETWORK_MODIFY
+	if (IS_ERR(rt) || (!rt))
+		printk(KERN_ERR "[NET] rt is NULL in %s!\n", __func__);
+#endif
+
 	skb_dst_set(skb, &rt->dst);
 	if (rtm->rtm_flags & RTM_F_NOTIFY)
 		rt->rt_flags |= RTCF_NOTIFY;
@@ -3157,9 +3167,9 @@ static struct ctl_table empty[1];
 
 static struct ctl_table ipv4_skeleton[] =
 {
-	{ .procname = "route", 
+	{ .procname = "route",
 	  .mode = 0555, .child = ipv4_route_table},
-	{ .procname = "neigh", 
+	{ .procname = "neigh",
 	  .mode = 0555, .child = empty},
 	{ }
 };

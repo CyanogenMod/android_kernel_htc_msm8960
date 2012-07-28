@@ -20,4 +20,6 @@ obj-$(CONFIG_SND_SOC)	+= s6000/
 obj-$(CONFIG_SND_SOC)	+= sh/
 obj-$(CONFIG_SND_SOC)	+= tegra/
 obj-$(CONFIG_SND_SOC)	+= txx9/
-obj-$(CONFIG_SND_SOC)   += msm/
+obj-$(CONFIG_SND_SOC_MSM8960)   += msm/
+obj-$(CONFIG_SND_SOC_MSM8X60)   += msm_1x/
+obj-$(CONFIG_SND_SOC_MSM8X55)   += msm_1x/

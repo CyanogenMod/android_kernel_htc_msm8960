@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -118,6 +118,10 @@ struct vpe_ctrl_type {
 	struct regulator *fs_vpe;
 	struct clk	*vpe_clk[2];
 	struct msm_mctl_pp_frame_info *pp_frame_info;
+//HTC_START chris, 20120310 fix unknown reset which is caused by vpe clk disabled when vpe state is active.
+	wait_queue_head_t vpe_event_queue;
+	int               vpe_event_done;
+//HTC_END
 };
 
 /*

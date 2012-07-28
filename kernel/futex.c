@@ -1719,6 +1719,9 @@ static int fixup_owner(u32 __user *uaddr, struct futex_q *q, int locked)
 		if (!owner)
 			owner = rt_mutex_next_owner(&q->pi_state->pi_mutex);
 		raw_spin_unlock(&q->pi_state->pi_mutex.wait_lock);
+
+		BUG_ON(!owner);
+
 		ret = fixup_pi_state_owner(uaddr, q, owner);
 		goto out;
 	}

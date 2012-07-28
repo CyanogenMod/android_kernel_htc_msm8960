@@ -140,6 +140,17 @@ config RTC_INTF_ALARM_DEV
 	help
 	  Exports the alarm interface to user-space.
 
+config HTC_OFFMODE_ALARM
+	bool "Enables HTC offmode alarm."
+	default n
+	help
+	support HTC offmode alarm.
+
+config HTC_QUICKBOOT_OFFMODE_ALARM
+	bool "Support HTC quickboot offmode alarm."
+	default n
+	help
+	support HTC quickboot offmode alarm.
 
 config RTC_DRV_TEST
 	tristate "Test driver/device"

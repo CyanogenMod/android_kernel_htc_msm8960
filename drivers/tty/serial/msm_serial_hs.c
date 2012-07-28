@@ -262,6 +262,10 @@ static void msm_hs_release_port(struct uart_port *port)
 		gsbi_resource = platform_get_resource_byname(pdev,
 							     IORESOURCE_MEM,
 							     "gsbi_resource");
+		if (gsbi_resource == NULL) {
+			printk(KERN_ERR "Can't get GSBI RES\n");
+			return;
+		}
 		if (unlikely(!gsbi_resource))
 			return;
 
