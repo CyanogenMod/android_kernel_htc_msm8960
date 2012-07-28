@@ -1,0 +1,11 @@
+obj-$(CONFIG_MACH_FIGHTER) += board-fighter-panel.o
+obj-$(CONFIG_MACH_JET) += board-jet-panel.o
+obj-$(CONFIG_MACH_VILLE) += board-ville-panel.o
+obj-$(CONFIG_MACH_ELITE) += board-elite-panel.o
+obj-$(CONFIG_MACH_KNIGHT) += board-knight-panel.o
+obj-$(CONFIG_MACH_PYRAMID) += pyramid-panel.o
+obj-$(CONFIG_MACH_TAHITI) += board-tahiti-panel.o
+obj-$(CONFIG_MACH_SHOOTER) += shooter-panel.o
+obj-$(CONFIG_MACH_HOLIDAY) += holiday-panel.o
+obj-$(CONFIG_MACH_ELITE_ULK) += board-elite_ulk-panel.o
+obj-$(CONFIG_MACH_JEL_DD) += board-jel_dd-panel.o
