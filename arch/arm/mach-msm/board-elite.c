@@ -1135,7 +1135,9 @@ static struct msm_bus_scale_pdata cam_bus_client_pdata = {
 static struct regulator *reg_8921_l2;
 static struct regulator *reg_8921_l8;
 static struct regulator *reg_8921_l9;
+#ifdef CONFIG_FB_MSM_HDMI_MHL
 static struct regulator *reg_8921_l12;
+#endif
 static struct regulator *reg_8921_lvs5;
 static struct regulator *reg_8921_lvs6;
 
@@ -4000,6 +4002,7 @@ uint32_t mhl_usb_switch_ouput_table0_XB[] = {
 	GPIO_CFG(ELITE_GPIO_MHL_USB_SELz_XB, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
 };
 
+#ifdef CONFIG_FB_MSM_HDMI_MHL
 static void config_gpio_table(uint32_t *table, int len)
 {
 	int n, rc;
@@ -4013,8 +4016,6 @@ static void config_gpio_table(uint32_t *table, int len)
 	}
 }
 
-
-#ifdef CONFIG_FB_MSM_HDMI_MHL
 static void elite_usb_dpdn_switch(int path)
 {
 	switch (path) {
