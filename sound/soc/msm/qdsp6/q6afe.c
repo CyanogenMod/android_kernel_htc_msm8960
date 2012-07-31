@@ -405,7 +405,7 @@ int afe_port_start_nowait(u16 port_id, union afe_port_config *afe_config,
 
 	if ((port_id == RT_PROXY_DAI_001_RX) ||
 		(port_id == RT_PROXY_DAI_002_TX))
-		return -EINVAL;
+		return 0;
 	if ((port_id == RT_PROXY_DAI_002_RX) ||
 		(port_id == RT_PROXY_DAI_001_TX))
 		port_id = VIRTUAL_ID_TO_PORTID(port_id);
@@ -491,7 +491,7 @@ int afe_open(u16 port_id, union afe_port_config *afe_config, int rate)
 
 	if ((port_id == RT_PROXY_DAI_001_RX) ||
 		(port_id == RT_PROXY_DAI_002_TX))
-		return -EINVAL;
+		return 0;
 	if ((port_id == RT_PROXY_DAI_002_RX) ||
 		(port_id == RT_PROXY_DAI_001_TX))
 		port_id = VIRTUAL_ID_TO_PORTID(port_id);
