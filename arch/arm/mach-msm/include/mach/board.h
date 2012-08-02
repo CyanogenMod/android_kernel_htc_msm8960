@@ -533,6 +533,7 @@ struct msm_vidc_platform_data {
 #ifdef CONFIG_MSM_BUS_SCALING
 	struct msm_bus_scale_pdata *vidc_bus_client_pdata;
 #endif
+	int disable_turbo;
 	int cont_mode_dpb_count;
 };
 
