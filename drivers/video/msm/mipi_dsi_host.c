@@ -1372,9 +1372,6 @@ int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
 int mipi_dsi_cmd_dma_tx(struct dsi_buf *tp)
 {
 	int len;
-#if 1 /* HTC_CSP_START */
-	long timeout;
-#endif /* HTC_CSP_END */
 
 #ifdef DSI_HOST_DEBUG
 	int i;
@@ -1405,19 +1402,7 @@ int mipi_dsi_cmd_dma_tx(struct dsi_buf *tp)
 	MIPI_OUTP(MIPI_DSI_BASE + 0x08c, 0x01);	/* trigger */
 	wmb();
 
-#if 0 /* HTC_CSP_START */
 	wait_for_completion(&dsi_dma_comp);
-#else
-	timeout = wait_for_completion_timeout(&dsi_dma_comp, HZ/10);
-
-	if (!timeout) {
-		u32 isr = MIPI_INP(MIPI_DSI_BASE + 0x010c);
-		MIPI_OUTP(MIPI_DSI_BASE + 0x010c, isr);
-		pr_err("%s timeout, isr=0x%08x\n", __func__, isr);
-		/* mipi_dsi_read_status_reg(); */
-		atomic_set(&need_soft_reset, 1);
-	}
-#endif /* HTC_CSP_END */
 
 	dma_unmap_single(&dsi_dev, tp->dmap, len, DMA_TO_DEVICE);
 	tp->dmap = 0;

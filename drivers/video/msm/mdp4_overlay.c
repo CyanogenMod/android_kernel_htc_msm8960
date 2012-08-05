@@ -1507,11 +1507,7 @@ void mdp4_mixer_blend_setup(struct mdp4_overlay_pipe *pipe)
 			outpdw(rgb_base + 0x50, rgb_src_format);
 			outpdw(rgb_base + 0x1008, constant_color);
 		}
-#if 1 /* HTC_CSP_START */
-	} else if (fg_alpha && pipe->mixer_num == MDP4_MIXER0) {
-#else /* HTC_CSP_END */
 	} else if (fg_alpha) {
-#endif
 		blend_op = (MDP4_BLEND_BG_ALPHA_FG_PIXEL |
 			    MDP4_BLEND_BG_INV_ALPHA);
 		fg_color3_out = 1; /* keep fg alpha */
