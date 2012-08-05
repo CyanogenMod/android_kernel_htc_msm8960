@@ -563,10 +563,6 @@ void mdp4_dsi_cmd_dma_busy_wait(struct msm_fb_data_type *mfd)
 {
 	unsigned long flag;
 	int need_wait = 0;
-#if 1 /* HTC_CSP_START */
-	int retry_count = 0;
-	long timeout;
-#endif /* HTC_CSP_END */
 
 	if (dsi_clock_timer.function) {
 		if (time_after(jiffies, tout_expired)) {
@@ -599,56 +595,7 @@ void mdp4_dsi_cmd_dma_busy_wait(struct msm_fb_data_type *mfd)
 		/* wait until DMA finishes the current job */
 		pr_debug("%s: pending pid=%d dsi_clk_on=%d\n",
 				__func__, current->pid, mipi_dsi_clk_on);
-#if 1 /* HTC_CSP_START */
-		timeout = wait_for_completion_timeout(&mfd->dma->comp, HZ/5);
-
-		while (!timeout && retry_count++ < 15) {
-			rmb();
-			if (mfd->dma->busy == FALSE) {
-				PR_DISP_INFO("%s(%d)timeout but dma not busy now, cnt:%d\n", __func__, __LINE__, busy_wait_cnt);
-				break;
-			} else {
-				PR_DISP_INFO("%s(%d)timeout but dma still busy\n", __func__, __LINE__);
-				PR_DISP_INFO("###busy_wait_cnt:%d need_wait:%d pending pid=%d dsi_clk_on=%d\n", busy_wait_cnt, need_wait, current->pid, mipi_dsi_clk_on);
-				PR_DISP_INFO("MDP_DISPLAY_STATUS:%x\n", inpdw(msm_mdp_base + 0x18));
-				PR_DISP_INFO("MDP_INTR_STATUS:%x\n", inpdw(MDP_INTR_STATUS));
-				PR_DISP_INFO("MDP_INTR_ENABLE:%x\n", inpdw(MDP_INTR_ENABLE));
-				PR_DISP_INFO("MDP_LAYERMIXER_IN_CFG:%x\n", inpdw(msm_mdp_base + 0x10100));
-				PR_DISP_INFO("MDP_OVERLAY_STATUS:%x\n", inpdw(msm_mdp_base + 0x10000));
-				PR_DISP_INFO("MDP_OVERLAYPROC0_CFG:%x\n", inpdw(msm_mdp_base + 0x10004));
-				PR_DISP_INFO("MDP_OVERLAYPROC1_CFG:%x\n", inpdw(msm_mdp_base + 0x18004));
-				PR_DISP_INFO("RGB1(1):%x %x %x %x\n", inpdw(msm_mdp_base + 0x40000), inpdw(msm_mdp_base + 0x40004), inpdw(msm_mdp_base + 0x40008), inpdw(msm_mdp_base + 0x4000C));
-				PR_DISP_INFO("RGB1(2):%x %x %x %x\n", inpdw(msm_mdp_base + 0x40010), inpdw(msm_mdp_base + 0x40014), inpdw(msm_mdp_base + 0x40018), inpdw(msm_mdp_base + 0x40040));
-				PR_DISP_INFO("RGB1(3):%x %x %x %x\n", inpdw(msm_mdp_base + 0x40050), inpdw(msm_mdp_base + 0x40054), inpdw(msm_mdp_base + 0x40058), inpdw(msm_mdp_base + 0x4005C));
-				PR_DISP_INFO("RGB1(4):%x %x %x %x\n", inpdw(msm_mdp_base + 0x40060), inpdw(msm_mdp_base + 0x41000), inpdw(msm_mdp_base + 0x41004), inpdw(msm_mdp_base + 0x41008));
-				PR_DISP_INFO("RGB2(1):%x %x %x %x\n", inpdw(msm_mdp_base + 0x50000), inpdw(msm_mdp_base + 0x50004), inpdw(msm_mdp_base + 0x50008), inpdw(msm_mdp_base + 0x5000C));
-				PR_DISP_INFO("RGB2(2):%x %x %x %x\n", inpdw(msm_mdp_base + 0x50010), inpdw(msm_mdp_base + 0x50014), inpdw(msm_mdp_base + 0x50018), inpdw(msm_mdp_base + 0x50040));
-				PR_DISP_INFO("RGB2(3):%x %x %x %x\n", inpdw(msm_mdp_base + 0x50050), inpdw(msm_mdp_base + 0x50054), inpdw(msm_mdp_base + 0x50058), inpdw(msm_mdp_base + 0x5005C));
-				PR_DISP_INFO("RGB2(4):%x %x %x %x\n", inpdw(msm_mdp_base + 0x50060), inpdw(msm_mdp_base + 0x51000), inpdw(msm_mdp_base + 0x51004), inpdw(msm_mdp_base + 0x51008));
-				PR_DISP_INFO("VG1 (1):%x %x %x %x\n", inpdw(msm_mdp_base + 0x20000), inpdw(msm_mdp_base + 0x20004), inpdw(msm_mdp_base + 0x20008), inpdw(msm_mdp_base + 0x2000C));
-				PR_DISP_INFO("VG1 (2):%x %x %x %x\n", inpdw(msm_mdp_base + 0x20010), inpdw(msm_mdp_base + 0x20014), inpdw(msm_mdp_base + 0x20018), inpdw(msm_mdp_base + 0x20040));
-				PR_DISP_INFO("VG1 (3):%x %x %x %x\n", inpdw(msm_mdp_base + 0x20050), inpdw(msm_mdp_base + 0x20054), inpdw(msm_mdp_base + 0x20058), inpdw(msm_mdp_base + 0x2005C));
-				PR_DISP_INFO("VG1 (4):%x %x %x %x\n", inpdw(msm_mdp_base + 0x20060), inpdw(msm_mdp_base + 0x21000), inpdw(msm_mdp_base + 0x21004), inpdw(msm_mdp_base + 0x21008));
-				PR_DISP_INFO("VG2 (1):%x %x %x %x\n", inpdw(msm_mdp_base + 0x30000), inpdw(msm_mdp_base + 0x30004), inpdw(msm_mdp_base + 0x30008), inpdw(msm_mdp_base + 0x3000C));
-				PR_DISP_INFO("VG2 (2):%x %x %x %x\n", inpdw(msm_mdp_base + 0x30010), inpdw(msm_mdp_base + 0x30014), inpdw(msm_mdp_base + 0x30018), inpdw(msm_mdp_base + 0x30040));
-				PR_DISP_INFO("VG2 (3):%x %x %x %x\n", inpdw(msm_mdp_base + 0x30050), inpdw(msm_mdp_base + 0x30054), inpdw(msm_mdp_base + 0x30058), inpdw(msm_mdp_base + 0x3005C));
-				PR_DISP_INFO("VG2 (4):%x %x %x %x\n", inpdw(msm_mdp_base + 0x30060), inpdw(msm_mdp_base + 0x31000), inpdw(msm_mdp_base + 0x31004), inpdw(msm_mdp_base + 0x31008));
-
-				timeout = wait_for_completion_timeout(&mfd->dma->comp, HZ/5);
-			}
-		}
-
-		if (retry_count >= 15) {
-			PR_DISP_INFO("###mdp busy wait retry timed out, mfd->dma->busy:%d busy_wait_cnt:%d\n",  mfd->dma->busy, busy_wait_cnt);
-			spin_lock_irqsave(&mdp_spin_lock, flag);
-			if(busy_wait_cnt > 0)
-				--busy_wait_cnt;
-			mfd->dma->busy = FALSE;
-			spin_unlock_irqrestore(&mdp_spin_lock, flag);
-		}
-#else /* HTC_CSP_END */
 		wait_for_completion(&mfd->dma->comp);
-#endif
 	}
 	pr_debug("%s: done pid=%d dsi_clk_on=%d\n",
 			 __func__, current->pid, mipi_dsi_clk_on);
