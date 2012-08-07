@@ -56,8 +56,6 @@ static int msm_cpuidle_enter(
 			&__get_cpu_var(msm_cpuidle_notifiers);
 #endif
 
-	local_irq_disable();
-
 #ifdef CONFIG_MSM_SLEEP_STATS
 	atomic_notifier_call_chain(head, MSM_CPUIDLE_STATE_ENTER, NULL);
 #endif
