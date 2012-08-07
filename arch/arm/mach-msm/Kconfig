@@ -30,6 +30,7 @@ config ARCH_MSM7X27
 	select MSM_GPIOMUX
 	select REGULATOR
 	select MSM_PM2 if PM
+	select MSM_RUN_QUEUE_STATS if MSM_SOC_REV_A
 
 config ARCH_MSM7X30
 	bool "MSM7x30"
@@ -94,6 +95,7 @@ config ARCH_MSM8X60
 	select MSM_SCM if SMP
 	select MULTI_IRQ_HANDLER
 	select MSM_PM8X60 if PM
+	select MSM_RUN_QUEUE_STATS
 
 config ARCH_MSM8X60_LTE
 	bool "MSM8X60_LTE"
@@ -128,6 +130,7 @@ config ARCH_MSM8960
 	select MSM_MULTIMEDIA_USE_ION
 	select MULTI_IRQ_HANDLER
 	select MSM_PM8X60 if PM
+	select MSM_RUN_QUEUE_STATS
 	select MSM_ULTRASOUND_A
 	select GENERIC_TIME_VSYSCALL
 	select USE_USER_ACCESSIBLE_TIMERS
@@ -2132,13 +2135,16 @@ config CLOCK_MAP
 	  clock gets a unique id. If the bitmap has that bit set the clock
 	  is enabled, otherwise the clock is disabled.
 
-config MSM_SLEEP_STATS
-	bool "Enable exporting of MSM sleep stats to userspace"
-	depends on CPU_IDLE
-	default n
-
 config MSM_SLEEP_STATS_DEVICE
 	bool "Enable exporting of MSM sleep device stats to userspace"
+
+config MSM_RUN_QUEUE_STATS
+	bool "Enable collection and exporting of MSM Run Queue stats to userspace"
+	depends on (MSM_SOC_REV_A || ARCH_MSM8X60 || ARCH_MSM8960)
+	help
+	 This option enalbes statistics collection on Run Queue. A daemon
+         in user mode, called MPDecision will be using this data to decide
+         on when to switch off/on the other cores.
 
 config MSM_STANDALONE_POWER_COLLAPSE
        bool "Enable standalone power collapse"
