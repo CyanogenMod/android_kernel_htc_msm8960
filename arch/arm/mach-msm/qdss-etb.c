@@ -112,6 +112,10 @@ static void __etb_disable(void)
 	int count;
 	uint32_t ffcr;
 
+	/* Avoid oopsing in panic() if called before the device is probed. */
+	if (!etb.base)
+		return;
+
 	ETB_UNLOCK();
 
 	ffcr = etb_readl(etb, ETB_FFCR);
