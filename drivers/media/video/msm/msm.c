@@ -2731,7 +2731,6 @@ static int msm_sync_destroy(struct msm_sync *sync)
 	if (sync) {
 		mutex_destroy(&sync->lock);
 		wake_lock_destroy(&sync->wake_lock);
-		wake_lock_destroy(&sync->wake_lock_suspend);
 	}
 	return 0;
 }
@@ -2793,7 +2792,6 @@ static int msm_sync_init(struct msm_sync *sync,
 	sync->sdata = pdev->dev.platform_data;
 
 	wake_lock_init(&sync->wake_lock, WAKE_LOCK_IDLE, "msm_camera");
-	wake_lock_init(&sync->wake_lock_suspend, WAKE_LOCK_SUSPEND, "msm_camera_suspend");
 
 	sync->pdev = pdev;
 	sync->opencnt = 0;
