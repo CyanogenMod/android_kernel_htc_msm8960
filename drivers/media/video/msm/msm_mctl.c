@@ -484,6 +484,7 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 	/* open sub devices - once only*/
 	if (!sync->opencnt) {
 		uint32_t csid_version;
+		wake_lock(&sync->wake_lock_suspend);
 		wake_lock(&sync->wake_lock);
 
 		sinfo = sync->pdev->dev.platform_data;
@@ -631,6 +632,7 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 				PM_QOS_DEFAULT_VALUE);
 	pm_qos_remove_request(&p_mctl->pm_qos_req_list);
 	wake_unlock(&sync->wake_lock);
+	wake_unlock(&sync->wake_lock_suspend);
 	return rc;
 }
 
