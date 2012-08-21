@@ -351,6 +351,8 @@ int mdp4_mddi_pipe_commit(void)
 		}
 	}
 
+	mdp4_mixer_stage_up(pipe, 1);
+
 	mdp4_mixer_stage_commit(mixer);
 
 	pipe = vctrl->base_pipe;
