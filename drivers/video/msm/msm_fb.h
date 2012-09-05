@@ -37,7 +37,6 @@
 #include <linux/fb.h>
 #include <linux/list.h>
 #include <linux/types.h>
-
 #include <linux/msm_mdp.h>
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
@@ -205,7 +204,9 @@ struct msm_fb_data_type {
 	void *msm_fb_backup;
 	boolean panel_driver_on;
 	int vsync_sysfs_created;
+	void *cpu_pm_hdl;
 };
+
 struct msm_fb_backup_type {
 	struct fb_info info;
 	struct mdp_display_commit disp_commit;
