@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,7 +50,7 @@ EXPORT_SYMBOL(msm_cpuidle_unregister_notifier);
 static int msm_cpuidle_enter(
 	struct cpuidle_device *dev, struct cpuidle_state *state)
 {
-	int ret;
+	int ret = 0;
 #ifdef CONFIG_MSM_SLEEP_STATS
 	struct atomic_notifier_head *head =
 			&__get_cpu_var(msm_cpuidle_notifiers);
@@ -63,7 +63,7 @@ static int msm_cpuidle_enter(
 #ifdef CONFIG_CPU_PM
 	cpu_pm_enter();
 #endif
-	ret = msm_pm_idle_enter((enum msm_pm_sleep_mode) (state->driver_data));
+	dev->last_residency = msm_pm_idle_enter((enum msm_pm_sleep_mode) (state->driver_data));
 
 #ifdef CONFIG_CPU_PM
 	cpu_pm_exit();
