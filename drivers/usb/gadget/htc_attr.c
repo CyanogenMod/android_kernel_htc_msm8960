@@ -656,7 +656,7 @@ static ssize_t store_usb_perflock_setting(struct device *dev,
 	return count;
 }
 
-#if (defined(CONFIG_USB_OTG) && defined(CONFIG_USB_OTG_HOST))
+#ifdef CONFIG_USB_OTG
 void msm_otg_set_id_state(int id);
 static ssize_t store_usb_host_mode(struct device *dev,
 		struct device_attribute *attr,
@@ -705,7 +705,7 @@ static struct attribute *android_htc_usb_attributes[] = {
 	&dev_attr_usb_car_kit_enable.attr,
 	&dev_attr_usb_phy_setting.attr,
 	&dev_attr_usb_perflock_setting.attr,
-#if (defined(CONFIG_USB_OTG) && defined(CONFIG_USB_OTG_HOST))
+#ifdef CONFIG_USB_OTG
 	&dev_attr_host_mode.attr,
 #endif
 	NULL

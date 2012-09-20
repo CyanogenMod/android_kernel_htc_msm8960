@@ -171,7 +171,7 @@ int cable_detect_register_notifier(struct t_cable_status_notifier *notifier)
 	return 0;
 }
 
-#if (defined(CONFIG_USB_OTG) && defined(CONFIG_USB_OTG_HOST))
+#ifdef CONFIG_USB_OTG
 static DEFINE_MUTEX(usb_host_notify_sem);
 static void send_usb_host_connect_notify(int cable_in)
 {
@@ -431,7 +431,7 @@ static void cable_detect_handler(struct work_struct *w)
 		sii9234_mhl_device_wakeup();
 		break;
 #endif
-#if (defined(CONFIG_USB_OTG) && defined(CONFIG_USB_OTG_HOST))
+#ifdef CONFIG_USB_OTG
 	case DOCK_STATE_USB_HOST:
 		CABLE_INFO("USB Host inserted\n");
 		send_usb_host_connect_notify(1);
@@ -492,7 +492,7 @@ static void cable_detect_handler(struct work_struct *w)
 			sii9234_power_vote(false);
 			break;
 #endif
-#if (defined(CONFIG_USB_OTG) && defined(CONFIG_USB_OTG_HOST))
+#ifdef CONFIG_USB_OTG
 		case DOCK_STATE_USB_HOST:
 			CABLE_INFO("USB host cable removed\n");
 			pInfo->accessory_type = DOCK_STATE_UNDOCKED;
@@ -613,7 +613,7 @@ static int second_detect(struct cable_detect_info *pInfo)
 		type = DOCK_STATE_AUDIO_DOCK;
 #endif
 	else
-#if (defined(CONFIG_USB_OTG) && defined(CONFIG_USB_OTG_HOST))
+#ifdef CONFIG_USB_OTG
 		type = DOCK_STATE_USB_HOST;
 #else
 		type = DOCK_STATE_UNDEFINED;
