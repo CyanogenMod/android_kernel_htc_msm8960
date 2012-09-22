@@ -1,0 +1,8 @@
+config VIDEO_NMI
+        bool "Newport Media Multimedia Devices"
+        select VIDEO_FIXED_MINOR_RANGES
+        default n
+        ---help---
+          This is a representative video4linux configuration for Newport Media multimedia devices.
+
+source "drivers/media/video/nmi/nmi625/Kconfig"
