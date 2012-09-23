@@ -27,6 +27,7 @@
  * CDC ACM driver.  However, for many purposes it's just as functional
  * if you can arrange appropriate host side drivers.
  */
+#define GSERIAL_NO_PORTS 2
 
 struct gser_descs {
 	struct usb_endpoint_descriptor	*in;
@@ -80,7 +81,6 @@ static unsigned int nr_ports;
 
 static struct port_info {
 	enum transport_type	transport;
-	enum fserial_func_type func_type;
 	unsigned		port_num;
 	unsigned		client_port_num;
 } gserial_ports[GSERIAL_NO_PORTS];
@@ -119,8 +119,8 @@ static struct usb_interface_descriptor gser_interface_desc = {
 	.bNumEndpoints =	2,
 #endif
 	.bInterfaceClass =	USB_CLASS_VENDOR_SPEC,
-	.bInterfaceSubClass =	0x51,
-	.bInterfaceProtocol =	1,
+	.bInterfaceSubClass =	0,
+	.bInterfaceProtocol =	0,
 	/* .iInterface = DYNAMIC */
 };
 #ifdef CONFIG_MODEM_SUPPORT
@@ -184,14 +184,10 @@ static struct usb_endpoint_descriptor gser_fs_out_desc = {
 static struct usb_descriptor_header *gser_fs_function[] = {
 	(struct usb_descriptor_header *) &gser_interface_desc,
 #ifdef CONFIG_MODEM_SUPPORT
-/* These descriptors may not be recognized by some OS. Mark it.
- */
-/*
 	(struct usb_descriptor_header *) &gser_header_desc,
 	(struct usb_descriptor_header *) &gser_call_mgmt_descriptor,
 	(struct usb_descriptor_header *) &gser_descriptor,
 	(struct usb_descriptor_header *) &gser_union_desc,
-*/
 	(struct usb_descriptor_header *) &gser_fs_notify_desc,
 #endif
 	(struct usb_descriptor_header *) &gser_fs_in_desc,
@@ -228,14 +224,10 @@ static struct usb_endpoint_descriptor gser_hs_out_desc = {
 static struct usb_descriptor_header *gser_hs_function[] = {
 	(struct usb_descriptor_header *) &gser_interface_desc,
 #ifdef CONFIG_MODEM_SUPPORT
-/* These descriptors may not be recognized by some OS. Mark it.
- */
-/*
 	(struct usb_descriptor_header *) &gser_header_desc,
 	(struct usb_descriptor_header *) &gser_call_mgmt_descriptor,
 	(struct usb_descriptor_header *) &gser_descriptor,
 	(struct usb_descriptor_header *) &gser_union_desc,
-*/
 	(struct usb_descriptor_header *) &gser_hs_notify_desc,
 #endif
 	(struct usb_descriptor_header *) &gser_hs_in_desc,
@@ -244,24 +236,9 @@ static struct usb_descriptor_header *gser_hs_function[] = {
 };
 
 /* string descriptors: */
-static struct usb_string modem_string_defs[] = {
-	[0].s = "HTC Modem",
-	[1].s = "HTC 9k Modem",
-	{  } /* end of list */
-};
-
-static struct usb_gadget_strings modem_string_table = {
-	.language =		0x0409,	/* en-us */
-	.strings =		modem_string_defs,
-};
-
-static struct usb_gadget_strings *modem_strings[] = {
-	&modem_string_table,
-	NULL,
-};
 
 static struct usb_string gser_string_defs[] = {
-	[0].s = "HTC Serial",
+	[0].s = "Generic Serial",
 	{  } /* end of list */
 };
 
@@ -274,23 +251,6 @@ static struct usb_gadget_strings *gser_strings[] = {
 	&gser_string_table,
 	NULL,
 };
-
-static enum fserial_func_type serial_str_to_func_type(const char *name)
-{
-	if (!name)
-		return USB_FSER_FUNC_NONE;
-
-	if (!strcasecmp("MODEM", name))
-		return USB_FSER_FUNC_MODEM;
-	if (!strcasecmp("MODEM_MDM", name))
-		return USB_FSER_FUNC_MODEM_MDM;
-	if (!strcasecmp("SERIAL", name))
-		return USB_FSER_FUNC_SERIAL;
-	if (!strcasecmp("AUTOBOT", name))
-		return USB_FSER_FUNC_AUTOBOT;
-
-	return USB_FSER_FUNC_NONE;
-}
 
 static int gport_setup(struct usb_configuration *c)
 {
@@ -883,60 +843,16 @@ int gser_bind_config(struct usb_configuration *c, u8 port_num)
 {
 	struct f_gser	*gser;
 	int		status;
-	struct port_info *p = &gserial_ports[port_num];
-
-	if (p->func_type == USB_FSER_FUNC_NONE) {
-		pr_info("%s: non function port : %d\n", __func__, port_num);
-		return 0;
-	}
-	pr_info("%s: type:%d, trasport: %s\n", __func__, p->func_type,
-			xport_to_str(p->transport));
 
 	/* REVISIT might want instance-specific strings to help
 	 * distinguish instances ...
 	 */
 
 	/* maybe allocate device-global string ID */
-	/* HTC modem port_num is 0 */
-#if 0
-	if (port_num != 0) {
-		if (gser_string_defs[0].id == 0) {
-			status = usb_string_id(c->cdev);
-			if (status < 0)
-				return status;
-			gser_string_defs[0].id = status;
-		}
-	}
-#endif
-
-	if (modem_string_defs[0].id == 0 &&
-			p->func_type == USB_FSER_FUNC_MODEM) {
+	if (gser_string_defs[0].id == 0) {
 		status = usb_string_id(c->cdev);
-		if (status < 0) {
-			printk(KERN_ERR "%s: return %d\n", __func__, status);
+		if (status < 0)
 			return status;
-		}
-		modem_string_defs[0].id = status;
-	}
-
-	if (modem_string_defs[1].id == 0 &&
-			p->func_type == USB_FSER_FUNC_MODEM_MDM) {
-		status = usb_string_id(c->cdev);
-		if (status < 0) {
-			printk(KERN_ERR "%s: return %d\n", __func__, status);
-			return status;
-		}
-		modem_string_defs[1].id = status;
-	}
-
-	if (gser_string_defs[0].id == 0 &&
-			(p->func_type == USB_FSER_FUNC_SERIAL
-			|| p->func_type == USB_FSER_FUNC_AUTOBOT)) {
-		status = usb_string_id(c->cdev);
-		if (status < 0) {
-			printk(KERN_ERR "%s: return %d\n", __func__, status);
-			return status;
-		}
 		gser_string_defs[0].id = status;
 	}
 
@@ -959,12 +875,10 @@ int gser_bind_config(struct usb_configuration *c, u8 port_num)
 	gser->transport		= gserial_ports[port_num].transport;
 #ifdef CONFIG_MODEM_SUPPORT
 	/* We support only two ports for now */
-	if (port_num == 0) {
+	if (port_num == 0)
 		gser->port.func.name = "modem";
-	} else
+	else
 		gser->port.func.name = "nmea";
-
-
 	gser->port.func.setup = gser_setup;
 	gser->port.connect = gser_connect;
 	gser->port.get_dtr = gser_get_dtr;
@@ -976,29 +890,6 @@ int gser_bind_config(struct usb_configuration *c, u8 port_num)
 	gser->port.send_break = gser_send_break;
 #endif
 
-	switch (p->func_type) {
-	case USB_FSER_FUNC_MODEM:
-		gser->port.func.name = "modem";
-		gser->port.func.strings = modem_strings;
-		gser_interface_desc.iInterface = modem_string_defs[0].id;
-		break;
-	case USB_FSER_FUNC_MODEM_MDM:
-		gser->port.func.name = "modem_mdm";
-		gser->port.func.strings = modem_strings;
-		gser_interface_desc.iInterface = modem_string_defs[1].id;
-		break;
-	case USB_FSER_FUNC_SERIAL:
-	case USB_FSER_FUNC_AUTOBOT:
-		gser->port.func.name = "serial";
-		gser->port.func.strings = gser_strings;
-		gser_interface_desc.iInterface = gser_string_defs[0].id;
-		break;
-	case USB_FSER_FUNC_NONE:
-	default	:
-		break;
-	}
-
-
 	status = usb_add_function(c, &gser->port.func);
 	if (status)
 		kfree(gser);
@@ -1008,24 +899,18 @@ int gser_bind_config(struct usb_configuration *c, u8 port_num)
 /**
  * gserial_init_port - bind a gserial_port to its transport
  */
-static int gserial_init_port(int port_num, const char *name, char *serial_type)
+static int gserial_init_port(int port_num, const char *name)
 {
 	enum transport_type transport;
-	enum fserial_func_type func_type;
 
 	if (port_num >= GSERIAL_NO_PORTS)
 		return -ENODEV;
 
 	transport = str_to_xport(name);
-	func_type = serial_str_to_func_type(serial_type);
-
-	pr_info("%s, port:%d, transport:%s, type:%d\n", __func__,
-				port_num, xport_to_str(transport), func_type);
-
-
+	pr_debug("%s, port:%d, transport:%s\n", __func__,
+			port_num, xport_to_str(transport));
 
 	gserial_ports[port_num].transport = transport;
-	gserial_ports[port_num].func_type = func_type;
 	gserial_ports[port_num].port_num = port_num;
 
 	switch (transport) {

@@ -17,7 +17,7 @@
 #include <linux/i2c.h>
 #include <linux/i2c/sx150x.h>
 #include <linux/gpio.h>
-#include <linux/usb/android_composite.h>
+#include <linux/usb/android.h>
 #include <linux/msm_ssbi.h>
 #include <linux/regulator/gpio-regulator.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
@@ -54,7 +54,6 @@
 #else
 #include <linux/usb/msm_hsusb.h>
 #endif
-#include <mach/htc_usb.h>
 #include <mach/usbdiag.h>
 #include <mach/socinfo.h>
 #include <mach/rpm.h>
@@ -4299,63 +4298,9 @@ out:
 		.num_paths = 1, \
 	}
 #define CLKRGM_BSP_LPXO_FREQ_MHZ (27 * 8)
-static struct msm_bus_paths usb_client_sfab_bw_level_tbl[] = {
-	[0] =  SFAB_BW_MBPS(CLKRGM_BSP_LPXO_FREQ_MHZ), /* At least  27 MHz on bus. */
-	[1] =  SFAB_BW_MBPS(528), /* At least  66.667 MHz on bus. */
-	[2] =  SFAB_BW_MBPS(640), /* At least  80 MHz on bus. */
-	[3] =  SFAB_BW_MBPS(800), /* At least  100 MHz on bus. */
-	[4] =  SFAB_BW_MBPS(1064), /* At least 133 MHz on bus. */
-	[5] =  SFAB_BW_MBPS(1312), /* At least 164 MHz on bus. */
-};
-
-static struct msm_bus_scale_pdata usb_client_sfab_bus_pdata = {
-	.usecase = usb_client_sfab_bw_level_tbl,
-	.num_usecases = ARRAY_SIZE(usb_client_sfab_bw_level_tbl),
-	.active_only = 1,
-	.name = "usb_client_systemclock",
-};
-
-static void usb_sfab_lock_control(int lock)
-{
-	static u32 sfab_bus_client;
-	static int initial = 0;
-	int ret;
-
-	if (!initial) {
-		sfab_bus_client = msm_bus_scale_register_client(&usb_client_sfab_bus_pdata);
-		if (!sfab_bus_client) {
-			pr_err("[USB:ERR] %s unable to register bus client\n", __func__);
-			return;
-		}
-		pr_info("[USB] %s: register sfab usb client\n", __func__);
-		initial = 1;
-	}
-
-	/* Update bandwidth if request has changed. This may sleep. */
-	if (lock)
-		ret = msm_bus_scale_client_update_request(sfab_bus_client, 4);
-	else
-		ret = msm_bus_scale_client_update_request(sfab_bus_client, 0);
-
-	if (ret)
-		pr_err("[USB:ERR] %s  bandwidth request failed (%d)\n", __func__, ret);
-}
 
 static struct android_usb_platform_data android_usb_pdata = {
-	.vendor_id	= 0x0BB4,
-	.product_id	= 0x0cec,
-	.version	= 0x0100,
-	.product_name		= "Android Phone",
-	.manufacturer_name	= "HTC",
-	.num_products = ARRAY_SIZE(usb_products),
-	.products = usb_products,
-	.num_functions = ARRAY_SIZE(usb_functions_all),
-	.functions = usb_functions_all,
 	.update_pid_and_serial_num = usb_diag_update_pid_and_serial_num,
-	.usb_id_pin_gpio = VILLE_GPIO_USB_ID1,
-	.usb_rmnet_interface = "smd,bam",
-	.sfab_lock = usb_sfab_lock_control,
-	.fserial_init_string = "smd:modem,tty,tty:autobot,tty:serial,tty:autobot",
 };
 
 static struct platform_device android_usb_device = {
@@ -4377,22 +4322,6 @@ void ville_add_usb_devices(void)
 		printk(KERN_INFO "%s rev: %d\n", __func__, system_rev);
 		msm_otg_pdata.phy_init_seq = phy_init_seq_v3;
 	}
-	android_usb_pdata.products[0].product_id =
-			android_usb_pdata.product_id;
-
-
-	/* diag bit set */
-	if (get_radio_flag() & 0x20000) {
-		android_usb_pdata.diag_init = 1;
-		android_usb_pdata.modem_init = 1;
-		android_usb_pdata.rmnet_init = 1;
-	}
-
-	/* add cdrom support in normal mode */
-	if (board_mfg_mode() == 0) {
-		android_usb_pdata.nluns = 2;
-		android_usb_pdata.cdrom_lun = 0x2;
-	}
 
 	platform_device_register(&msm8960_device_gadget_peripheral);
 	platform_device_register(&android_usb_device);
@@ -4403,7 +4332,6 @@ void ville_add_usb_devices(void)
 
 static int __init board_serialno_setup(char *serialno)
 {
-	android_usb_pdata.serial_number = serialno;
 	return 1;
 }
 __setup("androidboot.serialno=", board_serialno_setup);

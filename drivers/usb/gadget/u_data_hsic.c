@@ -22,7 +22,6 @@
 #include <linux/termios.h>
 #include <mach/usb_bridge.h>
 #include <mach/usb_gadget_xport.h>
-#include <linux/ratelimit.h>
 
 static unsigned int no_data_ports;
 
@@ -690,10 +689,10 @@ void ghsic_data_disconnect(void *gptr, int port_num)
 
 	/* disable endpoints */
 	if (port->in)
-		usb_ep_disable(port->in);
+		usb_ep_disable(port->out);
 
 	if (port->out)
-		usb_ep_disable(port->out);
+		usb_ep_disable(port->in);
 
 	spin_lock_irqsave(&port->port_lock, flags);
 	port->port_usb = 0;

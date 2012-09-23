@@ -16,11 +16,6 @@
 #define NO_PROCESS	0
 #define NON_APPS_PROC	-1
 
-#define DIAGLOG_MODE_NONE 0
-#define DIAGLOG_MODE_HEAD 1
-#define DIAGLOG_MODE_FULL 2
-#define DIAGLOG_MODE_PING 3
-
 void diagfwd_init(void);
 void diagfwd_exit(void);
 void diag_process_hdlc(void *data, unsigned len);
@@ -38,15 +33,7 @@ int chk_apps_only(void);
 int diagfwd_connect(void);
 int diagfwd_disconnect(void);
 #endif
-extern int diag_support_mdm9k;
 extern int diag_debug_buf_idx;
 extern unsigned char diag_debug_buf[1024];
-extern unsigned diag7k_debug_mask;
-extern unsigned diag9k_debug_mask;
-
-#define SMD_FUNC_CLOSE 0
-#define SMD_FUNC_OPEN_DIAG 1
-#define SMD_FUNC_OPEN_BT 2
-void diag_smd_enable(smd_channel_t *ch, char *src, int mode);
 
 #endif

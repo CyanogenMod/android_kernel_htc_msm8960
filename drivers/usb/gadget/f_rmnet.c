@@ -916,7 +916,6 @@ static int frmnet_bind_config(struct usb_configuration *c, unsigned portno)
 			return status;
 		}
 		rmnet_string_defs[0].id = status;
-		rmnet_interface_desc.iInterface = status;
 	}
 
 	dev = rmnet_ports[portno].port;
