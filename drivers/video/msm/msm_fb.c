@@ -172,6 +172,7 @@ char *get_fb_addr(void)
 	return fb_addr_base + usb_pjt_info.usb_offset;
 }
 #endif
+#endif
 
 #ifdef MSM_FB_ENABLE_DBGFS
 
@@ -208,7 +209,6 @@ void msm_fb_debugfs_file_create(struct dentry *root, const char *name,
 	msm_fb_debugfs_file[msm_fb_debugfs_file_index++] =
 	    debugfs_create_u32(name, S_IRUGO | S_IWUSR, root, var);
 }
-#endif
 
 #if (defined(CONFIG_USB_FUNCTION_PROJECTOR) || defined(CONFIG_USB_ANDROID_PROJECTOR))
 static DEFINE_SPINLOCK(fb_data_lock);
