@@ -34,6 +34,7 @@
 #include <mach/subsystem_notif.h>
 #include <mach/socinfo.h>
 #include <mach/subsystem_restart.h>
+#include <mach/msm_ipc_logging.h>
 #include <mach/board_htc.h>
 #include <mach/system.h>
 
@@ -53,19 +54,12 @@
 #define POLLING_MAX_SLEEP	1050	/* 1.05 ms */
 #define POLLING_INACTIVITY	40	/* cycles before switch to intr mode */
 
-/* #define LOW_WATERMARK          2 */
-static int LOW_WATERMARK = 2;
-module_param_named(low_watermark, LOW_WATERMARK,
-		   int, S_IRUGO | S_IWUSR | S_IWGRP);
-/* #define HIGH_WATERMARK         4 */
-static int HIGH_WATERMARK = 4;
-module_param_named(high_watermark, HIGH_WATERMARK,
-		   int, S_IRUGO | S_IWUSR | S_IWGRP);
+#define LOW_WATERMARK          2
+#define HIGH_WATERMARK         4
 
 #define MODULE_NAME "[BAMDMUX] "
 
 static int ril_debug_flag = 0;
-static uint32_t tx_ul_delayed_cnt = 0;
 
 static int msm_bam_dmux_debug_enable;
 module_param_named(debug_enable, msm_bam_dmux_debug_enable,
@@ -219,6 +213,8 @@ static DECLARE_WORK(rx_timer_work, rx_timer_work_func);
 static struct workqueue_struct *bam_mux_rx_workqueue;
 static struct workqueue_struct *bam_mux_tx_workqueue;
 
+static void *log_context;
+
 /* A2 power collaspe */
 #define UL_TIMEOUT_DELAY 1000	/* in ms */
 #define ENABLE_DISCONNECT_ACK	0x1
@@ -256,6 +252,9 @@ static int wakelock_reference_count;
 static int a2_pc_disabled_wakelock_skipped;
 static int disconnect_ack;
 static LIST_HEAD(bam_other_notify_funcs);
+static DEFINE_MUTEX(smsm_cb_lock);
+static DEFINE_MUTEX(delayed_ul_vote_lock);
+static int need_delayed_ul_vote;
 
 struct outside_notify_func {
 	void (*notify)(void *, int, unsigned long);
@@ -725,7 +724,6 @@ static void bam_mux_write_done(struct work_struct *work)
 		BUG();
 	}
 	list_del(&info->list_node);
-	tx_ul_delayed_cnt = 0;
 	spin_unlock_irqrestore(&bam_tx_pool_spinlock, flags);
 
 	if (info->is_cmd) {
@@ -844,6 +842,7 @@ int msm_bam_dmux_write(uint32_t id, struct sk_buff *skb)
 	INIT_WORK(&pkt->work, bam_mux_write_done);
 	spin_lock_irqsave(&bam_tx_pool_spinlock, flags);
 	list_add_tail(&pkt->list_node, &bam_tx_pool);
+	ipc_log_string(log_context, "<DMUX2> %s info: %p skb: %p node: %p\n", __func__, pkt, pkt->skb, &pkt->list_node);
 	rc = sps_transfer_one(bam_tx_pipe, dma_address, skb->len,
 				pkt, SPS_IOVEC_FLAG_INT | SPS_IOVEC_FLAG_EOT);
 	if (rc) {
@@ -1177,6 +1176,7 @@ static void bam_mux_tx_notify(struct sps_event_notify *notify)
 	switch (notify->event_id) {
 	case SPS_EVENT_EOT:
 		pkt = notify->data.transfer.user;
+		ipc_log_string(log_context, "<DMUX2> %s info: %p skb: %p node: %p\n", __func__, pkt, pkt->skb, &pkt->list_node);
 		if (!pkt->is_cmd)
 			dma_unmap_single(NULL, pkt->dma_address,
 						pkt->skb->len,
@@ -1466,6 +1466,7 @@ int msm_bam_dmux_kickoff_ul_wakeup(void)
 {
 	int is_connected;
 
+	DBG("%s: entry\n", __func__);
 	read_lock(&ul_wakeup_lock);
 	ul_packet_written = 1;
 	is_connected = bam_is_connected;
@@ -1499,6 +1500,7 @@ static void power_vote(int vote)
 static inline void ul_powerdown(void)
 {
 	bam_dmux_log("%s: powerdown\n", __func__);
+	DBG("%s: powerdown\n", __func__);
 	verify_tx_queue_is_empty(__func__);
 
 	if (a2_pc_disabled) {
@@ -1568,7 +1570,7 @@ int msm_bam_dmux_reg_notify(void *priv,
 						unsigned long data))
 {
 	struct outside_notify_func *func;
-
+	DBG("%s: entry\n", __func__);
 	if (!notify)
 		return -EINVAL;
 
@@ -1611,11 +1613,6 @@ static void ul_timeout(struct work_struct *work)
 					__func__, info->ts_sec, info->ts_nsec);
 				DBG_INC_TX_STALL_CNT();
 				ul_packet_written = 1;
-#if 0
-				tx_ul_delayed_cnt++;
-				if(tx_ul_delayed_cnt >= 60) /* ul_delayed 60 seconds */
-					arch_reset(0, "oem-95");
-#endif
 			}
 			spin_unlock(&bam_tx_pool_spinlock);
 		}
@@ -1667,6 +1664,7 @@ static int ssrestart_check(void)
 static void ul_wakeup(void)
 {
 	int ret;
+	int do_vote_dfab = 0;
 
 	mutex_lock(&wakeup_lock);
 	if (bam_is_connected) { /* bam got connected before lock grabbed */
@@ -1675,21 +1673,37 @@ static void ul_wakeup(void)
 		return;
 	}
 
+	/*
+	 * if someone is voting for UL before bam is inited (modem up first
+	 * time), set flag for init to kickoff ul wakeup once bam is inited
+	 */
+	mutex_lock(&delayed_ul_vote_lock);
+	if (unlikely(!bam_mux_initialized)) {
+		need_delayed_ul_vote = 1;
+		mutex_unlock(&delayed_ul_vote_lock);
+		mutex_unlock(&wakeup_lock);
+		return;
+	}
+	mutex_unlock(&delayed_ul_vote_lock);
+
 	if (a2_pc_disabled) {
 		/*
 		 * don't grab the wakelock the first time because it is
 		 * already grabbed when a2 powers on
 		 */
-		if (likely(a2_pc_disabled_wakelock_skipped))
+		if (likely(a2_pc_disabled_wakelock_skipped)) {
 			grab_wakelock();
-		else
+			do_vote_dfab = 1; /* vote must occur after wait */
+		} else {
 			a2_pc_disabled_wakelock_skipped = 1;
+		}
 		if (wait_for_dfab) {
 			ret = wait_for_completion_timeout(
 					&dfab_unvote_completion, HZ);
 			BUG_ON(ret == 0);
 		}
-		vote_dfab();
+		if (likely(do_vote_dfab))
+			vote_dfab();
 		schedule_delayed_work(&ul_timeout_work,
 				msecs_to_jiffies(UL_TIMEOUT_DELAY));
 		bam_is_connected = 1;
@@ -2100,7 +2114,13 @@ static int bam_init(void)
 		goto rx_event_reg_failed;
 	}
 
+	mutex_lock(&delayed_ul_vote_lock);
 	bam_mux_initialized = 1;
+	if (need_delayed_ul_vote) {
+		need_delayed_ul_vote = 0;
+		msm_bam_dmux_kickoff_ul_wakeup();
+	}
+	mutex_unlock(&delayed_ul_vote_lock);
 	toggle_apps_ack();
 	bam_connection_is_active = 1;
 	complete_all(&bam_connection_completion);
@@ -2168,6 +2188,14 @@ static int bam_init_fallback(void)
 		goto register_bam_failed;
 	}
 	a2_device_handle = h;
+
+	mutex_lock(&delayed_ul_vote_lock);
+	bam_mux_initialized = 1;
+	if (need_delayed_ul_vote) {
+		need_delayed_ul_vote = 0;
+		msm_bam_dmux_kickoff_ul_wakeup();
+	}
+	mutex_unlock(&delayed_ul_vote_lock);
 	toggle_apps_ack();
 
 	return 0;
@@ -2208,12 +2236,23 @@ static void toggle_apps_ack(void)
 
 static void bam_dmux_smsm_cb(void *priv, uint32_t old_state, uint32_t new_state)
 {
+	static int last_processed_state;
+
+	mutex_lock(&smsm_cb_lock);
 	bam_dmux_power_state = new_state & SMSM_A2_POWER_CONTROL ? 1 : 0;
 	DBG_INC_A2_POWER_CONTROL_IN_CNT();
 	bam_dmux_log("%s: 0x%08x -> 0x%08x\n", __func__, old_state,
 			new_state);
 	pr_info(MODULE_NAME "%s: 0x%08x -> 0x%08x\n", __func__, old_state,
 			new_state);
+	if (last_processed_state == (new_state & SMSM_A2_POWER_CONTROL)) {
+		bam_dmux_log("%s: already processed this state\n", __func__);
+		pr_info(MODULE_NAME "%s: already processed this state\n", __func__);
+		mutex_unlock(&smsm_cb_lock);
+		return;
+	}
+
+	last_processed_state = new_state & SMSM_A2_POWER_CONTROL;
 
 	if (bam_mux_initialized && new_state & SMSM_A2_POWER_CONTROL) {
 		bam_dmux_log("%s: reconnect\n", __func__);
@@ -2237,6 +2276,7 @@ static void bam_dmux_smsm_cb(void *priv, uint32_t old_state, uint32_t new_state)
 		bam_dmux_log("%s: bad state change\n", __func__);
 		pr_err(MODULE_NAME "%s: unsupported state change\n", __func__);
 	}
+	mutex_unlock(&smsm_cb_lock);
 
 }
 
@@ -2365,6 +2405,8 @@ static int __init bam_dmux_init(void)
 	}
 	if (get_kernel_flag() & KERNEL_FLAG_RIL_DBG_RMNET)
 		ril_debug_flag = 1;
+
+	log_context = ipc_log_context_create(10, "bam_dmux");
 
 	subsys_notif_register_notifier("modem", &restart_notifier);
 	return platform_driver_register(&bam_dmux_driver);

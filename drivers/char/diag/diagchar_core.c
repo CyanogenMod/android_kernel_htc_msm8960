@@ -536,6 +536,17 @@ long diagchar_ioctl(struct file *filp,
 		}
 #endif /* DIAG over USB */
 		success = 1;
+	} else if (iocmd == DIAG_IOCTL_NONBLOCKING_TIMEOUT) {
+		for (i = 0; i < driver->num_clients; i++)
+			if (driver->client_map[i].pid == current->tgid)
+				break;
+		if (i == -1)
+			return -EINVAL;
+		mutex_lock(&driver->diagchar_mutex);
+		driver->client_map[i].timeout = (int)ioarg;
+		mutex_unlock(&driver->diagchar_mutex);
+
+		success = 1;
 	}
 
 	return success;
@@ -544,7 +555,7 @@ long diagchar_ioctl(struct file *filp,
 static int diagchar_read(struct file *file, char __user *buf, size_t count,
 			  loff_t *ppos)
 {
-	int index = -1, i = 0, ret = 0;
+	int index = -1, i = 0, ret = 0, timeout = 0;
 	int num_data = 0, data_type;
 
 #ifdef SDQXDM_DEBUG
@@ -552,8 +563,10 @@ static int diagchar_read(struct file *file, char __user *buf, size_t count,
 #endif
 
 	for (i = 0; i < driver->num_clients; i++)
-		if (driver->client_map[i].pid == current->tgid)
+		if (driver->client_map[i].pid == current->tgid) {
 			index = i;
+			timeout = driver->client_map[i].timeout;
+		}
 
 	if (index == -1) {
 		DIAG_ERR("%s:%s(parent:%s): tgid=%d"
@@ -564,8 +577,12 @@ static int diagchar_read(struct file *file, char __user *buf, size_t count,
 		return -EINVAL;
 	}
 
-	wait_event_interruptible(driver->wait_q,
-				  driver->data_ready[index]);
+	if (timeout)
+		wait_event_interruptible_timeout(driver->wait_q,
+				driver->data_ready[index], timeout * HZ);
+	else
+		wait_event_interruptible(driver->wait_q,
+				driver->data_ready[index]);
 	if (diag7k_debug_mask)
 		DIAG_INFO("%s:%s(parent:%s): tgid=%d\n", __func__,
 				current->comm, current->parent->comm, current->tgid);

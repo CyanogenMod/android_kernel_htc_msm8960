@@ -112,6 +112,7 @@ int rawchip_set_size(struct rawchip_sensor_data data)
 			bit_cnt = 12;
 			break;
 		}
+		rawchip_init_data.sensor_name = data.sensor_name;
 		rawchip_init_data.spi_clk = pdata->rawchip_spi_freq;
 		rawchip_init_data.ext_clk = pdata->rawchip_mclk_freq;
 		rawchip_init_data.lane_cnt = data.lane_cnt;
@@ -446,8 +447,9 @@ static int rawchip_update_aec_awb_params(struct rawchip_ctrl *raw_dev, void __us
 		return -EFAULT;
 	}
 
-	CDBG("%s gain=%d exp=%d\n", __func__,
-		update_aec_awb_params->aec_params.gain, update_aec_awb_params->aec_params.exp);
+	CDBG("%s gain=%d dig_gain=%d exp=%d\n", __func__,
+		update_aec_awb_params->aec_params.gain, update_aec_awb_params->aec_params.dig_gain,
+		update_aec_awb_params->aec_params.exp);
 	CDBG("%s rg_ratio=%d bg_ratio=%d\n", __func__,
 		update_aec_awb_params->awb_params.rg_ratio, update_aec_awb_params->awb_params.bg_ratio);
 

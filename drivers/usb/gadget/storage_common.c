@@ -294,7 +294,6 @@ struct fsg_lun {
 	unsigned int	registered:1;
 	unsigned int	info_valid:1;
 	unsigned int	nofua:1;
-	unsigned int    vfs_sync_period:1;
 
 	u32		sense_data;
 	u32		sense_data_info;
@@ -836,13 +835,6 @@ static ssize_t fsg_show_file(struct device *dev, struct device_attribute *attr,
 	return rc;
 }
 
-static ssize_t fsg_show_vfs_sync_period(struct device *dev, struct device_attribute *attr,
-			      char *buf)
-{
-	struct fsg_lun	*curlun = fsg_lun_from_dev(dev);
-
-	return sprintf(buf, "%u\n", curlun->vfs_sync_period);
-}
 
 static ssize_t fsg_store_ro(struct device *dev, struct device_attribute *attr,
 			    const char *buf, size_t count)
@@ -934,21 +926,4 @@ static ssize_t fsg_store_file(struct device *dev, struct device_attribute *attr,
 	}
 	up_write(filesem);
 	return (rc < 0 ? rc : count);
-}
-
-static ssize_t fsg_store_vfs_sync_period(struct device *dev,
-			       struct device_attribute *attr,
-			       const char *buf, size_t count)
-{
-	struct fsg_lun	*curlun = fsg_lun_from_dev(dev);
-	unsigned	enable_vfs_sync_period;
-	int		ret;
-
-	ret = kstrtouint(buf, 2, &enable_vfs_sync_period);
-	if (ret)
-		return ret;
-
-	curlun->vfs_sync_period = enable_vfs_sync_period;
-
-	return count;
 }

@@ -37,6 +37,9 @@
 #define DIAG_IOCTL_GET_DELAYED_RSP_ID 	8
 #define DIAG_IOCTL_LSM_DEINIT		9
 
+/* HTC: process request non-blocking IO */
+#define DIAG_IOCTL_NONBLOCKING_TIMEOUT	64
+
 /* Machine ID and corresponding PC Tools IDs */
 #define APQ8060_MACHINE_ID	86
 #define AO8960_MACHINE_ID	87

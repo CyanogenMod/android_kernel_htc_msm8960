@@ -207,6 +207,12 @@ static int snd_usb_create_streams(struct snd_usb_audio *chip, int ctrlif)
 
 	/* find audiocontrol interface */
 	host_iface = &usb_ifnum_to_if(dev, ctrlif)->altsetting[0];
+	/*HTC Audio Start*/
+	if (!host_iface) {
+		snd_printk(KERN_ERR "cannot get host_iface\n");
+		return -EINVAL;
+	}
+	/*HTC Audio End*/
 	control_header = snd_usb_find_csint_desc(host_iface->extra,
 						 host_iface->extralen,
 						 NULL, UAC_HEADER);

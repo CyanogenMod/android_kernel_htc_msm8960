@@ -478,8 +478,11 @@ static void mdp_dma2_update_sub(struct msm_fb_data_type *mfd)
 void mdp_dma2_update(struct msm_fb_data_type *mfd)
 #endif
 {
+	if (!mfd)
+		return;
+
 	down(&mfd->dma->mutex);
-	if ((mfd) && (!mfd->dma->busy) && (mfd->panel_power_on)) {
+	if ((!mfd->dma->busy) && (mfd->panel_power_on)) {
 		down(&mfd->sem);
 		mfd->ibuf_flushed = TRUE;
 		mdp_dma2_update_lcd(mfd);

@@ -400,9 +400,24 @@ SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
 {
 	char buffer[256];
 	int ret = 0;
-	/* We only trust the superuser with rebooting the system. */
-	if (!capable(CAP_SYS_BOOT))
-		return -EPERM;
+	int res = 0;
+	unsigned int len;
+	char path[64];
+	struct task_struct *task = current;
+	struct mm_struct *mm = get_task_mm(task);
+
+	len = mm->arg_end - mm->arg_start;
+	if (len > PAGE_SIZE)
+		len = PAGE_SIZE;
+
+	res = access_process_vm(task, mm->arg_start, path, len, 0);
+	mmput(mm);
+
+	if (!(!strcmp("/system/bin/reboot", path) && cmd == LINUX_REBOOT_CMD_RESTART2)) {
+		/* We only trust the superuser with rebooting the system. */
+		if (!capable(CAP_SYS_BOOT))
+			return -EPERM;
+	}
 
 	/* For safety, we require "magic" arguments. */
 	if (magic1 != LINUX_REBOOT_MAGIC1 ||

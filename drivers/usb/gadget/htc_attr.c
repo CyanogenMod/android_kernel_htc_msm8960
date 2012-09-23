@@ -31,7 +31,7 @@ enum {
 	USB_FUNCTION_RMNET,
 	USB_FUNCTION_ACCESSORY,
 	USB_FUNCTION_MODEM_MDM, /* 14 */
-	USB_FUNCTION_MTP36,
+	USB_FUNCTION_NCM,
 	USB_FUNCTION_USBNET,
 	USB_FUNCTION_AUTOBOT = 30,
 	USB_FUNCTION_RNDIS_IPT = 31,
@@ -76,6 +76,10 @@ static struct usb_string_node usb_string_array[] = {
 		.name = "cdc_ethernet",
 	},
 	{
+		.usb_function_flag = 1 << USB_FUNCTION_NCM,
+		.name = "cdc_network",
+	},
+	{
 		.usb_function_flag = 1 << USB_FUNCTION_ACM,
 		.name = "acm",
 	},
@@ -108,6 +112,7 @@ static int intrsharing;
 
 #define PID_RNDIS		0x0ffe
 #define PID_ECM			0x0ff8
+#define PID_NCM			0x0f93
 #define PID_ACM			0x0ff4
 #define PID_USBNET		0x0fcd
 
@@ -318,6 +323,9 @@ int android_switch_function(unsigned func)
 		else if ((func & (1 << USB_FUNCTION_ECM)) &&
 				!strcmp(f->name, "cdc_ethernet"))
 			list_add_tail(&f->enabled_list, &dev->enabled_functions);
+		else if ((func & (1 << USB_FUNCTION_NCM)) &&
+				!strcmp(f->name, "cdc_network"))
+			list_add_tail(&f->enabled_list, &dev->enabled_functions);
 		else if ((func & (1 << USB_FUNCTION_ACM)) &&
 				!strcmp(f->name, "acm"))
 			list_add_tail(&f->enabled_list, &dev->enabled_functions);
@@ -402,6 +410,7 @@ int android_switch_function(unsigned func)
 	 * if we are using RNDIS.
 	 */
 	if (product_id == PID_RNDIS || product_id == PID_ECM
+		|| product_id == PID_NCM
 		|| product_id == PID_ACM || product_id == PID_USBNET)
 		dev->cdev->desc.bDeviceClass = USB_CLASS_COMM;
 	else

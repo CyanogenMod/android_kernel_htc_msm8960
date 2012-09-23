@@ -1411,6 +1411,12 @@ static int __devinit msm_rotator_probe(struct platform_device *pdev)
 	msm_rotator_dev->last_session_idx = INVALID_SESSION;
 
 	pdata = pdev->dev.platform_data;
+	if (!pdata) {
+		printk(KERN_ERR "%s Unable to get platform data from device\n",
+			   __func__);
+		rc = -ENODEV;
+		goto error_pdata;
+	}
 	number_of_clks = pdata->number_of_clocks;
 
 	msm_rotator_dev->imem_owner = IMEM_NO_OWNER;
@@ -1426,8 +1432,7 @@ static int __devinit msm_rotator_probe(struct platform_device *pdev)
 	msm_rotator_dev->pclk = NULL;
 
 #ifdef CONFIG_MSM_BUS_SCALING
-	if (!msm_rotator_dev->bus_client_handle && pdata &&
-		pdata->bus_scale_table) {
+	if (!msm_rotator_dev->bus_client_handle && pdata->bus_scale_table) {
 		msm_rotator_dev->bus_client_handle =
 			msm_bus_scale_register_client(
 				pdata->bus_scale_table);
@@ -1513,6 +1518,12 @@ static int __devinit msm_rotator_probe(struct platform_device *pdev)
 	}
 	msm_rotator_dev->io_base = ioremap(res->start,
 					   resource_size(res));
+	if (!msm_rotator_dev->io_base) {
+		printk(KERN_ALERT
+			   "%s: ioremap failed\n", DRIVER_NAME);
+		rc = -ENODEV;
+		goto error_get_resource;
+	}
 
 #ifdef CONFIG_MSM_ROTATOR_USE_IMEM
 	if (msm_rotator_dev->imem_clk)
@@ -1605,6 +1616,7 @@ error_pclk:
 		clk_put(msm_rotator_dev->imem_clk);
 error_imem_clk:
 	mutex_destroy(&msm_rotator_dev->imem_lock);
+error_pdata:
 	kfree(msm_rotator_dev);
 	return rc;
 }

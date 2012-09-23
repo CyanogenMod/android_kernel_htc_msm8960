@@ -1606,6 +1606,9 @@ static void pmem_vma_open(struct vm_area_struct *vma)
 	struct pmem_data *data = file->private_data;
 	int id = get_id(file);
 
+	if(id >= PMEM_MAX_DEVICES)
+		return;
+
 #if PMEM_DEBUG_MSGS
 	char currtask_name[FIELD_SIZEOF(struct task_struct, comm) + 1];
 #endif

@@ -285,6 +285,7 @@ static int tsens_tz_set_mode(struct thermal_zone_device *thermal,
 			}
 		}
 		writel_relaxed(reg, TSENS_CNTL_ADDR);
+		pr_info("%s: set mode to %d is done\n", __func__, mode);
 	}
 	tm_sensor->mode = mode;
 

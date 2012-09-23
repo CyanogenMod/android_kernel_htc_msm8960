@@ -354,6 +354,13 @@ static int snd_usb_hw_params(struct snd_pcm_substream *substream,
 		struct usb_host_interface *alts;
 		struct usb_interface *iface;
 		iface = usb_ifnum_to_if(subs->dev, fmt->iface);
+/* HTC_AUD_START Klocwork issue */
+		if (!iface) {
+			snd_printk(KERN_ERR "%d:%d : does not exist\n",
+					subs->dev->devnum, fmt->iface);
+			return -EINVAL;
+		}
+/* HTC_AUD_END */
 		alts = &iface->altsetting[fmt->altset_idx];
 		ret = snd_usb_init_sample_rate(subs->stream->chip, subs->interface, alts, fmt, rate);
 		if (ret < 0)

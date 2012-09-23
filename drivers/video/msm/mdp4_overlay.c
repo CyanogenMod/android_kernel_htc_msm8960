@@ -1363,7 +1363,7 @@ int mdp4_mixer_info(int mixer_num, struct mdp_mixer_info *info)
 	int ndx, cnt;
 	struct mdp4_overlay_pipe *pipe;
 
-	if (mixer_num > MDP4_MIXER_MAX)
+	if (mixer_num >= MDP4_MIXER_MAX)
 		return -ENODEV;
 
 	cnt = 0;
@@ -2240,7 +2240,7 @@ static int mdp4_overlay_is_rgb_type(int format)
 static uint32 mdp4_overlay_get_perf_level(struct mdp_overlay *req,
 					  struct msm_fb_data_type *mfd)
 {
-	int is_fg;
+	int is_fg = 0;
 
 	if (req->is_fg && ((req->alpha & 0x0ff) == 0xff))
 		is_fg = 1;
@@ -2633,7 +2633,7 @@ int mdp4_overlay_update_layers(struct msm_fb_data_type *mfd, int mixer)
 	u32 mask = 0, pipe_cnt = 0;
 	boolean pipe_mixer_change = false;
 
-	if (mixer > MDP4_MIXER_MAX)
+	if (mixer >= MDP4_MIXER_MAX)
 		return -ENODEV;
 
 	for (stage = MDP4_MIXER_STAGE0; stage < MDP4_MIXER_STAGE_MAX; stage++) {
@@ -2999,6 +2999,7 @@ int mdp4_overlay_play(struct fb_info *info, struct msmfb_overlay_data *req)
 	mdp4_stat.overlay_play[pipe->mixer_num]++;
 	mutex_unlock(&mfd->dma->ov_mutex);
 
+	++mfd->panel_info.frame_count;
 
 	if (msmfb_debug_mask & FPS) {
 		ovp_now = ktime_get();

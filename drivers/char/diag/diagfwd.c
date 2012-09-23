@@ -390,9 +390,6 @@ void __diag_smd_wcnss_send_req(void)
 	void *buf = driver->buf_in_wcnss;
 	int *in_busy_wcnss_ptr = &(driver->in_busy_wcnss);
 	struct diag_request *write_ptr_wcnss = driver->write_ptr_wcnss;
-#if  DIAG_XPST
-	int type;
-#endif
 
 	if ((!driver->in_busy_wcnss) && driver->ch_wcnss && buf) {
 		int r = smd_read_avail(driver->ch_wcnss);
@@ -412,13 +409,6 @@ void __diag_smd_wcnss_send_req(void)
 				APPEND_DEBUG('i');
 				smd_read(driver->ch_wcnss, buf, r);
 				APPEND_DEBUG('j');
-#if  DIAG_XPST
-				type = checkcmd_modem_epst(buf);
-				if (type) {
-					modem_to_userspace(buf, r, type, 0);
-					return;
-				}
-#endif
 				write_ptr_wcnss->length = r;
 				*in_busy_wcnss_ptr = 1;
 				diag_device_write(buf, WCNSS_DATA,
@@ -433,9 +423,7 @@ void __diag_smd_qdsp_send_req(void)
 	void *buf = NULL;
 	int *in_busy_qdsp_ptr = NULL;
 	struct diag_request *write_ptr_qdsp = NULL;
-#if  DIAG_XPST
-	int type;
-#endif
+
 	if (!driver->in_busy_qdsp_1) {
 		buf = driver->buf_in_qdsp_1;
 		write_ptr_qdsp = driver->write_ptr_qdsp_1;
@@ -467,13 +455,6 @@ void __diag_smd_qdsp_send_req(void)
 				APPEND_DEBUG('i');
 				smd_read(driver->chqdsp, buf, r);
 				APPEND_DEBUG('j');
-#if  DIAG_XPST
-				type = checkcmd_modem_epst(buf);
-				if (type) {
-					modem_to_userspace(buf, r, type, 0);
-					return;
-				}
-#endif
 				write_ptr_qdsp->length = r;
 				*in_busy_qdsp_ptr = 1;
 				diag_device_write(buf, QDSP_DATA,
@@ -675,7 +656,9 @@ void diag_send_data(struct diag_master_table entry, unsigned char *buf,
 					if ((int)(*(char *)(buf+1)) == RESET_ID)
 						return;
 #endif
+				mutex_lock(&driver->diag_data_mutex);
 				smd_write(driver->ch, buf, len);
+				mutex_unlock(&driver->diag_data_mutex);
 			} else if (entry.client_id == QDSP_PROC &&
 							 driver->chqdsp) {
 				smd_write(driver->chqdsp, buf, len);
@@ -1114,11 +1097,13 @@ void diag_process_hdlc(void *data, unsigned len)
 	/* ignore 2 bytes for CRC, one for 7E and send */
 	if ((driver->ch) && (ret) && (type) && (hdlc.dest_idx > 3)) {
 		APPEND_DEBUG('g');
+		mutex_lock(&driver->diag_data_mutex);
 #ifdef CONFIG_MODEM_DIAG_MASTER
 		smd_write(driver->ch, data, len);
 #else
 		smd_write(driver->ch, driver->hdlc_buf, hdlc.dest_idx - 3);
 #endif
+		mutex_unlock(&driver->diag_data_mutex);
 		APPEND_DEBUG('h');
 #ifdef DIAG_DEBUG
 		printk(KERN_INFO "writing data to SMD, pkt length %d\n", len);
@@ -1607,6 +1592,7 @@ void diagfwd_init(void)
 #if DIAG_XPST
 	mutex_init(&driver->smd_lock);
 #endif
+	mutex_init(&driver->diag_data_mutex);
 	platform_driver_register(&msm_smd_ch1_driver);
 	platform_driver_register(&diag_smd_lite_driver);
 

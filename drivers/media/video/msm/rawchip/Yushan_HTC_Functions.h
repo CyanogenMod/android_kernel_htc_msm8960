@@ -65,10 +65,28 @@ struct yushan_reg_t {
 
 extern struct yushan_reg_t yushan_regs;
 
+struct yushan_reg_clib_t {
+	uint16_t pdpclib_first_addr;
+	uint8_t *pdpclib;
+	uint16_t pdpclib_size;
+
+	uint16_t dppclib_first_addr;
+	uint8_t *dppclib;
+	uint16_t dppclib_size;
+
+	uint16_t dopclib_first_addr;
+	uint8_t *dopclib;
+	uint16_t dopclib_size;
+};
+
+extern struct yushan_reg_clib_t yushan_regs_clib_s5k3h2yx;
+extern struct yushan_reg_clib_t yushan_regs_clib_imx175;
+
 
 
 
 struct rawchip_sensor_init_data {
+	const char *sensor_name;
 	uint8_t spi_clk;
 	uint8_t ext_clk;
 	uint8_t lane_cnt;
@@ -98,6 +116,7 @@ typedef enum {
 
 typedef struct {
   uint16_t gain;
+  uint16_t dig_gain;
   uint16_t exp;
 } rawchip_aec_params_t;
 

@@ -44,7 +44,6 @@ struct pm8xxx_vib_pwm {
 };
 static int duty_us, period_us;
 static int switch_state = 1;
-
 static int pm8xxx_vib_set_on(struct pm8xxx_vib_pwm *vib)
 {
 	int rc = 0;

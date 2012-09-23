@@ -1206,40 +1206,6 @@ static void batt_level_adjust(unsigned long time_since_last_update_ms)
 	first = 0;
 }
 
-/*
-	Discharge case : batt_id 255 -> send fake batt_id 66 to userspace
-	Charge case : batt_id 255 -> tolerate fault id  by MAX_UNKNOWN_ID_COUNT -> send fault id to userspace
-*/
-#define MAX_UNKNOWN_ID_COUNT	(2)
-static void batt_id_fault_tolerance_check(void)
-{
-	static int unknown_count = 0;
-	if (htc_batt_info.rep.batt_id == 255)
-	{
-		if (htc_batt_info.rep.charging_source <= 0)
-		{
-			/* ignore id fault if charger is not connected:
-			 * send fake valid if to userspace */
-			pr_info("[BATT] Ignore invalid id when no charging_source");
-			htc_batt_info.rep.batt_id = 66;
-			unknown_count = 0;
-		}
-		else
-		{
-			/* tolerate batt id fault 2 min during charging period */
-			if (unknown_count < MAX_UNKNOWN_ID_COUNT)
-			{
-				htc_batt_info.rep.batt_id = 66;
-				unknown_count++;
-			}
-		}
-	}
-	else
-	{
-		unknown_count = 0;
-	}
-}
-
 static void batt_worker(struct work_struct *work)
 {
 	static int first = 1;
@@ -1278,9 +1244,6 @@ static void batt_worker(struct work_struct *work)
 	/* STEP 4: fresh battery information from gauge/charger */
 	batt_update_info_from_gauge();
 	batt_update_info_from_charger();
-
-	/* STEP: torelate batt_id fault */
-	batt_id_fault_tolerance_check();
 
 	/* STEP: battery level smoothen adjustment */
 	batt_level_adjust(time_since_last_update_ms);

@@ -255,9 +255,4 @@ config HTC_NETWORK_MODIFY
 	---help---
 	    HTC_NETWORK_MODIFY
 
-config HTC_NETWORK_MODIFY
-	tristate
-	---help---
-	HTC NET MODIFY
-
 endif # IPV6

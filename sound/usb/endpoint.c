@@ -240,6 +240,13 @@ int snd_usb_parse_audio_endpoints(struct snd_usb_audio *chip, int iface_no)
 	/* parse the interface's altsettings */
 	iface = usb_ifnum_to_if(dev, iface_no);
 
+	/*HTC AUD Klockwork start*/
+	if (iface == NULL) {
+		snd_printk(KERN_INFO "skipping invalid usb audio interface\n");
+		return -EINVAL;
+	}
+	/*HTC AUD Klockwork end*/
+
 	num = iface->num_altsetting;
 
 	/*

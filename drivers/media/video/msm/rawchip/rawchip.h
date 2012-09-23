@@ -57,6 +57,7 @@ struct rawchip_ctrl {
 };
 
 struct rawchip_sensor_data {
+	const char *sensor_name;
 	uint8_t datatype;
 	uint8_t lane_cnt;
 	uint32_t pixel_clk;

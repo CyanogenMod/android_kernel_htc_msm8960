@@ -455,6 +455,17 @@ static void vfe32_stop(void)
 		vfe32_ctrl->vfebase + VFE_GLOBAL_RESET);
 }
 
+//HTC_START 20120724-raymond to prevent IOMMU page fault after media server crash
+void try_vfe32_stop(void)
+{
+	if (atomic_read(&vfe32_ctrl->vstate)) {
+		pr_info("force stop vfe32\n");
+		vfe32_stop();
+	}
+
+}
+//HTC_END 20120724-raymond to prevent IOMMU page fault after media server crash
+
 static void vfe32_subdev_notify(int id, int path)
 {
 	struct msm_vfe_resp *rp;
@@ -1231,6 +1242,10 @@ static int vfe32_configure_pingpong_buffers(int id, int path)
 	int rc = 0;
 	vfe32_subdev_notify(id, path);
 	outch = vfe32_get_ch(path);
+	/* HTC_START (klockwork issue)*/
+	if(!outch)
+		return 0;
+	/* HTC_END */
 	if (outch->ping.ch_paddr[0] && outch->pong.ch_paddr[0]) {
 		/* Configure Preview Ping Pong */
 		pr_info("%s Configure ping/pong address for %d",
@@ -3509,6 +3524,10 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	case CMD_CONFIG_PING_ADDR: {
 		int path = *((int *)cmd->value);
 		struct vfe32_output_ch *outch = vfe32_get_ch(path);
+		/* HTC_START (klockwork issue)*/
+		if(!outch)
+			return 0;
+		/* HTC_END */
 		outch->ping = *((struct msm_free_buf *)data);
 	}
 		break;

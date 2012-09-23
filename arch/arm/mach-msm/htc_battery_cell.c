@@ -116,11 +116,7 @@ inline struct htc_battery_cell *htc_battery_cell_find(int id_raw)
 	return pcell;
 }
 
-/*
-	Move this tolerance mechanism to batt_id_fault_tolerance_check() on htc_battery_8960.c
-	Therefore , set check_unkonwn_count as 0
-*/
-#define HTC_BATTERY_CELL_CHECK_UNKNOWN_COUNT	(0)
+#define HTC_BATTERY_CELL_CHECK_UNKNOWN_COUNT	(2)
 inline int htc_battery_cell_find_and_set_id_auto(int id_raw)
 {
 	static int unknown_count = 0;

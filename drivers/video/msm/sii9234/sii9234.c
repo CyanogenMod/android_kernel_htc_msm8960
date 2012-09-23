@@ -42,7 +42,7 @@
 #include "TPI.h"
 #include "mhl_defs.h"
 
-
+bool cable_det_before_vbus = 0;
 /*********************************************************************
   Define & Macro
 ***********************************************************************/
@@ -653,6 +653,7 @@ static void irq_timeout_handler(struct work_struct *w)
 			ret = -EIO;
 		}
 		enable_irq(pInfo->irq);
+		cable_det_before_vbus = 0;
 		update_mhl_status(false, CONNECT_TYPE_UNKNOWN);
 	}
 }
@@ -743,6 +744,7 @@ static void sii9234_late_resume(struct early_suspend *h)
 	queue_delayed_work(pInfo->wq, &pInfo->mhl_on_delay_work, HZ);
 
 	g_bEnterEarlySuspend = false;
+	cable_det_before_vbus = 0;
 	mutex_unlock(&mhl_early_suspend_sem);
 }
 static void mhl_turn_off_5v(struct work_struct *w)
@@ -1040,6 +1042,10 @@ static void mhl_usb_status_notifier_func(int cable_type)
 		if(pInfo->statMHL == CONNECT_TYPE_INTERNAL) {
 			if(time_after(jiffies, suspend_jiffies + HZ))
 				update_mhl_status(true, CONNECT_TYPE_AC);
+		} else if (pInfo->statMHL == CONNECT_TYPE_UNKNOWN && cable_det_before_vbus != 1) {
+			need_simulate_cable_out = false;
+			cancel_delayed_work(&pInfo->irq_timeout_work);
+			update_mhl_status(true, CONNECT_TYPE_USB);
 		} else {
 			update_mhl_status(true, CONNECT_TYPE_INTERNAL);
 		}

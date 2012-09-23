@@ -773,6 +773,12 @@ config MACH_VALENTE_WX
 	help
 	  Support for the HTC Valente#WX
 
+config MACH_VALENTE_WX_C9
+	depends on ARCH_MSM8960
+	bool "Valente#WX_C9"
+	help
+	  Support for the HTC Valente#WX_C9
+
 config MACH_ELITE_ULK
 	depends on ARCH_MSM8960
 	bool "Elite#ULK"
@@ -1256,6 +1262,14 @@ config MSM_SMD_LOGGING
 	  and a debugfs node named smem_log.
 
 	  If in doubt, say yes.
+
+config MSM_IPC_LOGGING
+	default n
+	bool "MSM Debug Logging for IPC Drivers"
+	help
+	  This option allows the debug logging for IPC Drivers.
+
+	  If in doubt, say no.
 
 config MSM_SMD_NMEA
 	bool "NMEA GPS Driver"

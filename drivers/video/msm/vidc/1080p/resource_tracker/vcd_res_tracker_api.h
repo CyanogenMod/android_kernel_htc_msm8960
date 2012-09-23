@@ -34,6 +34,7 @@ u32 res_trk_get_enable_ion(void);
 u32 res_trk_get_disable_fullhd(void);
 struct ion_client *res_trk_get_ion_client(void);
 u32 res_trk_get_disable_dmx(void);
+u32 res_trk_get_min_dpb_count(void);
 void res_trk_set_mem_type(enum ddl_mem_area mem_type);
 int res_trk_enable_iommu_clocks(void);
 int res_trk_disable_iommu_clocks(void);
@@ -43,4 +44,6 @@ int res_trk_close_secure_session(void);
 void res_trk_secure_set(void);
 void res_trk_secure_unset(void);
 u32 get_res_trk_perf_level(enum vcd_perf_level);
+u32 res_trk_estimate_perf_level(u32 pn_perf_lvl);
+u32 res_trk_get_clk_rate(unsigned long *phclk_rate);
 #endif

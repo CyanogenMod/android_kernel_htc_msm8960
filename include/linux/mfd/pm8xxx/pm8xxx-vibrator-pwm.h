@@ -32,6 +32,5 @@ enum vdd_state {
 	DISABLE_VDD,
 	ENABLE_VDD,
 };
-
 #endif /* __PMIC8XXX_VIBRATOR_PWM_H__ */
 

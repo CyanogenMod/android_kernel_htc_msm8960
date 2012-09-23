@@ -1929,12 +1929,16 @@ void tcp_close(struct sock *sk, long timeout)
 			  tcp_hdr(skb)->fin;
 		data_was_unread += len;
 
+#ifdef CONFIG_HTC_NETWORK_MODIFY
         if (IS_ERR(skb) || (!skb)) {
 		    printk(KERN_ERR "[NET] skb is NULL in %s!\n", __func__);
 	    }
 		else {
 		    __kfree_skb(skb);
 		}
+#else
+        __kfree_skb(skb);
+#endif
 	}
 
 	sk_mem_reclaim(sk);

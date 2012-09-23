@@ -222,7 +222,7 @@ void store_afe_cal(int32_t path, struct cal_block *cal_block)
 	pr_debug("%s, path = %d\n", __func__, path);
 
 	if (cal_block->cal_offset > atomic64_read(&acdb_data.pmem_len)) {
-		pr_err("%s: offset %d is > pmem_len %ld\n",
+		pr_debug("%s: offset %d is > pmem_len %ld\n",
 			__func__, cal_block->cal_offset,
 			(long)atomic64_read(&acdb_data.pmem_len));
 		goto done;
@@ -272,7 +272,7 @@ void store_audproc_cal(int32_t path, struct cal_block *cal_block)
 	pr_debug("%s, path = %d\n", __func__, path);
 
 	if (cal_block->cal_offset > atomic64_read(&acdb_data.pmem_len)) {
-		pr_err("%s: offset %d is > pmem_len %ld\n",
+		pr_debug("%s: offset %d is > pmem_len %ld\n",
 			__func__, cal_block->cal_offset,
 			(long)atomic64_read(&acdb_data.pmem_len));
 		goto done;

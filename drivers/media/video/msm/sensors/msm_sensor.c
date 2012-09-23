@@ -238,6 +238,7 @@ int32_t msm_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 		}
 #ifdef CONFIG_RAWCHIP
 			if (s_ctrl->sensordata->use_rawchip) {
+				rawchip_data.sensor_name = s_ctrl->sensordata->sensor_name;
 				rawchip_data.datatype = s_ctrl->curr_csi_params->csid_params.lut_params.vc_cfg->dt;
 				rawchip_data.lane_cnt = s_ctrl->curr_csi_params->csid_params.lane_cnt;
 				rawchip_data.pixel_clk = s_ctrl->msm_sensor_reg->output_settings[res].op_pixel_clk;
@@ -571,6 +572,11 @@ int32_t msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 
 	pr_info("%s: msm_sensor id: 0x%x,s_ctrl->sensor_id_info->sensor_id=0x%x\n", __func__, chipid, s_ctrl->sensor_id_info->sensor_id);
 	if (chipid != s_ctrl->sensor_id_info->sensor_id) {
+		if (chipid == 0x174 && s_ctrl->sensor_id_info->sensor_id == 0x175){
+		//Optical promise ONLY this 100 pcs have wrong. Others sensor will be OK.
+			pr_info("%s: WA for Liteon module written wrong sensor ID as IMX174\n", __func__);
+			return rc;
+		}
 		pr_info("msm_sensor_match_id chip id doesnot match\n");
 		return -ENODEV;
 	}

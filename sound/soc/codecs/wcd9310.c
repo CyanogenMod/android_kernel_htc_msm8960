@@ -1219,9 +1219,12 @@ static int tabla_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	u16 tx_mux_ctl_reg, tx_dmic_ctl_reg;
 	u8 dmic_clk_sel, dmic_clk_en;
 	unsigned int dmic;
-	int ret;
-
-	ret = kstrtouint(strpbrk(w->name, "123456"), 10, &dmic);
+/* HTC AUD, klocwork ++ */
+	int ret = 0;
+	char *tmp_str = strpbrk(w->name, "123456");
+	if (tmp_str)
+		ret = kstrtouint(tmp_str, 10, &dmic);
+/* HTC AUD, klocwork -- */
 	if (ret < 0) {
 		pr_err("%s: Invalid DMIC line on the codec\n", __func__);
 		return -EINVAL;
@@ -3467,14 +3470,16 @@ static void btn0_lpress_fn(struct work_struct *work)
 	struct tabla_priv *tabla;
 	short bias_value;
 	int dce_mv, sta_mv;
-	struct tabla *core;
+/* HTC AUD, klocwork ++ */
+	struct tabla *core = NULL;
 
 	pr_debug("%s:\n", __func__);
 
 	delayed_work = to_delayed_work(work);
 	tabla = container_of(delayed_work, struct tabla_priv, btn0_dwork);
-	core = dev_get_drvdata(tabla->codec->dev->parent);
-
+	if (tabla && tabla->codec && tabla->codec->dev)
+		core = dev_get_drvdata(tabla->codec->dev->parent);
+/* HTC AUD, klocwork ++ */
 	if (tabla) {
 		if (tabla->button_jack) {
 			bias_value = tabla_codec_read_sta_result(tabla->codec);
@@ -4379,12 +4384,20 @@ static int tabla_handle_pdata(struct tabla_priv *tabla)
 	struct snd_soc_codec *codec = tabla->codec;
 	struct tabla_pdata *pdata = tabla->pdata;
 	int k1, k2, k3, rc = 0;
-	u8 leg_mode = pdata->amic_settings.legacy_mode;
-	u8 txfe_bypass = pdata->amic_settings.txfe_enable;
-	u8 txfe_buff = pdata->amic_settings.txfe_buff;
-	u8 flag = pdata->amic_settings.use_pdata;
+	u8 leg_mode = 0;
+	u8 txfe_bypass = 0;
+	u8 txfe_buff = 0;
+	u8 flag = 0;
 	u8 i = 0, j = 0;
 	u8 val_txfe = 0, value = 0;
+/* HTC AUD, klocwork ++ */
+	if(pdata) {
+		leg_mode = pdata->amic_settings.legacy_mode;
+		txfe_bypass = pdata->amic_settings.txfe_enable;
+		txfe_buff = pdata->amic_settings.txfe_buff;
+		flag = pdata->amic_settings.use_pdata;
+	}
+/* HTC AUD, klocwork ++ */
 
 	if (!pdata) {
 		rc = -ENODEV;

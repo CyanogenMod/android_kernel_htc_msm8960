@@ -45,6 +45,7 @@
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
 
+
 static void hci_le_connect(struct hci_conn *conn)
 {
 	struct hci_dev *hdev = conn->hdev;
@@ -144,7 +145,7 @@ static void hci_acl_connect_cancel(struct hci_conn *conn)
 
 void hci_acl_disconn(struct hci_conn *conn, __u8 reason)
 {
-	BT_DBG("%p", conn);
+	BT_DBG("%p, dev type %d", conn, conn->hdev->dev_type);
 
 	conn->state = BT_DISCONN;
 
@@ -447,7 +448,7 @@ int hci_conn_del(struct hci_conn *conn)
 {
 	struct hci_dev *hdev = conn->hdev;
 
-	BT_DBG("%s conn %p handle %d", hdev->name, conn, conn->handle);
+	BT_DBG("%s conn %p handle %d type %d", hdev->name, conn, conn->handle, conn->type);
 
 	/* Make sure no timers are running */
 	del_timer(&conn->idle_timer);

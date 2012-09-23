@@ -625,10 +625,10 @@ static int msm_fb_remove(struct platform_device *pdev)
 
 	msm_fb_remove_sysfs(pdev);
 
-	pm_runtime_disable(mfd->fbi->dev);
-
 	if (!mfd)
 		return -ENODEV;
+
+	pm_runtime_disable(mfd->fbi->dev);
 
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
@@ -3092,6 +3092,7 @@ static int msmfb_overlay_play(struct fb_info *info, unsigned long *argp)
 		hasWakeLock = true;
 	}
 	ret = mdp4_overlay_play(info, &req);
+
 #if defined (CONFIG_MSM_AUTOBL_ENABLE)
 	if (pdata->autobl_enable) {
 		pdata->autobl_enable(auto_bkl_status, mfd);
@@ -3958,7 +3959,7 @@ int get_fb_phys_info(unsigned long *start, unsigned long *len, int fb_num,
 	struct fb_info *info;
 	struct msm_fb_data_type *mfd;
 
-	if (fb_num > MAX_FBI_LIST ||
+	if (fb_num >= MAX_FBI_LIST ||
 		(subsys_id != DISPLAY_SUBSYSTEM_ID &&
 		 subsys_id != ROTATOR_SUBSYSTEM_ID)) {
 		pr_err("%s(): Invalid parameters\n", __func__);

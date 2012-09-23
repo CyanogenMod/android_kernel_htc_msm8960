@@ -286,6 +286,9 @@ u32 ddl_set_metadata_params(struct ddl_client_context *ddl,
 						&ddl->codec_data.encoder);
 			}
 			vcd_status = VCD_S_SUCCESS;
+			/* HTC_START (klockwork issue)*/
+			*meta_data_enable_flag &= ~VCD_METADATA_ENC_SLICE;
+			/* HTC_END */
 		}
 	} else if (property_hdr->prop_id == VCD_I_METADATA_HEADER) {
 		struct vcd_property_metadata_hdr *hdr =

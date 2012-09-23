@@ -27,6 +27,8 @@
 
 #include "power.h"
 
+int suspend_footprint;
+
 const char *const pm_states[PM_SUSPEND_MAX] = {
 #ifdef CONFIG_EARLYSUSPEND
 	[PM_SUSPEND_ON]		= "on",
@@ -93,26 +95,32 @@ static int suspend_prepare(void)
 
 	if (!suspend_ops || !suspend_ops->enter)
 		return -EPERM;
-
+	suspend_footprint = 5;
 	pm_prepare_console();
-
+	suspend_footprint = 6;
 	error = pm_notifier_call_chain(PM_SUSPEND_PREPARE);
 	if (error)
 		goto Finish;
-
+	suspend_footprint = 7;
 	error = usermodehelper_disable();
 	if (error)
 		goto Finish;
 
+	suspend_footprint = 8;
 	error = suspend_freeze_processes();
+	suspend_footprint = 9;
 	if (!error)
 		return 0;
-
+	suspend_footprint = 91;
 	suspend_thaw_processes();
+	suspend_footprint = 92;
 	usermodehelper_enable();
+	suspend_footprint = 93;
  Finish:
 	pm_notifier_call_chain(PM_POST_SUSPEND);
+	suspend_footprint = 61;
 	pm_restore_console();
+	suspend_footprint = 62;
 	return error;
 }
 
@@ -253,8 +261,11 @@ int suspend_devices_and_enter(suspend_state_t state)
 static void suspend_finish(void)
 {
 	suspend_thaw_processes();
+	suspend_footprint = 15;
 	usermodehelper_enable();
+	suspend_footprint = 16;
 	pm_notifier_call_chain(PM_POST_SUSPEND);
+	suspend_footprint = 17;
 	pm_restore_console();
 }
 
@@ -278,24 +289,29 @@ int enter_state(suspend_state_t state)
 	if (!mutex_trylock(&pm_mutex))
 		return -EBUSY;
 
+	suspend_footprint = 3;
 	suspend_sys_sync_queue();
-
+	suspend_footprint = 4;
 	pr_debug("PM: Preparing system for %s sleep\n", pm_states[state]);
 	error = suspend_prepare();
 	if (error)
 		goto Unlock;
-
+	suspend_footprint = 10;
 	if (suspend_test(TEST_FREEZER))
 		goto Finish;
-
+	suspend_footprint = 11;
 	pr_debug("PM: Entering %s sleep\n", pm_states[state]);
 	pm_restrict_gfp_mask();
+	suspend_footprint = 12;
 	error = suspend_devices_and_enter(state);
+	suspend_footprint = 13;
 	pm_restore_gfp_mask();
+	suspend_footprint = 14;
 
  Finish:
 	pr_debug("PM: Finishing wakeup.\n");
 	suspend_finish();
+	suspend_footprint = 18;
  Unlock:
 	mutex_unlock(&pm_mutex);
 	return error;

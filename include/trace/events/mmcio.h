@@ -6,9 +6,6 @@
 
 #include <linux/tracepoint.h>
 
-struct address_space;
-struct qstr;
-
 TRACE_EVENT(sys_sync,
 	TP_PROTO(int i),
 

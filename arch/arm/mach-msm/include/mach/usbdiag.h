@@ -56,7 +56,7 @@
 
 /*-------------------------------------------------------------------------*/
 
-#define SDQXDM_DEBUG
+/* #define SDQXDM_DEBUG */
 #define DIAG_XPST 1
 
 #define DIAG_LEGACY		"diag"

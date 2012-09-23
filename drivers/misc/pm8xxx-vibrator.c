@@ -49,6 +49,7 @@ struct pm8xxx_vib {
 	int level;
 	u8  reg_vib_drv;
 };
+static int switch_state = 1;
 
 /* REVISIT: just for debugging, will be removed in final working version */
 static void __dump_vib_regs(struct pm8xxx_vib *vib, char *msg)
@@ -93,6 +94,12 @@ static int pm8xxx_vib_set_on(struct pm8xxx_vib *vib)
 	val1 &= ~VIB_DRV_SEL_MASK;
 	val1 |= ((vib->level << VIB_DRV_SEL_SHIFT) & VIB_DRV_SEL_MASK);
 	VIB_INFO_LOG("%s + val: %x \n", __func__, val1);
+
+	if (switch_state == 0) {
+		VIB_INFO_LOG("%s vibrator is disable by switch\n",__func__);
+		return 0;
+	}
+
 	rc = pm8xxx_vib_write_u8(vib, val1, VIB_DRV);
 	if (rc < 0){
 		VIB_ERR_LOG("%s writing pmic fail, ret:%X\n", __func__, rc);
@@ -226,6 +233,25 @@ static const struct dev_pm_ops pm8xxx_vib_pm_ops = {
 	.suspend = pm8xxx_vib_suspend,
 };
 #endif
+static ssize_t switch_show(struct device *dev, struct device_attribute *attr,
+                char *buf)
+{
+        return sprintf(buf, "switch status:%d \n", switch_state);
+}
+
+static ssize_t switch_store(
+                struct device *dev, struct device_attribute *attr,
+                const char *buf, size_t size)
+{
+        int switch_status;
+        switch_status = -1;
+        sscanf(buf, "%d ",&switch_status);
+        VIB_INFO_LOG("%s: %d\n",__func__,switch_status);
+        switch_state = switch_status;
+        return size;
+}
+
+static DEVICE_ATTR(function_switch, S_IRUGO | S_IWUSR, switch_show, switch_store);
 
 static int __devinit pm8xxx_vib_probe(struct platform_device *pdev)
 
@@ -284,6 +310,11 @@ static int __devinit pm8xxx_vib_probe(struct platform_device *pdev)
 	if (rc < 0) {
 		VIB_ERR_LOG("%s, create sysfs fail: voltage_level\n", __func__);
 	}
+
+        rc = device_create_file(vib->timed_dev.dev, &dev_attr_function_switch);
+        if (rc < 0) {
+                VIB_ERR_LOG("%s, create sysfs fail: function_switch\n", __func__);
+        }
 
 	platform_set_drvdata(pdev, vib);
 

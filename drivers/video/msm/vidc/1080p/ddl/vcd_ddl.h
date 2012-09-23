@@ -84,6 +84,8 @@
 
 #define DDL_MAX_NUM_IN_INPUTFRAME_POOL          (DDL_MAX_NUM_OF_B_FRAME + 1)
 
+#define MDP_MIN_TILE_HEIGHT			96
+
 enum ddl_mem_area {
 	DDL_FW_MEM	= 0x0,
 	DDL_MM_MEM	= 0x1,
@@ -113,6 +115,7 @@ enum ddl_cmd_state{
 	DDL_CMD_ENCODE_FRAME    = 0x8,
 	DDL_CMD_EOS             = 0x9,
 	DDL_CMD_CHANNEL_END     = 0xA,
+	DDL_CMD_ENCODE_CONTINUE = 0xB,
 	DDL_CMD_32BIT           = 0x7FFFFFFF
 };
 enum ddl_client_state{
@@ -129,6 +132,7 @@ enum ddl_client_state{
 	DDL_CLIENT_WAIT_FOR_CHEND          = 0xA,
 	DDL_CLIENT_FATAL_ERROR             = 0xB,
 	DDL_CLIENT_FAVIDC_ERROR            = 0xC,
+	DDL_CLIENT_WAIT_FOR_CONTINUE       = 0xD,
 	DDL_CLIENT_32BIT                   = 0x7FFFFFFF
 };
 struct ddl_hw_interface{
@@ -215,6 +219,16 @@ struct ddl_enc_buffers{
 struct ddl_codec_data_hdr{
 	u32  decoding;
 };
+struct ddl_batch_frame_data {
+	struct ddl_buf_addr slice_batch_in;
+	struct ddl_buf_addr slice_batch_out;
+	struct ddl_frame_data_tag input_frame;
+	struct ddl_frame_data_tag output_frame
+			[DDL_MAX_NUM_BFRS_FOR_SLICE_BATCH];
+	u32 num_output_frames;
+	u32 out_frm_next_frmindex;
+	u32  first_output_frame_tag;
+};
 struct ddl_encoder_data{
 	struct ddl_codec_data_hdr   hdr;
 	struct vcd_property_codec   codec;
@@ -262,6 +276,8 @@ struct ddl_encoder_data{
 	u32  ext_enc_control_val;
 	u32  num_references_for_p_frame;
 	u32  closed_gop;
+	struct vcd_property_slice_delivery_info slice_delivery_info;
+	struct ddl_batch_frame_data batch_frame;
 };
 struct ddl_decoder_data {
 	struct ddl_codec_data_hdr  hdr;
@@ -303,6 +319,8 @@ struct ddl_decoder_data {
 	u32  cont_mode;
 	u32  reconfig_detected;
 	u32  dmx_disable;
+	int avg_dec_time;
+	int dec_time_sum;
 };
 union ddl_codec_data{
 	struct ddl_codec_data_hdr  hdr;
@@ -344,6 +362,8 @@ struct ddl_context{
 		(struct vidc_1080p_enc_seq_start_param *param);
 	void(*vidc_encode_frame_start[2])
 		(struct vidc_1080p_enc_frame_start_param *param);
+	void(*vidc_encode_slice_batch_start[2])
+		(struct vidc_1080p_enc_frame_start_param *param);
 	u32 frame_channel_depth;
 };
 struct ddl_client_context{
@@ -375,9 +395,12 @@ void ddl_vidc_channel_set(struct ddl_client_context *);
 void ddl_vidc_channel_end(struct ddl_client_context *);
 void ddl_vidc_encode_init_codec(struct ddl_client_context *);
 void ddl_vidc_decode_init_codec(struct ddl_client_context *);
+void ddl_vidc_encode_frame_continue(struct ddl_client_context *);
 void ddl_vidc_encode_frame_run(struct ddl_client_context *);
+void ddl_vidc_encode_slice_batch_run(struct ddl_client_context *);
 void ddl_vidc_decode_frame_run(struct ddl_client_context *);
 void ddl_vidc_decode_eos_run(struct ddl_client_context *ddl);
+void ddl_vidc_encode_eos_run(struct ddl_client_context *ddl);
 void ddl_release_context_buffers(struct ddl_context *);
 void ddl_release_client_internal_buffers(struct ddl_client_context *ddl);
 u32  ddl_vidc_decode_set_buffers(struct ddl_client_context *);
@@ -438,13 +461,16 @@ void ddl_pmem_free(struct ddl_buf_addr *addr);
 
 u32 ddl_get_input_frame_from_pool(struct ddl_client_context *ddl,
 	u8 *input_buffer_address);
+u32 ddl_get_stream_buf_from_batch_pool(struct ddl_client_context *ddl,
+	struct ddl_frame_data_tag *stream_buffer);
 u32 ddl_insert_input_frame_to_pool(struct ddl_client_context *ddl,
 	struct ddl_frame_data_tag *ddl_input_frame);
-
 void ddl_decoder_chroma_dpb_change(struct ddl_client_context *ddl);
 u32  ddl_check_reconfig(struct ddl_client_context *ddl);
 void ddl_handle_reconfig(u32 res_change, struct ddl_client_context *ddl);
 void ddl_fill_dec_desc_buffer(struct ddl_client_context *ddl);
+void ddl_set_vidc_timeout(struct ddl_client_context *ddl);
+
 
 #ifdef DDL_BUF_LOG
 void ddl_list_buffers(struct ddl_client_context *ddl);
@@ -459,4 +485,8 @@ u32 ddl_fw_init(struct ddl_buf_addr *dram_base);
 void ddl_get_fw_info(const unsigned char **fw_array_addr,
 	unsigned int *fw_size);
 void ddl_fw_release(void);
+int ddl_vidc_decode_get_avg_time(struct ddl_client_context *ddl);
+void ddl_vidc_decode_reset_avg_time(struct ddl_client_context *ddl);
+void ddl_calc_core_proc_time(const char *func_name, u32 index,
+		struct ddl_client_context *ddl);
 #endif

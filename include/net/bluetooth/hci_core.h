@@ -202,9 +202,11 @@ struct hci_dev {
 
 	struct work_struct	power_on;
 	struct work_struct	power_off;
+	struct work_struct	dev_close;
 	struct timer_list	off_timer;
 
 	struct timer_list	cmd_timer;
+	struct timer_list	dev_close_timer;
 	struct tasklet_struct	cmd_task;
 	struct tasklet_struct	rx_task;
 	struct tasklet_struct	tx_task;

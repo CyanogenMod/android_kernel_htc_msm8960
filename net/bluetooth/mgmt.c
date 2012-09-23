@@ -1633,7 +1633,8 @@ static int pair_device(struct sock *sk, u16 index, unsigned char *data, u16 len)
 			io_cap = 0x01;
 		conn = hci_connect(hdev, ACL_LINK, 0, &cp->bdaddr, sec_level,
 								auth_type);
-		conn->auth_initiator = 1;
+		if(conn)
+                    conn->auth_initiator = 1;
 	}
 
 	if (IS_ERR(conn)) {

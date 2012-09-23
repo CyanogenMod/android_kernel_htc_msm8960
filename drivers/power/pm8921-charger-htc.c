@@ -527,23 +527,28 @@ static int pm_chg_disable_auto_enable(struct pm8921_chg_chip *chip,
 
 #define PM8921_CHG_V_MIN_MV	3240
 #define PM8921_CHG_V_STEP_MV	20
-#define PM8921_CHG_V_STEP_10_MV_BIT	BIT(7)
+#define PM8921_CHG_V_STEP_10MV_OFFSET_BIT	BIT(7)
 #define PM8921_CHG_VDDMAX_MAX	4500
 #define PM8921_CHG_VDDMAX_MIN	3400
 #define PM8921_CHG_V_MASK	0x7F
 static int __pm_chg_vddmax_set(struct pm8921_chg_chip *chip, int voltage)
 {
-	int remainder, voltage_20_step;
+	int remainder;
 	u8 temp = 0;
 
-	voltage_20_step = voltage;
-	remainder = voltage % 20;
-	if (remainder >= 10) {
-		voltage_20_step += 10;
-		temp = PM8921_CHG_V_STEP_10_MV_BIT;
+	if (voltage < PM8921_CHG_VDDMAX_MIN
+			|| voltage > PM8921_CHG_VDDMAX_MAX) {
+		pr_err("bad mV=%d asked to set\n", voltage);
+		return -EINVAL;
 	}
 
-	temp |= (voltage_20_step - PM8921_CHG_V_MIN_MV) / PM8921_CHG_V_STEP_MV;
+	temp = (voltage - PM8921_CHG_V_MIN_MV) / PM8921_CHG_V_STEP_MV;
+
+	remainder = voltage % 20;
+	if (remainder >= 10) {
+		temp |= PM8921_CHG_V_STEP_10MV_OFFSET_BIT;
+	}
+
 	pr_debug("voltage=%d setting %02x\n", voltage, temp);
 	return pm8xxx_writeb(chip->dev->parent, CHG_VDD_MAX, temp);
 }
@@ -559,10 +564,10 @@ static int pm_chg_vddmax_get(struct pm8921_chg_chip *chip, int *voltage)
 		*voltage = 0;
 		return rc;
 	}
-	temp &= PM8921_CHG_V_MASK;
-	*voltage = (int)temp * PM8921_CHG_V_STEP_MV + PM8921_CHG_V_MIN_MV;
-	if (temp & PM8921_CHG_V_STEP_10_MV_BIT)
-		*voltage = *voltage - 10;
+	*voltage = (int)(temp & PM8921_CHG_V_MASK) * PM8921_CHG_V_STEP_MV
+							+ PM8921_CHG_V_MIN_MV;
+	if (temp & PM8921_CHG_V_STEP_10MV_OFFSET_BIT)
+		*voltage =  *voltage + 10;
 	return 0;
 }
 
@@ -2459,10 +2464,10 @@ static void unplug_ovp_fet_open_worker(struct work_struct *work)
 
 			turn_on_usb_ovp_fet(chip);
 		} else {
-			pm_chg_masked_write(chip, USB_OVP_CONTROL, USB_OVP_DEBOUNCE_TIME, 0x1);
 			break;
 		}
 	}
+	pm_chg_masked_write(chip, USB_OVP_CONTROL, USB_OVP_DEBOUNCE_TIME, 0x2);
 	pr_info("%s:Exiting,count=%d,chg_gone=%d,usb_valid=%d\n",
 				__func__, count, chg_gone, usb_chg_plugged_in);
 	wake_unlock(&chip->unplug_ovp_fet_open_wake_lock);
@@ -2593,7 +2598,7 @@ static irqreturn_t chgwdog_irq_handler(int irq, void *data)
 
 static irqreturn_t vcp_irq_handler(int irq, void *data)
 {
-	pr_debug("state_changed_to=%d\n", pm_chg_get_fsm_state(data));
+	pr_info("state_changed_to=%d\n", pm_chg_get_fsm_state(data));
 	return IRQ_HANDLED;
 }
 

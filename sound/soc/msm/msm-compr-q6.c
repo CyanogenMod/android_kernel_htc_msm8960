@@ -107,26 +107,27 @@ static void compr_event_handler(uint32_t opcode,
 {
 	struct compr_audio *compr = priv;
 	struct msm_audio *prtd = &compr->prtd;
-	struct snd_pcm_substream *substream = prtd->substream;
-	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct snd_pcm_substream *substream = NULL;
+	struct snd_pcm_runtime *runtime = NULL;
 	struct audio_aio_write_param param;
 	struct audio_buffer *buf = NULL;
 	int i = 0;
 
+	/*HTC AUDIO Start*/
+	if (!(prtd->substream && prtd->substream->runtime)) {
+		printk(KERN_WARNING "[AUD] compr_event_handler(), no substream instance, return\n");
+		return;
+	} else {
+		substream = prtd->substream;
+		runtime = substream->runtime;
+	}
+	/*HTC AUDIO End*/
 	pr_debug("[AUD]%s opcode =%08x, start %d +++\n", __func__, opcode, ((&prtd!=NULL)?atomic_read(&prtd->start):-1));
 	switch (opcode) {
 	case ASM_DATA_EVENT_WRITE_DONE: {
 		uint32_t *ptrmem = (uint32_t *)&param;
 		pr_debug("[AUD]%s ASM_DATA_EVENT_WRITE_DONE\n", __func__);
 		pr_debug("[AUD]%s Buffer Consumed = 0x%08x\n", __func__, *ptrmem);
-
-		if(substream == NULL){
-			printk(KERN_WARNING "[AUD] compr_event_handler(), no substream instance, return\n");
-			break;
-		}else if (substream->runtime == NULL){
-			printk(KERN_WARNING "[AUD] compr_event_handler(), no runtime instance, return\n");
-			break;
-		}
 
 		prtd->pcm_irq_pos += prtd->pcm_count;
 		if (atomic_read(&prtd->start))

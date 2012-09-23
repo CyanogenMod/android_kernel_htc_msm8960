@@ -926,12 +926,7 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
 		struct ucred peercred;
 		if (len > sizeof(peercred))
 			len = sizeof(peercred);
-		if(sk != NULL) {
-			cred_to_ucred(sk->sk_peer_pid, sk->sk_peer_cred, &peercred);
-		} else {
-			printk(KERN_ERR "[NET]sock_getsockopt: sk is NULL\n");
-			return -EFAULT;
-		}
+		cred_to_ucred(sk->sk_peer_pid, sk->sk_peer_cred, &peercred);
 		if (copy_to_user(optval, &peercred, len))
 			return -EFAULT;
 		goto lenout;

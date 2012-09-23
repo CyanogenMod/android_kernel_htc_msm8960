@@ -278,7 +278,7 @@ static int mmc_blk_ioctl_cmd(struct block_device *bdev,
 	struct mmc_data data = {0};
 	struct mmc_request mrq = {0};
 	struct scatterlist sg;
-	int err;
+	int err = 0;
 
 	/*
 	 * The caller must have CAP_SYS_RAWIO, and must be calling this on the
@@ -1256,6 +1256,7 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 	int err;
 	u32 status;
 	int  no_ready = 0;
+	ktime_t start, diff;
 
 	/*
 	 * Reliable writes are used to implement Forced Unit Access and
@@ -1377,11 +1378,18 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 			brq.data.sg_len = i;
 		}
 
+		start = ktime_get();
 		mmc_queue_bounce_pre(mq);
 
 		mmc_wait_for_req(card->host, &brq.mrq);
 
 		mmc_queue_bounce_post(mq);
+		diff = ktime_sub(ktime_get(), start);
+		if (ktime_to_ms(diff) > 3000)
+			printk(KERN_INFO "%s:finish cmd%d. start sector %u, numSector %u, time=%lldms\n",
+				mmc_hostname(card->host), brq.cmd.opcode,
+				brq.cmd.arg , blk_rq_sectors(req) , ktime_to_ms(diff));
+
 
 		/*
 		 * sbc.error indicates a problem with the set block count
@@ -1467,7 +1475,14 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 				 */
 			} while (!(status & R1_READY_FOR_DATA) ||
 				 (R1_CURRENT_STATE(status) == R1_STATE_PRG));
+
+			diff = ktime_sub(ktime_get(), start);
+			if (ktime_to_ms(diff) > 3000)
+				printk(KERN_INFO "%s:end request. cmd%d, start sector %u, numSector %u, time=%lldms\n",
+						mmc_hostname(card->host), brq.cmd.opcode,
+						brq.cmd.arg , blk_rq_sectors(req) , ktime_to_ms(diff));
 		}
+
 		if (no_ready && reinit_retry) {
 			reinit_retry = 0;
 			pr_info("%s: card status %#x \n", req->rq_disk->disk_name, status);

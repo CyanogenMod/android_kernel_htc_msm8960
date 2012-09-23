@@ -57,7 +57,7 @@ extern int panel_type;
 #define REV_1           (1 << REV_SHIFT)
 #define REV_2           (2 << REV_SHIFT)
 #define REV_3           (3 << REV_SHIFT)
-
+#define REV_4			(4 << REV_SHIFT)
 
 #define PANEL_ID_NONE		(0x0)
 
@@ -140,6 +140,7 @@ extern int panel_type;
 #define PANEL_ID_JET_AUO_NT    (0x4C | BL_MIPI | IF_MIPI | DEPTH_RGB888)
 #define PANEL_ID_JET_AUO_NT_C2    (0x4C | BL_MIPI | IF_MIPI | DEPTH_RGB888 | REV_2)
 #define PANEL_ID_JET_AUO_NT_C3    (0x4C | BL_MIPI | IF_MIPI | DEPTH_RGB888 | REV_3)
+#define PANEL_ID_JET_AUO_NT_C3_1    (0x4C | BL_MIPI | IF_MIPI | DEPTH_RGB888 | REV_4)
 #define PANEL_ID_VALENTE_SAMSUNG_SG (0x4D | BL_MIPI | IF_MIPI | DEPTH_RGB888)
 #define PANEL_ID_VALENTE_SAMSUNG_SG_C2 (0x4D | BL_MIPI | IF_MIPI | DEPTH_RGB888 | REV_1)
 #define PANEL_ID_VALENTE_SAMSUNG_SG_C3 (0x4D | BL_MIPI | IF_MIPI | DEPTH_RGB888 | REV_2)

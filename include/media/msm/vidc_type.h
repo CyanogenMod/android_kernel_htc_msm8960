@@ -23,7 +23,9 @@
 #include <linux/dma-mapping.h>
 #include <linux/android_pmem.h>
 
-#define DEBUG   0
+/*HTC_START*/
+extern u32 vidc_msg_debug;
+/*HTC_END*/
 #define VIDC_ENABLE_DBGFS
 
 #define USE_RES_TRACKER

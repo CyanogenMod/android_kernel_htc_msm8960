@@ -6,6 +6,7 @@
 
 #define PN544_MAGIC	0xE9
 #define PN544_SET_PWR	_IOW(PN544_MAGIC, 0x01, unsigned int)
+#define IO_WAKE_LOCK_TIMEOUT (2*HZ)
 
 struct pn544_i2c_platform_data {
 	void (*gpio_init) (void);

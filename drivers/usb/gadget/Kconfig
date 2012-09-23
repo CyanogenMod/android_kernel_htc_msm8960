@@ -1178,6 +1178,11 @@ config USB_ANDROID_ECM
 	depends on USB_G_ANDROID
 	help
 
+config USB_ANDROID_NCM
+	boolean "Android gadget NCM function"
+	depends on USB_G_ANDROID
+	help
+
 config USB_F_SERIAL_SDIO
 	boolean "generic serial function driver over SDIO"
 	depends on USB_G_ANDROID && MSM_SDIO_CMUX && MSM_SDIO_AL

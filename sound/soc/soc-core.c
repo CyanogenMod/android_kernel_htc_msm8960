@@ -1786,7 +1786,7 @@ static int soc_post_component_init(struct snd_soc_card *card,
 
 #ifdef CONFIG_DEBUG_FS
 	/* add DSP sysfs entries */
-	if (!dai_link->dynamic)
+	if (!dailess && !dai_link->dynamic)
 		goto out;
 
 	ret = soc_dsp_debugfs_add(rtd);

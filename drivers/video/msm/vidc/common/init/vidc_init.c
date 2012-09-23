@@ -36,15 +36,16 @@
 #include "vidc_init_internal.h"
 #include "vcd_res_tracker_api.h"
 
-#if DEBUG
-#define DBG(x...) printk(KERN_DEBUG x)
-#else
-#define DBG(x...)
-#endif
+/*HTC_START*/
+#define DBG(x...)			\
+    if (vidc_msg_debug) {		\
+	    printk(KERN_DEBUG "[VID] " x);\
+    }
+/*HTC_END*/
 
 #define VIDC_NAME "msm_vidc_reg"
 
-#define ERR(x...) printk(KERN_ERR x)
+#define ERR(x...) printk(KERN_ERR "[VID]" x)
 
 static struct vidc_dev *vidc_device_p;
 static dev_t vidc_dev_num;
@@ -63,7 +64,7 @@ struct workqueue_struct *vidc_timer_wq;
 static irqreturn_t vidc_isr(int irq, void *dev);
 static spinlock_t vidc_spin_lock;
 
-u32 vidc_msg_timing, vidc_msg_pmem;
+u32 vidc_msg_timing, vidc_msg_pmem, vidc_msg_register, vidc_msg_debug;
 
 #ifdef VIDC_ENABLE_DBGFS
 struct dentry *vidc_debugfs_root;
@@ -153,10 +154,14 @@ static int __devinit vidc_720p_probe(struct platform_device *pdev)
 		return -ENXIO;
 	}
 
-	vidc_device_p->phys_base = resource->start;
-	vidc_device_p->virt_base = ioremap(resource->start,
-	resource->end - resource->start + 1);
-
+	/* HTC_START (klockwork issue)*/
+	if (resource && resource->start)
+	{
+		vidc_device_p->phys_base = resource->start;
+		vidc_device_p->virt_base = ioremap(resource->start,
+		resource->end - resource->start + 1);
+	}
+	/* HTC_END */
 	if (!vidc_device_p->virt_base) {
 		ERR("%s() : ioremap failed\n", __func__);
 		return -ENOMEM;
@@ -311,6 +316,10 @@ static int __init vidc_init(void)
 				(u32 *) &vidc_msg_timing);
 		vidc_debugfs_file_create(root, "vidc_msg_pmem",
 				(u32 *) &vidc_msg_pmem);
+		vidc_debugfs_file_create(root, "vidc_msg_register",
+				(u32 *) &vidc_msg_register);
+		vidc_debugfs_file_create(root, "vidc_msg_debug",
+				(u32 *) &vidc_msg_debug);
 	}
 #endif
 	return 0;
@@ -417,16 +426,24 @@ void vidc_cleanup_addr_table(struct video_client_ctx *client_ctx,
 			buf_addr_table[i].client_data);
 			buf_addr_table[i].client_data = NULL;
 		}
-		if (buf_addr_table[i].buff_ion_handle) {
-			ion_unmap_kernel(client_ctx->user_ion_client,
-					buf_addr_table[i].buff_ion_handle);
-			ion_unmap_iommu(client_ctx->user_ion_client,
-					buf_addr_table[i].buff_ion_handle,
-					VIDEO_DOMAIN,
-					VIDEO_MAIN_POOL);
-			ion_free(client_ctx->user_ion_client,
-					buf_addr_table[i].buff_ion_handle);
-			buf_addr_table[i].buff_ion_handle = NULL;
+		if (!IS_ERR_OR_NULL(buf_addr_table[i].buff_ion_handle)) {
+			if (!IS_ERR_OR_NULL(client_ctx->user_ion_client)) {
+				ion_unmap_kernel(client_ctx->user_ion_client,
+						buf_addr_table[i].
+						buff_ion_handle);
+				if (!res_trk_check_for_sec_session()) {
+					ion_unmap_iommu(
+						client_ctx->user_ion_client,
+						buf_addr_table[i].
+						buff_ion_handle,
+						VIDEO_DOMAIN,
+						VIDEO_MAIN_POOL);
+				}
+				ion_free(client_ctx->user_ion_client,
+						buf_addr_table[i].
+						buff_ion_handle);
+				buf_addr_table[i].buff_ion_handle = NULL;
+			}
 		}
 	}
 	if (client_ctx->vcd_h264_mv_buffer.client_data) {
@@ -434,16 +451,20 @@ void vidc_cleanup_addr_table(struct video_client_ctx *client_ctx,
 		client_ctx->vcd_h264_mv_buffer.client_data);
 		client_ctx->vcd_h264_mv_buffer.client_data = NULL;
 	}
-	if (client_ctx->h264_mv_ion_handle) {
-		ion_unmap_kernel(client_ctx->user_ion_client,
-				client_ctx->h264_mv_ion_handle);
-		ion_unmap_iommu(client_ctx->user_ion_client,
-				client_ctx->h264_mv_ion_handle,
-				VIDEO_DOMAIN,
-				VIDEO_MAIN_POOL);
-		ion_free(client_ctx->user_ion_client,
-				client_ctx->h264_mv_ion_handle);
-		client_ctx->h264_mv_ion_handle = NULL;
+	if (!IS_ERR_OR_NULL(client_ctx->h264_mv_ion_handle)) {
+		if (!IS_ERR_OR_NULL(client_ctx->user_ion_client)) {
+			ion_unmap_kernel(client_ctx->user_ion_client,
+					client_ctx->h264_mv_ion_handle);
+			if (!res_trk_check_for_sec_session()) {
+				ion_unmap_iommu(client_ctx->user_ion_client,
+					client_ctx->h264_mv_ion_handle,
+					VIDEO_DOMAIN,
+					VIDEO_MAIN_POOL);
+			}
+			ion_free(client_ctx->user_ion_client,
+					client_ctx->h264_mv_ion_handle);
+			client_ctx->h264_mv_ion_handle = NULL;
+		}
 	}
 bail_out_cleanup:
 	return;
@@ -504,27 +525,30 @@ u32 vidc_lookup_addr_table(struct video_client_ctx *client_ctx,
 		*pmem_fd = buf_addr_table[i].pmem_fd;
 		*file = buf_addr_table[i].file;
 		*buffer_index = i;
-
-		if (search_with_user_vaddr)
+/*HTC_START*/
+		if (search_with_user_vaddr) {
 			DBG("kernel_vaddr = 0x%08lx, phy_addr = 0x%08lx "
 			" pmem_fd = %d, struct *file	= %p "
 			"buffer_index = %d\n", *kernel_vaddr,
 			*phy_addr, *pmem_fd, *file, *buffer_index);
-		else
+		} else {
 			DBG("user_vaddr = 0x%08lx, phy_addr = 0x%08lx "
 			" pmem_fd = %d, struct *file	= %p "
 			"buffer_index = %d\n", *user_vaddr, *phy_addr,
 			*pmem_fd, *file, *buffer_index);
+			}
 		mutex_unlock(&client_ctx->enrty_queue_lock);
 		return true;
 	} else {
-		if (search_with_user_vaddr)
+		if (search_with_user_vaddr) {
 			DBG("%s() : client_ctx = %p user_virt_addr = 0x%08lx"
 			" Not Found.\n", __func__, client_ctx, *user_vaddr);
-		else
+		} else {
 			DBG("%s() : client_ctx = %p kernel_virt_addr = 0x%08lx"
 			" Not Found.\n", __func__, client_ctx,
 			*kernel_vaddr);
+			}
+/*HTC_END*/
 		mutex_unlock(&client_ctx->enrty_queue_lock);
 		return false;
 	}
@@ -548,6 +572,7 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 	unsigned long iova = 0;
 	int ret = 0;
 	unsigned long buffer_size  = 0;
+	size_t ion_len;
 
 	if (!client_ctx || !length)
 		return false;
@@ -629,23 +654,41 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 				*kernel_vaddr = (unsigned long)NULL;
 				goto ion_free_error;
 			}
-			ret = ion_map_iommu(client_ctx->user_ion_client,
+			if (res_trk_check_for_sec_session()) {
+				if (ion_phys(client_ctx->user_ion_client,
 					buff_ion_handle,
-					VIDEO_DOMAIN,
-					VIDEO_MAIN_POOL,
-					SZ_8K,
-					length,
-					(unsigned long *) &iova,
-					(unsigned long *) &buffer_size,
-					UNCACHED, ION_IOMMU_UNMAP_DELAYED);
-			if (ret) {
-				ERR("%s():ION iommu map fail\n",
-				 __func__);
-				goto ion_map_error;
+					&phys_addr, &ion_len)) {
+					ERR("%s():ION physical addr fail\n",
+					__func__);
+					goto ion_map_error;
+				}
+				len = (unsigned long) ion_len;
+				buf_addr_table[*num_of_buffers].client_data =
+					 NULL;
+				buf_addr_table[*num_of_buffers].dev_addr =
+					 phys_addr;
+			} else {
+				ret = ion_map_iommu(client_ctx->user_ion_client,
+						buff_ion_handle,
+						VIDEO_DOMAIN,
+						VIDEO_MAIN_POOL,
+						SZ_8K,
+						length,
+						(unsigned long *) &iova,
+						(unsigned long *) &buffer_size,
+						UNCACHED,
+						ION_IOMMU_UNMAP_DELAYED);
+				if (ret) {
+					ERR("%s():ION iommu map fail\n",
+					 __func__);
+					goto ion_map_error;
+				}
+				phys_addr = iova;
+				buf_addr_table[*num_of_buffers].client_data =
+						 NULL;
+				buf_addr_table[*num_of_buffers].dev_addr =
+						 iova;
 			}
-			phys_addr = iova;
-			buf_addr_table[*num_of_buffers].client_data = NULL;
-			buf_addr_table[*num_of_buffers].dev_addr = iova;
 		}
 		phys_addr += buffer_addr_offset;
 		(*kernel_vaddr) += buffer_addr_offset;
@@ -738,8 +781,8 @@ u32 vidc_insert_addr_table_kernel(struct video_client_ctx *client_ctx,
 		buf_addr_table[*num_of_buffers].buff_ion_handle = NULL;
 		*num_of_buffers = *num_of_buffers + 1;
 		DBG("%s() : client_ctx = %p, user_virt_addr = 0x%08lx, "
-			"kernel_vaddr = 0x%08lx inserted!", __func__,
-			client_ctx, user_vaddr, *kernel_vaddr);
+			"kernel_vaddr = 0x%08lx phys_addr=%lu inserted!", __func__,
+			client_ctx, user_vaddr, kernel_vaddr, phys_addr);
 	}
 	mutex_unlock(&client_ctx->enrty_queue_lock);
 	return true;
@@ -792,10 +835,12 @@ u32 vidc_delete_addr_table(struct video_client_ctx *client_ctx,
 	if (buf_addr_table[i].buff_ion_handle) {
 		ion_unmap_kernel(client_ctx->user_ion_client,
 				buf_addr_table[i].buff_ion_handle);
-		ion_unmap_iommu(client_ctx->user_ion_client,
+		if (!res_trk_check_for_sec_session()) {
+			ion_unmap_iommu(client_ctx->user_ion_client,
 				buf_addr_table[i].buff_ion_handle,
 				VIDEO_DOMAIN,
 				VIDEO_MAIN_POOL);
+		}
 		ion_free(client_ctx->user_ion_client,
 				buf_addr_table[i].buff_ion_handle);
 		buf_addr_table[i].buff_ion_handle = NULL;

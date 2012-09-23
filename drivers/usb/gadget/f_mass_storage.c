@@ -1149,7 +1149,6 @@ static int do_read_buffer(struct fsg_common *common)
 
 static int do_write(struct fsg_common *common)
 {
-	static int write_count = 0;
 	struct fsg_lun		*curlun = common->curlun;
 	u32			lba;
 	struct fsg_buffhd	*bh;
@@ -1321,14 +1320,6 @@ static int do_write(struct fsg_common *common)
 			nwritten = vfs_write(curlun->filp,
 					     (char __user *)bh->buf,
 					     amount, &file_offset_tmp);
-
-			/* Workaround: vfs_fsync */
-			if (++write_count == 1024 && curlun->vfs_sync_period) {
-				write_count = 0;
-				vfs_fsync(curlun->filp, 1);
-			}
-
-
 			VLDBG(curlun, "file write %u @ %llu -> %d\n", amount,
 			      (unsigned long long)file_offset, (int)nwritten);
 #ifdef CONFIG_USB_MSC_PROFILING
@@ -3404,7 +3395,6 @@ static DEVICE_ATTR(file, 0644, fsg_show_file, fsg_store_file);
 #ifdef CONFIG_USB_MSC_PROFILING
 static DEVICE_ATTR(perf, 0644, fsg_show_perf, fsg_store_perf);
 #endif
-static DEVICE_ATTR(vfs_sync_period, 0644, fsg_show_vfs_sync_period, fsg_store_vfs_sync_period);
 
 #ifdef CONFIG_LISMO
 /* [ADD START] 2012/01/17 KDDI : Android ICS */
@@ -4051,9 +4041,6 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 		if (rc)
 			goto error_luns;
 		rc = device_create_file(&curlun->dev, &dev_attr_nofua);
-		if (rc)
-			goto error_luns;
-		rc = device_create_file(&curlun->dev, &dev_attr_vfs_sync_period);
 		if (rc)
 			goto error_luns;
 #ifdef CONFIG_USB_MSC_PROFILING

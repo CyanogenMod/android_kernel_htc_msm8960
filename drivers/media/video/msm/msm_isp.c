@@ -360,7 +360,9 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 		break;
 	}
 	case NOTIFY_VFE_MSG_OUT: {
-		uint8_t msgid;
+		/* HTC_START (klockwork issue)*/
+		int8_t msgid;
+		/* HTC_END */
 		struct isp_msg_output *isp_output =
 				(struct isp_msg_output *)arg;
 		switch (isp_output->output_id) {

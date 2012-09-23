@@ -61,6 +61,7 @@ static struct wake_lock suspend_backoff_lock;
 #define SUSPEND_BACKOFF_INTERVAL	10000
 
 static unsigned suspend_short_count;
+extern int suspend_footprint;
 
 #ifdef CONFIG_WAKELOCK_STAT
 static struct wake_lock deleted_wake_locks;
@@ -295,13 +296,13 @@ long has_wake_lock(int type)
 
 static void suspend_sys_sync(struct work_struct *work)
 {
-	if (debug_mask & DEBUG_SUSPEND)
-		pr_info("PM: Syncing filesystems...\n");
+	pr_info("PM: Syncing filesystems: count: %d...\n",
+		suspend_sys_sync_count);
 
 	sys_sync();
 
-	if (debug_mask & DEBUG_SUSPEND)
-		pr_info("sync done.\n");
+	pr_info("sync done. count: %d\n",
+		suspend_sys_sync_count);
 
 	spin_lock(&suspend_sys_sync_lock);
 	suspend_sys_sync_count--;
@@ -382,7 +383,9 @@ static void suspend(struct work_struct *work)
 
 	entry_event_num = current_event_num;
 
+	suspend_footprint = 1;
 	suspend_sys_sync_queue();
+	suspend_footprint = 2;
 
 	if (debug_mask & DEBUG_SUSPEND)
 		pr_info("suspend: enter suspend\n");
@@ -415,6 +418,7 @@ static void suspend(struct work_struct *work)
 			pr_info("suspend: pm_suspend returned with no event\n");
 		wake_lock_timeout(&unknown_wakeup, HZ / 2);
 	}
+	suspend_footprint = 0;
 	pr_info("[R] resume end\n");
 }
 static DECLARE_WORK(suspend_work, suspend);

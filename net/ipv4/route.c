@@ -1280,7 +1280,6 @@ void ip_rt_redirect(__be32 old_gw, __be32 daddr, __be32 new_gw,
 		return;
 
 	net = dev_net(dev);
-
 	/* ignore ICMP redirect for different SUBNET Gateway*/
 	if (!inet_addr_onlink(in_dev, new_gw, old_gw))
 		goto reject_redirect;

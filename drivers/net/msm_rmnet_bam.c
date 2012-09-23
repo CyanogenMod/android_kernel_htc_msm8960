@@ -716,6 +716,11 @@ static int bam_rmnet_probe(struct platform_device *pdev)
 			break;
 	}
 
+	if(i >= RMNET_DEVICE_COUNT) {
+		pr_err(MODULE_NAME "%s: wrong device [%s]\n", __func__, pdev->name);
+		return 0;
+	}
+
 	p = netdev_priv(netdevs[i]);
 	if (p->in_reset) {
 		DBG0("[%s] is reset\n", pdev->name);
@@ -740,6 +745,11 @@ static int bam_rmnet_remove(struct platform_device *pdev)
 		scnprintf(name, BAM_DMUX_CH_NAME_MAX_LEN, "bam_dmux_ch_%d", i);
 		if (!strncmp(pdev->name, name, BAM_DMUX_CH_NAME_MAX_LEN))
 			break;
+	}
+
+	if(i >= RMNET_DEVICE_COUNT) {
+		pr_err(MODULE_NAME "%s: wrong device [%s]\n", __func__, pdev->name);
+		return 0;
 	}
 
 	p = netdev_priv(netdevs[i]);

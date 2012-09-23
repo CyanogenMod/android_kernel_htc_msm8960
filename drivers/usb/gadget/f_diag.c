@@ -35,7 +35,7 @@
 #include <mach/sdio_al.h>
 #include <linux/miscdevice.h>
 #include <linux/sched.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #include <linux/fs.h>
 #include "../../char/diag/diagchar.h"
 #include "../../char/diag/diagfwd.h"
@@ -353,7 +353,7 @@ static void diag_read_complete(struct usb_ep *ep,
 
 	cmd_id = *((unsigned short *)req->buf);
 
-	if ((ctxt != mdmctxt) && if_route_to_userspace(ctxt, cmd_id)) {
+	if ((ctxt == get_modem_ctxt()) && if_route_to_userspace(ctxt, cmd_id)) {
 		xpst_req = xpst_req_get(ctxt, &ctxt->rx_req_idle);
 		if (xpst_req) {
 			xpst_req->actual = req->actual;
@@ -389,9 +389,12 @@ struct usb_diag_ch *usb_diag_open(const char *name, void *priv,
 		void (*notify)(void *, unsigned, struct diag_request *))
 {
 	struct usb_diag_ch *ch;
-	struct diag_context *ctxt = NULL;
+	struct diag_context *ctxt;
 	unsigned long flags;
 	int found = 0;
+#if DIAG_XPST
+	static int xpst_initialized;
+#endif
 
 	printk(KERN_DEBUG "[USB] %s: name: %s\n", __func__, name);
 	spin_lock_irqsave(&ch_lock, flags);
@@ -409,23 +412,21 @@ struct usb_diag_ch *usb_diag_open(const char *name, void *priv,
 		if (!strcmp(name, DIAG_LEGACY)) {
 			legacyctxt = ctxt = &_context;
 			legacych = ch = &legacyctxt->ch;
+		} else if (!strcmp(name, DIAG_MDM)) {
+			mdmctxt = ctxt = &_mdm_context;
+			mdmch = ch = &ctxt->ch;
+		} else
+			return NULL;
 #if DIAG_XPST
+		if (!xpst_initialized) {
 			misc_register(&htc_diag_device_fops);
 			/*DMrounter*/
 			misc_register(&diag2arm9_device);
 			ctxt->usb_in_count = ctxt->usb_out_count = 0;
 			ctxt->tx_count = ctxt->rx_count = 0;
-			driver->diag_smd_count = driver->diag_qdsp_count = 0;
-#endif
-		}
-#if defined(CONFIG_USB_ANDROID_MDM9K_DIAG)
-		else if (!strcmp(name, DIAG_MDM)) {
-			mdmctxt = ctxt = &_mdm_context;
-			mdmch = ch = &ctxt->ch;
+			xpst_initialized = 1;
 		}
 #endif
-		else
-			return NULL;
 	}
 
 	ch->name = name;
@@ -435,9 +436,6 @@ struct usb_diag_ch *usb_diag_open(const char *name, void *priv,
 	spin_lock_irqsave(&ch_lock, flags);
 	list_add_tail(&ch->list, &usb_diag_ch_list);
 	spin_unlock_irqrestore(&ch_lock, flags);
-
-	DIAG_INFO("%s: ch->name:%s ctxt:%p pkts_pending:%p\n", __func__,
-			ch->name, ctxt, &ctxt->dpkts_tolaptop_pending);
 
 	return ch;
 }
@@ -677,7 +675,7 @@ static void diag_function_disable(struct usb_function *f)
 	dev->out->driver_data = NULL;
 
 #if DIAG_XPST
-	if (dev == legacyctxt) {
+	if (dev == get_modem_ctxt()) {
 		dev->online = 0;
 		wake_up(&dev->read_wq);
 	}
@@ -727,7 +725,7 @@ static int diag_function_set_alt(struct usb_function *f,
 	dev->configured = 1;
 	spin_unlock_irqrestore(&dev->lock, flags);
 #if DIAG_XPST
-	if (dev == legacyctxt) {
+	if (dev == get_modem_ctxt()) {
 		while ((req = xpst_req_get(dev, &dev->rx_req_user)))
 			xpst_req_put(dev, &dev->rx_req_idle, req);
 		dev->online = 1;
@@ -981,7 +979,7 @@ static void diag_cleanup(void)
 static int diag_setup(void)
 {
 #if DIAG_XPST
-	struct diag_context *dev = &_context;
+	struct diag_context *dev = get_modem_ctxt();
 	dev->ready = 1;
 
 	spin_lock_init(&dev->req_lock);

@@ -13,6 +13,7 @@
 #endif
 
 Yushan_ImageChar_t	sImageChar_context;
+struct yushan_reg_t *p_yushan_regs;
 
 /* Each Block Enable Flag*/
 #define PDP_enable 0x01
@@ -110,34 +111,34 @@ void Reset_Yushan(void)
 {
 	uint8_t	bSpiData;
 	Yushan_Init_Dxo_Struct_t	sDxoStruct;
-	sDxoStruct.pDxoPdpRamImage[0] = (uint8_t *)yushan_regs.pdpcode;
-	sDxoStruct.pDxoDppRamImage[0] = (uint8_t *)yushan_regs.dppcode;
-	sDxoStruct.pDxoDopRamImage[0] = (uint8_t *)yushan_regs.dopcode;
-	sDxoStruct.pDxoPdpRamImage[1] = (uint8_t *)yushan_regs.pdpclib;
-	sDxoStruct.pDxoDppRamImage[1] = (uint8_t *)yushan_regs.dppclib;
-	sDxoStruct.pDxoDopRamImage[1] = (uint8_t *)yushan_regs.dopclib;
+	sDxoStruct.pDxoPdpRamImage[0] = (uint8_t *)p_yushan_regs->pdpcode;
+	sDxoStruct.pDxoDppRamImage[0] = (uint8_t *)p_yushan_regs->dppcode;
+	sDxoStruct.pDxoDopRamImage[0] = (uint8_t *)p_yushan_regs->dopcode;
+	sDxoStruct.pDxoPdpRamImage[1] = (uint8_t *)p_yushan_regs->pdpclib;
+	sDxoStruct.pDxoDppRamImage[1] = (uint8_t *)p_yushan_regs->dppclib;
+	sDxoStruct.pDxoDopRamImage[1] = (uint8_t *)p_yushan_regs->dopclib;
 
-	sDxoStruct.uwDxoPdpRamImageSize[0] = yushan_regs.pdpcode_size;
-	sDxoStruct.uwDxoDppRamImageSize[0] = yushan_regs.dppcode_size;
-	sDxoStruct.uwDxoDopRamImageSize[0] = yushan_regs.dopcode_size;
-	sDxoStruct.uwDxoPdpRamImageSize[1] = yushan_regs.pdpclib_size;
-	sDxoStruct.uwDxoDppRamImageSize[1] = yushan_regs.dppclib_size;
-	sDxoStruct.uwDxoDopRamImageSize[1] = yushan_regs.dopclib_size;
+	sDxoStruct.uwDxoPdpRamImageSize[0] = p_yushan_regs->pdpcode_size;
+	sDxoStruct.uwDxoDppRamImageSize[0] = p_yushan_regs->dppcode_size;
+	sDxoStruct.uwDxoDopRamImageSize[0] = p_yushan_regs->dopcode_size;
+	sDxoStruct.uwDxoPdpRamImageSize[1] = p_yushan_regs->pdpclib_size;
+	sDxoStruct.uwDxoDppRamImageSize[1] = p_yushan_regs->dppclib_size;
+	sDxoStruct.uwDxoDopRamImageSize[1] = p_yushan_regs->dopclib_size;
 
-	sDxoStruct.uwBaseAddrPdpMicroCode[0] = yushan_regs.pdpcode_first_addr;
-	sDxoStruct.uwBaseAddrDppMicroCode[0] = yushan_regs.dppcode_first_addr;
-	sDxoStruct.uwBaseAddrDopMicroCode[0] = yushan_regs.dopcode_first_addr;
-	sDxoStruct.uwBaseAddrPdpMicroCode[1] = yushan_regs.pdpclib_first_addr;
-	sDxoStruct.uwBaseAddrDppMicroCode[1] = yushan_regs.dppclib_first_addr;
-	sDxoStruct.uwBaseAddrDopMicroCode[1] = yushan_regs.dopclib_first_addr;
+	sDxoStruct.uwBaseAddrPdpMicroCode[0] = p_yushan_regs->pdpcode_first_addr;
+	sDxoStruct.uwBaseAddrDppMicroCode[0] = p_yushan_regs->dppcode_first_addr;
+	sDxoStruct.uwBaseAddrDopMicroCode[0] = p_yushan_regs->dopcode_first_addr;
+	sDxoStruct.uwBaseAddrPdpMicroCode[1] = p_yushan_regs->pdpclib_first_addr;
+	sDxoStruct.uwBaseAddrDppMicroCode[1] = p_yushan_regs->dppclib_first_addr;
+	sDxoStruct.uwBaseAddrDopMicroCode[1] = p_yushan_regs->dopclib_first_addr;
 
-	sDxoStruct.uwDxoPdpBootAddr = yushan_regs.pdpBootAddr;
-	sDxoStruct.uwDxoDppBootAddr = yushan_regs.dppBootAddr;
-	sDxoStruct.uwDxoDopBootAddr = yushan_regs.dopBootAddr;
+	sDxoStruct.uwDxoPdpBootAddr = p_yushan_regs->pdpBootAddr;
+	sDxoStruct.uwDxoDppBootAddr = p_yushan_regs->dppBootAddr;
+	sDxoStruct.uwDxoDopBootAddr = p_yushan_regs->dopBootAddr;
 
-	sDxoStruct.uwDxoPdpStartAddr = yushan_regs.pdpStartAddr;
-	sDxoStruct.uwDxoDppStartAddr = yushan_regs.dppStartAddr;
-	sDxoStruct.uwDxoDopStartAddr = yushan_regs.dopStartAddr;
+	sDxoStruct.uwDxoPdpStartAddr = p_yushan_regs->pdpStartAddr;
+	sDxoStruct.uwDxoDppStartAddr = p_yushan_regs->dppStartAddr;
+	sDxoStruct.uwDxoDopStartAddr = p_yushan_regs->dopStartAddr;
 
 	pr_err("[CAM] %s\n",__func__);
 	/*sensor_streaming_off();*/
@@ -411,34 +412,59 @@ int Yushan_sensor_open_init(struct rawchip_sensor_init_data data)
 #endif
 
 #ifndef COLOR_BAR
-	sDxoStruct.pDxoPdpRamImage[0] = (uint8_t *)yushan_regs.pdpcode;
-	sDxoStruct.pDxoDppRamImage[0] = (uint8_t *)yushan_regs.dppcode;
-	sDxoStruct.pDxoDopRamImage[0] = (uint8_t *)yushan_regs.dopcode;
-	sDxoStruct.pDxoPdpRamImage[1] = (uint8_t *)yushan_regs.pdpclib;
-	sDxoStruct.pDxoDppRamImage[1] = (uint8_t *)yushan_regs.dppclib;
-	sDxoStruct.pDxoDopRamImage[1] = (uint8_t *)yushan_regs.dopclib;
 
-	sDxoStruct.uwDxoPdpRamImageSize[0] = yushan_regs.pdpcode_size;
-	sDxoStruct.uwDxoDppRamImageSize[0] = yushan_regs.dppcode_size;
-	sDxoStruct.uwDxoDopRamImageSize[0] = yushan_regs.dopcode_size;
-	sDxoStruct.uwDxoPdpRamImageSize[1] = yushan_regs.pdpclib_size;
-	sDxoStruct.uwDxoDppRamImageSize[1] = yushan_regs.dppclib_size;
-	sDxoStruct.uwDxoDopRamImageSize[1] = yushan_regs.dopclib_size;
+	p_yushan_regs = &yushan_regs;
+	if (strcmp(data.sensor_name, "s5k3h2yx") == 0) {
+		p_yushan_regs->pdpclib = yushan_regs_clib_s5k3h2yx.pdpclib;
+		p_yushan_regs->dppclib = yushan_regs_clib_s5k3h2yx.dppclib;
+		p_yushan_regs->dopclib = yushan_regs_clib_s5k3h2yx.dopclib;
+		p_yushan_regs->pdpclib_size = yushan_regs_clib_s5k3h2yx.pdpclib_size;
+		p_yushan_regs->dppclib_size = yushan_regs_clib_s5k3h2yx.dppclib_size;
+		p_yushan_regs->dopclib_size = yushan_regs_clib_s5k3h2yx.dopclib_size;
+		p_yushan_regs->pdpclib_first_addr = yushan_regs_clib_s5k3h2yx.pdpclib_first_addr;
+		p_yushan_regs->dppclib_first_addr = yushan_regs_clib_s5k3h2yx.dppclib_first_addr;
+		p_yushan_regs->dopclib_first_addr = yushan_regs_clib_s5k3h2yx.dopclib_first_addr;
+	}
+	else if (strcmp(data.sensor_name, "imx175") == 0) {
+		p_yushan_regs->pdpclib = yushan_regs_clib_imx175.pdpclib;
+		p_yushan_regs->dppclib = yushan_regs_clib_imx175.dppclib;
+		p_yushan_regs->dopclib = yushan_regs_clib_imx175.dopclib;
+		p_yushan_regs->pdpclib_size = yushan_regs_clib_imx175.pdpclib_size;
+		p_yushan_regs->dppclib_size = yushan_regs_clib_imx175.dppclib_size;
+		p_yushan_regs->dopclib_size = yushan_regs_clib_imx175.dopclib_size;
+		p_yushan_regs->pdpclib_first_addr = yushan_regs_clib_imx175.pdpclib_first_addr;
+		p_yushan_regs->dppclib_first_addr = yushan_regs_clib_imx175.dppclib_first_addr;
+		p_yushan_regs->dopclib_first_addr = yushan_regs_clib_imx175.dopclib_first_addr;
+	}
 
-	sDxoStruct.uwBaseAddrPdpMicroCode[0] = yushan_regs.pdpcode_first_addr;
-	sDxoStruct.uwBaseAddrDppMicroCode[0] = yushan_regs.dppcode_first_addr;
-	sDxoStruct.uwBaseAddrDopMicroCode[0] = yushan_regs.dopcode_first_addr;
-	sDxoStruct.uwBaseAddrPdpMicroCode[1] = yushan_regs.pdpclib_first_addr;
-	sDxoStruct.uwBaseAddrDppMicroCode[1] = yushan_regs.dppclib_first_addr;
-	sDxoStruct.uwBaseAddrDopMicroCode[1] = yushan_regs.dopclib_first_addr;
+	sDxoStruct.pDxoPdpRamImage[0] = (uint8_t *)p_yushan_regs->pdpcode;
+	sDxoStruct.pDxoDppRamImage[0] = (uint8_t *)p_yushan_regs->dppcode;
+	sDxoStruct.pDxoDopRamImage[0] = (uint8_t *)p_yushan_regs->dopcode;
+	sDxoStruct.pDxoPdpRamImage[1] = (uint8_t *)p_yushan_regs->pdpclib;
+	sDxoStruct.pDxoDppRamImage[1] = (uint8_t *)p_yushan_regs->dppclib;
+	sDxoStruct.pDxoDopRamImage[1] = (uint8_t *)p_yushan_regs->dopclib;
 
-	sDxoStruct.uwDxoPdpBootAddr = yushan_regs.pdpBootAddr;
-	sDxoStruct.uwDxoDppBootAddr = yushan_regs.dppBootAddr;
-	sDxoStruct.uwDxoDopBootAddr = yushan_regs.dopBootAddr;
+	sDxoStruct.uwDxoPdpRamImageSize[0] = p_yushan_regs->pdpcode_size;
+	sDxoStruct.uwDxoDppRamImageSize[0] = p_yushan_regs->dppcode_size;
+	sDxoStruct.uwDxoDopRamImageSize[0] = p_yushan_regs->dopcode_size;
+	sDxoStruct.uwDxoPdpRamImageSize[1] = p_yushan_regs->pdpclib_size;
+	sDxoStruct.uwDxoDppRamImageSize[1] = p_yushan_regs->dppclib_size;
+	sDxoStruct.uwDxoDopRamImageSize[1] = p_yushan_regs->dopclib_size;
 
-	sDxoStruct.uwDxoPdpStartAddr = yushan_regs.pdpStartAddr;
-	sDxoStruct.uwDxoDppStartAddr = yushan_regs.dppStartAddr;
-	sDxoStruct.uwDxoDopStartAddr = yushan_regs.dopStartAddr;
+	sDxoStruct.uwBaseAddrPdpMicroCode[0] = p_yushan_regs->pdpcode_first_addr;
+	sDxoStruct.uwBaseAddrDppMicroCode[0] = p_yushan_regs->dppcode_first_addr;
+	sDxoStruct.uwBaseAddrDopMicroCode[0] = p_yushan_regs->dopcode_first_addr;
+	sDxoStruct.uwBaseAddrPdpMicroCode[1] = p_yushan_regs->pdpclib_first_addr;
+	sDxoStruct.uwBaseAddrDppMicroCode[1] = p_yushan_regs->dppclib_first_addr;
+	sDxoStruct.uwBaseAddrDopMicroCode[1] = p_yushan_regs->dopclib_first_addr;
+
+	sDxoStruct.uwDxoPdpBootAddr = p_yushan_regs->pdpBootAddr;
+	sDxoStruct.uwDxoDppBootAddr = p_yushan_regs->dppBootAddr;
+	sDxoStruct.uwDxoDopBootAddr = p_yushan_regs->dopBootAddr;
+
+	sDxoStruct.uwDxoPdpStartAddr = p_yushan_regs->pdpStartAddr;
+	sDxoStruct.uwDxoDppStartAddr = p_yushan_regs->dppStartAddr;
+	sDxoStruct.uwDxoDopStartAddr = p_yushan_regs->dopStartAddr;
 
 #if 0
 	pr_info("/*---------------------------------------*\\");
@@ -561,8 +587,23 @@ int Yushan_sensor_open_init(struct rawchip_sensor_init_data data)
 	sDxoDopTuning.bEstimationMode = 1;
 	sDxoDopTuning.bSharpness = 0x01; /*0x60;*/
 	sDxoDopTuning.bDenoisingLowGain = 0x1; /* 0xFF for de-noise verify, original:0x1 */
-	sDxoDopTuning.bDenoisingMedGain = 0x60;//john0216//0x80;
-	sDxoDopTuning.bDenoisingHiGain = 0x40;//john0216//0x60; /*0x80;*/
+
+	if (strcmp(data.sensor_name, "s5k3h2yx") == 0)
+	{
+		sDxoDopTuning.bDenoisingMedGain = 0x60;//john0216//0x80;
+		sDxoDopTuning.bDenoisingHiGain = 0x40;//john0216//0x60; /*0x80;*/
+	}
+	else if (strcmp(data.sensor_name, "imx175") == 0)
+	{
+		sDxoDopTuning.bDenoisingMedGain = 0x60;//alvin0622//0x70;//imx175//0x60;//john0216//0x80;
+		sDxoDopTuning.bDenoisingHiGain = 0x40;//alvin0622//0x60;//imx175//0x40;//john0216//0x60; /*0x80;*/
+	}
+	else
+	{
+		sDxoDopTuning.bDenoisingMedGain = 0x60;//john0216//0x80;
+		sDxoDopTuning.bDenoisingHiGain = 0x40;//john0216//0x60; /*0x80;*/
+	}
+
 	sDxoDopTuning.bNoiseVsDetailsLowGain = 0xA0;
 	sDxoDopTuning.bNoiseVsDetailsMedGain = 0x80;
 	sDxoDopTuning.bNoiseVsDetailsHiGain = 0x80;
@@ -1012,9 +1053,9 @@ int Yushan_Update_AEC_AWB_Params(rawchip_update_aec_awb_params_t *update_aec_awb
 	sGainsExpTime.uwAnalogGainCodeGR = update_aec_awb_params->aec_params.gain;
 	sGainsExpTime.uwAnalogGainCodeR = update_aec_awb_params->aec_params.gain;
 	sGainsExpTime.uwAnalogGainCodeB = update_aec_awb_params->aec_params.gain;
-	sGainsExpTime.uwPreDigGainGR = 0x100;
-	sGainsExpTime.uwPreDigGainR = 0x100;
-	sGainsExpTime.uwPreDigGainB = 0x100;
+	sGainsExpTime.uwPreDigGainGR = update_aec_awb_params->aec_params.dig_gain;
+	sGainsExpTime.uwPreDigGainR = update_aec_awb_params->aec_params.dig_gain;
+	sGainsExpTime.uwPreDigGainB = update_aec_awb_params->aec_params.dig_gain;
 	sGainsExpTime.uwExposureTime = update_aec_awb_params->aec_params.exp;
 	sGainsExpTime.bRedGreenRatio = update_aec_awb_params->awb_params.rg_ratio;
 	sGainsExpTime.bBlueGreenRatio = update_aec_awb_params->awb_params.bg_ratio;
@@ -1866,59 +1907,59 @@ void Yushan_dump_Dxo(void)
 	pr_info("[CAM] %s: Start\n", __func__);
 
 	CDBG("[CAM] %s: **** DXO DOP CODE/CLIB CHECK ****\n", __func__);
-	for (i = 0; i < yushan_regs.dopcode_size; i++) {
-		YUSHAN_DOP_REGISTER_CHECK(yushan_regs.dopcode_first_addr+i);
-		target_data = *((uint8_t *)yushan_regs.dopcode+i);
+	for (i = 0; i < p_yushan_regs->dopcode_size; i++) {
+		YUSHAN_DOP_REGISTER_CHECK(p_yushan_regs->dopcode_first_addr+i);
+		target_data = *((uint8_t *)p_yushan_regs->dopcode+i);
 		if (udwSpiData != target_data)
 			pr_err("Unmatching DOP code addr=%x data=%x target_data=%x\n",
-				yushan_regs.dopcode_first_addr+i, udwSpiData, target_data);
+				p_yushan_regs->dopcode_first_addr+i, udwSpiData, target_data);
 	}
-	for (i = 0; i < yushan_regs.dopclib_size; i++) {
-		YUSHAN_DOP_REGISTER_CHECK(yushan_regs.dopclib_first_addr+i);
-		target_data = *((uint8_t *)yushan_regs.dopclib+i);
+	for (i = 0; i < p_yushan_regs->dopclib_size; i++) {
+		YUSHAN_DOP_REGISTER_CHECK(p_yushan_regs->dopclib_first_addr+i);
+		target_data = *((uint8_t *)p_yushan_regs->dopclib+i);
 		if (udwSpiData != target_data)
 			pr_err("Unmatching DOP clib addr=%x data=%x target_data=%x\n",
-				yushan_regs.dopclib_first_addr+i, udwSpiData, target_data);
+				p_yushan_regs->dopclib_first_addr+i, udwSpiData, target_data);
 	}
 
 	CDBG("[CAM] %s: **** DXO DPP CODE/CLIB CHECK ****\n", __func__);
 	udwSpiBaseIndex = 0x010000;
 	SPI_Write(YUSHAN_HOST_IF_SPI_BASE_ADDRESS, 4, (uint8_t *)(&udwSpiBaseIndex));
 	udwDxoBaseAddress=(0x8000 + DXO_DPP_BASE_ADDR) - udwSpiBaseIndex; /* OR ## DXO_DPP_BASE_ADDR-0x8000; */
-	for (i = 0; i < yushan_regs.dppcode_size; i++) {
-		YUSHAN_DPP_REGISTER_CHECK(yushan_regs.dppcode_first_addr+udwDxoBaseAddress+i-DXO_DPP_BASE_ADDR+0x8000);
-		target_data = *((uint8_t *)yushan_regs.dppcode+i);
+	for (i = 0; i < p_yushan_regs->dppcode_size; i++) {
+		YUSHAN_DPP_REGISTER_CHECK(p_yushan_regs->dppcode_first_addr+udwDxoBaseAddress+i-DXO_DPP_BASE_ADDR+0x8000);
+		target_data = *((uint8_t *)p_yushan_regs->dppcode+i);
 		if (udwSpiData != target_data)
 			pr_err("Unmatching DPP code addr=%x data=%x target_data=%x\n",
-				yushan_regs.dppcode_first_addr+i, udwSpiData, target_data);
+				p_yushan_regs->dppcode_first_addr+i, udwSpiData, target_data);
 	}
-	udwSpiBaseIndex = DXO_DPP_BASE_ADDR + yushan_regs.dppclib_first_addr; /* 0x018000; */
+	udwSpiBaseIndex = DXO_DPP_BASE_ADDR + p_yushan_regs->dppclib_first_addr; /* 0x018000; */
 	SPI_Write(YUSHAN_HOST_IF_SPI_BASE_ADDRESS, 4, (uint8_t *)(&udwSpiBaseIndex));
-	udwDxoBaseAddress = ((DXO_DPP_BASE_ADDR + yushan_regs.dppclib_first_addr) - udwSpiBaseIndex) + 0x8000; /*(0x8000 + DXO_DPP_BASE_ADDR) - udwSpiBaseIndex;*/
-	for (i = 0; i < yushan_regs.dppclib_size; i++) {
+	udwDxoBaseAddress = ((DXO_DPP_BASE_ADDR + p_yushan_regs->dppclib_first_addr) - udwSpiBaseIndex) + 0x8000; /*(0x8000 + DXO_DPP_BASE_ADDR) - udwSpiBaseIndex;*/
+	for (i = 0; i < p_yushan_regs->dppclib_size; i++) {
 		YUSHAN_DPP_REGISTER_CHECK(udwDxoBaseAddress+i-DXO_DPP_BASE_ADDR+0x8000);
-		target_data = *((uint8_t *)yushan_regs.dppclib+i);
+		target_data = *((uint8_t *)p_yushan_regs->dppclib+i);
 		if (udwSpiData != target_data)
 			pr_err("Unmatching DPP clib addr=%x data=%x target_data=%x\n",
-				yushan_regs.dppclib_first_addr+i, udwSpiData, target_data);
+				p_yushan_regs->dppclib_first_addr+i, udwSpiData, target_data);
 	}
 	udwSpiBaseIndex = 0x08000;
 	SPI_Write(YUSHAN_HOST_IF_SPI_BASE_ADDRESS, 4, (uint8_t *)(&udwSpiBaseIndex));
 
 	CDBG("[CAM] %s: **** DXO PDP CODE/CLIB CHECK ****\n", __func__);
-	for (i = 0; i < yushan_regs.pdpcode_size; i++) {
-		YUSHAN_PDP_REGISTER_CHECK(yushan_regs.pdpcode_first_addr+i);
-		target_data = *((uint8_t *)yushan_regs.pdpcode+i);
+	for (i = 0; i < p_yushan_regs->pdpcode_size; i++) {
+		YUSHAN_PDP_REGISTER_CHECK(p_yushan_regs->pdpcode_first_addr+i);
+		target_data = *((uint8_t *)p_yushan_regs->pdpcode+i);
 		if (udwSpiData != target_data)
 			pr_err("Unmatching PDP code addr=%x data=%x target_data=%x\n",
-				yushan_regs.pdpcode_first_addr+i, udwSpiData, target_data);
+				p_yushan_regs->pdpcode_first_addr+i, udwSpiData, target_data);
 	}
-	for (i = 0; i < yushan_regs.pdpclib_size; i++) {
-		YUSHAN_PDP_REGISTER_CHECK(yushan_regs.pdpclib_first_addr+i);
-		target_data = *((uint8_t *)yushan_regs.pdpclib+i);
+	for (i = 0; i < p_yushan_regs->pdpclib_size; i++) {
+		YUSHAN_PDP_REGISTER_CHECK(p_yushan_regs->pdpclib_first_addr+i);
+		target_data = *((uint8_t *)p_yushan_regs->pdpclib+i);
 		if (udwSpiData != target_data)
 			pr_err("Unmatching PDP clib addr=%x data=%x target_data=%x\n",
-				yushan_regs.pdpclib_first_addr+i, udwSpiData, target_data);
+				p_yushan_regs->pdpclib_first_addr+i, udwSpiData, target_data);
 	}
 
 	pr_info("[CAM] %s: End\n", __func__);

@@ -51,7 +51,7 @@ static void __iomem *msm_tmr0_base;
 static unsigned long delay_time;
 static unsigned long bark_time;
 static unsigned long long last_pet;
-
+extern int suspend_footprint;
 /*
  * On the kernel command line specify
  * msm_watchdog.enable=1 to enable the watchdog
@@ -282,6 +282,8 @@ static void pet_watchdog_work(struct work_struct *work)
 {
 	pet_watchdog();
 	set_dog_pet_footprint();
+	if (suspend_footprint > 0)
+		printk("suspend_footprint: %d\n", suspend_footprint);
 
 	if (enable)
 		schedule_delayed_work_on(0, &dogwork_struct, delay_time);

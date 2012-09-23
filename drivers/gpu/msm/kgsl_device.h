@@ -130,6 +130,10 @@ struct kgsl_event {
 	struct kgsl_device_private *owner;
 };
 
+struct kgsl_gpubusy {
+	s64 busy;
+	s64 total;
+};
 
 struct kgsl_device {
 	struct device *dev;
@@ -190,6 +194,10 @@ struct kgsl_device {
 	struct work_struct ts_expired_ws;
 	struct list_head events;
 	s64 on_time;
+
+	/* gpu busy time */
+	struct kgsl_gpubusy gputime;
+	struct kgsl_gpubusy gputime_in_state[KGSL_MAX_PWRLEVELS];
 };
 
 struct kgsl_context {

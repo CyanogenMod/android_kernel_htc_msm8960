@@ -1173,7 +1173,7 @@ static int projector_bind_config(struct usb_configuration *c,
 
 	dev->wq_display = create_singlethread_workqueue("projector_mode");
 	if (!dev->wq_display)
-		goto err_free_wq;
+		goto err_free;
 
 	workqueue_set_max_active(dev->wq_display,1);
 
@@ -1189,8 +1189,6 @@ static int projector_bind_config(struct usb_configuration *c,
 
 	return 0;
 
-err_free_wq:
-	destroy_workqueue(dev->wq_display);
 err_free:
 	printk(KERN_ERR "projector gadget driver failed to initialize, err=%d\n", ret);
 	return ret;

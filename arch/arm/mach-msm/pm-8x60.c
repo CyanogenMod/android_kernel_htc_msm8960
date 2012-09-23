@@ -725,18 +725,18 @@ void msm_pm_set_max_sleep_time(int64_t max_sleep_time_ns)
 }
 EXPORT_SYMBOL(msm_pm_set_max_sleep_time);
 
-static unsigned int *network_info_addr;
+static unsigned int *network_info_base;
 
 void msm_pm_network_info_init(unsigned int *addr)
 {
-	network_info_addr = addr;
+	network_info_base = addr;
 }
 EXPORT_SYMBOL(msm_pm_network_info_init);
 
 void network_info_dump(void)
 {
-	if (network_info_addr)
-		printk("[K] network info: %d\n", *network_info_addr);
+	if (network_info_base)
+		printk("[K] network info: %d, %d\n", *network_info_base, *(network_info_base + 35));
 }
 
 /******************************************************************************

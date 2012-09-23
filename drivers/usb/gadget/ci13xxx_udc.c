@@ -2793,6 +2793,11 @@ static void ep_fifo_flush(struct usb_ep *ep)
 		return;
 	}
 
+	if (mEp->num == 0) {
+		/* the endpoint was not assigned, not to flush */
+		return;
+	}
+
 	spin_lock_irqsave(mEp->lock, flags);
 
 	dbg_event(_usb_addr(mEp), "FFLUSH", 0);

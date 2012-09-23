@@ -44,7 +44,7 @@ static int ion_iommu_heap_allocate(struct ion_heap *heap,
 				      unsigned long size, unsigned long align,
 				      unsigned long flags)
 {
-	int ret, i;
+	int i, ret = -ENOMEM;
 	struct ion_iommu_priv_data *data = NULL;
 
 	if (msm_use_iommu()) {
@@ -63,8 +63,10 @@ static int ion_iommu_heap_allocate(struct ion_heap *heap,
 
 		for (i = 0; i < data->nrpages; i++) {
 			data->pages[i] = alloc_page(GFP_KERNEL | __GFP_ZERO);
-			if (!data->pages[i])
+			if (!data->pages[i]) {
+				ret = -ENOMEM;
 				goto err2;
+			}
 		}
 
 

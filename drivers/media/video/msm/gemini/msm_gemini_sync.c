@@ -220,10 +220,12 @@ int msm_gemini_evt_get(struct msm_gemini_device *pgmn_dev,
 
 	ctrl_cmd.type = buf_p->vbuf.type;
 	kfree(buf_p);
-
+	/* HTC_START (klockwork issue)*/
+	/*
 	GMN_DBG("%s:%d] 0x%08x %d\n", __func__, __LINE__,
 		(int) ctrl_cmd.value, ctrl_cmd.len);
-
+	*/
+	/* HTC_END */
 	if (copy_to_user(to, &ctrl_cmd, sizeof(ctrl_cmd))) {
 		GMN_PR_ERR("%s:%d]\n", __func__, __LINE__);
 		return -EFAULT;

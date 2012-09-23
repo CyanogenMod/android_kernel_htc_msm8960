@@ -2307,10 +2307,18 @@ int kgsl_device_platform_probe(struct kgsl_device *device,
 			       irqreturn_t (*dev_isr) (int, void*))
 {
 	int status = -EINVAL;
+	int i;
 	struct kgsl_memregion *regspace = NULL;
 	struct resource *res;
 	struct platform_device *pdev =
 		container_of(device->parentdev, struct platform_device, dev);
+
+	device->gputime.total = 0;
+    device->gputime.busy = 0;
+    for(i=0;i<KGSL_MAX_PWRLEVELS;i++) {
+		device->gputime_in_state[i].total = 0;
+		device->gputime_in_state[i].busy = 0;
+	}
 
 	pm_runtime_enable(device->parentdev);
 

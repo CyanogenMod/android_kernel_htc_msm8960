@@ -871,7 +871,7 @@ static int tabla_slim_probe(struct slim_device *slim)
 	ret = slim_get_logical_addr(tabla->slim, tabla->slim->e_addr,
 		ARRAY_SIZE(tabla->slim->e_addr), &tabla->slim->laddr);
 	if (ret) {
-		pr_debug("fail to get slimbus logical address %d\n", ret);
+		pr_err("fail to get slimbus logical address %d\n", ret);
 		goto err_reset;
 	}
 	tabla->read_dev = tabla_slim_read_device;

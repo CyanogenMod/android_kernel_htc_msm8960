@@ -189,6 +189,10 @@ static struct class video_class = {
 
 struct video_device *video_devdata(struct file *file)
 {
+	/* HTC_START (klockwork issue)*/
+	if(iminor(file->f_path.dentry->d_inode)>VIDEO_NUM_DEVICES)
+	printk(KERN_WARNING "array of media_devdata is out of bound\n");
+	/* HTC_END */
 	return video_device[iminor(file->f_path.dentry->d_inode)];
 }
 EXPORT_SYMBOL(video_devdata);

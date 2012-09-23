@@ -38,13 +38,19 @@ void vcd_do_device_state_transition(struct vcd_drv_ctxt *drv_ctxt,
 				  drv_ctxt, to_state);
 	}
 
+	if (!drv_ctxt)
+		return;
+
 	state_ctxt = &drv_ctxt->dev_state;
 
+	/* HTC_START (klockwork issue)*/
+	if (state_ctxt->state) {
 	if (state_ctxt->state == to_state) {
 		VCD_MSG_HIGH("Device already in requested to_state=%d",
 				 to_state);
 
 		return;
+	}
 	}
 
 	VCD_MSG_MED("vcd_do_device_state_transition: D%d -> D%d, for api %d",
@@ -129,10 +135,16 @@ void vcd_ddl_callback(u32 event, u32 status, void *payload,
 		{
 			transc = (struct vcd_transc *)client_data;
 
-			if (!transc || !transc->in_use
-				|| !transc->cctxt) {
+			if (!transc || !transc->in_use || !transc->cctxt) {
 				VCD_MSG_ERROR("Invalid clientdata "
-							  "received from DDL ");
+					"received from DDL, transc = 0x%x\n",
+					(u32)transc);
+				if (transc) {
+					VCD_MSG_ERROR("transc->in_use = %u, "
+						"transc->cctxt = 0x%x\n",
+						transc->in_use,
+						(u32)transc->cctxt);
+				}
 			} else {
 				cctxt = transc->cctxt;
 
@@ -316,11 +328,11 @@ u32 vcd_reset_device_context(struct vcd_drv_ctxt *drv_ctxt,
 	rc = vcd_power_event(&drv_ctxt->dev_ctxt, NULL,
 						 VCD_EVT_PWR_DEV_TERM_BEGIN);
 	VCD_FAILED_RETURN(rc, "VCD_EVT_PWR_DEV_TERM_BEGIN failed");
-	if (ddl_reset_hw(0))
+	if (ddl_reset_hw(0)) {
 		VCD_MSG_HIGH("HW Reset done");
-	else
+	} else {
 		VCD_MSG_FATAL("HW Reset failed");
-
+		}
 	(void)vcd_power_event(dev_ctxt, NULL, VCD_EVT_PWR_DEV_TERM_END);
 
 	return VCD_S_SUCCESS;
@@ -954,6 +966,9 @@ static void vcd_dev_cb_in_initing
 	u32 rc = VCD_S_SUCCESS;
 	u32 client_inited = false;
 	u32 fail_all_open = false;
+	struct ddl_context *ddl_context;
+
+	ddl_context = ddl_get_context();
 
 	VCD_MSG_LOW("vcd_dev_cb_in_initing:");
 
@@ -1027,6 +1042,8 @@ static void vcd_dev_cb_in_initing
 
 			tmp_client = client;
 			client = client->next;
+			if (tmp_client == dev_ctxt->cctxt_list_head)
+				fail_all_open = true;
 
 			vcd_destroy_client_context(tmp_client);
 		}
@@ -1035,6 +1052,10 @@ static void vcd_dev_cb_in_initing
 	if (!client_inited || fail_all_open) {
 		VCD_MSG_ERROR("All client open requests failed");
 
+		DDL_IDLE(ddl_context);
+
+		vcd_handle_device_init_failed(drv_ctxt,
+			DEVICE_STATE_EVENT_NUMBER(close));
 		dev_ctxt->pending_cmd = VCD_CMD_DEVICE_TERM;
 	} else {
 		if (vcd_power_event(dev_ctxt, NULL,

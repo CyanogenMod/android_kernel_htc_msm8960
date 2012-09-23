@@ -49,12 +49,30 @@ static char *usb_functions_ecm[] = {
 	"cdc_ethernet",
 };
 #endif
+#ifdef CONFIG_USB_ANDROID_NCM
+static char *usb_functions_ncm[] = {
+	"cdc_network",
+};
+static char *usb_functions_ncm_adb[] = {
+	"cdc_network",
+	"adb",
+};
+#endif
 #ifdef CONFIG_USB_ANDROID_RNDIS
 static char *usb_functions_rndis[] = {
 	"rndis",
 };
 static char *usb_functions_rndis_adb[] = {
 	"rndis",
+	"adb",
+};
+static char *usb_functions_rndis_mtp[] = {
+	"rndis",
+	"mtp",
+};
+static char *usb_functions_rndis_mtp_adb[] = {
+	"rndis",
+	"mtp",
 	"adb",
 };
 #if defined(CONFIG_USB_ANDROID_DIAG) || defined(CONFIG_USB_ANDROID_QCT_DIAG)
@@ -372,6 +390,9 @@ static char *usb_functions_all[] = {
 #if defined(CONFIG_USB_ANDROID_MTP36) && defined(CONFIG_USB_ANDROID_MTP)
 	"mtp36",
 #endif
+#ifdef CONFIG_USB_ANDROID_NCM
+	"cdc_network",
+#endif
 	"mass_storage",
 	"adb",
 #ifdef CONFIG_USB_ANDROID_ECM
@@ -442,6 +463,18 @@ static struct android_usb_product usb_products[] = {
 		.product_id	= 0x0ff8,
 		.num_functions	= ARRAY_SIZE(usb_functions_ecm),
 		.functions	= usb_functions_ecm,
+	},
+#endif
+#ifdef CONFIG_USB_ANDROID_NCM
+	{
+		.product_id	= 0x0f92,
+		.num_functions	= ARRAY_SIZE(usb_functions_ncm_adb),
+		.functions	= usb_functions_ncm_adb,
+	},
+	{
+		.product_id	= 0x0f93,
+		.num_functions	= ARRAY_SIZE(usb_functions_ncm),
+		.functions	= usb_functions_ncm,
 	},
 #endif
 #ifdef CONFIG_USB_ANDROID_SERIAL
@@ -635,6 +668,16 @@ static struct android_usb_product usb_products[] = {
 		.product_id	= 0x0ffc,
 		.num_functions	= ARRAY_SIZE(usb_functions_rndis_adb),
 		.functions	= usb_functions_rndis_adb,
+	},
+	{
+		.product_id	= 0x0fb4,
+		.num_functions	= ARRAY_SIZE(usb_functions_rndis_mtp_adb),
+		.functions	= usb_functions_rndis_mtp_adb,
+	},
+	{
+		.product_id	= 0x0fb5,
+		.num_functions	= ARRAY_SIZE(usb_functions_rndis_mtp),
+		.functions	= usb_functions_rndis_mtp,
 	},
 #if defined(CONFIG_USB_ANDROID_DIAG) || defined(CONFIG_USB_ANDROID_QCT_DIAG)
 #if defined(CONFIG_USB_ANDROID_MDM9K_DIAG)

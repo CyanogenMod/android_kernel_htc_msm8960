@@ -58,6 +58,8 @@ else
 obj-$(CONFIG_MSM_SMD) += htc_port_list.o
 endif
 
+obj-y += htc_monitor.o
+
 quiet_cmd_mkrpcsym = MKCAP   $@
       cmd_mkrpcsym = $(PERL) $(srctree)/$(src)/mkrpcsym.pl $< $@
 
@@ -65,7 +67,7 @@ target += smd_rpc_sym.c
 $(obj)/smd_rpc_sym.c: $(src)/smd_rpc_sym $(src)/mkrpcsym.pl
 	$(call if_changed,mkrpcsym)
 
-obj-$(CONFIG_MSM_SCM) += scm.o scm-boot.o htc_simlock-8x60.o htc_drm.o htc_sdservice.o
+obj-$(CONFIG_MSM_SCM) += scm.o scm-boot.o htc_simlock-8x60.o htc_drm.o htc_sdservice.o htc_debug.o
 ifdef CONFIG_ARCH_MSM8960
 	obj-y += tz_log.o scm-memchk.o
 endif
@@ -88,6 +90,10 @@ obj-$(CONFIG_MSM_FIQ_SUPPORT) += fiq_glue.o
 obj-$(CONFIG_MACH_TROUT) += board-trout-rfkill.o
 obj-$(CONFIG_MSM_BAM_DMUX) += bam_dmux.o
 obj-$(CONFIG_MSM_SMD_LOGGING) += smem_log.o
+obj-$(CONFIG_MSM_IPC_LOGGING) += ipc_logging.o
+ifdef CONFIG_DEBUG_FS
+obj-$(CONFIG_MSM_IPC_LOGGING) += ipc_logging_debug.o
+endif
 obj-$(CONFIG_MSM_SMD) += smd.o smd_debug.o remote_spinlock.o
 obj-y += socinfo.o
 ifndef CONFIG_ARCH_MSM9615
@@ -291,8 +297,15 @@ obj-$(CONFIG_MACH_VALENTE_WX) += display/board-valente_wx-panel.o
 obj-$(CONFIG_MACH_VALENTE_WX) += board-valente_wx-audio.o
 obj-$(CONFIG_MACH_VALENTE_WX) += htc_bdaddress.o htc_util.o
 
+obj-$(CONFIG_MACH_VALENTE_WX_C9) += board-valente_wx_c9.o board-valente_wx_c9-regulator.o board-valente_wx_c9-gpio.o
+obj-$(CONFIG_MACH_VALENTE_WX_C9) += board-valente_wx_c9-keypad.o
+obj-$(CONFIG_MACH_VALENTE_WX_C9) += display/board-valente_wx_c9-panel.o
+obj-$(CONFIG_MACH_VALENTE_WX_C9) += board-valente_wx_c9-audio.o
+obj-$(CONFIG_MACH_VALENTE_WX_C9) += htc_bdaddress.o htc_util.o
+
 ifeq ($(CONFIG_WIMAX),y)
 obj-$(CONFIG_MACH_VALENTE_WX) += board-valente_wx-mmc.o  board-common-wimax.o
+obj-$(CONFIG_MACH_VALENTE_WX_C9) += board-valente_wx_c9-mmc.o  board-common-wimax.o
 endif
 
 obj-$(CONFIG_MACH_SAPPHIRE) += board-sapphire.o board-sapphire-gpio.o

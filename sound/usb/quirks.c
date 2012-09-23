@@ -306,6 +306,7 @@ int snd_usb_create_quirk(struct snd_usb_audio *chip,
 		[QUIRK_MIDI_EMAGIC] = create_any_midi_quirk,
 		[QUIRK_MIDI_CME] = create_any_midi_quirk,
 		[QUIRK_MIDI_AKAI] = create_any_midi_quirk,
+		[QUIRK_MIDI_US122L] = NULL,
 		[QUIRK_AUDIO_STANDARD_INTERFACE] = create_standard_audio_quirk,
 		[QUIRK_AUDIO_FIXED_ENDPOINT] = create_fixed_stream_quirk,
 		[QUIRK_AUDIO_EDIROL_UAXX] = create_uaxx_quirk,
@@ -314,7 +315,12 @@ int snd_usb_create_quirk(struct snd_usb_audio *chip,
 	};
 
 	if (quirk->type < QUIRK_TYPE_COUNT) {
-		return quirk_funcs[quirk->type](chip, iface, driver, quirk);
+		if (quirk_funcs[quirk->type] != NULL) {
+			return quirk_funcs[quirk->type](chip, iface, driver, quirk);
+		} else {
+			snd_printd(KERN_ERR "invalid/unintialized quirk_funcs[] for quirk type %d\n", quirk->type);
+			return -ENXIO;
+		}
 	} else {
 		snd_printd(KERN_ERR "invalid quirk type %d\n", quirk->type);
 		return -ENXIO;

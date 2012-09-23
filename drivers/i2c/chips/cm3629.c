@@ -49,7 +49,7 @@
 
 #ifdef POLLING_PROXIMITY
 #define POLLING_DELAY		200
-#define TH_ADD			3
+#define TH_ADD			10
 #endif
 static int record_init_fail = 0;
 static void sensor_irq_do_work(struct work_struct *work);
@@ -139,6 +139,7 @@ struct cm3629_info {
 	uint8_t ps_debounce;
 	uint16_t ps_delay_time;
 	unsigned int no_need_change_setting;
+	int ps_th_add;
 };
 
 static uint8_t ps1_canc_set;
@@ -818,7 +819,7 @@ static void polling_do_work(struct work_struct *w)
 				lpi->ps1_thd_set = 0xFF;
 			else
 				lpi->ps1_thd_set = (lpi->mapping_table[i] +
-						   TH_ADD);
+						   lpi->ps_th_add);
 
 			/* settng command code(0x01) = 0x03*/
 			cmd[0] = lpi->ps1_thd_set;
@@ -977,8 +978,9 @@ static int psensor_enable(struct cm3629_info *lpi)
 #ifdef POLLING_PROXIMITY
 	if (lpi->enable_polling_ignore == 1) {
 		if (lpi->mfg_mode != NO_IGNORE_BOOT_MODE) {
+			msleep(40);
 			ret = get_stable_ps_adc_value(&ps_adc1, &ps_adc2);
-			D("[PS][cm3629] INITIAL ps_adc1 = 0x%02X", ps_adc1);
+			D("[PS][cm3629] INITIAL ps_adc1 = 0x%02X\n", ps_adc1);
 			if ((ret == 0) && (lpi->mapping_table != NULL) &&
 			    ((ps_adc1 >= lpi->ps1_thd_set - 1)))
 				queue_delayed_work(lpi->lp_wq, &polling_work,
@@ -1983,6 +1985,86 @@ static ssize_t ls_fLevel_store(struct device *dev,
 }
 static DEVICE_ATTR(ls_flevel, 0664, ls_fLevel_show, ls_fLevel_store);
 
+
+static ssize_t ps_workaround_table_show(struct device *dev,
+				  struct device_attribute *attr, char *buf)
+{
+	struct cm3629_info *lpi = lp_info;
+	int i = 0;
+	char table_str[952] = "";
+	char temp_str[64] = "";
+
+	sprintf(table_str, "mapping table size = %d\n", lpi->mapping_size);
+	printk(KERN_DEBUG "%s: table_str = %s\n", __func__, table_str);
+	for (i = 0; i < lpi->mapping_size; i++) {
+		memset(temp_str, 0, 64);
+		if ((i == 0) || ((i % 10) == 1))
+			sprintf(temp_str, "[%d] = 0x%x", i, lpi->mapping_table[i]);
+		else
+			sprintf(temp_str, ", [%d] = 0x%x", i, lpi->mapping_table[i]);
+		strcat(table_str, temp_str);
+		printk(KERN_DEBUG "%s: [%d]: table_str = %s\n", __func__, i, table_str);
+		if ((i != 0) && (i % 10) == 0)
+			strcat(table_str, "\n");
+	}
+
+	return sprintf(buf, "%s\n", table_str);
+}
+static ssize_t ps_workaround_table_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct cm3629_info *lpi = lp_info;
+	int index = 0;
+	unsigned int value = 0;
+
+	sscanf(buf, "%d 0x%x", &index, &value);
+
+	D("%s: input: index = %d, value = 0x%x\n", __func__, index, value);
+
+	if ((index < lpi->mapping_size) && (index >= 0) && (value <= 255) && (index >= 0))
+		lpi->mapping_table[index] = value;
+
+	if ((index < lpi->mapping_size) && (index >= 0)) {
+		printk(KERN_INFO "%s: lpi->mapping_table[%d] = 0x%x, "
+			"lpi->mapping_size = %d\n",
+			__func__, index, lpi->mapping_table[index],
+			lpi->mapping_size);
+	}
+
+	return count;
+}
+static DEVICE_ATTR(ps_workaround_table, 0664, ps_workaround_table_show, ps_workaround_table_store);
+
+
+static ssize_t ps_fixed_thd_add_show(struct device *dev,
+				  struct device_attribute *attr, char *buf)
+{
+	struct cm3629_info *lpi = lp_info;
+
+	return sprintf(buf, "Fixed added threshold = %d\n", lpi->ps_th_add);
+}
+static ssize_t ps_fixed_thd_add_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct cm3629_info *lpi = lp_info;
+	int value = 0;
+
+	sscanf(buf, "%d", &value);
+
+	D("%s: input: value = %d\n", __func__, value);
+
+	if ((value >= 0) && (value <= 255))
+		lpi->ps_th_add = value;
+
+	D("%s: lpi->ps_th_add = %d\n", __func__, lpi->ps_th_add);
+
+	return count;
+}
+static DEVICE_ATTR(ps_fixed_thd_add, 0664, ps_fixed_thd_add_show, ps_fixed_thd_add_store);
+
+
 static int lightsensor_setup(struct cm3629_info *lpi)
 {
 	int ret;
@@ -2231,6 +2313,7 @@ static int cm3629_probe(struct i2c_client *client,
 	lpi->ps_debounce = pdata->ps_debounce;
 	lpi->ps_delay_time = pdata->ps_delay_time;
 	lpi->no_need_change_setting = pdata->no_need_change_setting;
+	lpi->ps_th_add = TH_ADD;
 
 	lp_info = lpi;
 
@@ -2374,6 +2457,14 @@ static int cm3629_probe(struct i2c_client *client,
 		goto err_create_ps_device;
 
 	ret = device_create_file(lpi->ps_dev, &dev_attr_ps_headset_bt_plugin);
+	if (ret)
+		goto err_create_ps_device;
+
+	ret = device_create_file(lpi->ps_dev, &dev_attr_ps_workaround_table);
+	if (ret)
+		goto err_create_ps_device;
+
+	ret = device_create_file(lpi->ps_dev, &dev_attr_ps_fixed_thd_add);
 	if (ret)
 		goto err_create_ps_device;
 

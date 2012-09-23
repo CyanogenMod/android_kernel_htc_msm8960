@@ -15,6 +15,7 @@
 #include <asm/pgtable.h>
 #include "internal.h"
 #include <linux/ion.h>
+#include <linux/msm_kgsl.h>
 
 void __attribute__((weak)) arch_report_meminfo(struct seq_file *m)
 {
@@ -28,6 +29,7 @@ void show_meminfo(void)
 	unsigned long pages[NR_LRU_LISTS];
 	int lru;
 	unsigned long ion_alloc  = ion_iommu_heap_dump_size();
+	unsigned long kgsl_alloc  = kgsl_get_alloc_size();
 	unsigned long subtotal;
 
 /*
@@ -53,7 +55,7 @@ void show_meminfo(void)
 		K(global_page_state(NR_SLAB_RECLAIMABLE) + global_page_state(NR_SLAB_UNRECLAIMABLE)) +
 		(global_page_state(NR_KERNEL_STACK) * THREAD_SIZE / 1024) +
 		K(global_page_state(NR_PAGETABLE)) +
-		(vmi.alloc >> 10) + (ion_alloc >> 10);
+		(vmi.alloc >> 10) + (ion_alloc >> 10) + (kgsl_alloc >> 10);
 
 	printk("MemFree:        %8lu kB\n"
 		"Buffers:        %8lu kB\n"
@@ -66,6 +68,7 @@ void show_meminfo(void)
 		"KernelStack:    %8lu kB\n"
 		"VmallocAlloc:   %8lu kB\n"
 		"ION_Alloc:      %8lu kB\n"
+		"Kgsl_Alloc:     %8lu kB\n"
 		"Subtotal:       %8lu kB\n",
 		K(i.freeram),
 		K(i.bufferram),
@@ -78,6 +81,7 @@ void show_meminfo(void)
 		global_page_state(NR_KERNEL_STACK) * THREAD_SIZE / 1024,
 		(vmi.alloc >> 10),
 		(ion_alloc >> 10),
+		(kgsl_alloc >> 10),
 		subtotal);
 }
 
@@ -91,6 +95,7 @@ static int meminfo_proc_show(struct seq_file *m, void *v)
 	unsigned long pages[NR_LRU_LISTS];
 	int lru;
 	unsigned long ion_alloc  = ion_iommu_heap_dump_size();
+	unsigned long kgsl_alloc  = kgsl_get_alloc_size();
 	unsigned long subtotal;
 
 /*
@@ -120,7 +125,7 @@ static int meminfo_proc_show(struct seq_file *m, void *v)
 		K(global_page_state(NR_SLAB_RECLAIMABLE) + global_page_state(NR_SLAB_UNRECLAIMABLE)) +
 		(global_page_state(NR_KERNEL_STACK) * THREAD_SIZE / 1024) +
 		K(global_page_state(NR_PAGETABLE)) +
-		(vmi.alloc >> 10) + (ion_alloc >> 10);
+		(vmi.alloc >> 10) + (ion_alloc >> 10) + (kgsl_alloc >> 10);
 	/*
 	 * Tagged format, for easy grepping and expansion.
 	 */
@@ -176,6 +181,7 @@ static int meminfo_proc_show(struct seq_file *m, void *v)
 		"VmallocVpage:   %8lu kB\n"
 		"VmallocChunk:   %8lu kB\n"
 		"ION_Alloc:      %8lu kB\n"
+		"Kgsl_Alloc:     %8lu kB\n"
 #ifdef CONFIG_MEMORY_FAILURE
 		"HardwareCorrupted: %5lu kB\n"
 #endif
@@ -239,7 +245,8 @@ static int meminfo_proc_show(struct seq_file *m, void *v)
 		vmi.usermap >> 10,
 		vmi.vpages >> 10,
 		vmi.largest_chunk >> 10,
-		ion_alloc >> 10
+		ion_alloc >> 10,
+		kgsl_alloc >> 10
 #ifdef CONFIG_MEMORY_FAILURE
 		,atomic_long_read(&mce_bad_pages) << (PAGE_SHIFT - 10)
 #endif

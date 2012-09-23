@@ -1760,14 +1760,14 @@ static struct leaf *leaf_walk_rcu(struct tnode *p, struct rt_trie_node *c)
 	do {
 		t_key idx;
 
-		if (c)
+		if ((c)  && !(IS_ERR(c)))
 			idx = tkey_extract_bits(c->key, p->pos, p->bits) + 1;
 		else
 			idx = 0;
 
 		while (idx < 1u << p->bits) {
 			c = tnode_get_child_rcu(p, idx++);
-			if (!c)
+			if ((!c) || (IS_ERR(c)))
 				continue;
 
 			if (IS_LEAF(c)) {

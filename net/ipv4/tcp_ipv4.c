@@ -79,9 +79,33 @@
 #include <linux/stddef.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
+#include <linux/debugfs.h>/*Ethan Ge add on 20120323*/
 
 #include <linux/crypto.h>
 #include <linux/scatterlist.h>
+/*Ethan Ge add on 20120323*/
+#define peak_period 1
+#define debug_usage 0
+#define media_threshold 51200
+#define heavy_rate 51200          /*50k*/
+#define heavy_datasize 943718400 /* 900M byte*/
+#define light_rate 5120 		/*5k*/
+#define light_datasize 512000 /* 500k byte*/
+
+
+static long before_sec=0;
+static unsigned long int average_rate=0;
+static unsigned long int average_rate_count=0;
+static unsigned long int total_data=0;
+
+
+
+
+
+
+
+
+/*Ethan Ge add end 20120323*/
 
 int sysctl_tcp_tw_reuse __read_mostly;
 int sysctl_tcp_low_latency __read_mostly;
@@ -1555,6 +1579,146 @@ static __sum16 tcp_v4_checksum_init(struct sk_buff *skb)
 }
 
 
+/*Ethan Ge add on 20120323*/
+
+
+static int data_usage_get(void *data, u64 *val)
+{
+	 unsigned int weight;
+
+	if(average_rate/average_rate_count>heavy_rate&&total_data>heavy_datasize)
+	{
+		weight=(average_rate/average_rate_count)/(heavy_rate)+(total_data)/(heavy_datasize);
+
+		if(weight>19)
+			weight=19;
+
+		*val=80+weight;
+
+#if debug_usage
+		printk("%s---*val=%llu %%---average_rate=%ld Byte/s---total_data=%ld Byte-----weight=%d %%---\n"
+		,__FUNCTION__,*val,average_rate/average_rate_count,total_data,weight);
+#endif
+	}
+	else
+	{
+		weight=(average_rate/average_rate_count)/(light_rate)+(total_data)/(light_datasize);
+
+		if(weight>39)
+			weight=39;
+
+		*val=40+weight;
+
+#if debug_usage
+		printk("%s---*val=%llu %%---average_rate=%ld Byte/s---total_data=%ld Byte-----weight=%d %%---\n"
+		,__FUNCTION__,*val,average_rate/average_rate_count,total_data,weight);
+#endif
+	}
+
+	average_rate=0;
+	average_rate_count=0;
+	total_data=0;
+
+
+
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(data_usage_fops, data_usage_get, NULL, "%llu\n");
+
+
+
+
+
+static int __init data_usage_init(void)
+{
+	struct dentry *dent=NULL;
+
+
+
+	dent = debugfs_create_dir("data_usage", dent);
+	if (IS_ERR(dent)) {
+		printk("%s: failed to create debugfs dir for data_usage_init\n", __func__);
+		return PTR_ERR(dent);
+	}
+
+	debugfs_create_file("enable", 0644, dent, NULL, &data_usage_fops);
+
+
+	return 0;
+}
+
+
+device_initcall(data_usage_init);
+
+
+
+
+
+
+
+
+
+void Caculate(struct sock *sk,struct sk_buff *skb)
+{
+
+	static unsigned int total_len=0;
+	unsigned int uid=0;
+	long now;
+
+
+
+
+
+	if (skb!=NULL&&sk != NULL&&sk->sk_socket!=NULL&&sk->sk_socket->file!=NULL&&sk->sk_socket->file->f_cred!=NULL)
+	{
+		if(skb->len==0)
+		return;
+
+
+		uid=sk->sk_socket->file->f_cred->fsuid;
+
+		if(uid==0||uid==1000)
+		return;
+
+	}
+
+
+	now=get_seconds();
+
+
+	/*count for daily data size*/
+	total_data+=skb->len;
+
+	if (now-before_sec<peak_period)
+	{
+
+		total_len+=skb->len;
+
+
+
+	}
+	else
+	{
+
+		/*count for daily throughput rate*/
+		average_rate+=total_len;
+		average_rate_count++;
+
+		/*printk("%s-------average_rate=%ld----total_data=%ld-\n",__FUNCTION__,average_rate/average_rate_count,total_data);*/
+
+		before_sec=get_seconds();
+		total_len=skb->len;/*for next sec data len*/
+
+
+
+	}
+
+
+}
+
+/*Ethan Ge add end 20120323*/
+
+
 /* The socket must have it's spinlock held when we get
  * here.
  *
@@ -1576,6 +1740,9 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
 	if (tcp_v4_inbound_md5_hash(sk, skb))
 		goto discard;
 #endif
+
+	Caculate(sk,skb);/*Ethan add 20120502*/
+
 
 	if (sk->sk_state == TCP_ESTABLISHED) { /* Fast path */
 		sock_rps_save_rxhash(sk, skb->rxhash);

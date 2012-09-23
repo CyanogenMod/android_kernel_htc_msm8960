@@ -1061,8 +1061,9 @@ static void msm_otg_notify_usb_attached(void)
 		motg->connect_type = CONNECT_TYPE_USB;
 		queue_work(motg->usb_wq, &motg->notifier_work);
 	}
+
 	motg->ac_detect_count = 0;
-	del_timer(&motg->ac_detect_timer);
+	__cancel_delayed_work(&motg->ac_detect_work);
 }
 
 static int msm_otg_set_power(struct otg_transceiver *otg, unsigned mA)
@@ -1976,7 +1977,7 @@ static void msm_otg_sm_work(struct work_struct *w)
 					msm_otg_start_peripheral(otg, 1);
 					otg->state = OTG_STATE_B_PERIPHERAL;
 					motg->ac_detect_count = 0;
-					mod_timer(&motg->ac_detect_timer, jiffies + (3 * HZ));
+					queue_delayed_work(system_nrt_wq, &motg->ac_detect_work, 3 * HZ);
 					break;
 				default:
 					break;
@@ -2028,7 +2029,7 @@ static void msm_otg_sm_work(struct work_struct *w)
 			}
 #endif
 			motg->ac_detect_count = 0;
-			del_timer(&motg->ac_detect_timer);
+			cancel_delayed_work_sync(&motg->ac_detect_work);
 		} else if (test_bit(ID_C, &motg->inputs)) {
 			USBH_INFO("id_c\n");
 			msm_otg_notify_charger(motg, IDEV_ACA_CHG_MAX);
@@ -2039,7 +2040,7 @@ static void msm_otg_sm_work(struct work_struct *w)
 				otg->state = OTG_STATE_B_IDLE;
 				work = 1;
 				motg->ac_detect_count = 0;
-				del_timer(&motg->ac_detect_timer);
+				cancel_delayed_work_sync(&motg->ac_detect_work);
 			} else
 				USBH_DEBUG("do nothing !!!\n");
 
@@ -2157,7 +2158,7 @@ static irqreturn_t msm_otg_irq(int irq, void *data)
  * Since D+/D- status is not involved, there is no timing issue between
  * D+/D- and VBUS. 9V AC should NOT be found here.
  */
-static void ac_detect_expired(unsigned long _data)
+static void ac_detect_expired_work(struct work_struct *w)
 {
 	u32 delay = 0;
 	struct msm_otg *motg = the_msm_otg;
@@ -2198,7 +2199,7 @@ static void ac_detect_expired(unsigned long _data)
 		else if (motg->ac_detect_count == 2)
 			delay = 10 * HZ;
 
-		mod_timer(&motg->ac_detect_timer, jiffies + delay);
+		queue_delayed_work(system_nrt_wq, &motg->ac_detect_work, delay);
 	} else {
 		USBH_INFO("AC charger\n");
 		motg->chg_type = USB_DCP_CHARGER;
@@ -2848,12 +2849,11 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 
 	INIT_WORK(&motg->sm_work, msm_otg_sm_work);
 	INIT_WORK(&motg->notifier_work, send_usb_connect_notify);
+	INIT_DELAYED_WORK(&motg->ac_detect_work, ac_detect_expired_work);
 	INIT_DELAYED_WORK(&motg->chg_work, msm_chg_detect_work);
 	setup_timer(&motg->id_timer, msm_otg_id_timer_func,
 				(unsigned long) motg);
 	motg->ac_detect_count = 0;
-	motg->ac_detect_timer.function = ac_detect_expired;
-	init_timer(&motg->ac_detect_timer);
 
 	ret = request_irq(motg->irq, msm_otg_irq, IRQF_SHARED,
 					"msm_otg", motg);

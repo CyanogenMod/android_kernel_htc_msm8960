@@ -39,7 +39,7 @@
 #endif
 
 #include "linux/mfd/pm8xxx/pm8921-charger.h"
-
+extern bool cable_det_before_vbus;
 static int vbus;
 
 static struct switch_dev dock_switch = {
@@ -140,6 +140,11 @@ static void send_cable_connect_notify(int cable_type)
 
 	if (cable_type > 0 && pInfo->accessory_type == DOCK_STATE_DMB) {
 		CABLE_INFO("%s: DMB presents. Disabling charge.\n", __func__);
+		cable_type = CONNECT_TYPE_CLEAR;
+	}
+
+	if (pInfo->accessory_type == DOCK_STATE_USB_HOST) {
+		CABLE_INFO("%s: USB Host cable presents. Disabling charge.\n", __func__);
 		cable_type = CONNECT_TYPE_CLEAR;
 	}
 
@@ -424,8 +429,10 @@ static void cable_detect_handler(struct work_struct *w)
 		switch_set_state(&dock_switch, DOCK_STATE_MHL);
 		pInfo->accessory_type = DOCK_STATE_MHL;
 #ifdef CONFIG_INTERNAL_CHARGING_SUPPORT
-		if (!pInfo->mhl_internal_3v3 && !vbus)
+		if (!pInfo->mhl_internal_3v3 && !vbus) {
+			cable_det_before_vbus = 1;
 			send_cable_connect_notify(CONNECT_TYPE_INTERNAL);
+		}
 
 #endif
 		sii9234_mhl_device_wakeup();

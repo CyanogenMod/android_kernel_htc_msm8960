@@ -41,6 +41,7 @@ static struct msm_cam_server_dev g_server_dev;
 static struct class *msm_class;
 static dev_t msm_devno;
 static int vnode_count;
+extern void try_vfe32_stop(void);  //HTC 20120724-raymond to prevent IOMMU page fault after media server crash
 
 module_param(msm_camera_v4l2_nr, uint, 0644);
 MODULE_PARM_DESC(msm_camera_v4l2_nr, "videoX start number, -1 is autodetect");
@@ -1629,7 +1630,6 @@ static int msm_close(struct file *f)
 		return -EINVAL;
 	}
 
-
 	mutex_lock(&pcam->vid_lock);
 	pcam_inst->streamon = 0;
 	pcam->use_count--;
@@ -1641,6 +1641,7 @@ static int msm_close(struct file *f)
 		__func__, pcam_inst);
 
 	if (pcam_inst->buf_offset) {
+		try_vfe32_stop(); //HTC 20120724-raymond to prevent IOMMU page fault after media server crash
 		for (i = 0 ; i < pcam_inst->buf_count ; i++)
 			kfree(pcam_inst->buf_offset[i]);
 		kfree(pcam_inst->buf_offset);

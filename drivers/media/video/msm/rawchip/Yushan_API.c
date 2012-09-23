@@ -1949,7 +1949,9 @@ bool_t	Yushan_Context_Config_Update(Yushan_New_Context_Config_t	*sYushanNewConte
 
 	/* bool_t		bStatus=SUCCESS; */
 	uint8_t		bVfStillIndex, bVFIndex, bStillIndex, bVFMask=0;
-	uint8_t		bDataType, bCurrentDataType=0, bActiveDatatype=1, bRawFormat=0, bWCAlreadyPresent = 0;
+	/* HTC_START (klockwork issue)*/
+	uint8_t		bDataType=0, bCurrentDataType=0, bActiveDatatype=1, bRawFormat=0, bWCAlreadyPresent = 0;
+	/* HTC_END */
 	uint8_t		bPixClkDiv=0, bDxoClkDiv=0, bCount=0;
 	uint16_t	uwNewHSize=0, uwLecci=0;
 	uint32_t	udwSpiData = 0;

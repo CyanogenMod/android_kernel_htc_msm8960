@@ -690,10 +690,10 @@ void ghsic_data_disconnect(void *gptr, int port_num)
 
 	/* disable endpoints */
 	if (port->in)
-		usb_ep_disable(port->out);
+		usb_ep_disable(port->in);
 
 	if (port->out)
-		usb_ep_disable(port->in);
+		usb_ep_disable(port->out);
 
 	spin_lock_irqsave(&port->port_lock, flags);
 	port->port_usb = 0;
