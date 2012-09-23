@@ -1,1 +1,2 @@
-obj-y			+= drm/ msm/ vga/ stub/ ion/
+obj-y			+= drm/ vga/ stub/ ion/
+obj-$(CONFIG_MSM_KGSL)	+= msm/
