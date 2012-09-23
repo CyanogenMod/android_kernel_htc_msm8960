@@ -67,7 +67,9 @@ bool probe_completed = false;
 DEFINE_MUTEX(hdmi_msm_state_mutex);
 EXPORT_SYMBOL(hdmi_msm_state_mutex);
 static DEFINE_MUTEX(hdcp_auth_state_mutex);
+#ifdef CONFIG_FB_MSM_HDMI_MHL_SII9234
 extern void change_driving_strength(byte reg_a3, byte reg_a6);
+#endif
 extern  uint8_t ReadHPD(void);
 extern void SetHDCPStatus(bool Status);
 extern bool g_bEnterEarlySuspend;
@@ -577,8 +579,10 @@ void adjust_driving_strength(void)
 		for (i = 0; i < hdmi_msm_state->pd->dirving_params_count; i++) {
 			if(external_common_state->video_resolution == hdmi_msm_state->pd->driving_params[i].format)
 			{
+#ifdef CONFIG_FB_MSM_HDMI_MHL_SII9234
 				change_driving_strength(hdmi_msm_state->pd->driving_params[i].reg_a3,
 					hdmi_msm_state->pd->driving_params[i].reg_a6);
+#endif
 				break;
 			}
 		}
@@ -741,6 +745,7 @@ static void hdmi_msm_turn_on(void);
 static int hdmi_msm_audio_off(void);
 static int hdmi_msm_read_edid(void);
 static void hdmi_msm_hpd_off(void);
+#if (defined(CONFIG_CABLE_DETECT_ACCESSORY) && defined(CONFIG_FB_MSM_HDMI_MHL_SII9234))
 static void mhl_status_notifier_func(bool isMHL, int charging_type)
 {
        if(!isMHL){
@@ -749,6 +754,7 @@ static void mhl_status_notifier_func(bool isMHL, int charging_type)
 #endif
        }
 }
+#endif
 
 static void hdmi_msm_hpd_state_work(struct work_struct *work)
 {
@@ -4513,10 +4519,12 @@ static struct platform_device this_device = {
 	.id = 1,
 	.dev.platform_data = &hdmi_msm_panel_data,
 };
+#if (defined(CONFIG_CABLE_DETECT_ACCESSORY) && defined(CONFIG_FB_MSM_HDMI_MHL_SII9234))
 static struct t_mhl_status_notifier mhl_status_notifier = {
        .name = "mhl_detect",
        .func = mhl_status_notifier_func,
 };
+#endif
 
 int __init hdmi_msm_init(void)
 {

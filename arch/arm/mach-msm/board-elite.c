@@ -4096,6 +4096,7 @@ static int hdmi_core_power(int on, int show)
 	}							\
 } while (0)
 
+#ifdef CONFIG_FB_MSM_HDMI_MHL
 uint32_t mhl_usb_switch_ouput_table[] = {
 	GPIO_CFG(ELITE_GPIO_MHL_USB_SELz, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
 };
@@ -4117,8 +4118,6 @@ static void config_gpio_table(uint32_t *table, int len)
 	}
 }
 
-
-#ifdef CONFIG_FB_MSM_HDMI_MHL
 static void elite_usb_dpdn_switch(int path)
 {
 	switch (path) {
