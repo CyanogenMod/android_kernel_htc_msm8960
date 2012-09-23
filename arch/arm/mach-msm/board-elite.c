@@ -1239,7 +1239,6 @@ static struct msm_bus_scale_pdata cam_bus_client_pdata = {
 static struct regulator *reg_8921_l2;
 static struct regulator *reg_8921_l8;
 static struct regulator *reg_8921_l9;
-static struct regulator *reg_8921_l12;
 static struct regulator *reg_8921_lvs5;
 static struct regulator *reg_8921_lvs6;
 

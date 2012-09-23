@@ -867,7 +867,9 @@ static int ville_use_ext_1v2(void)
 static struct regulator *reg_8921_l2;
 static struct regulator *reg_8921_l8;
 static struct regulator *reg_8921_l9;
+#ifdef CONFIG_S5K4E5YX
 static struct regulator *reg_8921_l12;
+#endif
 static struct regulator *reg_8921_lvs6;
 
 static int ville_rawchip_vreg_on(void)
