@@ -23,12 +23,6 @@ int genlock_lock(struct genlock_handle *handle, int op, int flags,
 #define GENLOCK_WRLOCK 1
 #define GENLOCK_RDLOCK 2
 
-//FIXME: temporary fix for build break that bitops.h didn't copy to out folder
-//
-#ifndef BIT
-#define BIT(nr)		(1UL << (nr))
-#endif
-
 #define GENLOCK_NOBLOCK       BIT(0)
 #define GENLOCK_WRITE_TO_READ BIT(1)
 
@@ -37,12 +31,6 @@ struct genlock_lock {
 	int op;
 	int flags;
 	int timeout;
-};
-
-struct genlock_info {
-	int fd;
-	int pid;
-	int rsvd[2];
 };
 
 #define GENLOCK_IOC_MAGIC     'G'
@@ -63,9 +51,4 @@ struct genlock_info {
 	struct genlock_lock)
 #define GENLOCK_IOC_DREADLOCK _IOW(GENLOCK_IOC_MAGIC, 6, \
 	struct genlock_lock)
-
-/* HTC: Add optional ioctl for fd leak debugging */
-#define GENLOCK_IOC_SETINFO _IOW(GENLOCK_IOC_MAGIC, 32, \
-    struct genlock_info)
-
 #endif
