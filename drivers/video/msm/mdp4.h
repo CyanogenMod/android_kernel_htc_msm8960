@@ -821,7 +821,8 @@ static inline int mdp4_mddi_off(struct platform_device *pdev)
 static inline void mdp4_mddi_wait4vsync(int cndx, long long *vtime)
 {
 }
-static inline void mdp4_mddi_vsync_ctrl(struct fb_info *info, int enable)
+static inline void mdp4_mddi_vsync_ctrl(struct fb_info *info,
+				int enable)
 {
 }
 static inline void mdp4_mddi_pipe_queue(int cndx,
@@ -836,6 +837,7 @@ int mdp4_mddi_on(struct platform_device *pdev);
 void mdp4_mddi_wait4vsync(int cndx, long long *vtime);
 void mdp4_mddi_vsync_ctrl(struct fb_info *info, int enable);
 void mdp4_mddi_pipe_queue(int cndx, struct mdp4_overlay_pipe *pipe);
+void mdp4_overlay_update_mddi(struct msm_fb_data_type *mfd);
 
 static inline int mdp4_dsi_cmd_on(struct platform_device *pdev)
 {

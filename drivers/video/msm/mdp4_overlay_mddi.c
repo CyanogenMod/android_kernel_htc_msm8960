@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2012, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -108,11 +108,7 @@ static void mdp4_mddi_blt_ov_update(struct mdp4_overlay_pipe *pipe)
 	if (pipe->ov_blt_addr == 0)
 		return;
 
-#ifdef BLT_RGB565
-	bpp = 2; /* overlay ouput is RGB565 */
-#else
 	bpp = 3; /* overlay ouput is RGB888 */
-#endif
 	off = 0;
 	if (pipe->ov_cnt & 0x01)
 		off = pipe->src_height * pipe->src_width * bpp;
@@ -131,11 +127,7 @@ static void mdp4_mddi_blt_dmap_update(struct mdp4_overlay_pipe *pipe)
 	if (pipe->ov_blt_addr == 0)
 		return;
 
-#ifdef BLT_RGB565
-	bpp = 2; /* overlay ouput is RGB565 */
-#else
 	bpp = 3; /* overlay ouput is RGB888 */
-#endif
 	off = 0;
 	if (pipe->dmap_cnt & 0x01)
 		off = pipe->src_height * pipe->src_width * bpp;
@@ -293,7 +285,7 @@ int mdp4_mddi_pipe_commit(void)
 		/* Blt */
 		if (vctrl->blt_wait)
 			need_dmap_wait = 1;
-		else if (vctrl->ov_koff != vctrl->ov_done) {
+		if (vctrl->ov_koff != vctrl->ov_done) {
 			INIT_COMPLETION(vctrl->ov_comp);
 			need_ov_wait = 1;
 		}
@@ -351,8 +343,6 @@ int mdp4_mddi_pipe_commit(void)
 		}
 	}
 
-	mdp4_mixer_stage_up(pipe, 1);
-
 	mdp4_mixer_stage_commit(mixer);
 
 	pipe = vctrl->base_pipe;
@@ -370,15 +360,13 @@ int mdp4_mddi_pipe_commit(void)
 	/* kickoff overlay engine */
 	mdp4_stat.kickoff_ov0++;
 	outpdw(MDP_BASE + 0x0004, 0);
-	mb(); /* make sure kickoff executed */
+	mb(); /* make sure kickoff ececuted */
 	spin_unlock_irqrestore(&vctrl->spin_lock, flags);
 
 	mdp4_stat.overlay_commit[pipe->mixer_num]++;
 
 	return cnt;
 }
-
-static void mdp4_overlay_update_mddi(struct msm_fb_data_type *mfd);
 
 void mdp4_mddi_vsync_ctrl(struct fb_info *info, int enable)
 {
@@ -417,7 +405,7 @@ void mdp4_mddi_vsync_ctrl(struct fb_info *info, int enable)
 		if (clk_set_on) {
 			vsync_irq_enable(INTR_PRIMARY_RDPTR,
 						MDP_PRIM_RDPTR_TERM);
-		}
+	}
 		spin_unlock_irqrestore(&vctrl->spin_lock, flags);
 
 		mdp4_overlay_update_mddi(mfd);
@@ -511,6 +499,7 @@ static void primary_rdptr_isr(int cndx)
 	vctrl->vsync_time = ktime_get();
 
 	spin_lock(&vctrl->spin_lock);
+
 	if (vctrl->uevent)
 		schedule_work(&vctrl->vsync_work);
 
@@ -545,10 +534,6 @@ void mdp4_dmap_done_mddi(int cndx)
 		__func__, vctrl->ov_koff, vctrl->ov_done, vctrl->dmap_koff,
 		vctrl->dmap_done, smp_processor_id());
 	complete_all(&vctrl->dmap_comp);
-
-	if (mdp_rev <= MDP_REV_41)
-		mdp4_mixer_blend_cfg(MDP4_MIXER0);
-
 	if (diff <= 0) {
 		if (vctrl->blt_wait)
 			vctrl->blt_wait = 0;
@@ -631,7 +616,7 @@ static void clk_ctrl_work(struct work_struct *work)
 			vctrl->clk_enabled = 0;
 		vctrl->clk_control = 0;
 		spin_unlock_irqrestore(&vctrl->spin_lock, flags);
-		}
+	}
 	mutex_unlock(&vctrl->update_lock);
 }
 
@@ -790,7 +775,7 @@ static void mdp4_overlay_setup_pipe_addr(struct msm_fb_data_type *mfd,
 	pipe->srcp0_addr = (uint32)src;
 }
 
-static void mdp4_overlay_update_mddi(struct msm_fb_data_type *mfd)
+void mdp4_overlay_update_mddi(struct msm_fb_data_type *mfd)
 {
 	int ptype;
 	uint32 mddi_ld_param;
@@ -808,12 +793,13 @@ static void mdp4_overlay_update_mddi(struct msm_fb_data_type *mfd)
 
 	if (vctrl->base_pipe == NULL) {
 		ptype = mdp4_overlay_format2type(mfd->fb_imgType);
+
 		if (ptype < 0)
-			pr_info("%s: format2type failed\n", __func__);
+			pr_err("%s: format2type failed\n", __func__);
 
 		pipe = mdp4_overlay_pipe_alloc(ptype, MDP4_MIXER0);
 		if (pipe == NULL) {
-			pr_info("%s: pipe_alloc failed\n", __func__);
+			pr_err("%s: pipe_alloc failed\n", __func__);
 			return;
 		}
 		pipe->pipe_used++;
@@ -823,7 +809,7 @@ static void mdp4_overlay_update_mddi(struct msm_fb_data_type *mfd)
 		mdp4_overlay_panel_mode(pipe->mixer_num, MDP4_PANEL_MDDI);
 		ret = mdp4_overlay_format2pipe(pipe);
 		if (ret < 0)
-			pr_info("%s: format2type failed\n", __func__);
+			pr_err("%s: format2type failed\n", __func__);
 
 		vctrl->base_pipe = pipe; /* keep it */
 		mdp4_init_writeback_buf(mfd, MDP4_MIXER0);
@@ -886,6 +872,8 @@ static void mdp4_overlay_update_mddi(struct msm_fb_data_type *mfd)
 	mdp4_overlay_dmap_xy(pipe);
 
 	mdp4_overlay_dmap_cfg(mfd, 0);
+
+	mdp4_mixer_stage_commit(pipe->mixer_num);
 
 	wmb();
 }
@@ -1063,9 +1051,7 @@ void mdp4_mddi_overlay(struct msm_fb_data_type *mfd)
 	mutex_lock(&mfd->dma->ov_mutex);
 	mdp4_mddi_pipe_commit();
 	mutex_unlock(&mfd->dma->ov_mutex);
-
 	mdp4_mddi_wait4vsync(0, &xx);
-
 
 	mdp4_overlay_mdp_perf_upd(mfd, 0);
 }
