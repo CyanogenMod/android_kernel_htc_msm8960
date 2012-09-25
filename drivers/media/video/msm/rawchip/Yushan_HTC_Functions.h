@@ -116,9 +116,6 @@ typedef enum {
 
 typedef struct {
   uint16_t gain;
-#ifdef CONFIG_MACH_JET
-  uint16_t dig_gain;
-#endif
   uint16_t exp;
 } rawchip_aec_params_t;
 

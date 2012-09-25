@@ -447,14 +447,8 @@ static int rawchip_update_aec_awb_params(struct rawchip_ctrl *raw_dev, void __us
 		return -EFAULT;
 	}
 
-#ifdef CONFIG_MACH_JET
-	CDBG("%s gain=%d dig_gain=%d exp=%d\n", __func__,
-		update_aec_awb_params->aec_params.gain, update_aec_awb_params->aec_params.dig_gain,
-		update_aec_awb_params->aec_params.exp);
-#else
 	CDBG("%s gain=%d exp=%d\n", __func__,
 		update_aec_awb_params->aec_params.gain, update_aec_awb_params->aec_params.exp);
-#endif
 	CDBG("%s rg_ratio=%d bg_ratio=%d\n", __func__,
 		update_aec_awb_params->awb_params.rg_ratio, update_aec_awb_params->awb_params.bg_ratio);
 
