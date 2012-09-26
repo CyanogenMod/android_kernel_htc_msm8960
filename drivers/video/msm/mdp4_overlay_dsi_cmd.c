@@ -1063,13 +1063,15 @@ int mdp4_dsi_cmd_off(struct platform_device *pdev)
 		vp->update_cnt = 0;     /* empty queue */
 	}
 
-	vctrl->clk_enabled = 0;
-	vctrl->vsync_enabled = 0;
-	vctrl->clk_control = 0;
-	vctrl->expire_tick = 0;
-
-	vsync_irq_disable(INTR_PRIMARY_RDPTR, MDP_PRIM_RDPTR_TERM);
-
+	undx =  vctrl->update_ndx;
+	vp = &vctrl->vlist[undx];
+	if (vp->update_cnt) {
+		/*
+		 * pipe's iommu will be freed at next overlay play
+		 * and iommu_drop statistic will be increased by one
+		 */
+		vp->update_cnt = 0;     /* empty queue */
+	}
 
 	pr_debug("%s-:\n", __func__);
 
