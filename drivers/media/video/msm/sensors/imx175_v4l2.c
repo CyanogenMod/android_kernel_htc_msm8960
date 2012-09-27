@@ -623,6 +623,24 @@ static struct msm_sensor_exp_gain_info_t imx175_exp_gain_info = {
 	.sensor_max_linecount = 65531, /* sensor max linecount = max unsigned value of linecount register size - vert_offset */ /* HTC ben 20120229 */
 };
 
+int32_t imx175_set_dig_gain(struct msm_sensor_ctrl_t *s_ctrl, uint16_t dig_gain)
+{
+	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
+		REG_DIGITAL_GAIN_GREEN_R, dig_gain,
+		MSM_CAMERA_I2C_WORD_DATA);
+	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
+		REG_DIGITAL_GAIN_RED, dig_gain,
+		MSM_CAMERA_I2C_WORD_DATA);
+	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
+		REG_DIGITAL_GAIN_BLUE, dig_gain,
+		MSM_CAMERA_I2C_WORD_DATA);
+	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
+		REG_DIGITAL_GAIN_GREEN_B, dig_gain,
+		MSM_CAMERA_I2C_WORD_DATA);
+
+	return 0;
+}
+
 #if 0
 /* HTC_START Awii 20120306 */
 static uint32_t vcm_clib;
@@ -1186,6 +1204,7 @@ static struct msm_sensor_fn_t imx175_func_tbl = {
 	.sensor_group_hold_on = msm_sensor_group_hold_on,
 	.sensor_group_hold_off = msm_sensor_group_hold_off,
 	.sensor_set_fps = msm_sensor_set_fps,
+	.sensor_set_dig_gain = imx175_set_dig_gain,
 	.sensor_write_exp_gain = msm_sensor_write_exp_gain1,
 	.sensor_write_snapshot_exp_gain = msm_sensor_write_exp_gain1,
 	.sensor_setting = msm_sensor_setting,
