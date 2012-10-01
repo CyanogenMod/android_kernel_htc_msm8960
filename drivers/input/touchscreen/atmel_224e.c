@@ -960,7 +960,8 @@ static void msg_process_multitouch(struct atmel_ts_data *ts, uint8_t *data, uint
 
 		switch (ts->pre_data[0]) {
 			case RECALIB_NEED:
-				if (ts->finger_count == 0 && !ts->unlock_attr && idx == 0) {
+				if (ts->finger_count == 0 && !ts->unlock_attr && idx == 0 &&
+					ts->finger_data[idx].y > 750 && ts->finger_data[idx].y - ts->pre_data[idx+1] > 135) {
 					/* recalibrate on last release */
 					restore_normal_threshold(ts);
 					confirm_calibration(ts, 1, 0);
