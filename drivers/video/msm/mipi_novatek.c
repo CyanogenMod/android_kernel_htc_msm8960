@@ -428,8 +428,21 @@ static struct dsi_cmd_desc backlight_cmd = {
 
 struct dcs_cmd_req cmdreq;
 
+static char led_pwm1[2] = {0x51, 0x0};	/* DTYPE_DCS_WRITE1 */
+static struct dsi_cmd_desc backlight_cmd = {
+	DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(led_pwm1), led_pwm1};
+
+struct dcs_cmd_req cmdreq;
+
 static void mipi_novatek_set_backlight(struct msm_fb_data_type *mfd)
 {
+
+	if ((mipi_novatek_pdata->enable_wled_bl_ctrl)
+	    && (wled_trigger_initialized)) {
+		led_trigger_event(bkl_led_trigger, mfd->bl_level);
+		return;
+	}
+
 	led_pwm1[1] = (unsigned char)mfd->bl_level;
 
 	cmdreq.cmds = &backlight_cmd;
