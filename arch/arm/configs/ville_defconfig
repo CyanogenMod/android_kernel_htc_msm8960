@@ -2748,7 +2748,7 @@ CONFIG_MACH_NO_WESTBRIDGE=y
 # Qualcomm Atheros Prima WLAN module
 #
 CONFIG_PRIMA_WLAN=m
-# CONFIG_PRIMA_WLAN_BTAMP is not set
+CONFIG_PRIMA_WLAN_BTAMP=y
 
 #
 # Qualcomm MSM specific device drivers
