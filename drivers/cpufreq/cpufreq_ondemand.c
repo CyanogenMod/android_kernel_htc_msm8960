@@ -43,6 +43,7 @@
 #define MAX_FREQUENCY_UP_THRESHOLD		(100)
 #define MIN_FREQUENCY_DOWN_DIFFERENTIAL		(1)
 #define DEFAULT_FREQ_BOOST_TIME			(500000)
+#define MAX_FREQ_BOOST_TIME				(5000000)
 
 u64 freq_boosted_time;
 
@@ -326,7 +327,7 @@ static ssize_t store_boostpulse(struct kobject *kobj, struct attribute *attr,
 	if (ret < 0)
 		return ret;
 
-	if (input > 1)
+	if (input > 1 && input <= MAX_FREQ_BOOST_TIME)
 		dbs_tuners_ins.freq_boost_time = input;
 	else
 		dbs_tuners_ins.freq_boost_time = DEFAULT_FREQ_BOOST_TIME;
