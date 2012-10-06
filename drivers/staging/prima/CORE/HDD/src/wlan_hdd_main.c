@@ -2942,10 +2942,6 @@ free_hdd_ctx:
   --------------------------------------------------------------------------*/
 static VOS_STATUS hdd_update_config_from_nv(hdd_context_t* pHddCtx)
 {
-#ifndef FEATURE_WLAN_INTEGRATED_SOC
-   eHalStatus halStatus;
-#endif
-
 #ifdef FEATURE_WLAN_INTEGRATED_SOC
    v_BOOL_t itemIsValid = VOS_FALSE;
    VOS_STATUS status;
@@ -3004,10 +3000,8 @@ static VOS_STATUS hdd_update_config_from_nv(hdd_context_t* pHddCtx)
       hddLog(VOS_TRACE_LEVEL_ERROR, "NV ITEM, MAC Not valid");
       return VOS_STATUS_E_FAILURE;
    }
-#endif /* FEATURE_WLAN_INTEGRATED_SOC */
-
-#ifndef FEATURE_WLAN_INTEGRATED_SOC
-#if 1 /* need to fix for concurrency */
+#else
+   eHalStatus halStatus;
    // Set the MAC Address
    // Currently this is used by HAL to add self sta. Remove this once self sta is added as part of session open.
    halStatus = ccmCfgSetStr( pHddCtx->hHal, WNI_CFG_STA_ID,
@@ -3021,8 +3015,7 @@ static VOS_STATUS hdd_update_config_from_nv(hdd_context_t* pHddCtx)
           "HALStatus is %08d [x%08x]",__func__, halStatus, halStatus );
       return VOS_STATUS_E_FAILURE;
    }
-#endif
-#endif
+#endif /* FEATURE_WLAN_INTEGRATED_SOC */
 
    return VOS_STATUS_SUCCESS;
 }
