@@ -25,6 +25,7 @@
 #include <linux/proc_fs.h>
 
 #include <asm/setup.h>
+#include <mach/htc_wifi_nvs.h>
 
 #define ATAG_MSM_WIFI	0x57494649 
 
@@ -44,16 +45,16 @@ EXPORT_SYMBOL(get_wifi_nvs_ram);
 
 unsigned char* wlan_random_mac(unsigned char *set_mac_addr)
 {
-    static unsigned char mac_addr[6]={0,0,0,0,0,0};
-    if(set_mac_addr != NULL){
-        mac_addr[0]=set_mac_addr[0];
-        mac_addr[1]=set_mac_addr[1];
-        mac_addr[2]=set_mac_addr[2];
-        mac_addr[3]=set_mac_addr[3];
-        mac_addr[4]=set_mac_addr[4];
-        mac_addr[5]=set_mac_addr[5];
-    }
-    return mac_addr;
+	static unsigned char mac_addr[6]={0,0,0,0,0,0};
+	if(set_mac_addr != NULL){
+		mac_addr[0]=set_mac_addr[0];
+		mac_addr[1]=set_mac_addr[1];
+		mac_addr[2]=set_mac_addr[2];
+		mac_addr[3]=set_mac_addr[3];
+		mac_addr[4]=set_mac_addr[4];
+		mac_addr[5]=set_mac_addr[5];
+	}
+	return mac_addr;
 }
 EXPORT_SYMBOL(wlan_random_mac);
 
@@ -97,26 +98,38 @@ int wifi_calibration_size_set(void)
 	return 0;
 }
 
-static int wifi_calibration_read_proc(char *page, char **start, off_t off,
-					int count, int *eof, void *data)
+int htc_get_wifi_calibration(char *buf, int count)
 {
 	unsigned char *ptr;
 	unsigned len;
 
 	ptr = get_wifi_nvs_ram();
-	len = min(wifi_get_nvs_size(), (unsigned)count);
-	memcpy(page, ptr + NVS_DATA_OFFSET, len);
+	len = min(wifi_get_nvs_size(), (unsigned) count);
+	memcpy(buf, ptr + NVS_DATA_OFFSET, len);
 	return len;
 }
+EXPORT_SYMBOL(htc_get_wifi_calibration);
 
-static int wifi_data_read_proc(char *page, char **start, off_t off,
-					int count, int *eof, void *data)
+int htc_get_wifi_data(char *buf)
 {
 	unsigned char *ptr;
 
 	ptr = get_wifi_nvs_ram();
-	memcpy(page, ptr, NVS_DATA_OFFSET);
+	memcpy(buf, ptr, NVS_DATA_OFFSET);
 	return NVS_DATA_OFFSET;
+}
+EXPORT_SYMBOL(htc_get_wifi_data);
+
+static int wifi_calibration_read_proc(char *page, char **start, off_t off,
+					int count, int *eof, void *data)
+{
+	return htc_get_wifi_calibration(page, count);
+}
+
+static int wifi_data_read_proc(char *page, char **start, off_t off,
+		int count, int *eof, void *data)
+{
+	return htc_get_wifi_data(page);
 }
 
 static int __init wifi_nvs_init(void)
