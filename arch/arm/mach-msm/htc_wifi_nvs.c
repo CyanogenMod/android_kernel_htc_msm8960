@@ -21,8 +21,8 @@
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/proc_fs.h>
-
 #include <asm/setup.h>
+#include <mach/htc_wifi_nvs.h>
 
 /* configuration tags specific to msm */
 #define ATAG_MSM_WIFI	0x57494649 /* MSM WiFi */
@@ -95,26 +95,37 @@ int wifi_calibration_size_set(void)
 	return 0;
 }
 
-static int wifi_calibration_read_proc(char *page, char **start, off_t off,
-					int count, int *eof, void *data)
+int htc_get_wifi_calibration(char *buf, int count)
 {
 	unsigned char *ptr;
 	unsigned len;
 
 	ptr = get_wifi_nvs_ram();
-	len = min(wifi_get_nvs_size(), (unsigned)count);
-	memcpy(page, ptr + NVS_DATA_OFFSET, len);
+	len = min(wifi_get_nvs_size(), (unsigned) count);
+	memcpy(buf, ptr + NVS_DATA_OFFSET, len);
 	return len;
+}
+EXPORT_SYMBOL(htc_get_wifi_calibration);
+
+static int wifi_calibration_read_proc(char *page, char **start, off_t off,
+					int count, int *eof, void *data)
+{
+	return htc_get_wifi_calibration(page, count);
+}
+
+int htc_get_wifi_data(char *buf)
+{
+	unsigned char *ptr;
+
+	ptr = get_wifi_nvs_ram();
+	memcpy(buf, ptr, NVS_DATA_OFFSET);
+	return NVS_DATA_OFFSET;
 }
 
 static int wifi_data_read_proc(char *page, char **start, off_t off,
 					int count, int *eof, void *data)
 {
-	unsigned char *ptr;
-
-	ptr = get_wifi_nvs_ram();
-	memcpy(page, ptr, NVS_DATA_OFFSET);
-	return NVS_DATA_OFFSET;
+	return htc_get_wifi_data(page);
 }
 
 static int __init wifi_nvs_init(void)
