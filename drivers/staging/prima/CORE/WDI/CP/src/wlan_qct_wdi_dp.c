@@ -399,6 +399,7 @@ WDI_FillTxBd
     ucType = (ucTypeSubtype & WDI_FRAME_TYPE_MASK) >> WDI_FRAME_TYPE_OFFSET;
     ucSubType = (ucTypeSubtype & WDI_FRAME_SUBTYPE_MASK);
 
+#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN, 
                "Type: %d/%d, MAC S: %08x. MAC D: %08x., Tid=%d, frmXlat=%d, pTxBD=%08x ucTxFlag 0x%X\n", 
                 ucType, ucSubType, 
@@ -406,6 +407,7 @@ WDI_FillTxBd
                *((wpt_uint32 *) pDestMacAddr), 
                 ucTid, 
                !ucDisableFrmXtl, pTxBd, ucTxFlag );
+#endif
 
 
     //logic to determine the version match between host and riva to find out when to enable using STA rate for bcast frames.
@@ -603,13 +605,14 @@ WDI_FillTxBd
             ucIsRMF = 1;
          ucDisableFrmXtl = 1;
     } 
+#ifdef WLAN_DEBUG
     else 
     {   // Control Packet
         /* We should never get a control packet, asserting here since something
         is wrong */
         WDI_ASSERT(0);
     }
-
+#endif
     pBd->ub = !ucUnicastDst;
 
     /* Fast path: Leverage UMA for BD filling/frame translation.
@@ -652,7 +655,9 @@ WDI_FillTxBd
                                               *(wpt_macAddr*)pAddr2, &ucStaId );
            if (WDI_STATUS_SUCCESS != wdiStatus) 
            {
+#ifdef WLAN_DEBUG
                 WPAL_TRACE(eWLAN_MODULE_DAL_DATA, eWLAN_PAL_TRACE_LEVEL_ERROR, "WDI_STATableFindStaidByAddr failed");
+#endif
                 return WDI_STATUS_E_FAILURE;
            }
 #else
