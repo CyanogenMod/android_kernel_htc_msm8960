@@ -53,9 +53,11 @@ wpt_status wpalPostCtrlMsg(void *pPalContext, wpt_msg *pMsg)
 
    if (NULL == pMsg)
    {
+#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                  "%s: NULL message pointer", __FUNCTION__);
       WPAL_ASSERT(0);
+#endif
       return status;
    }
 
@@ -67,12 +69,13 @@ wpt_status wpalPostCtrlMsg(void *pPalContext, wpt_msg *pMsg)
    {
       status = eWLAN_PAL_STATUS_SUCCESS;
    }
+#ifdef WLAN_DEBUG
    else
    {
       WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_ERROR, "%s fail to post msg %d\n",
                   __FUNCTION__, pMsg->type);
    }
-
+#endif
    return status;
 }
 
@@ -91,9 +94,11 @@ wpt_status wpalPostTxMsg(void *pPalContext, wpt_msg *pMsg)
 
    if (NULL == pMsg)
    {
+#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                  "%s: NULL message pointer", __FUNCTION__);
       WPAL_ASSERT(0);
+#endif
       return status;
    }
 
@@ -105,12 +110,13 @@ wpt_status wpalPostTxMsg(void *pPalContext, wpt_msg *pMsg)
    {
       status = eWLAN_PAL_STATUS_SUCCESS;
    }
+#ifdef WLAN_DEBUG
    else
    {
       WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_ERROR, "%s fail to post msg %d\n",
                   __FUNCTION__, pMsg->type);
    }
-
+#endif
    return status;
 }
 
@@ -128,9 +134,11 @@ wpt_status wpalPostRxMsg(void *pPalContext, wpt_msg *pMsg)
 
    if (NULL == pMsg)
    {
+#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                  "%s: NULL message pointer", __FUNCTION__);
       WPAL_ASSERT(0);
+#endif
       return status;
    }
 
@@ -142,12 +150,13 @@ wpt_status wpalPostRxMsg(void *pPalContext, wpt_msg *pMsg)
    {
       status = eWLAN_PAL_STATUS_SUCCESS;
    }
+#ifdef WLAN_DEBUG
    else
    {
       WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_ERROR, "%s fail to post msg %d\n",
                   __FUNCTION__, pMsg->type);
    }
-
+#endif
    return status;
 }
 

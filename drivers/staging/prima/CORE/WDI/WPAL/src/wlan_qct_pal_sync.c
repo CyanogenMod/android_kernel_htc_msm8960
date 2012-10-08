@@ -57,8 +57,10 @@ wpt_status wpalMutexInit(wpt_mutex *pMutex)
 
    if( vos_lock_init( (vos_lock_t*)pMutex  ) != VOS_STATUS_SUCCESS )
    {
+#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_ERROR, 
                  " mutex init fail\n");
+#endif
       return eWLAN_PAL_STATUS_E_FAILURE;
    }
 
@@ -78,8 +80,10 @@ wpt_status wpalMutexDelete(wpt_mutex *pMutex)
 
    if( vos_lock_destroy( (vos_lock_t*)pMutex  ) != VOS_STATUS_SUCCESS )
    {
+#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_ERROR, 
                  " mutex delete fail\n");
+#endif
       return eWLAN_PAL_STATUS_E_FAILURE;
    }
 
@@ -99,8 +103,10 @@ wpt_status wpalMutexAcquire(wpt_mutex *pMutex)
 
    if( vos_lock_acquire( (vos_lock_t*)pMutex  ) != VOS_STATUS_SUCCESS )
    {
+#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_ERROR, 
                  " mutex acquire fail\n");
+#endif
       return eWLAN_PAL_STATUS_E_FAILURE;
    }
 
@@ -120,8 +126,10 @@ wpt_status wpalMutexRelease(wpt_mutex *pMutex)
 
    if( vos_lock_release( (vos_lock_t*)pMutex ) != VOS_STATUS_SUCCESS )
    {
+#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_ERROR, 
                  " mutex release\n");
+#endif
       return eWLAN_PAL_STATUS_E_FAILURE;
    }
 
@@ -141,8 +149,10 @@ wpt_status wpalEventInit(wpt_event *pEvent)
 
    if( vos_event_init( (vos_event_t*)pEvent ) != VOS_STATUS_SUCCESS )
    {
+#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_ERROR, 
                  " create event fail\n");
+#endif
       return eWLAN_PAL_STATUS_E_FAILURE;
    }
 
@@ -163,8 +173,10 @@ wpt_status wpalEventDelete(wpt_event *pEvent)
 
    if( vos_event_destroy( (vos_event_t*)pEvent ) != VOS_STATUS_SUCCESS )
    {
+#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_PAL, eWLAN_PAL_TRACE_LEVEL_ERROR, 
                  " delete event fail\n");
+#endif
       return eWLAN_PAL_STATUS_E_FAILURE;
    }
 

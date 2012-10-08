@@ -3599,7 +3599,9 @@ static int iw_setnone_getint(struct net_device *dev, struct iw_request_info *inf
 #ifdef FEATURE_WLAN_INTEGRATED_SOC
         case WE_GET_WDI_DBG:
         {
+#ifdef WLAN_DEBUG
            wpalTraceDisplay();
+#endif
            *value = 0;
            break;
         }
@@ -3646,7 +3648,9 @@ int iw_set_three_ints_getnone(struct net_device *dev, struct iw_request_info *in
 #ifdef FEATURE_WLAN_INTEGRATED_SOC
         case WE_SET_WDI_DBG:
         {
+#ifdef WLAN_DEBUG
             wpalTraceSetLevel( value[1], value[2], value[3]);
+#endif
             break;
         }
 #endif // FEATURE_WLAN_INTEGRATED_SOC

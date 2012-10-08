@@ -102,8 +102,10 @@ WDI_Status WDI_STATableInit
             
         WDI_STATableClose(pWDICtx);
 
+#ifdef WLAN_DEBUG
         WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                   "Error allocating memory on WDI_STATableInit"); 
+#endif
         return WDI_STATUS_E_FAILURE;
     }
     
@@ -228,9 +230,11 @@ WDI_STATableAddSta
     if (( pwdiParam->ucSTAIdx  == WDI_STA_INVALID_IDX) ||
         ( pwdiParam->ucSTAIdx >= pWDICtx->ucMaxStations ))
     {
+#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                 "Station id sent by HAL is invalid - not OK"); 
       WDI_ASSERT(0); 
+#endif
       return WDI_STATUS_E_FAILURE; 
     }
     
@@ -275,9 +279,11 @@ WDI_STATableAddSta
                                                      ucSTAIdx, 
                                                      pwdiParam->staMacAddr))
     {
+#ifdef WLAN_DEBUG
        WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                  "Failed to update station entry - internal failure");
        WDI_ASSERT(0);
+#endif
        return WDI_STATUS_E_FAILURE; 
     }
 
@@ -286,9 +292,11 @@ WDI_STATableAddSta
                                                      ucSTAIdx, 
                                                      pwdiParam->macBSSID))
     {
+#ifdef WLAN_DEBUG
        WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                  "Failed to update station entry - internal failure");
        WDI_ASSERT(0);
+#endif
        return WDI_STATUS_E_FAILURE; 
     }
 
@@ -323,9 +331,11 @@ WDI_STATableDelSta
     if(( ucSTAIdx  == WDI_STA_INVALID_IDX )||
         ( ucSTAIdx >= pWDICtx->ucMaxStations ))
     {
+#ifdef WLAN_DEBUG
        WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                  "STA Id invalid on Del STA - internal failure");
        WDI_ASSERT(0);
+#endif
        return WDI_STATUS_E_FAILURE; 
     }
     

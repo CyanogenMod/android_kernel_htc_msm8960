@@ -303,6 +303,7 @@ static int con_mode = 0;
   --------------------------------------------------------------------------*/
 static void hdd_wdi_trace_enable(wpt_moduleid moduleId, v_U32_t bitmask)
 {
+#ifdef WLAN_DEBUG
    wpt_tracelevel level;
 
    /* if the bitmask is the default value, then a bitmask was not
@@ -315,7 +316,6 @@ static void hdd_wdi_trace_enable(wpt_moduleid moduleId, v_U32_t bitmask)
 
    /* a mask was specified.  start by disabling all logging */
    wpalTraceSetLevel(moduleId, eWLAN_PAL_TRACE_LEVEL_NONE, 0);
-
    /* now cycle through the bitmask until all "set" bits are serviced */
    level = eWLAN_PAL_TRACE_LEVEL_FATAL;
    while (0 != bitmask)
@@ -327,6 +327,7 @@ static void hdd_wdi_trace_enable(wpt_moduleid moduleId, v_U32_t bitmask)
       level++;
       bitmask >>= 1;
    }
+#endif
 }
 #endif /* FEATURE_WLAN_INTEGRATED_SOC */
 
