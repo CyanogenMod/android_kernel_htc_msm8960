@@ -313,6 +313,7 @@ static struct pil_reset_ops pil_riva_ops = {
 	.shutdown = pil_riva_shutdown,
 };
 
+#ifndef CONFIG_MSM_INSECURE_PIL_RIVA
 static int pil_riva_init_image_trusted(struct pil_desc *pil,
 		const u8 *metadata, size_t size)
 {
@@ -362,6 +363,7 @@ static struct pil_reset_ops pil_riva_ops_trusted = {
 	.auth_and_reset = pil_riva_reset_trusted,
 	.shutdown = pil_riva_shutdown_trusted,
 };
+#endif
 
 static int __devinit pil_riva_probe(struct platform_device *pdev)
 {
@@ -407,13 +409,17 @@ static int __devinit pil_riva_probe(struct platform_device *pdev)
 	desc->name = "wcnss";
 	desc->dev = &pdev->dev;
 
+#ifndef CONFIG_MSM_INSECURE_PIL_RIVA
 	if (pas_supported(PAS_RIVA) > 0) {
 		desc->ops = &pil_riva_ops_trusted;
 		dev_info(&pdev->dev, "using secure boot\n");
 	} else {
+#endif
 		desc->ops = &pil_riva_ops;
 		dev_info(&pdev->dev, "using non-secure boot\n");
+#ifndef CONFIG_MSM_INSECURE_PIL_RIVA
 	}
+#endif
 
 	drv->xo = clk_get(&pdev->dev, "cxo");
 	if (IS_ERR(drv->xo)) {
