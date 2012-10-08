@@ -248,6 +248,7 @@ static struct pil_reset_ops pil_riva_ops = {
 	.proxy_unvote = pil_riva_remove_proxy_vote,
 };
 
+#ifndef CONFIG_MSM_INSECURE_PIL_RIVA
 static int pil_riva_init_image_trusted(struct pil_desc *pil,
 		const u8 *metadata, size_t size)
 {
@@ -271,6 +272,7 @@ static struct pil_reset_ops pil_riva_ops_trusted = {
 	.proxy_vote = pil_riva_make_proxy_vote,
 	.proxy_unvote = pil_riva_remove_proxy_vote,
 };
+#endif
 
 static int __devinit pil_riva_probe(struct platform_device *pdev)
 {
@@ -322,13 +324,17 @@ static int __devinit pil_riva_probe(struct platform_device *pdev)
 	desc->owner = THIS_MODULE;
 	desc->proxy_timeout = 10000;
 
+#ifndef CONFIG_MSM_INSECURE_PIL_RIVA
 	if (pas_supported(PAS_WCNSS) > 0) {
 		desc->ops = &pil_riva_ops_trusted;
 		dev_info(&pdev->dev, "using secure boot\n");
 	} else {
+#endif
 		desc->ops = &pil_riva_ops;
 		dev_info(&pdev->dev, "using non-secure boot\n");
+#ifndef CONFIG_MSM_INSECURE_PIL_RIVA
 	}
+#endif
 
 	drv->xo = devm_clk_get(&pdev->dev, "cxo");
 	if (IS_ERR(drv->xo))

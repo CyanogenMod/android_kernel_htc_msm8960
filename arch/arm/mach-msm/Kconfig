@@ -1958,6 +1958,12 @@ config MSM_PIL_RIVA
 	  Riva is the wireless subsystem processor used in bluetooth, wireless
 	  LAN, and FM software applications.
 
+config MSM_INSECURE_PIL_RIVA
+	bool "Force Riva PIL to insecure mode"
+	depends on MSM_PIL_RIVA
+	help
+	  Force Riva PIL to use non-secure boot.
+
 config MSM_PIL_TZAPPS
 	tristate "TZApps Boot Support"
 	depends on MSM_PIL
