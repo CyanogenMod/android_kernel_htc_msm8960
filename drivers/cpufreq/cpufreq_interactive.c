@@ -51,6 +51,7 @@ struct cpufreq_interactive_cpuinfo {
 	u64 floor_validate_time;
 	u64 hispeed_validate_time;
 	int governor_enabled;
+	int cpu_load;
 };
 
 static DEFINE_PER_CPU(struct cpufreq_interactive_cpuinfo, cpuinfo);
@@ -178,6 +179,7 @@ static void cpufreq_interactive_timer(unsigned long data)
 		load_since_change =
 			100 * (delta_time - delta_idle) / delta_time;
 
+
 	/*
 	 * Choose greater of short-term load (since last idle timer
 	 * started or timer function re-armed itself) or long-term load
@@ -185,6 +187,8 @@ static void cpufreq_interactive_timer(unsigned long data)
 	 */
 	if (load_since_change > cpu_load)
 		cpu_load = load_since_change;
+
+	pcpu->cpu_load = cpu_load;
 
 	if (boostpulse_boosted_time &&
 			now > boostpulse_boosted_time + boostpulse_duration) {
@@ -429,6 +433,8 @@ static int cpufreq_interactive_speedchange_task(void *data)
 
 				if (pjcpu->target_freq > max_freq)
 					max_freq = pjcpu->target_freq;
+
+				cpufreq_notify_utilization(pcpu->policy, (pcpu->cpu_load * pcpu->policy->cur) / pcpu->policy->cpuinfo.max_freq);
 			}
 
 			if (max_freq != pcpu->policy->cur)
