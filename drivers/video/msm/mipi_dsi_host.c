@@ -1056,8 +1056,9 @@ void mipi_dsi_cmd_mdp_start(void)
 	mipi_dsi_mdp_stat_inc(STAT_DSI_START);
 
 	spin_lock_irqsave(&dsi_mdp_lock, flag);
-	 mipi_dsi_enable_irq(DSI_MDP_TERM);
-	 dsi_mdp_busy = TRUE;
+	mipi_dsi_enable_irq(DSI_MDP_TERM);
+	dsi_mdp_busy = TRUE;
+	INIT_COMPLETION(dsi_mdp_comp);
 	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
 }
 
@@ -1518,22 +1519,24 @@ int mipi_dsi_cmd_dma_rx(struct dsi_buf *rp, int rlen)
 
 void mipi_dsi_cmd_mdp_busy(void)
 {
-	u32 status;
 	unsigned long flags;
-	int need_wait;
+	int need_wait = 0;
 
+	pr_debug("%s: start pid=%d\n",
+				__func__, current->pid);
 	spin_lock_irqsave(&dsi_mdp_lock, flags);
-	status = MIPI_INP(MIPI_DSI_BASE + 0x0004);/* DSI_STATUS */
-	if (status & 0x04) {	/* MDP BUSY */
-		INIT_COMPLETION(dsi_mdp_comp);
-		need_wait = 1;
-		pr_debug("%s: status=%x need_wait\n", __func__, (int)status);
-		mipi_dsi_enable_irq(DSI_MDP_TERM);
-	}
+	if (dsi_mdp_busy == TRUE)
+		need_wait++;
 	spin_unlock_irqrestore(&dsi_mdp_lock, flags);
 
-	if (need_wait)
+	if (need_wait) {
+		/* wait until DMA finishes the current job */
+		pr_debug("%s: pending pid=%d\n",
+				__func__, current->pid);
 		wait_for_completion(&dsi_mdp_comp);
+	}
+	pr_debug("%s: done pid=%d\n",
+				__func__, current->pid);
 }
 
 /*
@@ -1593,22 +1596,24 @@ void mipi_dsi_cmdlist_commit(int from_mdp)
 
 	mutex_lock(&cmd_mutex);
 	req = mipi_dsi_cmdlist_get();
-	if (req == NULL) {
-		mutex_unlock(&cmd_mutex);
-		return;
-	}
+
+	/* make sure dsi_cmd_mdp is idle */
+	mipi_dsi_cmd_mdp_busy();
+
+	if (req == NULL)
+		goto need_lock;
 
 	pr_debug("%s:  from_mdp=%d pid=%d\n", __func__, from_mdp, current->pid);
-
-	if (!from_mdp) { /* from put */
-		/* make sure dsi_cmd_mdp is idle */
-		mipi_dsi_cmd_mdp_busy();
-	}
 
 	if (req->flags && CMD_REQ_RX)
 		mipi_dsi_cmdlist_rx(req);
 	else
 		mipi_dsi_cmdlist_tx(req);
+
+need_lock:
+
+	if (from_mdp) /* from pipe_commit */
+		mipi_dsi_cmd_mdp_start();
 
 	mutex_unlock(&cmd_mutex);
 }
@@ -1761,6 +1766,7 @@ irqreturn_t mipi_dsi_isr(int irq, void *ptr)
 		mipi_dsi_mdp_stat_inc(STAT_DSI_MDP);
 		spin_lock(&dsi_mdp_lock);
 		dsi_ctrl_lock = FALSE;
+		dsi_mdp_busy = FALSE;
 		mipi_dsi_disable_irq_nosync(DSI_MDP_TERM);
 		dsi_mdp_busy = FALSE;
 		complete(&dsi_mdp_comp);
