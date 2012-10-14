@@ -49,6 +49,7 @@ spinlock_t dsi_clk_lock;
 static int dsi_ctrl_lock;
 static int dsi_mdp_busy;
 static struct mutex cmd_mutex;
+static struct mutex clk_mutex;
 
 static struct list_head pre_kickoff_list;
 static struct list_head post_kickoff_list;
@@ -98,6 +99,7 @@ void mipi_dsi_init(void)
 	spin_lock_init(&dsi_mdp_lock);
 	spin_lock_init(&dsi_clk_lock);
 	mutex_init(&cmd_mutex);
+	mutex_init(&clk_mutex);
 
 	INIT_LIST_HEAD(&pre_kickoff_list);
 	INIT_LIST_HEAD(&post_kickoff_list);
@@ -164,12 +166,12 @@ void mipi_dsi_disable_irq_nosync(u32 term)
 
 void mipi_dsi_clk_cfg(int on)
 {
-	unsigned long flags;
 	static int dsi_clk_cnt;
 
-	spin_lock_irqsave(&mdp_spin_lock, flags);
+	mutex_lock(&clk_mutex);
 	if (on) {
 		if (dsi_clk_cnt == 0) {
+			mipi_dsi_prepare_clocks();
 			mipi_dsi_ahb_ctrl(1);
 			mipi_dsi_clk_enable();
 		}
@@ -180,10 +182,12 @@ void mipi_dsi_clk_cfg(int on)
 			if (dsi_clk_cnt == 0) {
 				mipi_dsi_clk_disable();
 				mipi_dsi_ahb_ctrl(0);
+				mipi_dsi_unprepare_clocks();
 			}
 		}
 	}
-	spin_unlock_irqrestore(&mdp_spin_lock, flags);
+	pr_debug("%s: on=%d clk_cnt=%d\n", __func__, on, dsi_clk_cnt);
+	mutex_unlock(&clk_mutex);
 }
 
 void mipi_dsi_turn_on_clks(void)
@@ -1022,8 +1026,9 @@ void mipi_dsi_op_mode_config(int mode)
 	wmb();
 }
 
-void mipi_dsi_mdp_busy_wait(struct msm_fb_data_type *mfd)
+void mipi_dsi_mdp_busy_wait(void)
 {
+<<<<<<< HEAD
 	unsigned long flag;
 	int need_wait = 0;
 
@@ -1047,6 +1052,11 @@ void mipi_dsi_mdp_busy_wait(struct msm_fb_data_type *mfd)
 	}
 	pr_debug("%s: done pid=%d\n",
 			__func__, current->pid);
+=======
+	mutex_lock(&cmd_mutex);
+	mipi_dsi_cmd_mdp_busy();
+	mutex_unlock(&cmd_mutex);
+>>>>>>> e3142f9... msm_fb: display: add sysfs and clock control to smart panel
 }
 
 void mipi_dsi_cmd_mdp_start(void)
@@ -1058,7 +1068,6 @@ void mipi_dsi_cmd_mdp_start(void)
 	spin_lock_irqsave(&dsi_mdp_lock, flag);
 	mipi_dsi_enable_irq(DSI_MDP_TERM);
 	dsi_mdp_busy = TRUE;
-	INIT_COMPLETION(dsi_mdp_comp);
 	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
 }
 
@@ -1092,14 +1101,28 @@ static struct dsi_cmd_desc dsi_tear_off_cmd = {
 
 void mipi_dsi_set_tear_on(struct msm_fb_data_type *mfd)
 {
-	mipi_dsi_buf_init(&dsi_tx_buf);
-	mipi_dsi_cmds_tx(&dsi_tx_buf, &dsi_tear_on_cmd, 1);
+	struct dcs_cmd_req cmdreq;
+
+	cmdreq.cmds = &dsi_tear_on_cmd;
+	cmdreq.cmds_cnt = 1;
+	cmdreq.flags = CMD_REQ_COMMIT;
+	cmdreq.rlen = 0;
+	cmdreq.cb = NULL;
+
+	mipi_dsi_cmdlist_put(&cmdreq);
 }
 
 void mipi_dsi_set_tear_off(struct msm_fb_data_type *mfd)
 {
-	mipi_dsi_buf_init(&dsi_tx_buf);
-	mipi_dsi_cmds_tx(&dsi_tx_buf, &dsi_tear_off_cmd, 1);
+	struct dcs_cmd_req cmdreq;
+
+	cmdreq.cmds = &dsi_tear_off_cmd;
+	cmdreq.cmds_cnt = 1;
+	cmdreq.flags = CMD_REQ_COMMIT;
+	cmdreq.rlen = 0;
+	cmdreq.cb = NULL;
+
+	mipi_dsi_cmdlist_put(&cmdreq);
 }
 
 int mipi_dsi_cmd_reg_tx(uint32 data)
@@ -1140,7 +1163,6 @@ int mipi_dsi_cmds_tx(struct dsi_buf *tp, struct dsi_cmd_desc *cmds, int cnt)
 	struct dsi_cmd_desc *cm;
 	uint32 dsi_ctrl, ctrl;
 	int i, video_mode;
-	unsigned long flag;
 
 	/* turn on cmd mode
 	* for video mode, do not send cmds more than
@@ -1153,10 +1175,6 @@ int mipi_dsi_cmds_tx(struct dsi_buf *tp, struct dsi_cmd_desc *cmds, int cnt)
 		ctrl = dsi_ctrl | 0x04; /* CMD_MODE_EN */
 		MIPI_OUTP(MIPI_DSI_BASE + 0x0000, ctrl);
 	}
-
-	spin_lock_irqsave(&dsi_mdp_lock, flag);
-	dsi_mdp_busy = TRUE;
-	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
 
 	cm = cmds;
 	mipi_dsi_buf_init(tp);
@@ -1172,11 +1190,6 @@ int mipi_dsi_cmds_tx(struct dsi_buf *tp, struct dsi_cmd_desc *cmds, int cnt)
 
 	if (video_mode)
 		MIPI_OUTP(MIPI_DSI_BASE + 0x0000, dsi_ctrl); /* restore */
-
-	spin_lock_irqsave(&dsi_mdp_lock, flag);
-	dsi_mdp_busy = FALSE;
-	complete(&dsi_mdp_comp);
-	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
 
 	return cnt;
 }
@@ -1207,7 +1220,6 @@ int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
 {
 	int cnt, len, diff, pkt_size;
 	char cmd;
-	unsigned long flag;
 
 	if (mfd->panel_info.mipi.no_max_pkt_size) {
 		/* Only support rlen = 4*n */
@@ -1244,10 +1256,6 @@ int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
 #endif
 	}
 
-	spin_lock_irqsave(&dsi_mdp_lock, flag);
-	dsi_mdp_busy = TRUE;
-	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
-
 	if (!mfd->panel_info.mipi.no_max_pkt_size) {
 		/* packet size need to be set at every read */
 		pkt_size = len;
@@ -1281,11 +1289,6 @@ int mipi_dsi_cmds_rx(struct msm_fb_data_type *mfd,
 	}
 
 	mipi_dsi_cmd_dma_rx(rp, cnt);
-
-	spin_lock_irqsave(&dsi_mdp_lock, flag);
-	dsi_mdp_busy = FALSE;
-	complete(&dsi_mdp_comp);
-	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
 
 	if (mfd->panel_info.mipi.no_max_pkt_size) {
 		/*
@@ -1330,7 +1333,6 @@ int mipi_dsi_cmds_rx_new(struct dsi_buf *tp, struct dsi_buf *rp,
 	struct dsi_cmd_desc *cmds;
 	int cnt, len, diff, pkt_size;
 	char cmd;
-	unsigned long flag;
 
 	if (req->flags & CMD_REQ_NO_MAX_PKT_SIZE) {
 		/* Only support rlen = 4*n */
@@ -1361,10 +1363,6 @@ int mipi_dsi_cmds_rx_new(struct dsi_buf *tp, struct dsi_buf *rp,
 		len += 2;
 		cnt = len + 6; /* 4 bytes header + 2 bytes crc */
 	}
-
-	spin_lock_irqsave(&dsi_mdp_lock, flag);
-	dsi_mdp_busy = TRUE;
-	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
 
 	if (!(req->flags & CMD_REQ_NO_MAX_PKT_SIZE)) {
 
@@ -1401,11 +1399,6 @@ int mipi_dsi_cmds_rx_new(struct dsi_buf *tp, struct dsi_buf *rp,
 	}
 
 	mipi_dsi_cmd_dma_rx(rp, cnt);
-
-	spin_lock_irqsave(&dsi_mdp_lock, flag);
-	dsi_mdp_busy = FALSE;
-	complete(&dsi_mdp_comp);
-	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
 
 	if (req->flags & CMD_REQ_NO_MAX_PKT_SIZE) {
 		/*
@@ -1593,22 +1586,38 @@ void mipi_dsi_cmdlist_rx(struct dcs_cmd_req *req)
 void mipi_dsi_cmdlist_commit(int from_mdp)
 {
 	struct dcs_cmd_req *req;
+	int video;
 
 	mutex_lock(&cmd_mutex);
 	req = mipi_dsi_cmdlist_get();
 
-	/* make sure dsi_cmd_mdp is idle */
-	mipi_dsi_cmd_mdp_busy();
+	video = MIPI_INP(MIPI_DSI_BASE + 0x0000);
+	video &= 0x02; /* VIDEO_MODE */
 
-	if (req == NULL)
-		goto need_lock;
+	if (!video)
+		mipi_dsi_clk_cfg(1);
 
 	pr_debug("%s:  from_mdp=%d pid=%d\n", __func__, from_mdp, current->pid);
 
+	if (!from_mdp) { /* from put */
+		/* make sure dsi_cmd_mdp is idle */
+		mipi_dsi_cmd_mdp_busy();
+	}
+
+<<<<<<< HEAD
 	if (req->flags && CMD_REQ_RX)
 		mipi_dsi_cmdlist_rx(req);
 	else
 		mipi_dsi_cmdlist_tx(req);
+=======
+	if (req->flags & CMD_REQ_RX)
+		mipi_dsi_cmdlist_rx(req);
+	else
+		mipi_dsi_cmdlist_tx(req);
+
+	if (!video)
+		mipi_dsi_clk_cfg(0);
+>>>>>>> e3142f9... msm_fb: display: add sysfs and clock control to smart panel
 
 need_lock:
 
@@ -1768,7 +1777,6 @@ irqreturn_t mipi_dsi_isr(int irq, void *ptr)
 		dsi_ctrl_lock = FALSE;
 		dsi_mdp_busy = FALSE;
 		mipi_dsi_disable_irq_nosync(DSI_MDP_TERM);
-		dsi_mdp_busy = FALSE;
 		complete(&dsi_mdp_comp);
 		spin_unlock(&dsi_mdp_lock);
 	}
