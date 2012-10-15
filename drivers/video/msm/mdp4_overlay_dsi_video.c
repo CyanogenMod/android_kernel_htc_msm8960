@@ -56,6 +56,7 @@ static struct vsycn_ctrl {
 	int wait_vsync_cnt;
 	int blt_change;
 	int blt_free;
+	int blt_ctrl;
 	int sysfs_created;
 	struct mutex update_lock;
 	struct completion ov_comp;
@@ -500,9 +501,11 @@ int mdp4_dsi_video_on(struct platform_device *pdev)
 	int ret = 0;
 	int cndx = 0;
 	struct vsycn_ctrl *vctrl;
+	struct msm_panel_info *pinfo;
 
 	vctrl = &vsync_ctrl_db[cndx];
 	mfd = (struct msm_fb_data_type *)platform_get_drvdata(pdev);
+	pinfo = &mfd->panel_info;
 
 	if (!mfd)
 		return -ENODEV;
@@ -512,6 +515,7 @@ int mdp4_dsi_video_on(struct platform_device *pdev)
 
 	vctrl->mfd = mfd;
 	vctrl->dev = mfd->fbi->dev;
+	vctrl->blt_ctrl = pinfo->lcd.blt_ctrl;
 
 	/* mdp clock on */
 	mdp_clk_ctrl(1);
@@ -1046,8 +1050,41 @@ static void mdp4_dsi_video_do_blt(struct msm_fb_data_type *mfd, int enable)
 		spin_unlock_irqrestore(&vctrl->spin_lock, flag);
 		return;
 	}
-
 	spin_unlock_irqrestore(&vctrl->spin_lock, flag);
+
+	if (vctrl->blt_ctrl == OVERLAY_BLT_SWITCH_TG_OFF) {
+		int tg_enabled;
+
+		pr_info("%s: blt enabled by switching TG off\n", __func__);
+
+		vctrl->blt_change = 0;
+		tg_enabled = inpdw(MDP_BASE + DSI_VIDEO_BASE) & 0x01;
+		if (tg_enabled) {
+			mdp4_dsi_video_wait4dmap_done(0);
+			MDP_OUTP(MDP_BASE + DSI_VIDEO_BASE, 0);
+			msleep(20);
+			mipi_dsi_controller_cfg(0);
+		}
+		mdp4_overlayproc_cfg(pipe);
+		mdp4_overlay_dmap_xy(pipe);
+		if (tg_enabled) {
+			if (pipe->ov_blt_addr) {
+				/* preefill on frame */
+				spin_lock_irqsave(&vctrl->spin_lock, flag);
+				pipe->ov_cnt++;
+				vctrl->ov_koff++;
+				mdp4_stat.kickoff_ov0++;
+				INIT_COMPLETION(vctrl->ov_comp);
+				vsync_irq_enable(INTR_OVERLAY0_DONE, MDP_OVERLAY0_TERM);
+				outpdw(MDP_BASE + 0x0004, 0);
+				spin_unlock_irqrestore(&vctrl->spin_lock, flag);
+				mdp4_dsi_video_wait4ov(cndx);
+			}
+			mipi_dsi_sw_reset();
+			mipi_dsi_controller_cfg(1);
+			MDP_OUTP(MDP_BASE + DSI_VIDEO_BASE, 1);
+		}
+	}
 }
 
 void mdp4_dsi_video_overlay_blt(struct msm_fb_data_type *mfd,
@@ -1115,4 +1152,3 @@ void mdp4_dsi_video_overlay(struct msm_fb_data_type *mfd)
 	mdp4_overlay_mdp_perf_upd(mfd, 0);
 	mutex_unlock(&mfd->dma->ov_mutex);
 }
-
