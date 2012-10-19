@@ -878,6 +878,7 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 			ret = pdata->on(mfd->pdev);
 			if (ret == 0) {
 				mfd->panel_power_on = TRUE;
+				pdata->display_on(mfd);
 
 /* ToDo: possible conflict with android which doesn't expect sw refresher */
 /*
