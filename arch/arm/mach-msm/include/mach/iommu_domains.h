@@ -53,11 +53,6 @@ extern int msm_iommu_map_extra(struct iommu_domain *domain,
 						unsigned long size,
 						int cached);
 
-//HTC_START Jason Huang 20120419 --- Create HTC own iommu_map_range API.
-extern int htc_iommu_map_range(struct iommu_domain *domain, unsigned long va,
-			 phys_addr_t pa, int size, int prot);
-//HTC_END
-
 #else
 static inline struct iommu_domain
 	*msm_get_iommu_domain(int subsys_id) { return NULL; }
@@ -97,13 +92,6 @@ static inline int msm_iommu_map_extra(struct iommu_domain *domain,
 	return -ENODEV;
 }
 
-//HTC_START Jason Huang 20120419 --- Create HTC own iommu_map_range API.
-static inline int htc_iommu_map_range(struct iommu_domain *domain, unsigned long va,
-			 phys_addr_t pa, int size, int prot)
-{
-	return -ENODEV;
-}
-//HTC_END
 #endif
 
 #endif
