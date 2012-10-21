@@ -164,12 +164,8 @@ static int msm_iommu_probe(struct platform_device *pdev)
 	iommu_clk = clk_get(&pdev->dev, "core_clk");
 
 	if (!IS_ERR(iommu_clk))	{
-		//HTC_START Jason Huang 20120410 --- To fix build errors when CONFIG_MSM_IOMMU=y
-		/*
 		if (clk_get_rate(iommu_clk) == 0)
 			clk_set_min_rate(iommu_clk, 1);
-		*/
-		//HTC_END
 
 		ret = clk_enable(iommu_clk);
 		if (ret) {
