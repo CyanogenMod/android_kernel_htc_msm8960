@@ -1756,6 +1756,7 @@ void mdp4_overlay_borderfill_stage_down(struct mdp4_overlay_pipe *pipe)
 	struct mdp4_overlay_pipe *bspipe;
 	int ptype, pnum, pndx, mixer;
 	int format, alpha_enable, alpha;
+	struct mdp4_iommu_pipe_info iom;
 
 	if (pipe->pipe_type != OVERLAY_TYPE_BF)
 		return;
@@ -1770,6 +1771,7 @@ void mdp4_overlay_borderfill_stage_down(struct mdp4_overlay_pipe *pipe)
 		return;
 	}
 
+	iom = bspipe->iommu;
 	ptype = bspipe->pipe_type;
 	pnum = bspipe->pipe_num;
 	pndx = bspipe->pipe_ndx;
@@ -1783,6 +1785,7 @@ void mdp4_overlay_borderfill_stage_down(struct mdp4_overlay_pipe *pipe)
 	bspipe->src_format = format;
 	bspipe->alpha_enable = alpha_enable;
 	bspipe->alpha = alpha;
+	bspipe->iommu = iom;
 
 	bspipe->pipe_used++;	/* mark base layer pipe used */
 
