@@ -4160,63 +4160,29 @@ static struct usb_mass_storage_platform_data mass_storage_pdata = {
 #ifdef CONFIG_USB_MSM_OTG_72K
 static struct msm_otg_platform_data msm_otg_pdata;
 #else
-#define USB_5V_EN		42
+#define USB_5V_EN		VILLE_GPIO_V_BOOST_5V_EN
+
+static uint32_t USB_5V_EN_pin_ouput_table[] = {
+	GPIO_CFG(USB_5V_EN, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+};
+
 static void msm_hsusb_vbus_power(bool on)
 {
-	int rc;
-	static bool vbus_is_on;
-	static struct regulator *mvs_otg_switch;
-	struct pm_gpio param = {
-		.direction	= PM_GPIO_DIR_OUT,
-		.output_buffer	= PM_GPIO_OUT_BUF_CMOS,
-		.output_value	= 1,
-		.pull		= PM_GPIO_PULL_NO,
-		.vin_sel	= PM_GPIO_VIN_S4,
-		.out_strength	= PM_GPIO_STRENGTH_MED,
-		.function	= PM_GPIO_FUNC_NORMAL,
-	};
+	static bool vbus_is_on = false;
 
 	if (vbus_is_on == on)
 		return;
 
-	printk(KERN_INFO "%s: %d\n", __func__, on);
+	gpio_tlmm_config(USB_5V_EN_pin_ouput_table[0], GPIO_CFG_ENABLE);
 
 	if (on) {
-		mvs_otg_switch = regulator_get(&msm8960_device_otg.dev,
-					       "vbus_otg");
-		if (IS_ERR(mvs_otg_switch)) {
-			pr_err("Unable to get mvs_otg_switch\n");
-			return;
-		}
-
-		rc = gpio_request(PM8921_GPIO_PM_TO_SYS(USB_5V_EN),
-						"usb_5v_en");
-		if (rc < 0) {
-			pr_err("failed to request usb_5v_en gpio\n");
-			goto put_mvs_otg;
-		}
-
-		if (regulator_enable(mvs_otg_switch)) {
-			pr_err("unable to enable mvs_otg_switch\n");
-			goto free_usb_5v_en;
-		}
-
-		rc = pm8xxx_gpio_config(PM8921_GPIO_PM_TO_SYS(USB_5V_EN),
-				&param);
-		if (rc < 0) {
-			pr_err("failed to configure usb_5v_en gpio\n");
-			goto disable_mvs_otg;
-		}
-		vbus_is_on = true;
-		return;
+		gpio_set_value(USB_5V_EN, 1);
+		pr_info("[USB] %s: Enable 5V power\n",  __func__);
+	} else {
+		gpio_set_value(USB_5V_EN, 0);
+		pr_info("[USB] %s: Disable 5V power\n",  __func__);
 	}
-disable_mvs_otg:
-		regulator_disable(mvs_otg_switch);
-free_usb_5v_en:
-		gpio_free(PM8921_GPIO_PM_TO_SYS(USB_5V_EN));
-put_mvs_otg:
-		regulator_put(mvs_otg_switch);
-		vbus_is_on = false;
+	vbus_is_on = on;
 }
 
 static int phy_init_seq_v3[] = { 0x7f, 0x81, 0x3c, 0x82, -1};
