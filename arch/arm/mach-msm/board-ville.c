@@ -2965,6 +2965,7 @@ static void __init msm_fb_add_devices(void)
 #ifdef CONFIG_MSM_BUS_SCALING
 	msm_fb_register_device("dtv", &dtv_pdata);
 #endif
+	pr_info("%s: panel type is: 0x%x\n", __func__, panel_type);
 }
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
