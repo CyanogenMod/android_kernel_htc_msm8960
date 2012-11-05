@@ -338,13 +338,12 @@ void jet_lcd_id_power(int pull)
 #else
 #define MSM_ION_MM_SIZE		MSM_PMEM_ADSP_SIZE - MSM_PMEM_ADSP2_SIZE
 #endif
-#define MSM_ION_ROTATOR_SIZE	MSM_PMEM_ADSP2_SIZE
 #define MSM_ION_QSECOM_SIZE	0x100000 /* (1MB) */
 #define MSM_ION_MFC_SIZE	0x100000  //SZ_8K
 #ifdef CONFIG_MSM_IOMMU
-#define MSM_ION_HEAP_NUM	7
+#define MSM_ION_HEAP_NUM	6
 #else
-#define MSM_ION_HEAP_NUM	8
+#define MSM_ION_HEAP_NUM	7
 #endif
 #define MSM_LIQUID_ION_MM_SIZE (MSM_ION_MM_SIZE + 0x600000)
 #else
@@ -564,14 +563,6 @@ static struct ion_platform_data ion_pdata = {
 			.type	= ION_HEAP_TYPE_CP,
 			.name	= ION_MM_HEAP_NAME,
 			.size	= MSM_ION_MM_SIZE,
-			.memory_type = ION_EBI_TYPE,
-			.extra_data = (void *) &cp_mm_ion_pdata,
-		},
-		{
-			.id	= ION_CP_ROTATOR_HEAP_ID,
-			.type	= ION_HEAP_TYPE_CP,
-			.name	= ION_ROTATOR_HEAP_NAME,
-			.size	= MSM_ION_ROTATOR_SIZE,
 			.memory_type = ION_EBI_TYPE,
 			.extra_data = (void *) &cp_mm_ion_pdata,
 		},
