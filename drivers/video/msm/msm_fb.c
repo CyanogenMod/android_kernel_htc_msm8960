@@ -126,10 +126,10 @@ static int msm_fb_pan_idle(struct msm_fb_data_type *mfd);
 #define MSM_FB_MAX_DBGFS 1024
 #define MAX_BACKLIGHT_BRIGHTNESS 255
 
-/* 100 ms for fence time out */
-#define WAIT_FENCE_TIMEOUT 100
-/* 200 ms for display operation time out */
-#define WAIT_DISP_OP_TIMEOUT 200
+/* 800 ms for fence time out */
+#define WAIT_FENCE_TIMEOUT 800
+/* 900 ms for display operation time out */
+#define WAIT_DISP_OP_TIMEOUT 900
 
 int msm_fb_debugfs_file_index;
 struct dentry *msm_fb_debugfs_root;
