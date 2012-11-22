@@ -22,11 +22,6 @@
 #include "msm_bus_core.h"
 #include "../rpm_resources.h"
 
-#define INTERLEAVED_BW(fab_pdata, bw, ports) \
-	((fab_pdata->il_flag) ? ((bw) / (ports)) : (bw))
-#define INTERLEAVED_VAL(fab_pdata, n) \
-	((fab_pdata->il_flag) ? (n) : 1)
-
 void msm_bus_rpm_set_mt_mask()
 {
 #ifdef CONFIG_MSM_BUS_RPM_MULTI_TIER_ENABLED
@@ -241,7 +236,7 @@ void msm_bus_rpm_update_bw(struct msm_bus_inode_info *hop,
 	struct msm_bus_inode_info *info,
 	struct msm_bus_fabric_registration *fab_pdata,
 	void *sel_cdata, int *master_tiers,
-	long int add_bw)
+	int64_t add_bw)
 {
 	int index, i, j, tiers, ports;
 	struct commit_data *sel_cd = (struct commit_data *)sel_cdata;
@@ -304,9 +299,9 @@ void msm_bus_rpm_update_bw(struct msm_bus_inode_info *hop,
 					msm_bus_create_bw_tier_pair_bytes(tier,
 					tieredbw);
 				sel_cd->actarb[index] = tieredbw;
-				MSM_BUS_DBG("tier:%d mport: %d tiered_bw:%ld "
-				"bwsum: %ld\n", hop_tier, info->node_info->
-				masterp[i], tieredbw, *hop->link_info.sel_bw);
+				MSM_BUS_DBG("tr:%d mpor:%d tbw:%ld bws: %lld\n",
+					hop_tier, info->node_info->masterp[i],
+					tieredbw, *hop->link_info.sel_bw);
 			}
 		}
 	}
@@ -316,10 +311,12 @@ void msm_bus_rpm_update_bw(struct msm_bus_inode_info *hop,
 	for (i = 0; i < ports; i++) {
 		sel_cd->bwsum[hop->node_info->slavep[i]]
 			= (uint16_t)msm_bus_create_bw_tier_pair_bytes(0,
-			(*hop->link_info.sel_bw/hop->node_info->num_sports));
-		MSM_BUS_DBG("slavep:%d, link_bw: %ld\n",
-			hop->node_info->slavep[i], (*hop->link_info.sel_bw/
-			hop->node_info->num_sports));
+			(uint32_t)msm_bus_div64(hop->node_info->num_sports,
+			*hop->link_info.sel_bw));
+		MSM_BUS_DBG("slavep:%d, link_bw: %u\n",
+			hop->node_info->slavep[i], (uint32_t)
+			msm_bus_div64(hop->node_info->num_sports,
+			*hop->link_info.sel_bw));
 	}
 }
 
@@ -757,7 +754,7 @@ void msm_bus_rpm_update_bw(struct msm_bus_inode_info *hop,
 	struct msm_bus_inode_info *info,
 	struct msm_bus_fabric_registration *fab_pdata,
 	void *sel_cdata, int *master_tiers,
-	long int add_bw)
+	int64_t add_bw)
 {
 	int index, i, j, tiers, ports;
 	struct commit_data *sel_cd = (struct commit_data *)sel_cdata;
@@ -809,9 +806,9 @@ void msm_bus_rpm_update_bw(struct msm_bus_inode_info *hop,
 				sel_cd->arb[tier][index] =
 				msm_bus_create_bw_tier_pair_bytes(0, tieredbw);
 				sel_cd->actarb[tier][index] = tieredbw;
-				MSM_BUS_DBG("tier:%d mport: %d tiered_bw:%lu "
-				"bwsum: %ld\n", hop_tier, info->node_info->
-				masterp[i], tieredbw, *hop->link_info.sel_bw);
+				MSM_BUS_DBG("tr:%d mpor:%d tbw:%lu bws: %lld\n",
+				hop_tier, info->node_info->masterp[i], tieredbw,
+				*hop->link_info.sel_bw);
 			}
 		}
 	}
@@ -821,11 +818,13 @@ void msm_bus_rpm_update_bw(struct msm_bus_inode_info *hop,
 	ports = INTERLEAVED_VAL(fab_pdata, hop->node_info->num_sports);
 	for (i = 0; i < ports; i++) {
 		sel_cd->bwsum[hop->node_info->slavep[i]]
-			= msm_bus_pack_bwsum_bytes((*hop->link_info.
-			sel_bw/hop->node_info->num_sports));
-		MSM_BUS_DBG("slavep:%d, link_bw: %ld\n",
-			hop->node_info->slavep[i], (*hop->link_info.sel_bw/
-			hop->node_info->num_sports));
+			= msm_bus_pack_bwsum_bytes((uint32_t)
+			msm_bus_div64(hop->node_info->num_sports,
+			*hop->link_info.sel_bw));
+		MSM_BUS_DBG("slavep:%d, link_bw: %lld\n",
+			hop->node_info->slavep[i],
+			msm_bus_div64(hop->node_info->num_sports,
+			*hop->link_info.sel_bw));
 	}
 }
 
