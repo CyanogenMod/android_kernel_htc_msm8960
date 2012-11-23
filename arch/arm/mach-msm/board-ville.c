@@ -397,7 +397,6 @@ enum {
 #define MSM_ION_HEAP_NUM	8
 #endif
 #define MSM_LIQUID_ION_MM_SIZE (MSM_ION_MM_SIZE + 0x600000)
-static unsigned int msm_ion_cp_mm_size = MSM_ION_MM_SIZE;
 #else
 #define MSM_PMEM_KERNEL_EBI1_SIZE  0x110C000
 #define MSM_ION_HEAP_NUM	1
@@ -563,10 +562,6 @@ static void __init reserve_pmem_memory(void)
 #endif
 }
 
-static void __init reserve_fmem_memory(void)
-{
-}
-
 static int msm8960_paddr_to_memtype(unsigned int paddr)
 {
 	return MEMTYPE_EBI1;
@@ -687,32 +682,106 @@ struct platform_device fmem_device = {
 	.dev = { .platform_data = &fmem_pdata },
 };
 
+static void __init adjust_mem_for_liquid(void)
+{
+}
+
+static void __init reserve_mem_for_ion(enum ion_memory_types mem_type,
+					unsigned long size)
+{
+	msm8960_reserve_table[mem_type].size += size;
+}
+
+static __init const struct ion_platform_heap *find_ion_heap(int heap_id)
+{
+	unsigned int i;
+	for (i = 0; i < ion_pdata.nr; ++i) {
+		const struct ion_platform_heap *heap = &(ion_pdata.heaps[i]);
+		if (heap->id == heap_id)
+			return (const struct ion_platform_heap *) heap;
+	}
+	return 0;
+}
+
+/**
+ * Reserve memory for ION and calculate amount of reusable memory for fmem.
+ * We only reserve memory for heaps that are not reusable. However, we only
+ * support one reusable heap at the moment so we ignore the reusable flag for
+ * other than the first heap with reusable flag set. Also handle special case
+ * for adjacent heap when the adjacent heap is adjacent to a reusable heap.
+ */
 static void reserve_ion_memory(void)
 {
 #if defined(CONFIG_ION_MSM) && defined(CONFIG_MSM_MULTIMEDIA_USE_ION)
 	unsigned int i;
+	unsigned int reusable_count = 0;
 
-	if (!pmem_param_set && machine_is_msm8960_liquid()) {
-		msm_ion_cp_mm_size = MSM_LIQUID_ION_MM_SIZE;
-		for (i = 0; i < ion_pdata.nr; i++) {
-			if (ion_pdata.heaps[i].id == ION_CP_MM_HEAP_ID) {
-				ion_pdata.heaps[i].size = msm_ion_cp_mm_size;
-				pr_debug("msm_ion_cp_mm_size 0x%x\n",
-					msm_ion_cp_mm_size);
-				break;
+	adjust_mem_for_liquid();
+	fmem_pdata.size = 0;
+	fmem_pdata.reserved_size = 0;
+
+	/* We only support 1 reusable heap. Check if more than one heap
+	 * is specified as reusable and set as non-reusable if found.
+	 */
+	for (i = 0; i < ion_pdata.nr; ++i) {
+		const struct ion_platform_heap *heap = &(ion_pdata.heaps[i]);
+
+		if (heap->type == ION_HEAP_TYPE_CP && heap->extra_data) {
+			struct ion_cp_heap_pdata *data = heap->extra_data;
+
+			reusable_count += (data->reusable) ? 1 : 0;
+
+			if (data->reusable && reusable_count > 1) {
+				pr_err("%s: Too many heaps specified as "
+					"reusable. Heap %s was not configured "
+					"as reusable.\n", __func__, heap->name);
+				data->reusable = 0;
 			}
 		}
 	}
-	msm8960_reserve_table[MEMTYPE_EBI1].size += msm_ion_cp_mm_size;
-	msm8960_reserve_table[MEMTYPE_EBI1].size += MSM_ION_ROTATOR_SIZE;
-	msm8960_reserve_table[MEMTYPE_EBI1].size += MSM_ION_MM_FW_SIZE;
-	msm8960_reserve_table[MEMTYPE_EBI1].size += MSM_ION_SF_SIZE;
-	msm8960_reserve_table[MEMTYPE_EBI1].size += MSM_ION_MFC_SIZE;
-	msm8960_reserve_table[MEMTYPE_EBI1].size += MSM_ION_QSECOM_SIZE;
+
+	for (i = 0; i < ion_pdata.nr; ++i) {
+		int reusable = 0;
+		int adjacent_heap_id = INVALID_HEAP_ID;
+		int adj_reusable = 0;
+		const struct ion_platform_heap *heap = &(ion_pdata.heaps[i]);
+
+		if (heap->extra_data) {
+			switch (heap->type) {
+			case ION_HEAP_TYPE_CP:
+				reusable = ((struct ion_cp_heap_pdata *)
+						heap->extra_data)->reusable;
+				break;
+			case ION_HEAP_TYPE_CARVEOUT:
+				adjacent_heap_id = ((struct ion_co_heap_pdata *)
+					heap->extra_data)->adjacent_mem_id;
+				break;
+			default:
+				break;
+			}
+		}
+
+		if (adjacent_heap_id != INVALID_HEAP_ID) {
+			const struct ion_platform_heap *adj_heap =
+						find_ion_heap(adjacent_heap_id);
+			if (adj_heap) {
+				adj_reusable = ((struct ion_cp_heap_pdata *)
+						adj_heap->extra_data)->reusable;
+				if (adj_reusable)
+					fmem_pdata.reserved_size += heap->size;
+			}
+		}
+
+		if (!reusable && !adj_reusable)
+			reserve_mem_for_ion(MEMTYPE_EBI1, heap->size);
+		else
+			fmem_pdata.size += heap->size;
+	}
 #endif
 }
 
 void __init msm8960_mdp_writeback(struct memtype_reserve* reserve_table);
+
 static void __init reserve_mdp_memory(void)
 {
 	msm8960_mdp_writeback(msm8960_reserve_table);
@@ -760,7 +829,6 @@ static void __init msm8960_calculate_reserve_sizes(void)
 	size_pmem_devices();
 	reserve_pmem_memory();
 	reserve_ion_memory();
-	reserve_fmem_memory();
 	reserve_mdp_memory();
 	reserve_rtb_memory();
 	reserve_cache_dump_memory();
