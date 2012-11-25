@@ -330,7 +330,7 @@ void jet_lcd_id_power(int pull)
  * 3A, 4K x 15 + 8K x 3
  * ALIGH INTERGER + 1MB
  */
-#define MSM_ION_MM_SIZE		0x4700000
+#define MSM_ION_MM_SIZE		0x3800000
 #define MSM_ION_SF_SIZE		0x0
 #define MSM_ION_HEAP_NUM	7
 #else
