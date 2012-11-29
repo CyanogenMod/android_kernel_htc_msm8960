@@ -3641,7 +3641,7 @@ static int buf_fence_process(struct msm_fb_data_type *mfd,
 	mfd->cur_rel_fen_fd = get_unused_fd_flags(0);
 	if (mfd->cur_rel_fen_fd < 0) {
 		pr_err("%s: get_unused_fd_flags failed", __func__);
-		ret = -EIO;
+		ret  = -EIO;
 		goto buf_fence_err_2;
 	}
 	sync_fence_install(mfd->cur_rel_fence, mfd->cur_rel_fen_fd);
