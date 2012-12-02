@@ -439,22 +439,22 @@ static int msm_fb_probe(struct platform_device *pdev)
 static int msm_fb_remove(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
-	int ret = 0;
 
 	MSM_FB_DEBUG("msm_fb_remove\n");
 
 	mfd = (struct msm_fb_data_type *)platform_get_drvdata(pdev);
+
 	if (!mfd)
 		return -ENODEV;
-	if (mfd->key != MFD_KEY)
-		return -EINVAL;
 
-	mutex_lock(&mfd->entry_mutex);
 	msm_fb_pan_idle(mfd);
 
 	msm_fb_remove_sysfs(pdev);
 
 	pm_runtime_disable(mfd->fbi->dev);
+
+	if (mfd->key != MFD_KEY)
+		return -EINVAL;
 
 	if (msm_fb_suspend_sub(mfd))
 		printk(KERN_ERR "msm_fb_remove: can't stop the device %d\n", mfd->index);
@@ -496,8 +496,8 @@ static int msm_fb_remove(struct platform_device *pdev)
 	if (mfd->sub_dir)
 		debugfs_remove(mfd->sub_dir);
 #endif
-	mutex_unlock(&mfd->entry_mutex);
-	return ret;
+
+	return 0;
 }
 
 #if defined(CONFIG_PM) && !defined(CONFIG_HAS_EARLYSUSPEND)
@@ -512,7 +512,7 @@ static int msm_fb_suspend(struct platform_device *pdev, pm_message_t state)
 
 	if ((!mfd) || (mfd->key != MFD_KEY))
 		return 0;
-	mutex_lock(&mfd->entry_mutex);
+
 	msm_fb_pan_idle(mfd);
 
 	console_lock();
@@ -527,7 +527,6 @@ static int msm_fb_suspend(struct platform_device *pdev, pm_message_t state)
 	}
 
 	console_unlock();
-	mutex_unlock(&mfd->entry_mutex);
 	return ret;
 }
 #else
@@ -637,7 +636,7 @@ static int msm_fb_resume(struct platform_device *pdev)
 
 	if ((!mfd) || (mfd->key != MFD_KEY))
 		return 0;
-	mutex_lock(&mfd->entry_mutex);
+
 	msm_fb_pan_idle(mfd);
 
 	console_lock();
@@ -645,7 +644,7 @@ static int msm_fb_resume(struct platform_device *pdev)
 	pdev->dev.power.power_state = PMSG_ON;
 	fb_set_suspend(mfd->fbi, FBINFO_STATE_RUNNING);
 	console_unlock();
-	mutex_unlock(&mfd->entry_mutex);
+
 	return ret;
 }
 #else
@@ -679,7 +678,6 @@ static int msm_fb_ext_suspend(struct device *dev)
 
 	if ((!mfd) || (mfd->key != MFD_KEY))
 		return 0;
-	mutex_lock(&mfd->entry_mutex);
 	msm_fb_pan_idle(mfd);
 
 	pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
@@ -694,7 +692,7 @@ static int msm_fb_ext_suspend(struct device *dev)
 			pdata->power_ctrl(FALSE);
 		}
 	}
-	mutex_unlock(&mfd->entry_mutex);
+
 	return ret;
 }
 
@@ -707,7 +705,6 @@ static int msm_fb_ext_resume(struct device *dev)
 	if ((!mfd) || (mfd->key != MFD_KEY))
 		return 0;
 
-	mutex_lock(&mfd->entry_mutex);
 	msm_fb_pan_idle(mfd);
 
 	pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
@@ -722,7 +719,7 @@ static int msm_fb_ext_resume(struct device *dev)
 
 		ret = msm_fb_resume_sub(mfd);
 	}
-	mutex_unlock(&mfd->entry_mutex);
+
 	return ret;
 }
 #endif
@@ -970,7 +967,6 @@ static void msm_fb_fillrect(struct fb_info *info,
 			    const struct fb_fillrect *rect)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
-	mutex_lock(&mfd->entry_mutex);
 	msm_fb_pan_idle(mfd);
 	cfb_fillrect(info, rect);
 	if (!mfd->hw_refresh && (info->var.yoffset == 0) &&
@@ -985,7 +981,6 @@ static void msm_fb_fillrect(struct fb_info *info,
 
 		msm_fb_pan_display(&var, info);
 	}
-	mutex_unlock(&mfd->entry_mutex);
 }
 
 static void msm_fb_copyarea(struct fb_info *info,
@@ -993,7 +988,6 @@ static void msm_fb_copyarea(struct fb_info *info,
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 
-	mutex_lock(&mfd->entry_mutex);
 	msm_fb_pan_idle(mfd);
 	cfb_copyarea(info, area);
 	if (!mfd->hw_refresh && (info->var.yoffset == 0) &&
@@ -1008,14 +1002,12 @@ static void msm_fb_copyarea(struct fb_info *info,
 
 		msm_fb_pan_display(&var, info);
 	}
-	mutex_unlock(&mfd->entry_mutex);
 }
 
 static void msm_fb_imageblit(struct fb_info *info, const struct fb_image *image)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 
-	mutex_lock(&mfd->entry_mutex);
 	msm_fb_pan_idle(mfd);
 	cfb_imageblit(info, image);
 	if (!mfd->hw_refresh && (info->var.yoffset == 0) &&
@@ -1030,15 +1022,24 @@ static void msm_fb_imageblit(struct fb_info *info, const struct fb_image *image)
 
 		msm_fb_pan_display(&var, info);
 	}
-	mutex_unlock(&mfd->entry_mutex);
 }
 
 static int msm_fb_blank(int blank_mode, struct fb_info *info)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
-	int ret;
 
-	mutex_lock(&mfd->entry_mutex);
+#if defined(CONFIG_MACH_JAGUAR) ||\
+	defined(CONFIG_FB_MSM_MIPI_NOVATEK_CMD_WVGA_PT) ||\
+	defined(CONFIG_FB_MSM_MIPI_NOVATEK_BOE_CMD_WVGA_PT) ||\
+	defined(CONFIG_FB_MSM_MIPI_BOEOT_TFT_VIDEO_WSVGA_PT) ||\
+	defined(CONFIG_FB_MSM_MIPI_SAMSUNG_TFT_VIDEO_WXGA_PT_PANEL)
+
+	/* it has to be removed when LDI fix the gabage screen issue. */
+	if (mfd->panel_info.pdest == DISPLAY_1 &&
+		blank_mode == FB_BLANK_POWERDOWN)
+		return 0;
+#endif
+
 	msm_fb_pan_idle(mfd);
 	if (mfd->op_enable == 0) {
 		if (blank_mode == FB_BLANK_UNBLANK)
@@ -1046,9 +1047,7 @@ static int msm_fb_blank(int blank_mode, struct fb_info *info)
 		else
 			mfd->suspend.panel_power_on = FALSE;
 	}
-	ret = msm_fb_blank_sub(blank_mode, info, mfd->op_enable);
-	mutex_unlock(&mfd->entry_mutex);
-	return ret;
+	return msm_fb_blank_sub(blank_mode, info, mfd->op_enable);
 }
 
 static int msm_fb_set_lut(struct fb_cmap *cmap, struct fb_info *info)
@@ -1074,16 +1073,13 @@ static int msm_fb_mmap(struct fb_info *info, struct vm_area_struct * vma)
 	u32 len = PAGE_ALIGN((start & ~PAGE_MASK) + info->fix.smem_len);
 	unsigned long off = vma->vm_pgoff << PAGE_SHIFT;
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
-	int ret = 0;
-	mutex_lock(&mfd->entry_mutex);
 	msm_fb_pan_idle(mfd);
 	if (off >= len) {
 		/* memory mapped io */
 		off -= len;
 		if (info->var.accel_flags) {
 			mutex_unlock(&info->lock);
-			ret = -EINVAL;
-			goto msm_fb_mmap_exit;
+			return -EINVAL;
 		}
 		start = info->fix.mmio_start;
 		len = PAGE_ALIGN((start & ~PAGE_MASK) + info->fix.mmio_len);
@@ -1091,10 +1087,8 @@ static int msm_fb_mmap(struct fb_info *info, struct vm_area_struct * vma)
 
 	/* Set VM flags. */
 	start &= PAGE_MASK;
-	if ((vma->vm_end - vma->vm_start + off) > len) {
-		ret = -EINVAL;
-		goto msm_fb_mmap_exit;
-	}
+	if ((vma->vm_end - vma->vm_start + off) > len)
+		return -EINVAL;
 	off += start;
 	vma->vm_pgoff = off >> PAGE_SHIFT;
 	/* This is an IO map - tell maydump to skip this VMA */
@@ -1118,13 +1112,10 @@ static int msm_fb_mmap(struct fb_info *info, struct vm_area_struct * vma)
 	/* Remap the frame buffer I/O range */
 	if (io_remap_pfn_range(vma, vma->vm_start, off >> PAGE_SHIFT,
 				vma->vm_end - vma->vm_start,
-				vma->vm_page_prot)) {
-		ret = -EAGAIN;
-		goto msm_fb_mmap_exit;
-	}
-msm_fb_mmap_exit:
-	mutex_unlock(&mfd->entry_mutex);
-	return ret;
+				vma->vm_page_prot))
+		return -EAGAIN;
+
+	return 0;
 }
 
 static struct fb_ops msm_fb_ops = {
@@ -1442,7 +1433,6 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	init_completion(&mfd->msmfb_update_notify);
 	init_completion(&mfd->msmfb_no_update_notify);
 	init_completion(&mfd->commit_comp);
-	mutex_init(&mfd->entry_mutex);
 	mutex_init(&mfd->sync_mutex);
 	INIT_WORK(&mfd->commit_work, msm_fb_commit_wq_handler);
 	mfd->msm_fb_backup = kzalloc(sizeof(struct msm_fb_backup_type),
@@ -1670,17 +1660,15 @@ static int msm_fb_open(struct fb_info *info, int user)
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	int result;
 
-	mutex_lock(&mfd->entry_mutex);
 	result = pm_runtime_get_sync(info->dev);
 
 	if (result < 0) {
 		printk(KERN_ERR "pm_runtime: fail to wake up\n");
 	}
-	result = 0;
+
 	if (info->node == 0 && !(mfd->cont_splash_done)) {	/* primary */
 			mfd->ref_cnt++;
-			result = 0;
-			goto msm_fb_open_exit;
+			return 0;
 	}
 
 	if (!mfd->ref_cnt) {
@@ -1693,15 +1681,12 @@ static int msm_fb_open(struct fb_info *info, int user)
 
 		if (msm_fb_blank_sub(FB_BLANK_UNBLANK, info, TRUE)) {
 			printk(KERN_ERR "msm_fb_open: can't turn on display!\n");
-			result = -1;
-			goto msm_fb_open_exit;
+			return -1;
 		}
 	}
 
 	mfd->ref_cnt++;
-msm_fb_open_exit:
-	mutex_unlock(&mfd->entry_mutex);
-	return result;
+	return 0;
 }
 
 static int msm_fb_release(struct fb_info *info, int user)
@@ -1709,12 +1694,10 @@ static int msm_fb_release(struct fb_info *info, int user)
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	int ret = 0;
 
-	mutex_lock(&mfd->entry_mutex);
 	if (!mfd->ref_cnt) {
 		MSM_FB_INFO("msm_fb_release: try to close unopened fb %d!\n",
 			    mfd->index);
-		ret = -EINVAL;
-		goto msm_fb_release_exit;
+		return -EINVAL;
 	}
 	msm_fb_pan_idle(mfd);
 	mfd->ref_cnt--;
@@ -1724,13 +1707,11 @@ static int msm_fb_release(struct fb_info *info, int user)
 		     msm_fb_blank_sub(FB_BLANK_POWERDOWN, info,
 				      mfd->op_enable)) != 0) {
 			printk(KERN_ERR "msm_fb_release: can't turn off display!\n");
-			goto msm_fb_release_exit;
+			return ret;
 		}
 	}
 
 	pm_runtime_put(info->dev);
-msm_fb_release_exit:
-	mutex_unlock(&mfd->entry_mutex);
 	return ret;
 }
 
@@ -1857,12 +1838,7 @@ static int msm_fb_pan_display_ex(struct fb_var_screeninfo *var,
 static int msm_fb_pan_display(struct fb_var_screeninfo *var,
 			      struct fb_info *info)
 {
-	int ret;
-	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
-	mutex_lock(&mfd->entry_mutex);
-	ret = msm_fb_pan_display_ex(var, info, TRUE);
-	mutex_unlock(&mfd->entry_mutex);
-	return ret;
+	return msm_fb_pan_display_ex(var, info, TRUE);
 }
 
 static int msm_fb_pan_display_sub(struct fb_var_screeninfo *var,
@@ -2125,9 +2101,6 @@ static int msm_fb_set_par(struct fb_info *info)
 	struct fb_var_screeninfo *var = &info->var;
 	int old_imgType;
 	int blank = 0;
-	int ret = 0;
-
-	mutex_lock(&mfd->entry_mutex);
 	msm_fb_pan_idle(mfd);
 	old_imgType = mfd->fb_imgType;
 	switch (var->bits_per_pixel) {
@@ -2156,8 +2129,7 @@ static int msm_fb_set_par(struct fb_info *info)
 		break;
 
 	default:
-		ret = -EINVAL;
-		goto msm_fb_set_par_exit;
+		return -EINVAL;
 	}
 
 	if ((mfd->var_pixclock != var->pixclock) ||
@@ -2178,9 +2150,8 @@ static int msm_fb_set_par(struct fb_info *info)
 		msm_fb_blank_sub(FB_BLANK_POWERDOWN, info, mfd->op_enable);
 		msm_fb_blank_sub(FB_BLANK_UNBLANK, info, mfd->op_enable);
 	}
-msm_fb_set_par_exit:
-	mutex_unlock(&mfd->entry_mutex);
-	return ret;
+
+	return 0;
 }
 
 static int msm_fb_stop_sw_refresher(struct msm_fb_data_type *mfd)
@@ -3687,7 +3658,6 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 	struct msmfb_mdp_pp mdp_pp;
 	struct mdp_buf_sync buf_sync;
 	int ret = 0;
-	mutex_lock(&mfd->entry_mutex);
 	msm_fb_pan_idle(mfd);
 
 	switch (cmd) {
@@ -3768,10 +3738,10 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 #ifndef CONFIG_FB_MSM_MDP40
 		ret = copy_from_user(&ccs_matrix, argp, sizeof(ccs_matrix));
 		if (ret) {
-			pr_err(
-				"%s:MSMFB_SET_CCS_MATRIX ioctl failed\n",
+			printk(KERN_ERR
+				"%s:MSMFB_SET_CCS_MATRIX ioctl failed \n",
 				__func__);
-			goto msm_fb_ioctl_exit;
+			return ret;
 		}
 
 		down(&msm_fb_ioctl_ppp_sem);
@@ -3787,7 +3757,7 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		if (ret) {
 			pr_err("%s:MSMFB_SET_CSC_MATRIX ioctl failed\n",
 				__func__);
-			goto msm_fb_ioctl_exit;
+			return ret;
 		}
 		down(&msm_fb_ioctl_ppp_sem);
 		msmfb_set_color_conv(&csc_matrix);
@@ -3802,10 +3772,10 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 #ifndef CONFIG_FB_MSM_MDP40
 		ret = copy_from_user(&ccs_matrix, argp, sizeof(ccs_matrix)) ;
 		if (ret) {
-			pr_err(
-				"%s:MSMFB_GET_CCS_MATRIX ioctl failed\n",
+			printk(KERN_ERR
+				"%s:MSMFB_GET_CCS_MATRIX ioctl failed \n",
 				 __func__);
-			goto msm_fb_ioctl_exit;
+			return ret;
 		}
 
 		down(&msm_fb_ioctl_ppp_sem);
@@ -3817,10 +3787,10 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = copy_to_user(argp, &ccs_matrix, sizeof(ccs_matrix));
 
 		if (ret)	{
-			pr_err(
-				"%s:MSMFB_GET_CCS_MATRIX ioctl failed\n",
+			printk(KERN_ERR
+				"%s:MSMFB_GET_CCS_MATRIX ioctl failed \n",
 				 __func__);
-			goto msm_fb_ioctl_exit;
+			return ret ;
 		}
 		up(&msm_fb_ioctl_ppp_sem);
 #else
@@ -3845,24 +3815,19 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 			break;
 		}
 #else
-		ret = -EFAULT;
-		goto msm_fb_ioctl_exit;
+		return -EFAULT;
 #endif
 	case MSMFB_SUSPEND_SW_REFRESHER:
-		if (!mfd->panel_power_on) {
-			ret = -EPERM;
-			goto msm_fb_ioctl_exit;
-		}
+		if (!mfd->panel_power_on)
+			return -EPERM;
 
 		mfd->sw_refreshing_enable = FALSE;
 		ret = msm_fb_stop_sw_refresher(mfd);
 		break;
 
 	case MSMFB_RESUME_SW_REFRESHER:
-		if (!mfd->panel_power_on) {
-			ret = -EPERM;
-			goto msm_fb_ioctl_exit;
-		}
+		if (!mfd->panel_power_on)
+			return -EPERM;
 
 		mfd->sw_refreshing_enable = TRUE;
 		ret = msm_fb_resume_sw_refresher(mfd);
@@ -3871,7 +3836,7 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 	case MSMFB_CURSOR:
 		ret = copy_from_user(&cursor, argp, sizeof(cursor));
 		if (ret)
-			goto msm_fb_ioctl_exit;
+			return ret;
 
 		ret = msm_fb_cursor(info, &cursor);
 		break;
@@ -3879,7 +3844,7 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 	case MSMFB_SET_LUT:
 		ret = copy_from_user(&cmap, argp, sizeof(cmap));
 		if (ret)
-			goto msm_fb_ioctl_exit;
+			return ret;
 
 		mutex_lock(&msm_fb_ioctl_lut_sem);
 		ret = msm_fb_set_lut(&cmap, info);
@@ -3887,50 +3852,40 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		break;
 
 	case MSMFB_HISTOGRAM:
-		if (!mfd->panel_power_on) {
-			ret = -EPERM;
-			goto msm_fb_ioctl_exit;
-		}
+		if (!mfd->panel_power_on)
+			return -EPERM;
 
-		if (!mfd->do_histogram) {
-			ret = -ENODEV;
-			goto msm_fb_ioctl_exit;
-		}
+		if (!mfd->do_histogram)
+			return -ENODEV;
 
 		ret = copy_from_user(&hist, argp, sizeof(hist));
 		if (ret)
-			goto msm_fb_ioctl_exit;
+			return ret;
 
 		ret = mfd->do_histogram(info, &hist);
 		break;
 
 	case MSMFB_HISTOGRAM_START:
-		if (!mfd->panel_power_on) {
-			ret = -EPERM;
-			goto msm_fb_ioctl_exit;
-		}
+		if (!mfd->panel_power_on)
+			return -EPERM;
 
-		if (!mfd->do_histogram) {
-			ret = -ENODEV;
-			goto msm_fb_ioctl_exit;
-		}
+		if (!mfd->do_histogram)
+			return -ENODEV;
 
 		ret = copy_from_user(&hist_req, argp, sizeof(hist_req));
 		if (ret)
-			goto msm_fb_ioctl_exit;
+			return ret;
 
 		ret = mdp_histogram_start(&hist_req);
 		break;
 
 	case MSMFB_HISTOGRAM_STOP:
-		if (!mfd->do_histogram) {
-			ret = -ENODEV;
-			goto msm_fb_ioctl_exit;
-		}
+		if (!mfd->do_histogram)
+			return -ENODEV;
 
 		ret = copy_from_user(&block, argp, sizeof(int));
 		if (ret)
-			goto msm_fb_ioctl_exit;
+			return ret;
 
 		ret = mdp_histogram_stop(info, block);
 		break;
@@ -3942,7 +3897,7 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = copy_to_user(argp, &fb_page_protection,
 				sizeof(fb_page_protection));
 		if (ret)
-				goto msm_fb_ioctl_exit;
+				return ret;
 		break;
 
 	case MSMFB_NOTIFY_UPDATE:
@@ -3954,7 +3909,7 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = copy_from_user(&fb_page_protection, argp,
 				sizeof(fb_page_protection));
 		if (ret)
-				goto msm_fb_ioctl_exit;
+				return ret;
 
 		/* Validate the proposed page protection settings. */
 		switch (fb_page_protection.page_protection)	{
@@ -3984,14 +3939,14 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 	case MSMFB_MDP_PP:
 		ret = copy_from_user(&mdp_pp, argp, sizeof(mdp_pp));
 		if (ret)
-			goto msm_fb_ioctl_exit;
+			return ret;
 
 		ret = msmfb_handle_pp_ioctl(mfd, &mdp_pp);
 		break;
 	case MSMFB_BUFFER_SYNC:
 		ret = copy_from_user(&buf_sync, argp, sizeof(buf_sync));
 		if (ret)
-			goto msm_fb_ioctl_exit;
+			return ret;
 
 		ret = msmfb_handle_buf_sync_ioctl(mfd, &buf_sync);
 
@@ -4008,8 +3963,7 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = -EINVAL;
 		break;
 	}
-msm_fb_ioctl_exit:
-	mutex_unlock(&mfd->entry_mutex);
+
 	return ret;
 }
 
