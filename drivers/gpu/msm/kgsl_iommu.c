@@ -28,6 +28,7 @@
 #include "adreno.h"
 #include "kgsl_trace.h"
 
+#ifdef CONFIG_MSM_IOMMU
 static struct kgsl_iommu_unit *get_iommu_unit(struct device *dev)
 {
 	int i, j, k;
@@ -71,7 +72,6 @@ static struct kgsl_iommu_device *get_iommu_device(struct kgsl_iommu_unit *unit,
 	return NULL;
 }
 
-#ifdef CONFIG_MSM_IOMMU
 static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	struct device *dev, unsigned long addr, int flags)
 {
