@@ -271,7 +271,7 @@ void mdp4_dsi_video_vsync_ctrl(struct fb_info *info, int enable)
 	if (vctrl->vsync_irq_enabled == enable)
 		return;
 
-	pr_info("%s: vsync enable=%d\n", __func__, enable);
+	pr_debug("%s: vsync enable=%d\n", __func__, enable);
 
 	vctrl->vsync_irq_enabled = enable;
 
