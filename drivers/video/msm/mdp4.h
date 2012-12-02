@@ -974,7 +974,6 @@ void mdp4_overlay_iommu_unmap_freelist(int mixer);
 void mdp4_overlay_iommu_vsync_cnt(void);
 void mdp4_iommu_unmap(struct mdp4_overlay_pipe *pipe);
 void mdp4_iommu_attach(void);
-void mdp4_iommu_detach(void);
 int mdp4_v4l2_overlay_set(struct fb_info *info, struct mdp_overlay *req,
 		struct mdp4_overlay_pipe **ppipe);
 void mdp4_v4l2_overlay_clear(struct mdp4_overlay_pipe *pipe);

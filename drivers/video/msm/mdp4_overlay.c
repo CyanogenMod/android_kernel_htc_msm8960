@@ -3536,14 +3536,13 @@ static struct {
 	},
 };
 
-static int iommu_enabled;
-
 void mdp4_iommu_attach(void)
 {
+	static int done;
 	struct iommu_domain *domain;
 	int i;
 
-	if (!iommu_enabled) {
+	if (!done) {
 		for (i = 0; i < ARRAY_SIZE(msm_iommu_ctx_names); i++) {
 			int domain_idx;
 			struct device *ctx = msm_iommu_get_ctx(
@@ -3566,38 +3565,7 @@ void mdp4_iommu_attach(void)
 				continue;
 			}
 		}
-		pr_debug("Attached MDP IOMMU device\n");
-		iommu_enabled = 1;
-	}
-}
-
-void mdp4_iommu_detach(void)
-{
-	struct iommu_domain *domain;
-	int i;
-
-	if (!mdp_check_suspended() || mdp4_extn_disp)
-		return;
-
-	if (iommu_enabled) {
-		for (i = 0; i < ARRAY_SIZE(msm_iommu_ctx_names); i++) {
-			int domain_idx;
-			struct device *ctx = msm_iommu_get_ctx(
-				msm_iommu_ctx_names[i].name);
-
-			if (!ctx)
-				continue;
-
-			domain_idx = msm_iommu_ctx_names[i].domain;
-
-			domain = msm_get_iommu_domain(domain_idx);
-			if (!domain)
-				continue;
-
-			iommu_detach_device(domain,	ctx);
-		}
-		pr_debug("Detached MDP IOMMU device\n");
-		iommu_enabled = 0;
+		done = 1;
 	}
 }
 
