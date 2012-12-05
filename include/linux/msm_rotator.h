@@ -31,6 +31,7 @@ struct msm_rotator_img_info {
 	unsigned char   rotations;
 	int enable;
 	unsigned int	downscale_ratio;
+	unsigned int secure;
 };
 
 struct msm_rotator_data_info {
@@ -40,6 +41,7 @@ struct msm_rotator_data_info {
 	unsigned int version_key;
 	struct msmfb_data src_chroma;
 	struct msmfb_data dst_chroma;
+	struct mdp_buf_fence buf_fence;
 };
 
 struct msm_rot_clocks {
