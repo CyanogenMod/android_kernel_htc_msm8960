@@ -874,31 +874,6 @@ end:
 }
 EXPORT_SYMBOL(ion_import);
 
-static int check_vaddr_bounds(unsigned long start, unsigned long end)
-{
-	struct mm_struct *mm = current->active_mm;
-	struct vm_area_struct *vma;
-	int ret = 1;
-
-	if (end < start)
-		goto out;
-
-	down_read(&mm->mmap_sem);
-	vma = find_vma(mm, start);
-	if (vma && vma->vm_start < end) {
-		if (start < vma->vm_start)
-			goto out_up;
-		if (end > vma->vm_end)
-			goto out_up;
-		ret = 0;
-	}
-
-out_up:
-	up_read(&mm->mmap_sem);
-out:
-	return ret;
-}
-
 int ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
 			void *uaddr, unsigned long offset, unsigned long len,
 			unsigned int cmd)
@@ -1485,61 +1460,8 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case ION_IOC_CLEAN_CACHES:
 	case ION_IOC_INV_CACHES:
 	case ION_IOC_CLEAN_INV_CACHES:
-	{
-		struct ion_flush_data data;
-		unsigned long start, end;
-		struct ion_handle *handle = NULL;
-		int ret;
-
-		if (copy_from_user(&data, (void __user *)arg,
-				sizeof(struct ion_flush_data)))
-			return -EFAULT;
-
-		start = (unsigned long) data.vaddr;
-		end = (unsigned long) data.vaddr + data.length;
-
-		if (check_vaddr_bounds(start, end)) {
-			pr_err("%s: virtual address %p is out of bounds\n",
-				__func__, data.vaddr);
-			return -EINVAL;
-		}
-
-		if (!data.handle) {
-			handle = ion_import_fd(client, data.fd);
-			if (IS_ERR_OR_NULL(handle)) {
-				pr_info("%s: Could not import handle: %d\n",
-					__func__, (int)handle);
-				return -EINVAL;
-			}
-		}
-
-		ret = ion_do_cache_op(client,
-					data.handle ? data.handle : handle,
-					data.vaddr, data.offset, data.length,
-					cmd);
-
-		if (!data.handle)
-			ion_free(client, handle);
-
-		break;
-
-	}
 	case ION_IOC_GET_FLAGS:
-	{
-		struct ion_flag_data data;
-		int ret;
-		if (copy_from_user(&data, (void __user *)arg,
-				   sizeof(struct ion_flag_data)))
-			return -EFAULT;
-
-		ret = ion_handle_get_flags(client, data.handle, &data.flags);
-		if (ret < 0)
-			return ret;
-		if (copy_to_user((void __user *)arg, &data,
-				 sizeof(struct ion_flag_data)))
-			return -EFAULT;
-		break;
-	}
+		return client->dev->custom_ioctl(client, cmd, arg);
 	default:
 		return -ENOTTY;
 	}
