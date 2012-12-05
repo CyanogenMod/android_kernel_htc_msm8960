@@ -225,14 +225,6 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 	buffer->heap = heap;
 	kref_init(&buffer->ref);
 
-	//HTC_START Jason Huang 20120530 --- If the buffer will be allocated from ION CP MM heap, force it 1M-alignment.
-	if (heap->id == ION_CP_MM_HEAP_ID)
-	{
-		len = (len + SZ_1M - 1) & ~(SZ_1M - 1);
-		align = SZ_1M;
-	}
-	//HTC_END
-
 	ret = heap->ops->allocate(heap, buffer, len, align, flags);
 	if (ret) {
 		kfree(buffer);
@@ -640,8 +632,6 @@ static struct ion_iommu_map *__ion_iommu_map(struct ion_buffer *buffer,
 	return data;
 
 out:
-	msm_free_iova_address(data->iova_addr, domain_num, partition_num,
-				buffer->size);
 	kfree(data);
 	return ERR_PTR(ret);
 }
@@ -686,22 +676,12 @@ int ion_map_iommu(struct ion_client *client, struct ion_handle *handle,
 	if (!iova_length)
 		iova_length = buffer->size;
 
-	/*HTC_START Jason Huang 20120530 --- Buffers from ION CP MM heap are 1M-alignment,
-	                                     clients may input expected mapped virtual address
-	                                     length which is shorter than the buffer size.*/
-	/*
 	if (buffer->size > iova_length) {
 		pr_debug("%s: iova length %lx is not at least buffer size"
 			" %x\n", __func__, iova_length, buffer->size);
 		ret = -EINVAL;
 		goto out;
 	}
-	*/
-	if (buffer->size > iova_length)
-	{
-		iova_length = buffer->size;
-	}
-	//HTC_END
 
 	if (buffer->size & ~PAGE_MASK) {
 		pr_debug("%s: buffer size %x is not aligned to %lx", __func__,
@@ -1017,19 +997,18 @@ static int ion_debug_client_show(struct seq_file *s, void *unused)
 	struct ion_client *client = s->private;
 	struct rb_node *n;
 
-	seq_printf(s, "%10.10s: %14.14s : %10.10s : %10.10s : %10.10s : %10.10s\n", "heap_name",
-			"size_in_bytes", "handle", "refcount", "buffer", "physical");
+	seq_printf(s, "%16.16s: %16.16s : %16.16s : %16.16s\n", "heap_name",
+			"size_in_bytes", "handle refcount", "buffer");
 	mutex_lock(&client->lock);
 	for (n = rb_first(&client->handles); n; n = rb_next(n)) {
 		struct ion_handle *handle = rb_entry(n, struct ion_handle,
 						     node);
 
-		seq_printf(s, "%10.10s: %14x : %10p : %10d : %10p : %10p\n",
+		seq_printf(s, "%16.16s: %16x : %16d : %16p\n",
 				handle->buffer->heap->name,
 				handle->buffer->size,
-				handle,
 				atomic_read(&handle->ref.refcount),
-				handle->buffer, (void*)handle->buffer->priv_phys);
+				handle->buffer);
 	}
 
 	seq_printf(s, "%16.16s %d\n", "client refcount:",
