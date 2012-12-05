@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2002,2007-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,10 +12,6 @@
  */
 #ifndef __ADRENO_RINGBUFFER_H
 #define __ADRENO_RINGBUFFER_H
-
-#define GSL_RB_USE_MEM_RPTR
-#define GSL_RB_USE_MEM_TIMESTAMP
-#define GSL_DEVICE_SHADOW_MEMSTORE_TO_USER
 
 /*
  * Adreno ringbuffer sizes in bytes - these are converted to
@@ -31,6 +27,7 @@
 
 struct kgsl_device;
 struct kgsl_device_private;
+struct adreno_recovery_data;
 
 #define GSL_RB_MEMPTRS_SCRATCH_COUNT	 8
 struct kgsl_rbmemptrs {
@@ -58,7 +55,8 @@ struct adreno_ringbuffer {
 
 	unsigned int wptr; /* write pointer offset in dwords from baseaddr */
 	unsigned int rptr; /* read pointer offset in dwords from baseaddr */
-	uint32_t timestamp;
+
+	unsigned int timestamp[KGSL_MEMSTORE_MAX];
 };
 
 
@@ -71,39 +69,24 @@ struct adreno_ringbuffer {
 		gpuaddr += sizeof(uint); \
 	} while (0)
 
-/* timestamp */
-#ifdef GSL_DEVICE_SHADOW_MEMSTORE_TO_USER
-#define GSL_RB_USE_MEM_TIMESTAMP
-#endif /* GSL_DEVICE_SHADOW_MEMSTORE_TO_USER */
-
-#ifdef GSL_RB_USE_MEM_TIMESTAMP
 /* enable timestamp (...scratch0) memory shadowing */
 #define GSL_RB_MEMPTRS_SCRATCH_MASK 0x1
-#define GSL_RB_INIT_TIMESTAMP(rb)
-
-#else
-#define GSL_RB_MEMPTRS_SCRATCH_MASK 0x0
-#define GSL_RB_INIT_TIMESTAMP(rb) \
-		adreno_regwrite((rb)->device->id, REG_CP_TIMESTAMP, 0)
-
-#endif /* GSL_RB_USE_MEMTIMESTAMP */
 
 /* mem rptr */
-#ifdef GSL_RB_USE_MEM_RPTR
 #define GSL_RB_CNTL_NO_UPDATE 0x0 /* enable */
 #define GSL_RB_GET_READPTR(rb, data) \
 	do { \
 		*(data) = rb->memptrs->rptr; \
 	} while (0)
-#else
-#define GSL_RB_CNTL_NO_UPDATE 0x1 /* disable */
-#define GSL_RB_GET_READPTR(rb, data) \
-	do { \
-		adreno_regread((rb)->device->id, REG_CP_RB_RPTR, (data)); \
-	} while (0)
-#endif /* GSL_RB_USE_MEMRPTR */
 
 #define GSL_RB_CNTL_POLL_EN 0x0 /* disable */
+
+/*
+ * protected mode error checking below register address 0x800
+ * note: if CP_INTERRUPT packet is used then checking needs
+ * to change to below register address 0x7C8
+ */
+#define GSL_RB_PROTECTED_MODE_CONTROL		0x200001F2
 
 int adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 				struct kgsl_context *context,
@@ -121,20 +104,30 @@ void adreno_ringbuffer_stop(struct adreno_ringbuffer *rb);
 
 void adreno_ringbuffer_close(struct adreno_ringbuffer *rb);
 
-void adreno_ringbuffer_issuecmds(struct kgsl_device *device,
+unsigned int adreno_ringbuffer_issuecmds(struct kgsl_device *device,
+					struct adreno_context *drawctxt,
 					unsigned int flags,
 					unsigned int *cmdaddr,
 					int sizedwords);
 
+void adreno_ringbuffer_issuecmds_intr(struct kgsl_device *device,
+					struct kgsl_context *k_ctxt,
+					unsigned int *cmdaddr,
+					int sizedwords);
+
+void adreno_ringbuffer_submit(struct adreno_ringbuffer *rb);
+
 void kgsl_cp_intrcallback(struct kgsl_device *device);
 
 int adreno_ringbuffer_extract(struct adreno_ringbuffer *rb,
-				unsigned int *temp_rb_buffer,
-				int *rb_size);
+				struct adreno_recovery_data *rec_data);
 
 void
 adreno_ringbuffer_restore(struct adreno_ringbuffer *rb, unsigned int *rb_buff,
 			int num_rb_contents);
+
+unsigned int *adreno_ringbuffer_allocspace(struct adreno_ringbuffer *rb,
+					     unsigned int numcmds);
 
 static inline int adreno_ringbuffer_count(struct adreno_ringbuffer *rb,
 	unsigned int rptr)
@@ -149,6 +142,13 @@ static inline unsigned int adreno_ringbuffer_inc_wrapped(unsigned int val,
 							unsigned int size)
 {
 	return (val + sizeof(unsigned int)) % size;
+}
+
+/* Decrement a value by 4 bytes with wrap-around based on size */
+static inline unsigned int adreno_ringbuffer_dec_wrapped(unsigned int val,
+							unsigned int size)
+{
+	return (val + size - sizeof(unsigned int)) % size;
 }
 
 #endif  /* __ADRENO_RINGBUFFER_H */

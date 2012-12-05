@@ -45,6 +45,9 @@ static struct kgsl_pwrscale_policy *kgsl_pwrscale_policies[] = {
 #ifdef CONFIG_MSM_SLEEP_STATS_DEVICE
 	&kgsl_pwrscale_policy_idlestats,
 #endif
+#ifdef CONFIG_MSM_DCVS
+	&kgsl_pwrscale_policy_msm,
+#endif
 	NULL
 };
 
@@ -81,16 +84,20 @@ static ssize_t pwrscale_policy_show(struct kgsl_device *device, char *buf)
 {
 	int ret;
 
-	if (device->pwrscale.policy)
-		ret = snprintf(buf, PAGE_SIZE, "%s\n",
+	if (device->pwrscale.policy) {
+		ret = snprintf(buf, PAGE_SIZE, "%s",
 			       device->pwrscale.policy->name);
-	else
+		if (device->pwrscale.enabled == 0)
+			ret += snprintf(buf + ret, PAGE_SIZE - ret,
+				" (disabled)");
+		ret += snprintf(buf + ret, PAGE_SIZE - ret, "\n");
+	} else
 		ret = snprintf(buf, PAGE_SIZE, "none\n");
 
 	return ret;
 }
 
-PWRSCALE_ATTR(policy, 0644, pwrscale_policy_show, pwrscale_policy_store);
+PWRSCALE_ATTR(policy, 0664, pwrscale_policy_show, pwrscale_policy_store);
 
 static ssize_t pwrscale_avail_policies_show(struct kgsl_device *device,
 					    char *buf)
@@ -207,36 +214,52 @@ static struct kobj_type ktype_pwrscale = {
 	.release = pwrscale_sysfs_release
 };
 
+#define PWRSCALE_ACTIVE(_d) \
+	((_d)->pwrscale.policy && (_d)->pwrscale.enabled)
+
 void kgsl_pwrscale_sleep(struct kgsl_device *device)
 {
-	if (device->pwrscale.policy && device->pwrscale.policy->sleep)
+	if (PWRSCALE_ACTIVE(device) && device->pwrscale.policy->sleep)
 		device->pwrscale.policy->sleep(device, &device->pwrscale);
 }
 EXPORT_SYMBOL(kgsl_pwrscale_sleep);
 
 void kgsl_pwrscale_wake(struct kgsl_device *device)
 {
-	if (device->pwrscale.policy && device->pwrscale.policy->wake)
+	if (PWRSCALE_ACTIVE(device) && device->pwrscale.policy->wake)
 		device->pwrscale.policy->wake(device, &device->pwrscale);
 }
 EXPORT_SYMBOL(kgsl_pwrscale_wake);
 
 void kgsl_pwrscale_busy(struct kgsl_device *device)
 {
-	if (device->pwrscale.policy && device->pwrscale.policy->busy)
-		if (!device->pwrscale.gpu_busy)
+	if (PWRSCALE_ACTIVE(device) && device->pwrscale.policy->busy)
+		if (device->requested_state != KGSL_STATE_SLUMBER)
 			device->pwrscale.policy->busy(device,
 					&device->pwrscale);
-	device->pwrscale.gpu_busy = 1;
 }
 
-void kgsl_pwrscale_idle(struct kgsl_device *device)
+void kgsl_pwrscale_idle(struct kgsl_device *device, unsigned int ignore_idle)
 {
-	if (device->pwrscale.policy && device->pwrscale.policy->idle)
-		device->pwrscale.policy->idle(device, &device->pwrscale);
-	device->pwrscale.gpu_busy = 0;
+	if (PWRSCALE_ACTIVE(device) && device->pwrscale.policy->idle)
+		if (device->requested_state != KGSL_STATE_SLUMBER &&
+			device->requested_state != KGSL_STATE_SLEEP)
+			device->pwrscale.policy->idle(device,
+					&device->pwrscale, ignore_idle);
 }
 EXPORT_SYMBOL(kgsl_pwrscale_idle);
+
+void kgsl_pwrscale_disable(struct kgsl_device *device)
+{
+	device->pwrscale.enabled = 0;
+}
+EXPORT_SYMBOL(kgsl_pwrscale_disable);
+
+void kgsl_pwrscale_enable(struct kgsl_device *device)
+{
+	device->pwrscale.enabled = 1;
+}
+EXPORT_SYMBOL(kgsl_pwrscale_enable);
 
 int kgsl_pwrscale_policy_add_files(struct kgsl_device *device,
 				   struct kgsl_pwrscale *pwrscale,
@@ -306,6 +329,9 @@ int kgsl_pwrscale_attach_policy(struct kgsl_device *device,
 		_kgsl_pwrscale_detach_policy(device);
 
 	device->pwrscale.policy = policy;
+
+	/* Pwrscale is enabled by default at attach time */
+	kgsl_pwrscale_enable(device);
 
 	if (policy) {
 		ret = device->pwrscale.policy->init(device, &device->pwrscale);

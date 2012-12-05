@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,7 +47,6 @@ struct kgsl_tlbflushfilter {
 struct kgsl_gpummu_pt {
 	struct kgsl_memdesc  base;
 	unsigned int   last_superpte;
-	unsigned int tlb_flags;
 	/* Maintain filter to manage tlb flushing */
 	struct kgsl_tlbflushfilter tlbflushfilter;
 };
@@ -73,13 +72,7 @@ struct kgsl_ptpool {
 	int chunks;
 };
 
-void *kgsl_gpummu_ptpool_init(int ptsize,
-			int entries);
+void *kgsl_gpummu_ptpool_init(int entries);
 void kgsl_gpummu_ptpool_destroy(void *ptpool);
 
-static inline unsigned int kgsl_pt_get_base_addr(struct kgsl_pagetable *pt)
-{
-	struct kgsl_gpummu_pt *gpummu_pt = pt->priv;
-	return gpummu_pt->base.gpuaddr;
-}
 #endif /* __KGSL_GPUMMU_H */
