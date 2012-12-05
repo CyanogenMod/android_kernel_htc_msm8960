@@ -216,10 +216,8 @@ int mdp_hw_cursor_update(struct fb_info *info, struct fb_cursor *cursor)
 	if (cursor->set & FB_CUR_SETIMAGE) {
 		ret = copy_from_user(mfd->cursor_buf, img->data,
 					img->width*img->height*4);
-		if (ret) {
-			mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+		if (ret)
 			return ret;
-		}
 
 		if (img->bg_color == 0xffffffff)
 			transp_en = 0;

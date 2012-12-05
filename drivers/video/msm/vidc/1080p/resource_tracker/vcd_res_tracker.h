@@ -28,6 +28,7 @@
 
 #define RESTRK_1080P_MIN_PERF_LEVEL RESTRK_1080P_VGA_PERF_LEVEL
 #define RESTRK_1080P_MAX_PERF_LEVEL RESTRK_1080P_1080P_PERF_LEVEL
+#define RESTRK_1080P_TURBO_PERF_LEVEL (RESTRK_1080P_MAX_PERF_LEVEL + 1)
 
 struct res_trk_context {
 	struct device *device;
@@ -58,21 +59,20 @@ struct res_trk_context {
 	struct mutex secure_lock;
 };
 
-/*HTC_START*/
-extern u32 vidc_msg_debug;
-#define VCDRES_MSG_LOW(xx_fmt...)			\
-    if (vidc_msg_debug) {				\
-	printk(KERN_INFO "\n\t* [VID] " xx_fmt);	\
-    }
+#if DEBUG
 
-#define VCDRES_MSG_MED(xx_fmt...)			\
-    if (vidc_msg_debug) {				\
-	printk(KERN_INFO "\n  * [VID] " xx_fmt);	\
-    }
+#define VCDRES_MSG_LOW(xx_fmt...)	printk(KERN_INFO "\n\t* " xx_fmt)
+#define VCDRES_MSG_MED(xx_fmt...)	printk(KERN_INFO "\n  * " xx_fmt)
 
+#else
 
-#define VCDRES_MSG_HIGH(xx_fmt...)	printk(KERN_WARNING "\n [VID]" xx_fmt)
-#define VCDRES_MSG_ERROR(xx_fmt...)	printk(KERN_ERR "\n [VID] err: " xx_fmt)
-#define VCDRES_MSG_FATAL(xx_fmt...)	printk(KERN_ERR "\n [VID] <FATAL> " xx_fmt)
-/*HTC_END*/
+#define VCDRES_MSG_LOW(xx_fmt...)
+#define VCDRES_MSG_MED(xx_fmt...)
+
+#endif
+
+#define VCDRES_MSG_HIGH(xx_fmt...)	printk(KERN_WARNING "\n" xx_fmt)
+#define VCDRES_MSG_ERROR(xx_fmt...)	printk(KERN_ERR "\n err: " xx_fmt)
+#define VCDRES_MSG_FATAL(xx_fmt...)	printk(KERN_ERR "\n<FATAL> " xx_fmt)
+
 #endif

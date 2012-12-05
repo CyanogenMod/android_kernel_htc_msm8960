@@ -75,10 +75,10 @@ u32 vcd_sched_add_client(struct vcd_clnt_ctxt *cctxt)
 	if (!cctxt) {
 		VCD_MSG_ERROR("%s(): Invalid parameter", __func__);
 		rc = VCD_ERR_ILLEGAL_PARM;
-	} else if (cctxt->sched_clnt_hdl) {
+	} else if (cctxt->sched_clnt_hdl)
 		VCD_MSG_HIGH(
 			"%s(): Scheduler client already exists!", __func__);
-	} else {
+	else {
 		sched_cctxt = (struct vcd_sched_clnt_ctx *)
 			kmalloc(sizeof(struct vcd_sched_clnt_ctx),
 					GFP_KERNEL);

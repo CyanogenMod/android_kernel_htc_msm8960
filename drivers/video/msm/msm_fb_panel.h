@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +38,7 @@ typedef struct panel_id_s {
 #define MIPI_VIDEO_PANEL	8	/* MIPI */
 #define MIPI_CMD_PANEL		9	/* MIPI */
 #define WRITEBACK_PANEL		10	/* Wifi display */
+#define LVDS_PANEL		11	/* LVDS */
 
 /* panel class */
 typedef enum {
@@ -77,10 +78,15 @@ struct lcdc_panel_info {
 	__u32 border_clr;
 	__u32 underflow_clr;
 	__u32 hsync_skew;
+	/* Pad width */
+	uint32 xres_pad;
+	/* Pad height */
+	uint32 yres_pad;
 };
 
 struct mddi_panel_info {
 	__u32 vdopkt;
+	boolean is_type1;
 };
 
 struct mipi_panel_info {
@@ -123,14 +129,12 @@ struct mipi_panel_info {
 	char mdp_trigger;
 	char dma_trigger;
 	uint32 dsi_pclk_rate;
+	/* byte to esc clk ratio */
+	uint32 esc_byte_ratio;
 	/* The packet-size should not bet changed */
 	char no_max_pkt_size;
 	/* Clock required during LP commands */
 	char force_clk_lane_hs;
-	/* Pad width */
-	uint32 xres_pad;
-	/* Pad height */
-	uint32 yres_pad;
 };
 
 struct msm_panel_info {
@@ -151,16 +155,13 @@ struct msm_panel_info {
 	__u32 clk_max;
 	__u32 frame_count;
 	__u32 is_3d_panel;
+	__u32 frame_rate;
 
-	__u32 width;
-	__u32 height;
 
 	struct mddi_panel_info mddi;
 	struct lcd_panel_info lcd;
 	struct lcdc_panel_info lcdc;
-
 	struct mipi_panel_info mipi;
-	struct gamma_curvy panel_char;
 };
 
 #define MSM_FB_SINGLE_MODE_PANEL(pinfo)		\
@@ -175,21 +176,13 @@ struct msm_fb_panel_data {
 	void (*set_rect) (int x, int y, int xres, int yres);
 	void (*set_vsync_notifier) (msm_fb_vsync_handler_type, void *arg);
 	void (*set_backlight) (struct msm_fb_data_type *);
-	void (*display_on) (struct msm_fb_data_type *);
-#ifdef CONFIG_FB_MSM_CABC
-	void (*enable_cabc) (int, bool, struct msm_fb_data_type *);
-#endif
+
 	/* function entry chain */
 	int (*on) (struct platform_device *pdev);
 	int (*off) (struct platform_device *pdev);
+	int (*power_ctrl) (boolean enable);
 	struct platform_device *next;
 	int (*clk_func) (int enable);
-#if defined CONFIG_FB_MSM_SELF_REFRESH
-	void (*self_refresh_switch) (int enable);
-#endif
-#if defined (CONFIG_MSM_AUTOBL_ENABLE)
-	int (*autobl_enable) (int on, struct msm_fb_data_type *);
-#endif
 };
 
 /*===========================================================================

@@ -42,13 +42,11 @@ extern uint32 mdp_hw_revision;
 extern ulong mdp4_display_intf;
 extern spinlock_t mdp_spin_lock;
 extern int mdp_rev;
-#if 1 /* HTC_CSP_START */
-extern atomic_t need_soft_reset;
-#endif /* HTC_CSP_END */
+extern struct mdp_csc_cfg mdp_csc_convert[4];
 
 extern struct workqueue_struct *mdp_hist_wq;
-extern struct work_struct mdp_histogram_worker;
-extern boolean mdp_is_hist_valid;
+
+extern uint32 mdp_intr_mask;
 
 #define MDP4_REVISION_V1		0
 #define MDP4_REVISION_V2		1
@@ -78,7 +76,8 @@ extern boolean mdp_is_hist_valid;
 
 struct mdp_buf_type {
 	struct ion_handle *ihdl;
-	u32 phys_addr;
+	u32 write_addr;
+	u32 read_addr;
 	u32 size;
 };
 
@@ -89,6 +88,16 @@ struct mdp_table_entry {
 
 extern struct mdp_ccs mdp_ccs_yuv2rgb ;
 extern struct mdp_ccs mdp_ccs_rgb2yuv ;
+extern unsigned char hdmi_prim_display;
+
+struct vsync {
+	ktime_t vsync_time;
+	struct device *dev;
+	struct work_struct vsync_work;
+	int vsync_irq_enabled;
+};
+
+extern struct vsync vsync_cntrl;
 
 /*
  * MDP Image Structure
@@ -227,11 +236,45 @@ struct mdp_dma_data {
 	struct completion dmap_comp;
 };
 
-struct mdp_reg {
-	uint32_t reg;
-	uint32_t val;
-	uint32_t mask;
+extern struct list_head mdp_hist_lut_list;
+extern struct mutex mdp_hist_lut_list_mutex;
+struct mdp_hist_lut_mgmt {
+	uint32_t block;
+	struct mutex lock;
+	struct list_head list;
 };
+
+struct mdp_hist_lut_info {
+	uint32_t block;
+	boolean is_enabled, has_sel_update;
+	int bank_sel;
+};
+
+struct mdp_hist_mgmt {
+	uint32_t block;
+	uint32_t irq_term;
+	uint32_t base;
+	struct completion mdp_hist_comp;
+	struct mutex mdp_hist_mutex;
+	struct mutex mdp_do_hist_mutex;
+	boolean mdp_is_hist_start, mdp_is_hist_data;
+	boolean mdp_is_hist_valid, mdp_is_hist_init;
+	uint8_t frame_cnt, bit_mask, num_bins;
+	struct work_struct mdp_histogram_worker;
+	struct mdp_histogram_data *hist;
+	uint32_t *c0, *c1, *c2;
+	uint32_t *extra_info;
+};
+
+enum {
+	MDP_HIST_MGMT_DMA_P = 0,
+	MDP_HIST_MGMT_DMA_S,
+	MDP_HIST_MGMT_VG_1,
+	MDP_HIST_MGMT_VG_2,
+	MDP_HIST_MGMT_MAX,
+};
+
+extern struct mdp_hist_mgmt *mdp_hist_mgmt_array[];
 
 #define MDP_CMD_DEBUG_ACCESS_BASE   (MDP_BASE+0x10000)
 
@@ -243,9 +286,17 @@ struct mdp_reg {
 #ifdef CONFIG_FB_MSM_MDP40
 #define MDP_OVERLAY0_TERM 0x20
 #define MDP_OVERLAY1_TERM 0x40
+#define MDP_DMAP_TERM MDP_DMA2_TERM	/* dmap == dma2 */
+#define MDP_PRIM_VSYNC_TERM 0x100
+#define MDP_EXTER_VSYNC_TERM 0x200
+#define MDP_PRIM_RDPTR_TERM 0x400
 #endif
-#define MDP_HISTOGRAM_TERM 0x80
-#define MDP_OVERLAY2_TERM 0x100
+#define MDP_OVERLAY2_TERM 0x80
+#define MDP_HISTOGRAM_TERM_DMA_P 0x10000
+#define MDP_HISTOGRAM_TERM_DMA_S 0x20000
+#define MDP_HISTOGRAM_TERM_VG_1 0x40000
+#define MDP_HISTOGRAM_TERM_VG_2 0x80000
+#define MDP_VSYNC_TERM 0x1000
 
 #define ACTIVE_START_X_EN BIT(31)
 #define ACTIVE_START_Y_EN BIT(31)
@@ -265,6 +316,7 @@ struct mdp_reg {
 #define MDP_PPP_DONE 				BIT(0)
 #define TV_OUT_DMA3_DONE    BIT(6)
 #define TV_ENC_UNDERRUN     BIT(7)
+#define MDP_PRIM_RDPTR      BIT(8)
 #define TV_OUT_DMA3_START   BIT(13)
 #define MDP_HIST_DONE       BIT(20)
 
@@ -600,6 +652,10 @@ struct mdp_reg {
 #define MDDI_VDO_PACKET_DESC	 0x5666	/* 18 bits */
 #define MDDI_VDO_PACKET_DESC_24  0x5888
 
+#define MDP_HIST_INTR_STATUS_OFF	(0x0014)
+#define MDP_HIST_INTR_CLEAR_OFF		(0x0018)
+#define MDP_HIST_INTR_ENABLE_OFF	(0x001C)
+
 #ifdef CONFIG_FB_MSM_MDP40
 #define MDP_INTR_ENABLE		(msm_mdp_base + 0x0050)
 #define MDP_INTR_STATUS		(msm_mdp_base + 0x0054)
@@ -611,6 +667,7 @@ struct mdp_reg {
 #define MDP_DMA_P_HIST_INTR_STATUS 	(msm_mdp_base + 0x95014)
 #define MDP_DMA_P_HIST_INTR_CLEAR 	(msm_mdp_base + 0x95018)
 #define MDP_DMA_P_HIST_INTR_ENABLE 	(msm_mdp_base + 0x9501C)
+
 #else
 #define MDP_INTR_ENABLE		(msm_mdp_base + 0x0020)
 #define MDP_INTR_STATUS		(msm_mdp_base + 0x0024)
@@ -662,6 +719,7 @@ struct mdp_reg {
 void mdp_hw_init(void);
 int mdp_ppp_pipe_wait(void);
 void mdp_pipe_kickoff(uint32 term, struct msm_fb_data_type *mfd);
+void mdp_clk_ctrl(int on);
 void mdp_pipe_ctrl(MDP_BLOCK_TYPE block, MDP_BLOCK_POWER_STATE state,
 		   boolean isr);
 void mdp_set_dma_pan_info(struct fb_info *info, struct mdp_dirty_region *dirty,
@@ -674,7 +732,8 @@ void mdp_vsync_resync_workqueue_handler(struct work_struct *work);
 void mdp_dma2_update(struct msm_fb_data_type *mfd);
 void mdp_vsync_cfg_regs(struct msm_fb_data_type *mfd,
 	boolean first_time);
-void mdp_config_vsync(struct msm_fb_data_type *);
+void mdp_config_vsync(struct platform_device *pdev,
+	struct msm_fb_data_type *mfd);
 uint32 mdp_get_lcd_line_counter(struct msm_fb_data_type *mfd);
 enum hrtimer_restart mdp_dma2_vsync_hrtimer_handler(struct hrtimer *ht);
 void mdp_set_scale(MDPIBUF *iBuf,
@@ -708,7 +767,50 @@ int mdp_dsi_video_on(struct platform_device *pdev);
 int mdp_dsi_video_off(struct platform_device *pdev);
 void mdp_dsi_video_update(struct msm_fb_data_type *mfd);
 void mdp3_dsi_cmd_dma_busy_wait(struct msm_fb_data_type *mfd);
+static inline int mdp4_dsi_cmd_off(struct platform_device *pdev)
+{
+	return 0;
+}
+static inline int mdp4_dsi_video_off(struct platform_device *pdev)
+{
+	return 0;
+}
+static inline int mdp4_lcdc_off(struct platform_device *pdev)
+{
+	return 0;
+}
+static inline int mdp4_mddi_off(struct platform_device *pdev)
+{
+	return 0;
+}
+static inline int mdp4_dsi_cmd_on(struct platform_device *pdev)
+{
+	return 0;
+}
+static inline int mdp4_dsi_video_on(struct platform_device *pdev)
+{
+	return 0;
+}
+static inline int mdp4_lcdc_on(struct platform_device *pdev)
+{
+	return 0;
+}
+static inline int mdp4_mddi_on(struct platform_device *pdev)
+{
+	return 0;
+}
 #endif
+
+
+#ifndef CONFIG_FB_MSM_MDDI
+static inline void mdp4_mddi_rdptr_init(int cndx)
+{
+	/* empty */
+}
+
+#endif
+
+void set_cont_splashScreen_status(int);
 
 int mdp_hw_cursor_update(struct fb_info *info, struct fb_cursor *cursor);
 #if defined(CONFIG_FB_MSM_OVERLAY) && defined(CONFIG_FB_MSM_MDP40)
@@ -726,16 +828,29 @@ void mdp_disable_irq(uint32 term);
 void mdp_disable_irq_nosync(uint32 term);
 int mdp_get_bytes_per_pixel(uint32_t format,
 				 struct msm_fb_data_type *mfd);
-int mdp_set_core_clk(uint16 perf_level);
+int mdp_set_core_clk(u32 rate);
+int mdp_clk_round_rate(u32 rate);
+
 unsigned long mdp_get_core_clk(void);
 unsigned long mdp_perf_level2clk_rate(uint32 perf_level);
 
 #ifdef CONFIG_MSM_BUS_SCALING
 int mdp_bus_scale_update_request(uint32_t index);
-int mdp_bus_scale_table_num(void);
+#else
+static inline int mdp_bus_scale_update_request(uint32_t index)
+{
+	return 0;
+}
 #endif
+void mdp_dma_vsync_ctrl(int enable);
+void mdp_dma_video_vsync_ctrl(int enable);
+void mdp_dma_lcdc_vsync_ctrl(int enable);
+void mdp3_vsync_irq_enable(int intr, int term);
+void mdp3_vsync_irq_disable(int intr, int term);
 
 #ifdef MDP_HW_VSYNC
+void vsync_clk_prepare_enable(void);
+void vsync_clk_disable_unprepare(void);
 void mdp_hw_vsync_clk_enable(struct msm_fb_data_type *mfd);
 void mdp_hw_vsync_clk_disable(struct msm_fb_data_type *mfd);
 void mdp_vsync_clk_disable(void);
@@ -747,11 +862,15 @@ int mdp_debugfs_init(void);
 #endif
 
 void mdp_dma_s_update(struct msm_fb_data_type *mfd);
-int mdp_start_histogram(struct fb_info *info);
-int mdp_stop_histogram(struct fb_info *info);
-int mdp_histogram_ctrl(boolean en);
-void __mdp_histogram_kickoff(void);
-void __mdp_histogram_reset(void);
+int mdp_histogram_start(struct mdp_histogram_start_req *req);
+int mdp_histogram_stop(struct fb_info *info, uint32_t block);
+int mdp_histogram_ctrl(boolean en, uint32_t block);
+int mdp_histogram_ctrl_all(boolean en);
+int mdp_histogram_block2mgmt(uint32_t block, struct mdp_hist_mgmt **mgmt);
+void mdp_histogram_handle_isr(struct mdp_hist_mgmt *mgmt);
+void __mdp_histogram_kickoff(struct mdp_hist_mgmt *mgmt);
+void __mdp_histogram_reset(struct mdp_hist_mgmt *mgmt);
+unsigned int mdp_check_suspended(void);
 void mdp_footswitch_ctrl(boolean on);
 
 #ifdef CONFIG_FB_MSM_MDP303
@@ -772,6 +891,29 @@ static inline int mdp4_overlay_dsi_state_get(void)
 {
 	return 0;
 }
+static inline void mdp4_iommu_detach(void)
+{
+	/*empty */
+}
 #endif
+
+void mdp_vid_quant_set(void);
+#ifndef CONFIG_FB_MSM_MDP40
+static inline void mdp_dsi_cmd_overlay_suspend(struct msm_fb_data_type *mfd)
+{
+	/* empty */
+}
+static inline int msmfb_overlay_vsync_ctrl(struct fb_info *info,
+						void __user *argp)
+{
+	return 0;
+}
+#endif
+
+int mdp_ppp_v4l2_overlay_set(struct fb_info *info, struct mdp_overlay *req);
+int mdp_ppp_v4l2_overlay_clear(void);
+int mdp_ppp_v4l2_overlay_play(struct fb_info *info,
+	unsigned long srcp0_addr, unsigned long srcp0_size,
+	unsigned long srcp1_addr, unsigned long srcp1_size);
 
 #endif /* MDP_H */

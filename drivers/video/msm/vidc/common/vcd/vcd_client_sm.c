@@ -96,8 +96,8 @@ static u32 vcd_encode_start_in_open(struct vcd_clnt_ctxt *cctxt)
 		 cctxt->in_buf_pool.validated != cctxt->in_buf_pool.count) ||
 	    cctxt->out_buf_pool.validated !=
 	    cctxt->out_buf_pool.count) {
-		VCD_MSG_HIGH("%s: Buffer pool is not completely setup yet",
-			__func__);
+		VCD_MSG_ERROR("Buffer pool is not completely setup yet");
+		return VCD_ERR_BAD_STATE;
 	}
 
 	rc = vcd_sched_add_client(cctxt);
@@ -213,11 +213,11 @@ static u32 vcd_decode_frame_cmn
 	return vcd_handle_input_frame(cctxt, input_frame);
 }
 
-static u32 vcd_pause_in_run(struct vcd_clnt_ctxt *cctxt)
+static u32 vcd_pause_cmn(struct vcd_clnt_ctxt *cctxt)
 {
 	u32 rc = VCD_S_SUCCESS;
 
-	VCD_MSG_LOW("vcd_pause_in_run:");
+	VCD_MSG_LOW("vcd_pause_cmn:");
 
 	if (cctxt->sched_clnt_hdl) {
 		rc = vcd_sched_suspend_resume_clnt(cctxt, false);
@@ -542,30 +542,30 @@ static u32 vcd_set_property_cmn
 			break;
 		}
 	case VCD_I_INTRA_PERIOD:
-		{
-			struct vcd_property_i_period *iperiod =
-				(struct vcd_property_i_period *)prop_val;
-			cctxt->bframe = iperiod->b_frames;
-			break;
-		}
+	   {
+		  struct vcd_property_i_period *iperiod =
+			 (struct vcd_property_i_period *)prop_val;
+		  cctxt->bframe = iperiod->b_frames;
+		  break;
+	   }
 	case VCD_REQ_PERF_LEVEL:
 		rc = vcd_req_perf_level(cctxt,
-				(struct vcd_property_perf_level *)prop_val);
+			(struct vcd_property_perf_level *)prop_val);
 		break;
 	case VCD_I_VOP_TIMING_CONSTANT_DELTA:
-		{
-			struct vcd_property_vop_timing_constant_delta *delta =
-				prop_val;
-
-			if (delta->constant_delta > 0) {
-				cctxt->time_frame_delta = delta->constant_delta;
-				rc = VCD_S_SUCCESS;
-			} else {
-				VCD_MSG_ERROR("Frame delta must be positive");
-				rc = VCD_ERR_ILLEGAL_PARM;
-			}
-			break;
-		}
+	   {
+		   struct vcd_property_vop_timing_constant_delta *delta =
+			   (struct vcd_property_vop_timing_constant_delta *)
+			   prop_val;
+		   if (delta->constant_delta > 0) {
+			cctxt->time_frame_delta = delta->constant_delta;
+			rc = VCD_S_SUCCESS;
+		   } else {
+			VCD_MSG_ERROR("Frame delta must be positive");
+			rc = VCD_ERR_ILLEGAL_PARM;
+		   }
+		   break;
+	   }
 	default:
 		{
 			break;
@@ -1613,27 +1613,19 @@ void vcd_do_client_state_transition(struct vcd_clnt_ctxt *cctxt,
 {
 	struct vcd_clnt_state_ctxt *state_ctxt;
 
-	/* HTC_START (klockwork issue)*/
 	if (!cctxt || to_state >= VCD_CLIENT_STATE_MAX) {
 		VCD_MSG_ERROR("Bad parameters. cctxt=%p, to_state=%d",
 			      cctxt, to_state);
-		if(!cctxt)
-			return;
 	}
-	/* HTC_END */
 
 	state_ctxt = &cctxt->clnt_state;
 
-	/* HTC_START (klockwork issue)*/
-	if (state_ctxt->state) {
-		if (state_ctxt->state == to_state) {
-			VCD_MSG_HIGH("Client already in requested to_state=%d",
+	if (state_ctxt->state == to_state) {
+		VCD_MSG_HIGH("Client already in requested to_state=%d",
 			     to_state);
 
-			return;
-		}
+		return;
 	}
-	/* HTC_END */
 
 	VCD_MSG_MED("vcd_do_client_state_transition: C%d -> C%d, for api %d",
 		    (int)state_ctxt->state, (int)to_state, ev_code);
@@ -1711,7 +1703,7 @@ static const struct vcd_clnt_state_table vcd_clnt_table_run = {
 	 vcd_encode_frame_cmn,
 	 vcd_decode_start_in_run,
 	 vcd_decode_frame_cmn,
-	 vcd_pause_in_run,
+	 vcd_pause_cmn,
 	 NULL,
 	 vcd_flush_cmn,
 	 vcd_stop_in_run,
@@ -1786,7 +1778,7 @@ static const struct vcd_clnt_state_table vcd_clnt_table_eos = {
 	 vcd_encode_frame_cmn,
 	 NULL,
 	 vcd_decode_frame_cmn,
-	 NULL,
+	 vcd_pause_cmn,
 	 NULL,
 	 vcd_flush_in_eos,
 	 vcd_stop_in_eos,

@@ -52,8 +52,8 @@
 #define VCD_I_DISABLE_DMX_SUPPORT (VCD_START_BASE + 0x24)
 #define VCD_I_ENABLE_SPS_PPS_FOR_IDR (VCD_START_BASE + 0x25)
 #define VCD_REQ_PERF_LEVEL (VCD_START_BASE + 0x26)
-#define VCD_I_SLICE_DELIVERY_MODE (VCD_START_BASE + 0x27)
-#define VCD_I_VOP_TIMING_CONSTANT_DELTA (VCD_START_BASE + 0x28)
+#define VCD_I_VOP_TIMING_CONSTANT_DELTA (VCD_START_BASE + 0x27)
+#define VCD_I_SLICE_DELIVERY_MODE (VCD_START_BASE + 0x28)
 
 #define VCD_START_REQ      (VCD_START_BASE + 0x1000)
 #define VCD_I_REQ_IFRAME   (VCD_START_REQ + 0x1)
@@ -99,6 +99,7 @@ enum vcd_perf_level {
 	VCD_PERF_LEVEL0,
 	VCD_PERF_LEVEL1,
 	VCD_PERF_LEVEL2,
+	VCD_PERF_LEVEL_TURBO,
 };
 
 #define VCD_METADATA_DATANONE       0x001
@@ -302,7 +303,7 @@ struct vcd_property_vop_timing {
 };
 
 struct vcd_property_vop_timing_constant_delta {
-	u32 constant_delta; /*In usecs */
+      u32 constant_delta; /*In usecs */
 };
 
 struct vcd_property_short_header {

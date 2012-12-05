@@ -20,7 +20,6 @@
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MAP_TABLE_SZ 64
 #define VCD_ENC_MAX_OUTBFRS_PER_FRAME 8
-#define MAX_DEC_TIME 33
 
 struct vcd_msm_map_buffer {
 	phys_addr_t phy_addr;
@@ -41,6 +40,8 @@ static int vcd_pmem_alloc(size_t sz, u8 **kernel_vaddr, u8 **phy_addr,
 	unsigned long buffer_size = 0;
 	int ret = 0;
 	unsigned long ionflag = 0;
+	ion_phys_addr_t phyaddr = 0;
+	size_t len = 0;
 
 	if (!kernel_vaddr || !phy_addr || !cctxt) {
 		pr_err("\n%s: Invalid parameters", __func__);
@@ -84,11 +85,14 @@ static int vcd_pmem_alloc(size_t sz, u8 **kernel_vaddr, u8 **phy_addr,
 		}
 		*phy_addr = (u8 *) mapped_buffer->iova[0];
 		*kernel_vaddr = (u8 *) mapped_buffer->vaddr;
+		VCD_MSG_LOW("vcd_pmem_alloc: phys(0x%x), virt(0x%x), "\
+			"sz(%u), flags(0x%x)", (u32)*phy_addr,
+			(u32)*kernel_vaddr, sz, (u32)flags);
 	} else {
 		map_buffer->alloc_handle = ion_alloc(
 			    cctxt->vcd_ion_client, sz, SZ_4K,
 			    memtype);
-		if (!map_buffer->alloc_handle) {
+		if (IS_ERR_OR_NULL(map_buffer->alloc_handle)) {
 			pr_err("%s() ION alloc failed", __func__);
 			goto bailout;
 		}
@@ -106,7 +110,8 @@ static int vcd_pmem_alloc(size_t sz, u8 **kernel_vaddr, u8 **phy_addr,
 			pr_err("%s() ION map failed", __func__);
 			goto ion_free_bailout;
 		}
-		ret = ion_map_iommu(cctxt->vcd_ion_client,
+		if (res_trk_get_core_type() != (u32)VCD_CORE_720P) {
+			ret = ion_map_iommu(cctxt->vcd_ion_client,
 				map_buffer->alloc_handle,
 				VIDEO_DOMAIN,
 				VIDEO_MAIN_POOL,
@@ -115,18 +120,32 @@ static int vcd_pmem_alloc(size_t sz, u8 **kernel_vaddr, u8 **phy_addr,
 				(unsigned long *)&iova,
 				(unsigned long *)&buffer_size,
 				UNCACHED, 0);
-		if (ret) {
-			pr_err("%s() ION iommu map failed", __func__);
-			goto ion_map_bailout;
+			if (ret) {
+				pr_err("%s() ION iommu map failed", __func__);
+				goto ion_map_bailout;
+			}
+			map_buffer->phy_addr = iova;
+		} else {
+			ret = ion_phys(cctxt->vcd_ion_client,
+				map_buffer->alloc_handle,
+				&phyaddr,
+				&len);
+			if (ret) {
+				pr_err("%s() ion_phys failed", __func__);
+				goto ion_map_bailout;
+			}
+			map_buffer->phy_addr = phyaddr;
 		}
-		map_buffer->phy_addr = iova;
 		if (!map_buffer->phy_addr) {
 			pr_err("%s() acm alloc failed", __func__);
 			goto free_map_table;
 		}
-		*phy_addr = (u8 *)iova;
+		*phy_addr = (u8 *)map_buffer->phy_addr;
 		mapped_buffer = NULL;
 		map_buffer->mapped_buffer = NULL;
+		VCD_MSG_LOW("vcd_ion_alloc: phys(0x%x), virt(0x%x), "\
+			"sz(%u), ionflags(0x%x)", (u32)*phy_addr,
+			(u32)*kernel_vaddr, sz, (u32)ionflag);
 	}
 
 	return 0;
@@ -176,10 +195,13 @@ static int vcd_pmem_free(u8 *kernel_vaddr, u8 *phy_addr,
 	if (map_buffer->mapped_buffer)
 		msm_subsystem_unmap_buffer(map_buffer->mapped_buffer);
 	if (cctxt->vcd_enable_ion) {
+		VCD_MSG_LOW("vcd_ion_free: phys(0x%x), virt(0x%x)",
+			(u32)phy_addr, (u32)kernel_vaddr);
 		if (map_buffer->alloc_handle) {
 			ion_unmap_kernel(cctxt->vcd_ion_client,
 					map_buffer->alloc_handle);
-			ion_unmap_iommu(cctxt->vcd_ion_client,
+			if (res_trk_get_core_type() != (u32)VCD_CORE_720P)
+				ion_unmap_iommu(cctxt->vcd_ion_client,
 					map_buffer->alloc_handle,
 					VIDEO_DOMAIN,
 					VIDEO_MAIN_POOL);
@@ -187,6 +209,8 @@ static int vcd_pmem_free(u8 *kernel_vaddr, u8 *phy_addr,
 			map_buffer->alloc_handle);
 		}
 	} else {
+		VCD_MSG_LOW("vcd_pmem_free: phys(0x%x), virt(0x%x)",
+			(u32)phy_addr, (u32)kernel_vaddr);
 		free_contiguous_memory_by_paddr(
 			(unsigned long)map_buffer->phy_addr);
 	}
@@ -745,7 +769,8 @@ u32 vcd_free_one_buffer_internal(
 		return VCD_ERR_ILLEGAL_PARM;
 	}
 	if (buf_entry->in_use) {
-		VCD_MSG_ERROR("\n Buffer is in use and is not flushed");
+		VCD_MSG_ERROR("Buffer is in use and is not flushed: %p, %d\n",
+			buf_entry, buf_entry->in_use);
 		return VCD_ERR_ILLEGAL_OP;
 	}
 
@@ -1043,6 +1068,7 @@ u32 vcd_flush_buffers(struct vcd_clnt_ctxt *cctxt, u32 mode)
 {
 	u32 rc = VCD_S_SUCCESS;
 	struct vcd_buffer_entry *buf_entry;
+	struct vcd_buffer_entry *orig_frame = NULL;
 
 	VCD_MSG_LOW("vcd_flush_buffers:");
 
@@ -1066,9 +1092,19 @@ u32 vcd_flush_buffers(struct vcd_clnt_ctxt *cctxt, u32 mode)
 							 vcd_frame_data),
 						cctxt,
 						cctxt->client_data);
+				orig_frame = vcd_find_buffer_pool_entry(
+						&cctxt->in_buf_pool,
+						buf_entry->virtual);
 				}
 
-			buf_entry->in_use = false;
+			if (orig_frame) {
+				orig_frame->in_use--;
+				if (orig_frame != buf_entry)
+					kfree(buf_entry);
+			} else {
+				buf_entry->in_use = false;
+				VCD_MSG_ERROR("Original frame not found in buffer pool\n");
+			}
 			VCD_BUFFERPOOL_INUSE_DECREMENT(
 				cctxt->in_buf_pool.in_use);
 			buf_entry = NULL;
@@ -1494,8 +1530,6 @@ u32 vcd_submit_frame(struct vcd_dev_ctxt *dev_ctxt,
 	struct vcd_buffer_entry *op_buf_entry = NULL;
 	u32 rc = VCD_S_SUCCESS;
 	u32 evcode = 0;
-	u32 perf_level = 0;
-	int decodeTime = 0;
 	struct ddl_frame_data_tag ddl_ip_frm;
 	struct ddl_frame_data_tag *ddl_op_frm;
 	u32 out_buf_cnt = 0;
@@ -1511,16 +1545,6 @@ u32 vcd_submit_frame(struct vcd_dev_ctxt *dev_ctxt,
 	ip_frm_entry->ip_frm_tag = (u32) transc;
 	memset(&ddl_ip_frm, 0, sizeof(ddl_ip_frm));
 	if (cctxt->decoding) {
-		decodeTime = ddl_get_core_decode_proc_time(cctxt->ddl_handle);
-		if (decodeTime > MAX_DEC_TIME) {
-			if (res_trk_get_curr_perf_level(&perf_level)) {
-				vcd_update_decoder_perf_level(dev_ctxt,
-				   res_trk_estimate_perf_level(perf_level));
-				ddl_reset_avg_dec_time(cctxt->ddl_handle);
-			} else
-				VCD_MSG_ERROR("%s(): retrieve curr_perf_level"
-						"returned FALSE\n", __func__);
-		}
 		evcode = CLIENT_STATE_EVENT_NUMBER(decode_frame);
 		ddl_ip_frm.vcd_frm = *ip_frm_entry;
 		rc = ddl_decode_frame(cctxt->ddl_handle, &ddl_ip_frm,
@@ -1943,12 +1967,6 @@ u32 vcd_handle_input_done(
 	orig_frame = vcd_find_buffer_pool_entry(&cctxt->in_buf_pool,
 					 transc->ip_buf_entry->virtual);
 
-	/* HTC_START (klockwork issue)*/
-	if (!orig_frame) {
-		VCD_MSG_ERROR("Bad buffer addr: %p", transc->ip_buf_entry->virtual);
-		return VCD_ERR_FAIL;
-	}
-	/* HTC_END */
 	if ((transc->ip_buf_entry->frame.virtual !=
 		 frame->vcd_frm.virtual)
 		|| !transc->ip_buf_entry->in_use) {
@@ -1965,11 +1983,8 @@ u32 vcd_handle_input_done(
 			&frame->vcd_frm,
 			sizeof(struct vcd_frame_data),
 			cctxt, cctxt->client_data);
-	/* HTC_START (klockwork issue)*/
-	if (orig_frame->in_use) {
-		orig_frame->in_use--;
-	}
-	/* HTC_END */
+
+	orig_frame->in_use--;
 	VCD_BUFFERPOOL_INUSE_DECREMENT(cctxt->in_buf_pool.in_use);
 
 	if (cctxt->decoding && orig_frame->in_use) {
@@ -1990,14 +2005,7 @@ u32 vcd_handle_input_done(
 	}
 
 	if (VCD_FAILED(status)) {
-		/* HTC_START */
-		/* Don't treat VCD_ERR_BITSTREAM_ERR as error, since it is recoverable */
-		if (status == VCD_ERR_BITSTREAM_ERR) {
-			VCD_MSG_HIGH("INPUT_DONE returned err = 0x%x", status);
-		}
-		else
-			VCD_MSG_ERROR("INPUT_DONE returned err = 0x%x", status);
-		/* HTC_END */
+		VCD_MSG_ERROR("INPUT_DONE returned err = 0x%x", status);
 		vcd_handle_input_done_failed(cctxt, transc);
 	} else
 		cctxt->status.mask |= VCD_FIRST_IP_DONE;
@@ -2083,8 +2091,8 @@ u32 vcd_validate_io_done_pyld(
 		rc = VCD_ERR_CLIENT_FATAL;
 
 	if (VCD_FAILED(rc)) {
-		VCD_MSG_FATAL("vcd_validate_io_done_pyld: "\
-			"invalid transaction 0x%x", (u32)transc);
+		VCD_MSG_FATAL(
+			"vcd_validate_io_done_pyld: invalid transaction");
 	} else if (!frame->vcd_frm.virtual &&
 		status != VCD_ERR_INTRLCD_FIELD_DROP)
 		rc = VCD_ERR_BAD_POINTER;
@@ -3026,6 +3034,7 @@ u32 vcd_req_perf_level(
 {
 	u32 rc;
 	u32 res_trk_perf_level;
+	u32 turbo_perf_level;
 	if (!perf_level) {
 		VCD_MSG_ERROR("Invalid parameters\n");
 		return -EINVAL;
@@ -3035,10 +3044,13 @@ u32 vcd_req_perf_level(
 		rc = -ENOTSUPP;
 		goto perf_level_not_supp;
 	}
+	turbo_perf_level = get_res_trk_perf_level(VCD_PERF_LEVEL_TURBO);
 	rc = vcd_set_perf_level(cctxt->dev_ctxt, res_trk_perf_level);
 	if (!rc) {
 		cctxt->reqd_perf_lvl = res_trk_perf_level;
 		cctxt->perf_set_by_client = 1;
+		if (res_trk_perf_level == turbo_perf_level)
+			cctxt->is_turbo_enabled = true;
 	}
 perf_level_not_supp:
 	return rc;

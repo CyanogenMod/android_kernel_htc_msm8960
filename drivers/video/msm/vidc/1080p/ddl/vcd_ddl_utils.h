@@ -35,20 +35,18 @@ do { \
 } while (0)
 
 #ifdef DDL_MSG_LOG
-/*HTC_START*/
-#define DDL_MSG_LOW(x...)    printk(KERN_INFO "[VID] " x)
-#define DDL_MSG_MED(x...)    printk(KERN_INFO "[VID] " x)
-#define DDL_MSG_HIGH(x...)   printk(KERN_INFO "[VID] " x)
-/*HTC_END*/
+#define DDL_MSG_LOW(x...)    printk(KERN_INFO x)
+#define DDL_MSG_MED(x...)    printk(KERN_INFO x)
+#define DDL_MSG_HIGH(x...)   printk(KERN_INFO x)
 #else
 #define DDL_MSG_LOW(x...)
 #define DDL_MSG_MED(x...)
 #define DDL_MSG_HIGH(x...)
 #endif
-/*HTC_START*/
-#define DDL_MSG_ERROR(x...)  printk(KERN_INFO "[VID] " x)
-#define DDL_MSG_FATAL(x...)  printk(KERN_INFO "[VID] " x)
-/*HTC_END*/
+
+#define DDL_MSG_ERROR(x...)  printk(KERN_INFO x)
+#define DDL_MSG_FATAL(x...)  printk(KERN_INFO x)
+
 #define DDL_ALIGN_SIZE(sz, guard_bytes, align_mask) \
 	(((u32)(sz) + guard_bytes) & align_mask)
 #define DDL_ADDR_IS_ALIGNED(addr, align_bytes) \
@@ -72,9 +70,8 @@ do { \
 #define DDL_MEMSET(src, value, len) memset((src), (value), (len))
 
 void ddl_set_core_start_time(const char *func_name, u32 index);
+void ddl_calc_core_proc_time(const char *func_name, u32 index);
 void ddl_reset_core_time_variables(u32 index);
 void ddl_calc_core_proc_time_cnt(const char *func_name, u32 index, u32 count);
 void ddl_update_core_start_time(const char *func_name, u32 index);
-int ddl_get_core_decode_proc_time(u32 *ddl_handle);
-void ddl_reset_avg_dec_time(u32 *ddl_handle);
 #endif

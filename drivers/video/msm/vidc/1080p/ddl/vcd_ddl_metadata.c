@@ -217,6 +217,7 @@ void ddl_set_default_decoder_metadata_buffer_size(struct ddl_decoder_data
 	DDL_METADATA_ALIGNSIZE(suffix);
 	decoder->suffix = suffix;
 	output_buf_req->sz += suffix;
+	decoder->meta_data_offset = 0;
 	DDL_MSG_LOW("metadata output buf size : %d", suffix);
 }
 
@@ -286,9 +287,6 @@ u32 ddl_set_metadata_params(struct ddl_client_context *ddl,
 						&ddl->codec_data.encoder);
 			}
 			vcd_status = VCD_S_SUCCESS;
-			/* HTC_START (klockwork issue)*/
-			*meta_data_enable_flag &= ~VCD_METADATA_ENC_SLICE;
-			/* HTC_END */
 		}
 	} else if (property_hdr->prop_id == VCD_I_METADATA_HEADER) {
 		struct vcd_property_metadata_hdr *hdr =

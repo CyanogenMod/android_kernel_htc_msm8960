@@ -38,19 +38,13 @@ void vcd_do_device_state_transition(struct vcd_drv_ctxt *drv_ctxt,
 				  drv_ctxt, to_state);
 	}
 
-	if (!drv_ctxt)
-		return;
-
 	state_ctxt = &drv_ctxt->dev_state;
 
-	/* HTC_START (klockwork issue)*/
-	if (state_ctxt->state) {
 	if (state_ctxt->state == to_state) {
 		VCD_MSG_HIGH("Device already in requested to_state=%d",
 				 to_state);
 
 		return;
-	}
 	}
 
 	VCD_MSG_MED("vcd_do_device_state_transition: D%d -> D%d, for api %d",
@@ -328,11 +322,11 @@ u32 vcd_reset_device_context(struct vcd_drv_ctxt *drv_ctxt,
 	rc = vcd_power_event(&drv_ctxt->dev_ctxt, NULL,
 						 VCD_EVT_PWR_DEV_TERM_BEGIN);
 	VCD_FAILED_RETURN(rc, "VCD_EVT_PWR_DEV_TERM_BEGIN failed");
-	if (ddl_reset_hw(0)) {
+	if (ddl_reset_hw(0))
 		VCD_MSG_HIGH("HW Reset done");
-	} else {
+	else
 		VCD_MSG_FATAL("HW Reset failed");
-		}
+
 	(void)vcd_power_event(dev_ctxt, NULL, VCD_EVT_PWR_DEV_TERM_END);
 
 	return VCD_S_SUCCESS;

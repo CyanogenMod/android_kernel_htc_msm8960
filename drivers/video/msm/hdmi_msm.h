@@ -14,7 +14,6 @@
 #define __HDMI_MSM_H__
 
 #include <mach/msm_iomap.h>
-#include <linux/switch.h>
 #include "external_common.h"
 /* #define PORT_DEBUG */
 
@@ -50,20 +49,18 @@ struct hdmi_msm_cec_msg {
 
 #define QFPROM_BASE		((uint32)hdmi_msm_state->qfprom_io)
 #define HDMI_BASE		((uint32)hdmi_msm_state->hdmi_io)
-#define SWITCH_DEV_SUPPORT
 
 struct hdmi_msm_state_type {
 	boolean panel_power_on;
 	boolean hpd_initialized;
+	boolean hpd_state_in_isr;
 #ifdef CONFIG_SUSPEND
 	boolean pm_suspended;
 #endif
-	int hpd_stable;
-	boolean hpd_prev_state;
 	boolean hpd_cable_chg_detected;
 	boolean full_auth_done;
 	boolean hpd_during_auth;
-	struct work_struct hpd_state_work, hpd_read_work;
+	struct work_struct hpd_state_work;
 	struct timer_list hpd_state_timer;
 	struct completion ddc_sw_done;
 
@@ -77,8 +74,10 @@ struct hdmi_msm_state_type {
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
 	boolean cec_enabled;
+	unsigned int first_monitor;
 	int cec_logical_addr;
 	struct completion cec_frame_wr_done;
+	struct timer_list cec_read_timer;
 #define CEC_STATUS_WR_ERROR	0x0001
 #define CEC_STATUS_WR_DONE	0x0002
 #define CEC_STATUS_WR_TMOUT	0x0004
@@ -88,8 +87,17 @@ struct hdmi_msm_state_type {
 	struct hdmi_msm_cec_msg *cec_queue_wr;
 	struct hdmi_msm_cec_msg *cec_queue_rd;
 	boolean cec_queue_full;
+	boolean fsm_reset_done;
+
+	/*
+	 * CECT 9-5-1
+	 */
+	struct completion cec_line_latch_wait;
+	struct work_struct cec_latch_detect_work;
+
 #define CEC_QUEUE_SIZE		16
 #define CEC_QUEUE_END	 (hdmi_msm_state->cec_queue_start + CEC_QUEUE_SIZE)
+#define RETRANSMIT_MAX_NUM	7
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT */
 
 	int irq;
@@ -101,9 +109,6 @@ struct hdmi_msm_state_type {
 	void __iomem *hdmi_io;
 
 	struct external_common_state_type common;
-#ifdef SWITCH_DEV_SUPPORT
-	struct switch_dev hpd_switch;
-#endif
 };
 
 extern struct hdmi_msm_state_type *hdmi_msm_state;

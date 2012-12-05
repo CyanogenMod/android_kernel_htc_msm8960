@@ -93,7 +93,7 @@ typedef unsigned int boolean;
 #elif defined(CONFIG_FB_MSM_DEFAULT_DEPTH_RGBA8888)
 #define MSMFB_DEFAULT_TYPE MDP_RGBA_8888
 #else
-#define MSMFB_DEFAULT_TYPE MDP_RGBA_8888
+#define MSMFB_DEFAULT_TYPE MDP_RGB_565
 #endif
 
 #define outp32(addr, val) writel(val, addr)
