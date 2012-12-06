@@ -183,6 +183,8 @@ struct msm_fb_panel_data {
 	int (*power_ctrl) (boolean enable);
 	struct platform_device *next;
 	int (*clk_func) (int enable);
+	/* HTC panel on */
+	void (*display_on) (struct msm_fb_data_type *mfd);
 };
 
 /*===========================================================================
