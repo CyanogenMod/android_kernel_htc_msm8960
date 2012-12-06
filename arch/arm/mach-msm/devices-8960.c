@@ -2574,7 +2574,6 @@ static struct kgsl_device_platform_data kgsl_3d0_pdata = {
 #ifdef CONFIG_MSM_BUS_SCALING
 	.bus_scale_table = &grp3d_bus_scale_pdata,
 #endif
-	.snapshot_address = MSM_GPU_SNAP_SHOT_3D0_PHYS,
 };
 
 struct platform_device msm_kgsl_3d0 = {
@@ -2626,7 +2625,6 @@ static struct kgsl_device_platform_data kgsl_2d0_pdata = {
 #ifdef CONFIG_MSM_BUS_SCALING
 	.bus_scale_table = &grp2d0_bus_scale_pdata,
 #endif
-	.snapshot_address = 0,
 };
 
 struct platform_device msm_kgsl_2d0 = {
@@ -2678,7 +2676,6 @@ static struct kgsl_device_platform_data kgsl_2d1_pdata = {
 #ifdef CONFIG_MSM_BUS_SCALING
 	.bus_scale_table = &grp2d1_bus_scale_pdata,
 #endif
-	.snapshot_address = MSM_GPU_SNAP_SHOT_2D1_PHYS,
 };
 
 struct platform_device msm_kgsl_2d1 = {
