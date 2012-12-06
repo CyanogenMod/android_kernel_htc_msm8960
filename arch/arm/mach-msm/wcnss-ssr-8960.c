@@ -188,23 +188,6 @@ static struct subsys_data riva_8960 = {
 	.enable_ssr = 0
 };
 
-/* host driver interface to initiate WCNSS SSR */
-int wcnss_subsystem_restart()
-{
-	int ret;
-
-	if (ss_restart_inprogress) {
-		pr_err("%s: Ignoring riva subsystem restart req, restart in progress\n",
-						MODULE_NAME);
-		return 0;
-	}
-    printk ("wcnss_subsystem_restart\n");
-	ss_restart_inprogress = true;
-	ret = schedule_work(&riva_fatal_work);
-	return ret;
-}
-EXPORT_SYMBOL(wcnss_subsystem_restart);
-
 static int enable_riva_ssr_set(const char *val, struct kernel_param *kp)
 {
 	int ret;
