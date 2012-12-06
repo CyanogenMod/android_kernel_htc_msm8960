@@ -2937,7 +2937,8 @@ static struct resource hdmi_msm_resources[] = {
 static int hdmi_enable_5v(int on);
 static int hdmi_core_power(int on, int show);
 /*static int hdmi_cec_power(int on);*/
-
+static int hdmi_gpio_config(int on);
+static int hdmi_panel_power(int on);
 
 static mhl_driving_params ville_driving_params[] = {
 	{.format = HDMI_VFRMT_640x480p60_4_3,	.reg_a3=0xEB, .reg_a6=0x0C},
@@ -2948,7 +2949,6 @@ static mhl_driving_params ville_driving_params[] = {
 	{.format = HDMI_VFRMT_1920x1080p30_16_9, .reg_a3=0xEB, .reg_a6=0x0C},
 };
 
-
 static struct msm_hdmi_platform_data hdmi_msm_data = {
 	.irq = HDMI_IRQ,
 	.enable_5v = hdmi_enable_5v,
@@ -2956,6 +2956,8 @@ static struct msm_hdmi_platform_data hdmi_msm_data = {
 	/*.cec_power = hdmi_cec_power,*/
 	.driving_params =  ville_driving_params,
 	.dirving_params_count = ARRAY_SIZE(ville_driving_params),
+	.panel_power = hdmi_panel_power,
+	.gpio_config = hdmi_gpio_config,
 };
 
 static struct platform_device hdmi_msm_device = {
@@ -3154,6 +3156,11 @@ static void __init msm_fb_add_devices(void)
 }
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
+static int hdmi_panel_power(int on)
+{
+	return 0;
+}
+
 static int hdmi_enable_5v(int on)
 {
 	static int prev_on;
@@ -3236,6 +3243,11 @@ static int hdmi_core_power(int on, int show)
 	}
 	prev_on = on;
 	return rc;
+}
+
+static int hdmi_gpio_config(int on)
+{
+	return 0;
 }
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL */
 
