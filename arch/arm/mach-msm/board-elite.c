@@ -134,7 +134,9 @@ static uint32_t msm_rpm_get_swfi_latency(void);
 extern int panel_type;
 static unsigned int engineerid;
 
+/*
 void mdp_color_enhancement(const struct mdp_reg *reg_seq, int size);
+*/
 
 #ifdef CONFIG_FLASHLIGHT_TPS61310
 #ifdef CONFIG_MSM_CAMERA_FLASH
@@ -3126,6 +3128,7 @@ int elite_mdp_color_enhance(void)
 	return 0;
 }
 */
+#if 0
 struct mdp_reg elite_sony_nt_gamma[] = {
 	{0x94800, 0x000000, 0x0},
 	{0x94804, 0x020202, 0x0},
@@ -3385,7 +3388,7 @@ struct mdp_reg elite_sony_nt_gamma[] = {
 	{0x94BFC, 0xF4FFEE, 0x0},
 	{0x90070, 0x17, 0x0},
 
-#if 0
+/* #if 0 */
 	{0x94800, 0x000000, 0x0},
 	{0x94804, 0x010101, 0x0},
 	{0x94808, 0x020202, 0x0},
@@ -3643,8 +3646,8 @@ struct mdp_reg elite_sony_nt_gamma[] = {
 	{0x94BF8, 0xF1FEF1, 0x0},
 	{0x94BFC, 0xF2FFF2, 0x0},
 	{0x90070, 0x17, 0x0},
-#endif
 };
+#endif
 
 int elite_mdp_gamma(void)
 {
