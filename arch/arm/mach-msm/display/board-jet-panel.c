@@ -3367,8 +3367,8 @@ err_request_gpio_failed:
 #endif
 static char disable_dim_cmd[2] = {0x53, 0x24};/* DTYPE_DCS_WRITE1 */
 static struct dsi_cmd_desc disable_dim[] = {{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(disable_dim_cmd), disable_dim_cmd},};
-static struct dsi_cmd_desc *dim_cmds = disable_dim; /* default disable dim */
 #ifdef CONFIG_FB_MSM_CABC
+static struct dsi_cmd_desc *dim_cmds = disable_dim; /* default disable dim */
 /* for cabc enable and disable seletion */
 static char cabc_off_cmd[2] = {0x55, 0x80};/* DTYPE_DCS_WRITE1 */
 static struct dsi_cmd_desc cabc_off[] = {{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(cabc_off_cmd), cabc_off_cmd},};
@@ -3396,12 +3396,10 @@ void enable_ic_cabc(int cabc, bool dim_on, struct msm_fb_data_type *mfd)
 	mutex_lock(&mfd->dma->ov_mutex);
 
 	if (mfd && mfd->panel_info.type == MIPI_CMD_PANEL) {
-		mdp4_dsi_cmd_dma_busy_wait(mfd);
-		mdp4_dsi_blt_dmap_busy_wait(mfd);
 		mipi_dsi_mdp_busy_wait(mfd);
 	}
 	/*mipi_dsi_cmds_tx(mfd, &jet_panel_tx_buf, cabc_cmds, ARRAY_SIZE(cabc_on_ui));*/
-	mipi_dsi_cmds_tx(mfd, &jet_panel_tx_buf, dim_cmds, ARRAY_SIZE(enable_dim));
+	mipi_dsi_cmds_tx(&jet_panel_tx_buf, dim_cmds, ARRAY_SIZE(enable_dim));
 	PR_DISP_INFO("%s: enable dimming and cabc\n", __func__);
 
 	mutex_unlock(&mfd->dma->ov_mutex);
@@ -3469,7 +3467,7 @@ static void jet_self_refresh_switch(int on)
 	if (on) {
 		PR_DISP_DEBUG("[SR] %s on\n", __func__);
 		mipi_set_tx_power_mode(0);
-		mipi_dsi_cmds_tx(0, &jet_panel_tx_buf, video_to_cmds,
+		mipi_dsi_cmds_tx(&jet_panel_tx_buf, video_to_cmds,
 			video_to_cmds_cnt);
 		mipi_set_tx_power_mode(1);
 		disable_video_mode_clk();
@@ -3483,7 +3481,7 @@ static void jet_self_refresh_switch(int on)
 					gpio_get_value(0), HZ/2);
 
 		jet_vsync_gpio = 0;
-		mipi_dsi_cmds_tx(0, &jet_panel_tx_buf, cmd_to_videos,
+		mipi_dsi_cmds_tx(&jet_panel_tx_buf, cmd_to_videos,
 			cmd_to_videos_cnt);
 		wait_vsync = 1;
 		vsync_timeout = wait_event_timeout(jet_vsync_wait, jet_vsync_gpio ||
@@ -3505,22 +3503,20 @@ static void jet_display_on(struct msm_fb_data_type *mfd)
 	mutex_lock(&mfd->dma->ov_mutex);
 
 	if (mfd->panel_info.type == MIPI_CMD_PANEL) {
-		mdp4_dsi_cmd_dma_busy_wait(mfd);
-		mdp4_dsi_blt_dmap_busy_wait(mfd);
 		mipi_dsi_mdp_busy_wait(mfd);
 	}
 
 	if (panel_type == PANEL_ID_JET_AUO_NT || panel_type == PANEL_ID_FIGHTER_LG_NT)
-		mipi_dsi_cmds_tx(mfd, &jet_panel_tx_buf, auo_display_on_cmds,
+		mipi_dsi_cmds_tx(&jet_panel_tx_buf, auo_display_on_cmds,
 			ARRAY_SIZE(auo_display_on_cmds));
 	else
-		mipi_dsi_cmds_tx(mfd, &jet_panel_tx_buf, sony_display_on_cmds,
+		mipi_dsi_cmds_tx(&jet_panel_tx_buf, sony_display_on_cmds,
 			ARRAY_SIZE(sony_display_on_cmds));
 
 	mutex_unlock(&mfd->dma->ov_mutex);
 }
 
-static void mipi_dsi_set_backlight(struct msm_fb_data_type *mfd)
+void mipi_dsi_set_backlight(struct msm_fb_data_type *mfd, int level)
 {
 	struct mipi_panel_info *mipi;
 
@@ -3543,14 +3539,12 @@ static void mipi_dsi_set_backlight(struct msm_fb_data_type *mfd)
 
 	led_pwm1[1] = jet_shrink_pwm(mfd->bl_level);
 
-	mdp4_dsi_cmd_dma_busy_wait(mfd);
-	mdp4_dsi_blt_dmap_busy_wait(mfd);
 	mipi_dsi_mdp_busy_wait(mfd);
 
 	if (mfd->bl_level == 0) {
-		mipi_dsi_cmds_tx(mfd, &jet_panel_tx_buf, disable_dim, ARRAY_SIZE(disable_dim));
+		mipi_dsi_cmds_tx(&jet_panel_tx_buf, disable_dim, ARRAY_SIZE(disable_dim));
 	}
-	mipi_dsi_cmds_tx(mfd, &jet_panel_tx_buf, cmd_backlight_cmds,
+	mipi_dsi_cmds_tx(&jet_panel_tx_buf, cmd_backlight_cmds,
 		cmd_backlight_cmds_count);
 
 	bl_level_prevset = mfd->bl_level;
@@ -3574,10 +3568,10 @@ static int jet_lcd_on(struct platform_device *pdev)
 	mipi  = &mfd->panel_info.mipi;
 
 	if (!mipi_lcd_on) {
-		mipi_dsi_cmds_tx(mfd, &jet_panel_tx_buf, nvt_LowTemp_wrkr_enter,
+		mipi_dsi_cmds_tx(&jet_panel_tx_buf, nvt_LowTemp_wrkr_enter,
 			ARRAY_SIZE(nvt_LowTemp_wrkr_enter));
 
-		mipi_dsi_cmds_tx(mfd, &jet_panel_tx_buf, nvt_LowTemp_wrkr_exit,
+		mipi_dsi_cmds_tx(&jet_panel_tx_buf, nvt_LowTemp_wrkr_exit,
 			ARRAY_SIZE(nvt_LowTemp_wrkr_exit));
 
 		gpio_set_value(JET_LCD_RSTz, 0);
@@ -3590,7 +3584,7 @@ static int jet_lcd_on(struct platform_device *pdev)
 		if (!mipi_lcd_on) {
 			if (panel_type != PANEL_ID_NONE) {
 				PR_DISP_INFO("%s: %s\n", __func__, ptype);
-				mipi_dsi_cmds_tx(mfd, &jet_panel_tx_buf, video_on_cmds,
+				mipi_dsi_cmds_tx(&jet_panel_tx_buf, video_on_cmds,
 					video_on_cmds_count);
 			} else
 				PR_DISP_ERR("%s: panel_type is not supported!(%d)", __func__, panel_type);
@@ -3602,7 +3596,7 @@ static int jet_lcd_on(struct platform_device *pdev)
 			#endif
 			if (panel_type != PANEL_ID_NONE) {
 				PR_DISP_INFO("%s: %s\n", __func__, ptype);
-				mipi_dsi_cmds_tx(mfd, &jet_panel_tx_buf, command_on_cmds,
+				mipi_dsi_cmds_tx(&jet_panel_tx_buf, command_on_cmds,
 					command_on_cmds_count);
 			} else
 				PR_DISP_ERR("%s: panel_type is not supported!(%d)", __func__, panel_type);
@@ -3636,7 +3630,7 @@ static int jet_lcd_off(struct platform_device *pdev)
 	/*mutex_lock(&mfd->dma->ov_mutex);*/
 	if (panel_type != PANEL_ID_NONE) {
 		PR_DISP_INFO("%s: %s\n", __func__, ptype);
-		mipi_dsi_cmds_tx(mfd, &jet_panel_tx_buf, display_off_cmds,
+		mipi_dsi_cmds_tx(&jet_panel_tx_buf, display_off_cmds,
 			display_off_cmds_count);
 	} else
 		PR_DISP_ERR("%s: panel_type is not supported!(%d)", __func__, panel_type);
@@ -3659,7 +3653,7 @@ static void jet_set_backlight(struct msm_fb_data_type *mfd)
 	if (!mfd->panel_power_on)
 		return;
 
-	mipi_dsi_set_backlight(mfd);
+	mipi_dsi_set_backlight(mfd, 0);
 
 }
 
@@ -3815,8 +3809,6 @@ static int mipi_cmd_novatek_blue_qhd_pt_init(void)
 	pinfo.pdest = DISPLAY_1;
 	pinfo.wait_cycle = 0;
 	pinfo.bpp = 24;
-	pinfo.width = 49;
-	pinfo.height = 87;
 
 	pinfo.lcdc.h_back_porch = 64;
 	pinfo.lcdc.h_front_porch = 96;
@@ -3925,8 +3917,6 @@ static int mipi_video_auo_hd720p_init(void)
 	pinfo.pdest = DISPLAY_1;
 	pinfo.wait_cycle = 0;
 	pinfo.bpp = 24;
-	pinfo.width = 58;
-	pinfo.height = 103;
 
 	pinfo.lcdc.h_back_porch = 104;	/* 660Mhz: 116 */
 	pinfo.lcdc.h_front_porch = 95;	/* 660Mhz: 184 */
@@ -4071,8 +4061,6 @@ static int mipi_video_sony_hd720p_init(void)
 	pinfo.pdest = DISPLAY_1;
 	pinfo.wait_cycle = 0;
 	pinfo.bpp = 24;
-	pinfo.width = 58;
-	pinfo.height = 103;
 
 	pinfo.lcdc.h_back_porch = 104;
 	pinfo.lcdc.h_front_porch = 95;
