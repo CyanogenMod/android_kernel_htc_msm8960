@@ -743,10 +743,11 @@ config MACH_FSM9XXX_SURF
 	  FFA board.
 
 config MACH_VILLE
-        depends on ARCH_MSM8960
-        bool "Ville"
-        help
-          Support for the HTC Ville.
+	depends on ARCH_MSM8960
+	select FB_MSM_MIPI_DSI
+	bool "Ville"
+	help
+	  Support for the HTC Ville.
 
 config MACH_TAHITI
 	depends on ARCH_MSM8960
@@ -762,12 +763,14 @@ config MACH_FIGHTER
 
 config MACH_JET
 	depends on ARCH_MSM8960
+	select FB_MSM_MIPI_DSI
 	bool "Jet"
 	help
 	  Support for the HTC Jet
 
 config MACH_ELITE
 	depends on ARCH_MSM8960
+	select FB_MSM_MIPI_DSI
 	bool "Elite"
 	help
 	  Support for the HTC Elite
