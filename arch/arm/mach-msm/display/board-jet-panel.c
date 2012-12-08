@@ -45,505 +45,17 @@ int cmd_backlight_cmds_count = 0;
 char ptype[60] = "PANEL type = ";
 int bl_level_prevset = 1;
 
-static char sw_reset[2] = {0x01, 0x00}; /* DTYPE_DCS_WRITE */
 static char enter_sleep[2] = {0x10, 0x00}; /* DTYPE_DCS_WRITE */
 static char exit_sleep[2] = {0x11, 0x00}; /* DTYPE_DCS_WRITE */
 static char display_off[2] = {0x28, 0x00}; /* DTYPE_DCS_WRITE */
 static char display_on[2] = {0x29, 0x00}; /* DTYPE_DCS_WRITE */
 
-/*#define NOVATEK_TWO_LANE*/
-
 static char led_pwm1[2] = {0x51, 0xFF};	/* DTYPE_DCS_WRITE1 */
-static char led_pwm2[2] = {0x53, 0x24}; /* DTYPE_DCS_WRITE1 */
-static char led_pwm3[2] = {0x55, 0x00}; /* DTYPE_DCS_WRITE1 */
 
 static char enable_te[2] = {0x35, 0x00};/* DTYPE_DCS_WRITE1 */
 
-static char max_pktsize[2] = {MIPI_DSI_MRPS, 0x00}; /* LSB tx first, 16 bytes */
-
-static char novatek_e0[3] = {0xE0, 0x01, 0x03}; /* DTYPE_DCS_LWRITE */
-/*static char cmd_3b[6] = {0x3B, 0x03, 0x01, 0x03, 0x02, 0x02};*/ /* DTYPE_DCS_LWRITE */
-
 static struct dsi_cmd_desc cmd_bkl_cmds[] = {
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(led_pwm1), led_pwm1},
-};
-
-static struct dsi_cmd_desc sony_display_on_cmds[] = {
-	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
-};
-
-static struct dsi_cmd_desc auo_display_on_cmds[] = {
-	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
-};
-
-static char fir_lg_gamma_01_d1[] = {
-	0xD1, 0x00, 0x70, 0x00, 0xCE, 0x00, 0xF7, 0x01,
-	0x10, 0x01, 0x21, 0x01, 0x44, 0x01, 0x62, 0x01,
-	0x8D
-};
-
-static char fir_lg_gamma_01_d5[] = {
-	0xD5, 0x00, 0x70, 0x00, 0xCE, 0x00, 0xF7, 0x01,
-	0x10, 0x01, 0x21, 0x01, 0x44, 0x01, 0x62, 0x01,
-	0x8D
-};
-
-static char fir_lg_gamma_01_d9[] = {
-	0xD9, 0x00, 0x70, 0x00, 0xCE, 0x00, 0xF7, 0x01,
-	0x10, 0x01, 0x21, 0x01, 0x44, 0x01, 0x62, 0x01,
-	0x8D
-};
-
-static char fir_lg_gamma_01_e0[] = {
-	0xE0, 0x00, 0x70, 0x00, 0xCE, 0x00, 0xF7, 0x01,
-	0x10, 0x01, 0x21, 0x01, 0x44, 0x01, 0x62, 0x01,
-	0x8D
-};
-
-static char fir_lg_gamma_01_e4[] = {
-	0xE4, 0x00, 0x70, 0x00, 0xCE, 0x00, 0xF7, 0x01,
-	0x10, 0x01, 0x21, 0x01, 0x44, 0x01, 0x62, 0x01,
-	0x8D
-};
-
-static char fir_lg_gamma_01_e8[] = {
-	0xE8, 0x00, 0x70, 0x00, 0xCE, 0x00, 0xF7, 0x01,
-	0x10, 0x01, 0x21, 0x01, 0x44, 0x01, 0x62, 0x01,
-	0x8D
-};
-
-static char fir_lg_gamma_02_d2[] = {
-	0xD2, 0x01, 0xAF, 0x01, 0xE4, 0x02, 0x0C, 0x02,
-	0x4D, 0x02, 0x82, 0x02, 0x84, 0x02, 0xB8, 0x02,
-	0xF0
-};
-
-static char fir_lg_gamma_02_d6[] = {
-	0xD6, 0x01, 0xAF, 0x01, 0xE4, 0x02, 0x0C, 0x02,
-	0x4D, 0x02, 0x82, 0x02, 0x84, 0x02, 0xB8, 0x02,
-	0xF0
-};
-
-static char fir_lg_gamma_02_dd[] = {
-	0xDD, 0x01, 0xAF, 0x01, 0xE4, 0x02, 0x0C, 0x02,
-	0x4D, 0x02, 0x82, 0x02, 0x84, 0x02, 0xB8, 0x02,
-	0xF0
-};
-
-static char fir_lg_gamma_02_e1[] = {
-	0xE1, 0x01, 0xAF, 0x01, 0xE4, 0x02, 0x0C, 0x02,
-	0x4D, 0x02, 0x82, 0x02, 0x84, 0x02, 0xB8, 0x02,
-	0xF0
-};
-
-static char fir_lg_gamma_02_e5[] = {
-	0xE5, 0x01, 0xAF, 0x01, 0xE4, 0x02, 0x0C, 0x02,
-	0x4D, 0x02, 0x82, 0x02, 0x84, 0x02, 0xB8, 0x02,
-	0xF0
-};
-
-static char fir_lg_gamma_02_e9[] = {
-	0xE9, 0x01, 0xAF, 0x01, 0xE4, 0x02, 0x0C, 0x02,
-	0x4D, 0x02, 0x82, 0x02, 0x84, 0x02, 0xB8, 0x02,
-	0xF0
-};
-
-static char fir_lg_gamma_03_d3[] = {
-	0xD3, 0x03, 0x14, 0x03, 0x42, 0x03, 0x5E, 0x03,
-	0x80, 0x03, 0x97, 0x03, 0xB0, 0x03, 0xC0, 0x03,
-	0xDF
-};
-
-static char fir_lg_gamma_03_d7[] = {
-	0xD7, 0x03, 0x14, 0x03, 0x42, 0x03, 0x5E, 0x03,
-	0x80, 0x03, 0x97, 0x03, 0xB0, 0x03, 0xC0, 0x03,
-	0xDF
-};
-
-static char fir_lg_gamma_03_de[] = {
-	0xDE, 0x03, 0x14, 0x03, 0x42, 0x03, 0x5E, 0x03,
-	0x80, 0x03, 0x97, 0x03, 0xB0, 0x03, 0xC0, 0x03,
-	0xDF
-};
-
-static char fir_lg_gamma_03_e2[] = {
-	0xE2, 0x03, 0x14, 0x03, 0x42, 0x03, 0x5E, 0x03,
-	0x80, 0x03, 0x97, 0x03, 0xB0, 0x03, 0xC0, 0x03,
-	0xDF
-};
-
-static char fir_lg_gamma_03_e6[] = {
-	0xE6, 0x03, 0x14, 0x03, 0x42, 0x03, 0x5E, 0x03,
-	0x80, 0x03, 0x97, 0x03, 0xB0, 0x03, 0xC0, 0x03,
-	0xDF
-};
-
-static char fir_lg_gamma_03_ea[] = {
-	0xEA, 0x03, 0x14, 0x03, 0x42, 0x03, 0x5E, 0x03,
-	0x80, 0x03, 0x97, 0x03, 0xB0, 0x03, 0xC0, 0x03,
-	0xDF
-};
-
-static char fir_lg_gamma_04_d4[] = {
-	0xD4, 0x03, 0xFD, 0x03, 0xFF
-};
-
-static char fir_lg_gamma_04_d8[] = {
-	0xD8, 0x03, 0xFD, 0x03, 0xFF
-};
-
-static char fir_lg_gamma_04_df[] = {
-	0xDF, 0x03, 0xFD, 0x03, 0xFF
-};
-
-static char fir_lg_gamma_04_e3[] = {
-	0xE3, 0x03, 0xFD, 0x03, 0xFF
-};
-
-static char fir_lg_gamma_04_e7[] = {
-	0xE7, 0x03, 0xFD, 0x03, 0xFF
-};
-
-static char fir_lg_gamma_04_eb[] = {
-	0xEB, 0x03, 0xFD, 0x03, 0xFF
-};
-
-/*static struct dsi_cmd_desc novatek_video_on_cmds[] = {
-	{DTYPE_DCS_WRITE, 1, 0, 0, 50,
-		sizeof(sw_reset), sw_reset},
-	{DTYPE_DCS_WRITE, 1, 0, 0, 10,
-		sizeof(exit_sleep), exit_sleep},
-	{DTYPE_DCS_WRITE, 1, 0, 0, 10,
-		sizeof(display_on), display_on},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 10,
-		sizeof(set_num_of_lanes), set_num_of_lanes},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 10,
-		sizeof(rgb_888), rgb_888},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 10,
-		sizeof(led_pwm2), led_pwm2},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 10,
-		sizeof(led_pwm3), led_pwm3},
-};*/
-#if 0
-static struct dsi_cmd_desc novatek_cmd_on_cmds[] = {
-	/* added by our own */
-	{DTYPE_DCS_WRITE, 1, 0, 0, 10,
-		sizeof(sw_reset), sw_reset},
-
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		5, (char[]){0xFF, 0xAA, 0x55, 0x25, 0x01} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		17, (char[]){0xFA, 0x00, 0x00, 0x00,
-					 0x00, 0x00, 0x00, 0x00,
-					 0x00, 0x00, 0x00, 0x00,
-					 0x00, 0x03, 0x20, 0x12,
-					 0x20, 0xFF, 0xFF, 0xFF} } ,/* 90Hz -> 60Hz */
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		8, (char[]){0xF3, 0x02, 0x03, 0x07, 0x44, 0x88, 0xD1, 0x0C} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		5, (char[]){0xFF, 0xAA, 0x55, 0x25, 0x00} } ,
-
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		6, (char[]){0xF0, 0x55, 0xAA, 0x52, 0x08, 0x00} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		ARRAY_SIZE(novatek_e0), novatek_e0},/* PWM frequency = 13kHz */
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		6, (char[]){0xF0, 0x55, 0xAA, 0x52, 0x00, 0x00} } ,
-
-	{DTYPE_DCS_WRITE, 1, 0, 0, 120,
-		sizeof(exit_sleep), exit_sleep},
-
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
-		sizeof(enable_te), enable_te},
-
-	{DTYPE_MAX_PKTSIZE, 1, 0, 0, 0,
-		sizeof(max_pktsize), max_pktsize},
-
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
-		sizeof(led_pwm1), led_pwm1},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
-		sizeof(led_pwm2), led_pwm2},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
-		sizeof(led_pwm3), led_pwm3},
-};
-
-static struct dsi_cmd_desc novatek_c2_cmd_on_cmds[] = {
-	/* added by our own */
-	{DTYPE_DCS_WRITE, 1, 0, 0, 10,
-		sizeof(sw_reset), sw_reset},
-
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		5, (char[]){0xFF, 0xAA, 0x55, 0x25, 0x01} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		8, (char[]){0xF3, 0x02, 0x03, 0x07, 0x15, 0x88, 0xD1, 0x0C} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		5, (char[]){0xFF, 0xAA, 0x55, 0x25, 0x00} } ,
-
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		6, (char[]){0xF0, 0x55, 0xAA, 0x52, 0x08, 0x00} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		5, (char[]){0xB8, 0x01, 0x03, 0x03, 0x03} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		ARRAY_SIZE(novatek_e0), novatek_e0},/* PWM frequency = 13kHz */
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		6, (char[]){0xF0, 0x55, 0xAA, 0x52, 0x08, 0x01} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		5, (char[]){0xD0, 0x13, 0x11, 0x10, 0x10} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		17, (char[]){0xD1, 0x00, 0x8F, 0x00, 0xC1, 0x00, 0xF0, 0x01,
-					 0x0D, 0x01, 0x24, 0x01, 0x41, 0x01, 0x63, 0x01,
-					 0x91} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		17, (char[]){0xD2, 0x01, 0xB4, 0x01, 0xE9, 0x02, 0x12, 0x02,
-					 0x57, 0x02, 0x8B, 0x02, 0x8D, 0x02, 0xBD, 0x02,
-					 0xF5} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		17, (char[]){0xD3, 0x03, 0x19, 0x03, 0x46, 0x03, 0x63, 0x03,
-					 0x88, 0x03, 0x9C, 0x03, 0xB6, 0x03, 0xC8, 0x03,
-					 0xD5} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		5, (char[]){0xD4, 0x03, 0xDC, 0x03, 0xFF} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		17, (char[]){0xD5, 0x00, 0x8F, 0x00, 0xC1, 0x00, 0xF0, 0x01,
-					 0x0D, 0x01, 0x24, 0x01, 0x41, 0x01, 0x63, 0x01,
-					 0x91} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		17, (char[]){0xD6, 0x01, 0xB4, 0x01, 0xE9, 0x02, 0x12, 0x02,
-					 0x57, 0x02, 0x8B, 0x02, 0x8D, 0x02, 0xBD, 0x02,
-					 0xF5} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		17, (char[]){0xD7, 0x03, 0x19, 0x03, 0x46, 0x03, 0x63, 0x03,
-					 0x88, 0x03, 0x9C, 0x03, 0xB6, 0x03, 0xC8, 0x03,
-					 0xD5} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		5, (char[]){0xD8, 0x03, 0xDC, 0x03, 0xFF} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		17, (char[]){0xD9, 0x00, 0x8F, 0x00, 0xC1, 0x00, 0xF0, 0x01,
-					 0x0D, 0x01, 0x24, 0x01, 0x41, 0x01, 0x63, 0x01,
-					 0x91} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		17, (char[]){0xDD, 0x01, 0xB4, 0x01, 0xE9, 0x02, 0x12, 0x02,
-					 0x57, 0x02, 0x8B, 0x02, 0x8D, 0x02, 0xBD, 0x02,
-					 0xF5} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		17, (char[]){0xDE, 0x03, 0x19, 0x03, 0x46, 0x03, 0x63, 0x03,
-					 0x88, 0x03, 0x9C, 0x03, 0xB6, 0x03, 0xC8, 0x03,
-					 0xD5} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		5, (char[]){0xDF, 0x03, 0xDC, 0x03, 0xFF} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		17, (char[]){0xE0, 0x00, 0x8F, 0x00, 0xC1, 0x00, 0xF0, 0x01,
-					 0x0D, 0x01, 0x24, 0x01, 0x41, 0x01, 0x63, 0x01,
-					 0x91} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		17, (char[]){0xE1, 0x01, 0xB4, 0x01, 0xE9, 0x02, 0x12, 0x02,
-					 0x57, 0x02, 0x8B, 0x02, 0x8D, 0x02, 0xBD, 0x02,
-					 0xF5} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		17, (char[]){0xE2, 0x03, 0x19, 0x03, 0x46, 0x03, 0x63, 0x03,
-					 0x88, 0x03, 0x9C, 0x03, 0xB6, 0x03, 0xC8, 0x03,
-					 0xD5} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		5, (char[]){0xE3, 0x03, 0xDC, 0x03, 0xFF} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		17, (char[]){0xE4, 0x00, 0x8F, 0x00, 0xC1, 0x00, 0xF0, 0x01,
-					 0x0D, 0x01, 0x24, 0x01, 0x41, 0x01, 0x63, 0x01,
-					 0x91} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		17, (char[]){0xE5, 0x01, 0xB4, 0x01, 0xE9, 0x02, 0x12, 0x02,
-					 0x57, 0x02, 0x8B, 0x02, 0x8D, 0x02, 0xBD, 0x02,
-					 0xF5} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		17, (char[]){0xE6, 0x03, 0x19, 0x03, 0x46, 0x03, 0x63, 0x03,
-					 0x88, 0x03, 0x9C, 0x03, 0xB6, 0x03, 0xC8, 0x03,
-					 0xD5} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		5, (char[]){0xE7, 0x03, 0xDC, 0x03, 0xFF} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		17, (char[]){0xE8, 0x00, 0x8F, 0x00, 0xC1, 0x00, 0xF0, 0x01,
-					 0x0D, 0x01, 0x24, 0x01, 0x41, 0x01, 0x63, 0x01,
-					 0x91} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		17, (char[]){0xE9, 0x01, 0xB4, 0x01, 0xE9, 0x02, 0x12, 0x02,
-					 0x57, 0x02, 0x8B, 0x02, 0x8D, 0x02, 0xBD, 0x02,
-					 0xF5} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		17, (char[]){0xEA, 0x03, 0x19, 0x03, 0x46, 0x03, 0x63, 0x03,
-					 0x88, 0x03, 0x9C, 0x03, 0xB6, 0x03, 0xC8, 0x03,
-					 0xD5} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 5,
-		5, (char[]){0xEB, 0x03, 0xDC, 0x03, 0xFF} } ,
-
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		6, (char[]){0xF0, 0x55, 0xAA, 0x52, 0x00, 0x00} } ,
-
-	{DTYPE_DCS_WRITE, 1, 0, 0, 120,
-		sizeof(exit_sleep), exit_sleep},
-
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
-		sizeof(enable_te), enable_te},
-
-	{DTYPE_MAX_PKTSIZE, 1, 0, 0, 0,
-		sizeof(max_pktsize), max_pktsize},
-
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
-		sizeof(led_pwm1), led_pwm1},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
-		sizeof(led_pwm2), led_pwm2},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
-		sizeof(led_pwm3), led_pwm3},
-};
-
-static struct dsi_cmd_desc novatek_c3_cmd_on_cmds[] = {
-	/* added by our own */
-	{DTYPE_DCS_WRITE, 1, 0, 0, 10,
-		sizeof(sw_reset), sw_reset},
-
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		6, (char[]){0xF0, 0x55, 0xAA, 0x52, 0x08, 0x00} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		ARRAY_SIZE(novatek_e0), novatek_e0},/* PWM frequency = 13kHz */
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		6, (char[]){0xF0, 0x55, 0xAA, 0x52, 0x08, 0x01} } ,
-
-	{DTYPE_DCS_WRITE, 1, 0, 0, 120,
-		sizeof(exit_sleep), exit_sleep},
-
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
-		sizeof(enable_te), enable_te},
-
-	{DTYPE_MAX_PKTSIZE, 1, 0, 0, 0,
-		sizeof(max_pktsize), max_pktsize},
-
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
-		sizeof(led_pwm1), led_pwm1},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
-		sizeof(led_pwm2), led_pwm2},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
-		sizeof(led_pwm3), led_pwm3},
-};
-#endif
-static struct dsi_cmd_desc lg_novatek_cmd_on_cmds[] = {
-	{DTYPE_DCS_WRITE, 1, 0, 0, 30,
-		sizeof(sw_reset), sw_reset},
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		5, (char[]){0xFF, 0xAA, 0x55, 0x25, 0x01} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		8, (char[]){0xF3, 0x02, 0x03, 0x07,
-					 0x15, 0x88, 0xD1, 0x0D} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		5, (char[]){0xFF, 0xAA, 0x55, 0x25, 0x00} } ,
-	/* page 0 */
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		6, (char[]){0xF0, 0x55, 0xAA, 0x52, 0x08, 0x00} },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		5, (char[]){0xB8, 0x01, 0x02, 0x02, 0x02} },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		7, (char[]){0xC9, 0x63, 0x06, 0x0D, 0x1A, 0x17, 0x00} },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		ARRAY_SIZE(novatek_e0), novatek_e0},/* PWM frequency = 13kHz */
-	/* page 1 */
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 1,
-		6, (char[]){0xF0, 0x55, 0xAA, 0x52, 0x08, 0x01} },/* select page 1 */
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		4, (char[]){0xB0, 0x05, 0x05, 0x05} },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		4, (char[]){0xB1, 0x05, 0x05, 0x05} },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		4, (char[]){0xB2, 0x01, 0x01, 0x01} },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		4, (char[]){0xB3, 0x0E, 0x0E, 0x0E} },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		4, (char[]){0xB4, 0x08, 0x08, 0x08} },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		4, (char[]){0xB6, 0x44, 0x44, 0x44} },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		4, (char[]){0xB7, 0x34, 0x34, 0x34} },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		4, (char[]){0xB8, 0x10, 0x10, 0x10} },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		4, (char[]){0xB9, 0x26, 0x26, 0x26} },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		4, (char[]){0xBA, 0x34, 0x34, 0x34} },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		4, (char[]){0xBC, 0x00, 0xC8, 0x00} },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		4, (char[]){0xBD, 0x00, 0xC8, 0x00} },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		3, (char[]){0xC0, 0x01, 0x03} },
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
-		4, (char[]){0xCA, 0x00, 0x15, 0x80} },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		5, (char[]){0xD0, 0x0A, 0x10, 0x0D, 0x0F} },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		sizeof(fir_lg_gamma_01_d1), fir_lg_gamma_01_d1 },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		sizeof(fir_lg_gamma_01_d5), fir_lg_gamma_01_d5 },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		sizeof(fir_lg_gamma_01_d9), fir_lg_gamma_01_d9 },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		sizeof(fir_lg_gamma_01_e0), fir_lg_gamma_01_e0 },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		sizeof(fir_lg_gamma_01_e4), fir_lg_gamma_01_e4 },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		sizeof(fir_lg_gamma_01_e8), fir_lg_gamma_01_e8 },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		sizeof(fir_lg_gamma_02_d2), fir_lg_gamma_02_d2 },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		sizeof(fir_lg_gamma_02_d6), fir_lg_gamma_02_d6 },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		sizeof(fir_lg_gamma_02_dd), fir_lg_gamma_02_dd },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		sizeof(fir_lg_gamma_02_e1), fir_lg_gamma_02_e1 },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		sizeof(fir_lg_gamma_02_e5), fir_lg_gamma_02_e5 },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		sizeof(fir_lg_gamma_02_e9), fir_lg_gamma_02_e9 },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		sizeof(fir_lg_gamma_03_d3), fir_lg_gamma_03_d3 },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		sizeof(fir_lg_gamma_03_d7), fir_lg_gamma_03_d7 },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		sizeof(fir_lg_gamma_03_de), fir_lg_gamma_03_de },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		sizeof(fir_lg_gamma_03_e2), fir_lg_gamma_03_e2 },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		sizeof(fir_lg_gamma_03_e6), fir_lg_gamma_03_e6 },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		sizeof(fir_lg_gamma_03_ea), fir_lg_gamma_03_ea },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		sizeof(fir_lg_gamma_04_d4), fir_lg_gamma_04_d4 },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		sizeof(fir_lg_gamma_04_d8), fir_lg_gamma_04_d8 },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		sizeof(fir_lg_gamma_04_df), fir_lg_gamma_04_df },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		sizeof(fir_lg_gamma_04_e3), fir_lg_gamma_04_e3 },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		sizeof(fir_lg_gamma_04_e7), fir_lg_gamma_04_e7 },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		sizeof(fir_lg_gamma_04_eb), fir_lg_gamma_04_eb },
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
-		6, (char[]){0xF0, 0x55, 0xAA, 0x52, 0x00, 0x00} },/* select page 0 */
-	{DTYPE_DCS_WRITE, 1, 0, 0, 120,
-		sizeof(exit_sleep), exit_sleep},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
-		sizeof(enable_te), enable_te},
-	{DTYPE_MAX_PKTSIZE, 1, 0, 0, 0,
-		sizeof(max_pktsize), max_pktsize},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
-		sizeof(led_pwm1), led_pwm1},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
-		sizeof(led_pwm2), led_pwm2},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
-		sizeof(led_pwm3), led_pwm3},
-};
-
-static struct dsi_cmd_desc novatek_display_off_cmds[] = {
-	{DTYPE_DCS_WRITE, 1, 0, 0, 10,
-		sizeof(display_off), display_off},
-	{DTYPE_DCS_WRITE, 1, 0, 0, 120,
-		sizeof(enter_sleep), enter_sleep}
 };
 
 static char cmd_page_0[2] = {0xff, 0x00};
@@ -1041,6 +553,7 @@ static struct dsi_cmd_desc sony_c1_video_on_cmds[] = {
 
 	/* {DTYPE_DCS_WRITE, 1, 0, 0, 150, sizeof(exit_sleep), exit_sleep}, */
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, 2, (char[]){0x53, 0x24} },
+	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
 };
 
 static struct dsi_cmd_desc sony_panel_video_mode_cmds_c2[] = {
@@ -1512,6 +1025,7 @@ static struct dsi_cmd_desc sony_panel_video_mode_cmds_c2[] = {
 
 	/* {DTYPE_DCS_WRITE, 1, 0, 0, 150, sizeof(exit_sleep), exit_sleep}, */
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, 2, (char[]){0x53, 0x24}},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
 };
 
 static struct dsi_cmd_desc sony_display_off_cmds[] = {
@@ -2196,6 +1710,7 @@ static struct dsi_cmd_desc auo_panel_video_mode_cmds[] = {
 
 	/* {DTYPE_DCS_WRITE, 1, 0, 0, 150, sizeof(exit_sleep), exit_sleep}, */
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, 2, (char[]){0x53, 0x24} },
+	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
 };
 
 static struct dsi_cmd_desc auo_panel_video_mode_cmds_c2[] = {
@@ -2677,6 +2192,7 @@ static struct dsi_cmd_desc auo_panel_video_mode_cmds_c2[] = {
 
 	/* {DTYPE_DCS_WRITE, 1, 0, 0, 150, sizeof(exit_sleep), exit_sleep}, */
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, 2, (char[]){0x53, 0x24}},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
 };
 static struct dsi_cmd_desc auo_panel_video_mode_cmds_c3[] = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(set_threelane), set_threelane},
@@ -3269,7 +2785,9 @@ static struct dsi_cmd_desc auo_panel_video_mode_cmds_c3_1[] = {
 
 	/* {DTYPE_DCS_WRITE, 1, 0, 0, 150, sizeof(exit_sleep), exit_sleep}, */
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, 2, (char[]){0x53, 0x24}},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
 };
+
 #if defined CONFIG_FB_MSM_SELF_REFRESH
 #define DSI_VIDEO_BASE	0xE0000
 static struct msm_panel_common_pdata *mipi_jet_pdata;
@@ -3498,60 +3016,6 @@ static void jet_self_refresh_switch(int on)
 }
 #endif
 
-static void jet_display_on(struct msm_fb_data_type *mfd)
-{
-	mutex_lock(&mfd->dma->ov_mutex);
-
-	if (mfd->panel_info.type == MIPI_CMD_PANEL) {
-		mipi_dsi_mdp_busy_wait(mfd);
-	}
-
-	if (panel_type == PANEL_ID_JET_AUO_NT || panel_type == PANEL_ID_FIGHTER_LG_NT)
-		mipi_dsi_cmds_tx(&jet_panel_tx_buf, auo_display_on_cmds,
-			ARRAY_SIZE(auo_display_on_cmds));
-	else
-		mipi_dsi_cmds_tx(&jet_panel_tx_buf, sony_display_on_cmds,
-			ARRAY_SIZE(sony_display_on_cmds));
-
-	mutex_unlock(&mfd->dma->ov_mutex);
-}
-
-void mipi_dsi_set_backlight(struct msm_fb_data_type *mfd, int level)
-{
-	struct mipi_panel_info *mipi;
-
-	mipi  = &mfd->panel_info.mipi;
-	if (bl_level_prevset == mfd->bl_level)
-		return;
-
-	mutex_lock(&mfd->dma->ov_mutex);
-
-/* Remove the check first for impact MFG test. Command by adb to set backlight not work */
-#if 0
-	if (mdp4_overlay_dsi_state_get() <= ST_DSI_SUSPEND) {
-		mutex_unlock(&mfd->dma->ov_mutex);
-		mutex_unlock(&cmdlock);
-		return;
-	}
-#endif
-
-	/* mdp4_dsi_cmd_busy_wait: will turn on dsi clock also */
-
-	led_pwm1[1] = jet_shrink_pwm(mfd->bl_level);
-
-	mipi_dsi_mdp_busy_wait(mfd);
-
-	if (mfd->bl_level == 0) {
-		mipi_dsi_cmds_tx(&jet_panel_tx_buf, disable_dim, ARRAY_SIZE(disable_dim));
-	}
-	mipi_dsi_cmds_tx(&jet_panel_tx_buf, cmd_backlight_cmds,
-		cmd_backlight_cmds_count);
-
-	bl_level_prevset = mfd->bl_level;
-	mutex_unlock(&mfd->dma->ov_mutex);
-	return;
-}
-
 static int mipi_lcd_on = 1;
 
 static int jet_lcd_on(struct platform_device *pdev)
@@ -3643,18 +3107,34 @@ static int jet_lcd_off(struct platform_device *pdev)
 	return 0;
 }
 
-
-
 static void jet_set_backlight(struct msm_fb_data_type *mfd)
 {
-	int bl_level;
+	struct mipi_panel_info *mipi;
 
-	bl_level = mfd->bl_level;
 	if (!mfd->panel_power_on)
 		return;
 
-	mipi_dsi_set_backlight(mfd, 0);
+	mipi  = &mfd->panel_info.mipi;
 
+	if (bl_level_prevset == mfd->bl_level)
+		return;
+
+	mutex_lock(&mfd->dma->ov_mutex);
+
+	led_pwm1[1] = jet_shrink_pwm(mfd->bl_level);
+
+	mipi_dsi_mdp_busy_wait(mfd);
+
+	if (mfd->bl_level == 0) {
+		mipi_dsi_cmds_tx(&jet_panel_tx_buf, disable_dim,
+				ARRAY_SIZE(disable_dim));
+	}
+	mipi_dsi_cmds_tx(&jet_panel_tx_buf, cmd_backlight_cmds,
+			cmd_backlight_cmds_count);
+
+	mutex_unlock(&mfd->dma->ov_mutex);
+
+	bl_level_prevset = mfd->bl_level;
 }
 
 static int __devinit jet_lcd_probe(struct platform_device *pdev)
@@ -3696,7 +3176,6 @@ static struct msm_fb_panel_data jet_panel_data = {
 #if defined CONFIG_FB_MSM_SELF_REFRESH
 	.self_refresh_switch = jet_self_refresh_switch,
 #endif
-	.display_on = jet_display_on,
 #ifdef CONFIG_FB_MSM_CABC
 	.enable_cabc = enable_ic_cabc,
 #endif
@@ -3744,25 +3223,6 @@ err_device_put:
 
 static struct msm_panel_info pinfo;
 
-static struct mipi_dsi_phy_ctrl dsi_fig_cmd_mode_phy_db = {
-
-/* DSI_BIT_CLK at 482MHz, 2 lane, RGB888 */
-		/* regulator */
-		{0x03, 0x0a, 0x04, 0x00, 0x20},
-		/* timing */
-		/* clk_rate:482MHz */
-		{0xb7, 0x28, 0x1f, 0x00, 0x22, 0x95, 0x22, 0x28, 0x22,
-		0x03, 0x04, 0xa0},
-		/* phy ctrl */
-		{0x5f, 0x00, 0x00, 0x10},
-		/* strength */
-		{0xff, 0x00, 0x06, 0x00},
-		/* pll control */
-		{0x0, 0xf9, 0xb0, 0xda, 0x00, 0x50, 0x48, 0x63,
-		0x41, 0x0f, 0x01,
-		0x00, 0x14, 0x03, 0x00, 0x02, 0x00, 0x20, 0x00, 0x01 },
-};
-
 static struct mipi_dsi_phy_ctrl nova_dsi_video_mode_phy_db = {
 	/* DSI_BIT_CLK at 569MHz, 3 lane, RGB888 */
 	/* regulator *//* off=0x0500 */
@@ -3778,98 +3238,7 @@ static struct mipi_dsi_phy_ctrl nova_dsi_video_mode_phy_db = {
 	{0x0, 0x38, 0x32, 0xDA, 0x00, 0x10, 0x0F, 0x61,
 	0x41, 0x0F, 0x01,
 	0x00, 0x1A, 0x00, 0x00, 0x02, 0x00, 0x20, 0x00, 0x02 },
-
-#if 0
-		/* regulator */
-		{0x03, 0x0a, 0x04, 0x00, 0x20},
-		/* timing */
-		{0xab, 0x8a, 0x18, 0x00, 0x92,
-		0x97, 0x1b, 0x8c, 0x0c,	0x03,
-		0x04, 0xa0},
-		/* phy ctrl */
-		{0x5f, 0x00, 0x00, 0x10},
-		/* strength */
-		{0xff, 0x00, 0x06, 0x00},
-		/* pll control */
-		{0x00, 0xf9, 0xb0, 0xda, 0x00,
-		0x50, 0x48, 0x63,
-		0x30, 0x07, 0x00,
-		0x00, 0x14, 0x03, 0x00, 0x02,
-		0x00, 0x20, 0x00, 0x01},
-#endif
 };
-
-static int mipi_cmd_novatek_blue_qhd_pt_init(void)
-{
-	int ret;
-
-	pinfo.xres = 540;
-	pinfo.yres = 960;
-	pinfo.type = MIPI_CMD_PANEL;
-	pinfo.pdest = DISPLAY_1;
-	pinfo.wait_cycle = 0;
-	pinfo.bpp = 24;
-
-	pinfo.lcdc.h_back_porch = 64;
-	pinfo.lcdc.h_front_porch = 96;
-	pinfo.lcdc.h_pulse_width = 32;
-	pinfo.lcdc.v_back_porch = 16;
-	pinfo.lcdc.v_front_porch = 16;
-	pinfo.lcdc.v_pulse_width = 4;
-	pinfo.lcd.v_back_porch = 16;
-	pinfo.lcd.v_front_porch = 16;
-	pinfo.lcd.v_pulse_width = 4;
-	pinfo.lcdc.border_clr = 0;	/* blk */
-	pinfo.lcdc.underflow_clr = 0xff;	/* blue */
-	pinfo.lcdc.hsync_skew = 0;
-	pinfo.bl_max = 255;
-	pinfo.bl_min = 1;
-	pinfo.fb_num = 2;
-	pinfo.clk_rate = 482000000;
-	pinfo.lcd.vsync_enable = TRUE;
-	pinfo.lcd.hw_vsync_mode = TRUE;
-	pinfo.lcd.refx100 = 6096; /* adjust refx100 to prevent tearing */
-
-	pinfo.mipi.mode = DSI_CMD_MODE;
-	pinfo.mipi.dst_format = DSI_CMD_DST_FORMAT_RGB888;
-	pinfo.mipi.vc = 0;
-	pinfo.mipi.rgb_swap = DSI_RGB_SWAP_RGB;
-	pinfo.mipi.data_lane0 = TRUE;
-	pinfo.mipi.data_lane1 = TRUE;
-	pinfo.mipi.t_clk_post = 0x0a;
-	pinfo.mipi.t_clk_pre = 0x20;
-	pinfo.mipi.stream = 0;	/* dma_p */
-	pinfo.mipi.mdp_trigger = DSI_CMD_TRIGGER_NONE;
-	pinfo.mipi.dma_trigger = DSI_CMD_TRIGGER_SW;
-	pinfo.mipi.te_sel = 1; /* TE from vsycn gpio */
-	pinfo.mipi.interleave_max = 1;
-	pinfo.mipi.insert_dcs_cmd = TRUE;
-	pinfo.mipi.wr_mem_continue = 0x3c;
-	pinfo.mipi.wr_mem_start = 0x2c;
-	pinfo.mipi.dsi_phy_db = &dsi_fig_cmd_mode_phy_db;
-	pinfo.mipi.esc_byte_ratio = 4;
-#ifdef CONFIG_FB_MSM_SELF_REFRESH
-	jet_panel_data.self_refresh_switch = NULL;
-#endif
-	ret = mipi_jet_device_register(&pinfo, MIPI_DSI_PRIM,
-						MIPI_DSI_PANEL_WVGA_PT);
-	if (ret)
-		PR_DISP_ERR("%s: failed to register device!\n", __func__);
-
-	if (panel_type == PANEL_ID_FIGHTER_LG_NT) {
-		strcat(ptype, "PANEL_ID_FIGHTER_LG_NT");
-		PR_DISP_INFO("%s: %s", __func__, ptype);
-		command_on_cmds = lg_novatek_cmd_on_cmds;
-		command_on_cmds_count = ARRAY_SIZE(lg_novatek_cmd_on_cmds);
-		display_off_cmds	= novatek_display_off_cmds;
-		display_off_cmds_count = ARRAY_SIZE(novatek_display_off_cmds);
-	}
-
-	cmd_backlight_cmds = cmd_bkl_cmds;
-	cmd_backlight_cmds_count = ARRAY_SIZE(cmd_bkl_cmds);
-
-	return ret;
-}
 
 static int mipi_video_auo_hd720p_init(void)
 {
@@ -4325,8 +3694,6 @@ static int __init jet_panel_late_init(void)
 			PANEL_ID_JET_AUO_NT_C2 || panel_type == PANEL_ID_JET_AUO_NT_C3 ||
 			panel_type == PANEL_ID_JET_AUO_NT_C3_1)
 			mipi_video_auo_hd720p_init();
-	else
-		mipi_cmd_novatek_blue_qhd_pt_init();
 
 	return platform_driver_register(&this_driver);
 }
