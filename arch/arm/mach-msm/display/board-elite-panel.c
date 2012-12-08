@@ -48,21 +48,11 @@ static char display_off[2] = {0x28, 0x00}; /* DTYPE_DCS_WRITE */
 static char led_pwm1[2] = {0x51, 0xF0};
 static char led_pwm2[2] = {0x53, 0x24};
 static char led_pwm3[2] = {0x55, 0x00};
-static char sw_reset[2] = {0x01, 0x00}; /* DTYPE_DCS_WRITE */
 static char enable_te[2] = {0x35, 0x00};/* DTYPE_DCS_WRITE1 */
 static char pwm_freq[] = {0xC9, 0x0F, 0x04, 0x1E, 0x1E,
 						  0x00, 0x00, 0x00, 0x10, 0x3E};/* 9.41kHz */
 static char swr01[2] = {0x01, 0x33};
 static char swr02[2] = {0x02, 0x53};
-
-
-static struct dsi_cmd_desc sony_display_on_cmds[] = {
-	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
-};
-
-static struct dsi_cmd_desc sharp_display_on_cmds[] = {
-	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
-};
 
 static struct dsi_cmd_desc sony_panel_video_mode_cmds_id18103_ver008[] = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(set_threelane), set_threelane},
@@ -545,6 +535,7 @@ static struct dsi_cmd_desc sony_panel_video_mode_cmds_id18103_ver008[] = {
 
 	/*	{DTYPE_DCS_WRITE, 1, 0, 0, 150, sizeof(exit_sleep), exit_sleep},*/
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, 2, (char[]){0x53, 0x24} },
+	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
 };
 
 
@@ -1502,6 +1493,7 @@ static struct dsi_cmd_desc sony_panel_video_mode_cmds_c2[] = {
 
 	/*	{DTYPE_DCS_WRITE, 1, 0, 0, 150, sizeof(exit_sleep), exit_sleep},*/
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, 2, (char[]){0x53, 0x24}},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
 };
 
 static struct dsi_cmd_desc sony_display_off_cmds[] = {
@@ -1517,43 +1509,8 @@ static struct dsi_cmd_desc sony_cmd_backlight_cmds[] = {
 
 /* himax command begin */
 /* himax mipi commands */
-static char set_twolane[2] = {0xBA, 0x11}; /* DTYPE_DCS_WRITE-1 */
 static char himax_max_pkt_size[2] = {0x03, 0x00};
 static char himax_password[4] = {0xB9, 0xFF, 0x83, 0x92}; /* DTYPE_DCS_LWRITE */
-
-static char himax_cc[2] = {0xCC, 0x08}; /* DTYPE_DCS_WRITE-1 */
-
-static char himax_b2[13] = {0xB2, 0x0F, 0xC8, 0x04, 0x0C, 0x04, 0xF4, 0x00,
-							0xFF, 0x04, 0x0C, 0x04, 0x20}; /* DTYPE_DCS_LWRITE */ /*Set display related register */
-static char himax_b4[21] = {0xB4, 0x12, 0x00, 0x05, 0x00, 0x9A, 0x05, 0x06,
-							0x95, 0x00, 0x01, 0x06, 0x00, 0x08, 0x08, 0x00,
-							0x1D, 0x08, 0x08, 0x08, 0x00}; /* DTYPE_DCS_LWRITE */ /* MPU/Command CYC */
-
-static char himax_d8[21] = {0xD8, 0x12, 0x00, 0x05, 0x00, 0x9A, 0x05, 0x06,
-							0x95, 0x00, 0x01, 0x06, 0x00, 0x08, 0x08, 0x00,
-							0x1D, 0x08, 0x08, 0x08, 0x00}; /* DTYPE_DCS_LWRITE */ /* MPU/Command CYC */
-static char himax_d4[2] = {0xD4, 0x0C}; /* DTYPE_DCS_WRITE-1 */
-
-static char himax_b1[14] = {0xB1, 0x7C, 0x00, 0x44, 0x76, 0x00, 0x12, 0x12,
-							0x2A, 0x25, 0x1E, 0x1E, 0x42, 0x74}; /* DTYPE_DCS_LWRITE */ /* Set Power */
-static char himax_bd[4] = {0xBD, 0x00, 0x60, 0xD6}; /* DTYPE_DCS_LWRITE */
-
-/* Gamma */
-static char himax_e0[35] = {0xE0, 0x00, 0x1D, 0x27, 0x3D, 0x3C, 0x3F, 0x38,
-							0x4F, 0x07, 0x0E, 0x0E, 0x10, 0x17, 0x15, 0x15,
-							0x16, 0x1F, 0x00, 0x1D, 0x27, 0x3D, 0x3C, 0x3F,
-							0x38, 0x4F, 0x07, 0x0E, 0x0E, 0x10, 0x17, 0x15,
-							0x15, 0x16, 0x1F};
-static char himax_e1[35] = {0xE1, 0x25, 0x30, 0x33, 0x3B, 0x3A, 0x3F, 0x3B,
-							0x50, 0x06, 0x0E, 0x0E, 0x10, 0x14, 0x11, 0x13,
-							0x15, 0x1E, 0x25, 0x30, 0x33, 0x3B, 0x3A, 0x3F,
-							0x3B, 0x50, 0x06, 0x0E, 0x0E, 0x10, 0x14, 0x11,
-							0x13, 0x15, 0x1E};
-static char himax_e2[35] = {0xE2, 0x2E, 0x34, 0x33, 0x3A, 0x39, 0x3F, 0x39,
-							0x4E, 0x07, 0x0D, 0x0E, 0x10, 0x15, 0x11, 0x15,
-							0x15, 0x1E, 0x2E, 0x34, 0x33, 0x3A, 0x39, 0x3F,
-							0x39, 0x4E, 0x07, 0x0D, 0x0E, 0x10, 0x15, 0x11,
-							0x15, 0x15, 0x1E};
 
 struct dsi_cmd_desc sharp_nt_video_on_cmds_idA1B100[] = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(set_threelane), set_threelane},
@@ -1684,6 +1641,7 @@ struct dsi_cmd_desc sharp_nt_video_on_cmds_idA1B100[] = {
 
 	/* {DTYPE_DCS_WRITE, 1, 0, 0, 150, sizeof(exit_sleep), exit_sleep}, */
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, 2, (char[]){0x53, 0x24}},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
 };
 
 struct dsi_cmd_desc sharp_nt_video_on_cmds_nv3[] = {
@@ -1797,6 +1755,7 @@ struct dsi_cmd_desc sharp_nt_video_on_cmds_nv3[] = {
 
 	/* {DTYPE_DCS_WRITE, 1, 0, 0, 150, sizeof(exit_sleep), exit_sleep}, */
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, 2, (char[]){0x53, 0x24}},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
 };
 
 struct dsi_cmd_desc sharp_nt_video_on_cmds_nv4[] = {
@@ -1904,6 +1863,7 @@ struct dsi_cmd_desc sharp_nt_video_on_cmds_nv4[] = {
 
 	/* {DTYPE_DCS_WRITE, 1, 0, 0, 150, sizeof(exit_sleep), exit_sleep}, */
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, 2, (char[]){0x53, 0x24}},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
 };
 
 struct dsi_cmd_desc himax_video_on_cmds_id311100[] = {
@@ -1919,29 +1879,6 @@ struct dsi_cmd_desc himax_video_on_cmds_id311100[] = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 10,	sizeof(led_pwm2), led_pwm2},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 10,	sizeof(led_pwm3), led_pwm3},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(enable_te), enable_te},
-};
-
-struct dsi_cmd_desc himax_video_on_cmds[] = {
-	{DTYPE_DCS_WRITE, 1, 0, 0, 250, sizeof(sw_reset), sw_reset},
-	{DTYPE_DCS_WRITE, 1, 0, 0, 150, sizeof(exit_sleep), exit_sleep},
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 10, sizeof(himax_password), himax_password},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(himax_d4), himax_d4},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(set_twolane), set_twolane},
-	{DTYPE_MAX_PKTSIZE, 1, 0, 0, 0, sizeof(himax_max_pkt_size), himax_max_pkt_size},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 10, sizeof(display_mode_video), display_mode_video},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(enable_te), enable_te},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 10, sizeof(himax_cc), himax_cc},
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 10, sizeof(himax_b1), himax_b1},
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 10, sizeof(himax_b2), himax_b2},
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(himax_b4), himax_b4},
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(himax_bd), himax_bd},
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(himax_d8), himax_d8},
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(himax_e0), himax_e0},
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(himax_e1), himax_e1},
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(himax_e2), himax_e2},
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(pwm_freq), pwm_freq},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 10, sizeof(led_pwm2), led_pwm2},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 10, sizeof(led_pwm3), led_pwm3},
 };
 
 static struct dsi_cmd_desc himax_display_off_cmds[] = {
@@ -2257,70 +2194,6 @@ static void elite_self_refresh_switch(int on)
 }
 #endif
 
-static void elite_display_on(struct msm_fb_data_type *mfd)
-{
-	mutex_lock(&mfd->dma->ov_mutex);
-
-	if (mfd->panel_info.type == MIPI_CMD_PANEL) {
-		mipi_dsi_mdp_busy_wait(mfd);
-	}
-
-	if (panel_type == PANEL_ID_ELITE_SONY_NT
-			|| panel_type == PANEL_ID_ELITE_SONY_NT_C1
-			|| panel_type == PANEL_ID_ELITE_SONY_NT_C2)
-		mipi_dsi_cmds_tx(&elite_panel_tx_buf, sony_display_on_cmds,
-			ARRAY_SIZE(sony_display_on_cmds));
-	else
-		mipi_dsi_cmds_tx(&elite_panel_tx_buf, sharp_display_on_cmds,
-			ARRAY_SIZE(sharp_display_on_cmds));
-
-	mutex_unlock(&mfd->dma->ov_mutex);
-}
-
-void mipi_dsi_set_backlight(struct msm_fb_data_type *mfd, int level)
-{
-	struct mipi_panel_info *mipi;
-
-	mipi  = &mfd->panel_info.mipi;
-
-	PR_DISP_DEBUG("%s+:bl=%d\n", __func__, mfd->bl_level);
-	if (bl_level_prevset == mfd->bl_level)
-		return;
-
-	/* mdp4_dsi_cmd_busy_wait: will turn on dsi clock also */
-
-	led_pwm1[1] = elite_shrink_pwm(mfd->bl_level);
-
-	mutex_lock(&mfd->dma->ov_mutex);
-
-	if (mfd->bl_level == 0 ||
-		board_mfg_mode() == 4 ||
-		(board_mfg_mode() == 5 && !(htc_battery_get_zcharge_mode()%2))) {
-		led_pwm1[1] = 0;
-	}
-
-/* Remove the check first for impact MFG test. Command by adb to set backlight not work */
-#if 0
-	if (mdp4_overlay_dsi_state_get() <= ST_DSI_SUSPEND) {
-		mutex_unlock(&mfd->dma->ov_mutex);
-		return;
-	}
-#endif
-
-	mipi_dsi_mdp_busy_wait(mfd);
-
-	if (mfd->bl_level == 0) {
-		mipi_dsi_cmds_tx(&elite_panel_tx_buf, disable_dim, ARRAY_SIZE(disable_dim));
-	}
-	mipi_dsi_cmds_tx(&elite_panel_tx_buf, elite_cmd_backlight_cmds,
-			elite_cmd_backlight_cmds_count);
-
-	bl_level_prevset = mfd->bl_level;
-	mutex_unlock(&mfd->dma->ov_mutex);
-
-	return;
-}
-
 static int mipi_lcd_on = 1;
 
 static int elite_lcd_on(struct platform_device *pdev)
@@ -2418,19 +2291,35 @@ static int elite_lcd_off(struct platform_device *pdev)
 	return 0;
 }
 
-
-
 static void elite_set_backlight(struct msm_fb_data_type *mfd)
 {
+	struct mipi_panel_info *mipi;
 
-	int bl_level;
-
-	bl_level = mfd->bl_level;
 	if (!mfd->panel_power_on)
 		return;
 
-	mipi_dsi_set_backlight(mfd, 0);
+	mipi  = &mfd->panel_info.mipi;
 
+	PR_DISP_DEBUG("%s+:bl=%d\n", __func__, mfd->bl_level);
+	if (bl_level_prevset == mfd->bl_level)
+		return;
+
+	mutex_lock(&mfd->dma->ov_mutex);
+
+	led_pwm1[1] = elite_shrink_pwm(mfd->bl_level);
+
+	mipi_dsi_mdp_busy_wait(mfd);
+
+	if (mfd->bl_level == 0) {
+		mipi_dsi_cmds_tx(&elite_panel_tx_buf, disable_dim,
+				ARRAY_SIZE(disable_dim));
+	}
+	mipi_dsi_cmds_tx(&elite_panel_tx_buf, elite_cmd_backlight_cmds,
+			elite_cmd_backlight_cmds_count);
+
+	mutex_unlock(&mfd->dma->ov_mutex);
+
+	bl_level_prevset = mfd->bl_level;
 }
 
 static int __devinit elite_lcd_probe(struct platform_device *pdev)
@@ -2475,7 +2364,6 @@ static struct msm_fb_panel_data elite_panel_data = {
 #if defined CONFIG_FB_MSM_SELF_REFRESH
 	.self_refresh_switch = elite_self_refresh_switch,
 #endif
-	.display_on = elite_display_on,
 #ifdef CONFIG_FB_MSM_CABC
 	.enable_cabc = enable_ic_cabc,
 #endif
@@ -2819,8 +2707,6 @@ static int __init mipi_video_himax_720p_pt_init(void)
 	strcat(ptype, "PANEL_ID_ELITE_SHARP_HX");
 	PR_DISP_INFO("%s: assign initial setting for SHARP_HX, %s\n", __func__, ptype);
 
-	if(0)
-	elite_video_on_cmds = himax_video_on_cmds;
 	elite_video_on_cmds = himax_video_on_cmds_id311100;
 	elite_display_off_cmds	= himax_display_off_cmds;
 	elite_cmd_backlight_cmds = himax_cmd_backlight_cmds;
@@ -2829,8 +2715,6 @@ static int __init mipi_video_himax_720p_pt_init(void)
 	elite_cmd_to_video = cmd_to_video;
 #endif
 
-	if(0)
-	elite_video_on_cmds_count = ARRAY_SIZE(himax_video_on_cmds);
 	elite_video_on_cmds_count = ARRAY_SIZE(himax_video_on_cmds_id311100);
 	elite_display_off_cmds_count = ARRAY_SIZE(himax_display_off_cmds);
 	elite_cmd_backlight_cmds_count = ARRAY_SIZE(himax_cmd_backlight_cmds);
