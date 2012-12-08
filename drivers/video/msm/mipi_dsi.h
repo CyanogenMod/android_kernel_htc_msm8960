@@ -284,7 +284,6 @@ struct dcs_cmd_list {
 	struct dcs_cmd_req list[CMD_REQ_MAX];
 };
 
-
 char *mipi_dsi_buf_reserve_hdr(struct dsi_buf *dp, int hlen);
 char *mipi_dsi_buf_init(struct dsi_buf *dp);
 void mipi_dsi_init(void);
