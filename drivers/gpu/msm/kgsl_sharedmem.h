@@ -120,8 +120,6 @@ memdesc_sg_phys(struct kgsl_memdesc *memdesc,
 	if (!memdesc->sg)
 		return -ENOMEM;
 
-	kmemleak_not_leak(memdesc->sg);
-
 	memdesc->sglen = 1;
 	sg_init_table(memdesc->sg, 1);
 	memdesc->sg[0].length = size;

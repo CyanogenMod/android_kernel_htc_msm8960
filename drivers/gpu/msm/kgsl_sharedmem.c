@@ -547,8 +547,6 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 		goto done;
 	}
 
-	kmemleak_not_leak(memdesc->sg);
-
 	memdesc->sglen = sglen;
 	sg_init_table(memdesc->sg, sglen);
 
