@@ -1006,20 +1006,6 @@ int mdp4_dsi_cmd_on(struct platform_device *pdev)
 
 	atomic_set(&vctrl->suspend, 0);
 
-	if (!vctrl->sysfs_created) {
-		ret = sysfs_create_group(&vctrl->dev->kobj,
-			&vsync_fs_attr_group);
-		if (ret) {
-			pr_err("%s: sysfs group creation failed, ret=%d\n",
-				__func__, ret);
-			return ret;
-		}
-
-		kobject_uevent(&vctrl->dev->kobj, KOBJ_ADD);
-		pr_debug("%s: kobject_uevent(KOBJ_ADD)\n", __func__);
-		vctrl->sysfs_created = 1;
-	}
-
 	pr_debug("%s-:\n", __func__);
 
 	return ret;
@@ -1102,19 +1088,6 @@ int mdp4_dsi_cmd_off(struct platform_device *pdev)
 		vp->update_cnt = 0;     /* empty queue */
 	}
 
-<<<<<<< HEAD
-	undx =  vctrl->update_ndx;
-	vp = &vctrl->vlist[undx];
-	if (vp->update_cnt) {
-		/*
-		 * pipe's iommu will be freed at next overlay play
-		 * and iommu_drop statistic will be increased by one
-		 */
-		vp->update_cnt = 0;     /* empty queue */
-	}
-
-=======
->>>>>>> e3142f9... msm_fb: display: add sysfs and clock control to smart panel
 	pr_debug("%s-:\n", __func__);
 	return ret;
 }
@@ -1171,10 +1144,6 @@ void mdp4_dsi_cmd_overlay(struct msm_fb_data_type *mfd)
 	if (atomic_read(&vctrl->suspend)) {
 		mutex_unlock(&vctrl->update_lock);
 		mutex_unlock(&mfd->dma->ov_mutex);
-<<<<<<< HEAD
-=======
-		pr_err("%s: suspended, no more pan display\n", __func__);
->>>>>>> e3142f9... msm_fb: display: add sysfs and clock control to smart panel
 		return;
 	}
 
@@ -1205,20 +1174,9 @@ void mdp4_dsi_cmd_overlay(struct msm_fb_data_type *mfd)
 
 	mdp4_overlay_mdp_perf_upd(mfd, 1);
 
-<<<<<<< HEAD
-	mdp4_dsi_cmd_pipe_commit(0, 0);
-
-	mdp4_overlay_mdp_perf_upd(mfd, 0);
-
-#if defined(CONFIG_FB_MSM_MIPI_CMD_PANEL_VSYNC)
-	if (mfd->cmd_panel_disp_on)
-		mfd->cmd_panel_disp_on(mfd);
-#endif
-	
-=======
 	mdp4_dsi_cmd_pipe_commit(cndx, 0);
 
 	mdp4_overlay_mdp_perf_upd(mfd, 0);
->>>>>>> e3142f9... msm_fb: display: add sysfs and clock control to smart panel
+
 	mutex_unlock(&mfd->dma->ov_mutex);
 }

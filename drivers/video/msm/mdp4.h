@@ -920,6 +920,7 @@ void mdp4_dsi_video_3d_sbys(struct msm_fb_data_type *mfd,
 
 int mdp4_mixer_info(int mixer_num, struct mdp_mixer_info *info);
 
+void mipi_dsi_mdp_busy_wait(void);
 void mdp_dmap_vsync_set(int enable);
 int mdp_dmap_vsync_get(void);
 void mdp_hw_cursor_done(void);

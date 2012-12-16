@@ -1046,7 +1046,6 @@ static void mipi_dsi_wait4video_done(void)
 
 void mipi_dsi_mdp_busy_wait(void)
 {
-<<<<<<< HEAD
 	unsigned long flag;
 	int need_wait = 0;
 
@@ -1070,11 +1069,9 @@ void mipi_dsi_mdp_busy_wait(void)
 	}
 	pr_debug("%s: done pid=%d\n",
 			__func__, current->pid);
-=======
 	mutex_lock(&cmd_mutex);
 	mipi_dsi_cmd_mdp_busy();
 	mutex_unlock(&cmd_mutex);
->>>>>>> e3142f9... msm_fb: display: add sysfs and clock control to smart panel
 }
 
 void mipi_dsi_cmd_mdp_start(void)
@@ -1644,12 +1641,6 @@ void mipi_dsi_cmdlist_commit(int from_mdp)
 		}
 	}
 
-<<<<<<< HEAD
-	if (req->flags && CMD_REQ_RX)
-		mipi_dsi_cmdlist_rx(req);
-	else
-		mipi_dsi_cmdlist_tx(req);
-=======
 	if (req->flags & CMD_REQ_RX)
 		mipi_dsi_cmdlist_rx(req);
 	else
@@ -1657,7 +1648,6 @@ void mipi_dsi_cmdlist_commit(int from_mdp)
 
 	if (!video)
 		mipi_dsi_clk_cfg(0);
->>>>>>> e3142f9... msm_fb: display: add sysfs and clock control to smart panel
 
 need_lock:
 
