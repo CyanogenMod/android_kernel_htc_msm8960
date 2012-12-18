@@ -1153,7 +1153,12 @@ int ion_handle_get_flags(struct ion_client *client, struct ion_handle *handle,
 	}
 	buffer = handle->buffer;
 	mutex_lock(&buffer->lock);
-	*flags = buffer->flags;
+	/*
+	 * Make sure we only return FLAGS. buffer->flags also holds
+	 * the heap_mask, so we need to make sure we're only looking
+	 * at the supported Ion flags.
+	 */
+	*flags = buffer->flags & (ION_FLAG_CACHED | ION_SECURE);
 	mutex_unlock(&buffer->lock);
 	mutex_unlock(&client->lock);
 
