@@ -1270,7 +1270,7 @@ static int mdp_do_histogram(struct fb_info *info,
 		goto error;
 }
 	if ((mdp_rev <= MDP_REV_41 && hist->bin_cnt > MDP_REV41_HIST_MAX_BIN)
-		|| (mdp_rev == MDP_REV_42 &&
+		|| (mdp_rev >= MDP_REV_42 &&
 				hist->bin_cnt > MDP_REV42_HIST_MAX_BIN)) {
 		pr_info("%s - mdp_rev = %d, num_bins = %d", __func__, mdp_rev,
 								hist->bin_cnt);
@@ -2458,7 +2458,7 @@ static int mdp_irq_clk_setup(struct platform_device *pdev,
 		regulator_enable(footswitch);
 		mdp_footswitch_on = 1;
 
-		if (mdp_rev == MDP_REV_42 && !cont_splashScreen) {
+		if (mdp_rev >= MDP_REV_42 && !cont_splashScreen) {
 			regulator_disable(footswitch);
 			msleep(20);
 			regulator_enable(footswitch);
@@ -2479,7 +2479,7 @@ static int mdp_irq_clk_setup(struct platform_device *pdev,
 	if (IS_ERR(mdp_pclk))
 		mdp_pclk = NULL;
 
-	if (mdp_rev == MDP_REV_42) {
+	if (mdp_rev >= MDP_REV_42) {
 		mdp_lut_clk = clk_get(&pdev->dev, "lut_clk");
 		if (IS_ERR(mdp_lut_clk)) {
 			ret = PTR_ERR(mdp_lut_clk);
