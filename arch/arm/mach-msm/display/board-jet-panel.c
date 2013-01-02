@@ -2923,30 +2923,6 @@ void enable_ic_cabc(int cabc, bool dim_on, struct msm_fb_data_type *mfd)
 	mutex_unlock(&mfd->dma->ov_mutex);
 }
 #endif
-#ifdef READ_ID
-static char manufacture_id[2] = {0x04, 0x00}; /* DTYPE_DCS_READ */
-
-static struct dsi_cmd_desc novatek_manufacture_id_cmd = {
-	DTYPE_DCS_READ, 1, 0, 1, 5, sizeof(manufacture_id), manufacture_id};
-
-static uint32 mipi_novatek_manufacture_id(struct msm_fb_data_type *mfd)
-{
-	struct dsi_buf *rp, *tp;
-	struct dsi_cmd_desc *cmd;
-	uint32 *lp;
-
-	tp = &jet_panel_tx_buf;
-	rp = &jet_panel_rx_buf;
-	mipi_dsi_buf_init(rp);
-	mipi_dsi_buf_init(tp);
-
-	cmd = &novatek_manufacture_id_cmd;
-	mipi_dsi_cmds_rx(mfd, tp, rp, cmd, 3);
-	lp = (uint32 *)rp->data;
-	PR_DISP_INFO("%s: manufacture_id=%x\n", __func__, *lp);
-	return *lp;
-}
-#endif
 #define PWM_MIN                   6
 #define PWM_DEFAULT               91
 #define PWM_MAX                   255
@@ -3055,9 +3031,6 @@ static int jet_lcd_on(struct platform_device *pdev)
 		}
 	} else {
 		if (!mipi_lcd_on) {
-			#ifdef READ_ID
-			mipi_dsi_cmd_bta_sw_trigger(); /* clean up ack_err_status */
-			#endif
 			if (panel_type != PANEL_ID_NONE) {
 				PR_DISP_INFO("%s: %s\n", __func__, ptype);
 				mipi_dsi_cmds_tx(&jet_panel_tx_buf, command_on_cmds,
@@ -3065,10 +3038,6 @@ static int jet_lcd_on(struct platform_device *pdev)
 			} else
 				PR_DISP_ERR("%s: panel_type is not supported!(%d)", __func__, panel_type);
 		}
-		#ifdef READ_ID
-		mipi_dsi_cmd_bta_sw_trigger(); /* clean up ack_err_status */
-		mipi_novatek_manufacture_id(mfd);
-		#endif
 	}
 
 	mipi_lcd_on = 1;

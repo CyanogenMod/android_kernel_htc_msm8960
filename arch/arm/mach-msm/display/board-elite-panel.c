@@ -2061,30 +2061,6 @@ void enable_ic_cabc(int cabc, bool dim_on, struct msm_fb_data_type *mfd)
 }
 #endif
 
-static char manufacture_id[2] = {0x04, 0x00}; 		/* DTYPE_DCS_READ */
-
-static struct dsi_cmd_desc elite_manufacture_id_cmd = {
-	DTYPE_DCS_READ, 1, 0, 1, 5, sizeof(manufacture_id), manufacture_id};
-
-static uint32 mipi_elite_manufacture_id(struct msm_fb_data_type *mfd)
-{
-	struct dsi_buf *rp, *tp;
-	struct dsi_cmd_desc *cmd;
-	uint32 *lp;
-
-	tp = &elite_panel_tx_buf;
-	rp = &elite_panel_rx_buf;
-	mipi_dsi_buf_init(rp);
-	mipi_dsi_buf_init(tp);
-
-	cmd = &elite_manufacture_id_cmd;
-	mipi_dsi_cmds_rx(mfd, tp, rp, cmd, 3);
-	lp = (uint32 *)rp->data;
-	PR_DISP_INFO("%s: manufacture_id=%x\n", __func__, *lp);
-
-	return *lp;
-}
-
 static struct dsi_cmd_desc *elite_video_on_cmds = NULL;
 static struct dsi_cmd_desc *elite_display_off_cmds = NULL;
 static struct dsi_cmd_desc *elite_cmd_backlight_cmds = NULL;
@@ -2241,7 +2217,6 @@ static int elite_lcd_on(struct platform_device *pdev)
 		}
 	} else {
 		if (!mipi_lcd_on) {
-			mipi_dsi_cmd_bta_sw_trigger(); /* clean up ack_err_status */
 			if (panel_type == PANEL_ID_ELITE_SONY_NT 
 					|| panel_type == PANEL_ID_ELITE_SONY_NT_C1
 					|| panel_type == PANEL_ID_ELITE_SONY_NT_C2
@@ -2255,8 +2230,6 @@ static int elite_lcd_on(struct platform_device *pdev)
 				PR_DISP_INFO("%s: panel_type command mode is not supported!(%d)", __func__, panel_type);
 			}
 		}
-		mipi_dsi_cmd_bta_sw_trigger(); /* clean up ack_err_status */
-		mipi_elite_manufacture_id(mfd);
 	}
 
 	mipi_lcd_on = 1;

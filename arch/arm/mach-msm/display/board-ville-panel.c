@@ -198,33 +198,6 @@ static struct dsi_cmd_desc auo_display_off_cmds[] = {
 		sizeof(slpin_cmd), slpin_cmd}
 };
 
-static char manufacture_id[2] = {0x04, 0x00}; 		/* DTYPE_DCS_READ */
-
-static struct dsi_cmd_desc samsung_manufacture_id_cmd = {
-	DTYPE_DCS_READ, 1, 0, 1, 5, sizeof(manufacture_id), manufacture_id};
-
-static uint32 mipi_samsung_manufacture_id(struct msm_fb_data_type *mfd)
-{
-	struct dsi_buf *rp, *tp;
-	struct dsi_cmd_desc *cmd;
-/* 	uint32 *lp; */
-
-	tp = &ville_panel_tx_buf;
-	rp = &ville_panel_rx_buf;
-	mipi_dsi_buf_init(rp);
-	mipi_dsi_buf_init(tp);
-
-	cmd = &samsung_manufacture_id_cmd;
-/*
-//-	mipi_dsi_cmds_rx(mfd, tp, rp, cmd, 3);
-//-	lp = (uint32 *)rp->data;
-//-	PR_DISP_INFO("%s: manufacture_id=%x\n", __func__, *lp);
-//-	return *lp;
-*/
-	return 0;
-}
-
-
 #define PWM_MIN                   30
 #define PWM_DEFAULT               142
 #define PWM_MAX                   255
@@ -515,8 +488,6 @@ static int ville_lcd_on(struct platform_device *pdev)
 		return 0;
 	}
 
-	mipi_dsi_cmd_bta_sw_trigger(); /* clean up ack_err_status */
-
 	switch (panel_type) {
 		case PANEL_ID_VILLE_SAMSUNG_SG:
 			printk(KERN_INFO "ville_lcd_on PANEL_ID_VILLE_SAMSUNG_SG\n");
@@ -538,10 +509,6 @@ static int ville_lcd_on(struct platform_device *pdev)
 			break;
 	}
 	mipi_dsi_cmds_tx(&ville_panel_tx_buf, on_cmds, on_cmds_cnt);
-
-	mipi_dsi_cmd_bta_sw_trigger(); /* clean up ack_err_status */
-
-	mipi_samsung_manufacture_id(mfd);
 
 	mipi_lcd_on = 1;
 
