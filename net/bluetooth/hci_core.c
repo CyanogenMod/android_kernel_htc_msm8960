@@ -54,7 +54,6 @@
 
 #define AUTO_OFF_TIMEOUT 2000
 
-
 static void hci_cmd_task(unsigned long arg);
 static void hci_rx_task(unsigned long arg);
 static void hci_tx_task(unsigned long arg);
@@ -306,6 +305,12 @@ static void hci_le_init_req(struct hci_dev *hdev, unsigned long opt)
 
 	/* Read LE buffer size */
 	hci_send_cmd(hdev, HCI_OP_LE_READ_BUFFER_SIZE, 0, NULL);
+
+	/* Read LE clear white list */
+	hci_send_cmd(hdev, HCI_OP_LE_CLEAR_WHITE_LIST, 0, NULL);
+
+	/* Read LE white list size */
+	hci_send_cmd(hdev, HCI_OP_LE_READ_WHITE_LIST_SIZE, 0, NULL);
 }
 
 static void hci_scan_req(struct hci_dev *hdev, unsigned long opt)
@@ -714,10 +719,8 @@ static int hci_dev_do_close(struct hci_dev *hdev, u8 is_process)
 
 int hci_dev_close(__u16 dev)
 {
-
 	struct hci_dev *hdev;
 	int err;
-	BT_DBG(" hci_Dev_close ");
 
 	hdev = hci_dev_get(dev);
 	if (!hdev)
@@ -1016,55 +1019,13 @@ static void hci_power_on(struct work_struct *work)
 		mgmt_index_added(hdev->id);
 }
 
-static void dev_close_timer ( unsigned long arg)
-{
-	struct hci_dev *hdev = (void *) arg;
-	queue_work(hdev->workqueue, &hdev->dev_close);
-
-}
-static void hci_disc_all_conn(__u16 dev)
-{
-	struct hci_dev *hdev = NULL;
-	struct hci_conn_hash *h = NULL;
-	bool active_conn = false;
-	struct list_head *p;
-
-	hdev = hci_dev_get(dev);
-	h = &hdev->conn_hash;
-
-	p = h->list.next;
-	while (p != &h->list) {
-		struct hci_conn *c;
-		active_conn = true;
-		c = list_entry(p, struct hci_conn, list);
-		p = p->next;
-		if(c->state == BT_CONNECTED){
-			__u8 reason;
-			reason = hci_proto_disconn_ind(c);
-			hci_acl_disconn(c, reason);
-		}
-	}
-	// will call hci_dev_close after 1 sec of all disconnection
-	if( active_conn){
-		mod_timer(&hdev->dev_close_timer, jiffies + msecs_to_jiffies(1000));
-	} else {
-		hci_dev_close(dev);
-	}
-
-}
-
-static void hci_dev_close_final ( struct work_struct *work)
-{
-	struct hci_dev *hdev = container_of(work, struct hci_dev, dev_close);
-	hci_dev_close(hdev->id);
-
-}
 static void hci_power_off(struct work_struct *work)
 {
 	struct hci_dev *hdev = container_of(work, struct hci_dev, power_off);
 
 	BT_DBG("%s", hdev->name);
-	hci_disc_all_conn(hdev->id);
+
+	hci_dev_close(hdev->id);
 }
 
 static void hci_auto_off(unsigned long data)
@@ -1554,11 +1515,9 @@ int hci_register_dev(struct hci_dev *hdev)
 	INIT_LIST_HEAD(&hdev->adv_entries);
 	rwlock_init(&hdev->adv_entries_lock);
 	setup_timer(&hdev->adv_timer, hci_adv_clear, (unsigned long) hdev);
-	setup_timer(&hdev->dev_close_timer, dev_close_timer, (unsigned long) hdev);
 
 	INIT_WORK(&hdev->power_on, hci_power_on);
 	INIT_WORK(&hdev->power_off, hci_power_off);
-	INIT_WORK(&hdev->dev_close, hci_dev_close_final);
 	setup_timer(&hdev->off_timer, hci_auto_off, (unsigned long) hdev);
 
 	memset(&hdev->stat, 0, sizeof(struct hci_dev_stats));
@@ -1648,7 +1607,7 @@ int hci_unregister_dev(struct hci_dev *hdev)
 	del_timer(&hdev->cmd_timer);
 	del_timer(&hdev->disco_timer);
 	del_timer(&hdev->disco_le_timer);
-	del_timer(&hdev->dev_close_timer);
+
 	destroy_workqueue(hdev->workqueue);
 
 	hci_dev_lock_bh(hdev);

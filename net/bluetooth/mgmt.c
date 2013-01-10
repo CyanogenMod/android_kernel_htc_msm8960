@@ -227,6 +227,8 @@ static int read_controller_info(struct sock *sk, u16 index)
 
 	memcpy(rp.name, hdev->dev_name, sizeof(hdev->dev_name));
 
+	rp.le_white_list_size = hdev->le_white_list_size;
+
 	hci_dev_unlock_bh(hdev);
 	hci_dev_put(hdev);
 
@@ -1439,6 +1441,185 @@ failed:
 	return err;
 }
 
+static int le_add_dev_white_list(struct sock *sk, u16 index,
+					unsigned char *data, u16 len)
+{
+	struct hci_dev *hdev;
+	struct mgmt_cp_le_add_dev_white_list *cp;
+	int err = 0;
+
+	BT_DBG("");
+
+	cp = (void *) data;
+
+	if (len != sizeof(*cp))
+		return cmd_status(sk, index, MGMT_OP_LE_ADD_DEV_WHITE_LIST,
+									EINVAL);
+
+	hdev = hci_dev_get(index);
+	if (!hdev)
+		return cmd_status(sk, index, MGMT_OP_LE_ADD_DEV_WHITE_LIST,
+									ENODEV);
+
+	hci_dev_lock_bh(hdev);
+
+	if (!test_bit(HCI_UP, &hdev->flags)) {
+		err = cmd_status(sk, index, MGMT_OP_LE_ADD_DEV_WHITE_LIST,
+								ENETDOWN);
+		goto failed;
+	}
+
+	hci_le_add_dev_white_list(hdev, &cp->bdaddr);
+
+failed:
+	hci_dev_unlock_bh(hdev);
+	hci_dev_put(hdev);
+
+	return err;
+}
+
+static int le_remove_dev_white_list(struct sock *sk, u16 index,
+					unsigned char *data, u16 len)
+{
+	struct hci_dev *hdev;
+	struct mgmt_cp_le_remove_dev_white_list *cp;
+	int err = 0;
+
+	BT_DBG("");
+
+	cp = (void *) data;
+
+	if (len != sizeof(*cp))
+		return cmd_status(sk, index, MGMT_OP_LE_REMOVE_DEV_WHITE_LIST,
+									EINVAL);
+
+	hdev = hci_dev_get(index);
+	if (!hdev)
+		return cmd_status(sk, index, MGMT_OP_LE_REMOVE_DEV_WHITE_LIST,
+									ENODEV);
+
+	hci_dev_lock_bh(hdev);
+
+	if (!test_bit(HCI_UP, &hdev->flags)) {
+		err = cmd_status(sk, index, MGMT_OP_LE_REMOVE_DEV_WHITE_LIST,
+								ENETDOWN);
+		goto failed;
+	}
+
+	hci_le_remove_dev_white_list(hdev, &cp->bdaddr);
+
+failed:
+	hci_dev_unlock_bh(hdev);
+	hci_dev_put(hdev);
+
+	return err;
+}
+
+static int le_create_conn_white_list(struct sock *sk, u16 index)
+{
+	struct hci_dev *hdev;
+	struct hci_conn *conn;
+	u8 sec_level, auth_type;
+	struct pending_cmd *cmd;
+	bdaddr_t bdaddr;
+	int err = 0;
+
+	BT_DBG("");
+
+	hdev = hci_dev_get(index);
+	if (!hdev)
+		return cmd_status(sk, index, MGMT_OP_LE_CREATE_CONN_WHITE_LIST,
+									ENODEV);
+
+	hci_dev_lock_bh(hdev);
+
+	if (!test_bit(HCI_UP, &hdev->flags)) {
+		err = cmd_status(sk, index, MGMT_OP_LE_CREATE_CONN_WHITE_LIST,
+								ENETDOWN);
+		goto failed;
+	}
+
+	cmd = mgmt_pending_add(sk, MGMT_OP_LE_CREATE_CONN_WHITE_LIST, index,
+								NULL, 0);
+	if (!cmd) {
+		err = -ENOMEM;
+		goto failed;
+	}
+
+	sec_level = BT_SECURITY_MEDIUM;
+	auth_type = HCI_AT_GENERAL_BONDING;
+	memset(&bdaddr, 0, sizeof(bdaddr));
+	conn = hci_le_connect(hdev, 0, BDADDR_ANY, sec_level, auth_type, NULL);
+	if (IS_ERR(conn)) {
+		err = PTR_ERR(conn);
+		mgmt_pending_remove(cmd);
+	}
+
+failed:
+	hci_dev_unlock_bh(hdev);
+	hci_dev_put(hdev);
+
+	return err;
+}
+
+static int le_cancel_create_conn_white_list(struct sock *sk, u16 index)
+{
+	struct hci_dev *hdev;
+	int err = 0;
+
+	BT_DBG("");
+
+	hdev = hci_dev_get(index);
+	if (!hdev)
+		return cmd_status(sk, index,
+			MGMT_OP_LE_CANCEL_CREATE_CONN_WHITE_LIST, ENODEV);
+
+	hci_dev_lock_bh(hdev);
+
+	if (!test_bit(HCI_UP, &hdev->flags)) {
+		err = cmd_status(sk, index,
+			MGMT_OP_LE_CANCEL_CREATE_CONN_WHITE_LIST, ENETDOWN);
+		goto failed;
+	}
+
+	hci_le_cancel_create_connect(hdev, BDADDR_ANY);
+
+failed:
+	hci_dev_unlock_bh(hdev);
+	hci_dev_put(hdev);
+
+	return err;
+}
+
+static int le_clear_white_list(struct sock *sk, u16 index)
+{
+	struct hci_dev *hdev;
+	int err;
+
+	BT_DBG("");
+
+	hdev = hci_dev_get(index);
+	if (!hdev)
+		return cmd_status(sk, index,
+			MGMT_OP_LE_CLEAR_WHITE_LIST, ENODEV);
+
+	hci_dev_lock_bh(hdev);
+
+	if (!test_bit(HCI_UP, &hdev->flags)) {
+		err = cmd_status(sk, index,
+			MGMT_OP_LE_CLEAR_WHITE_LIST, ENETDOWN);
+		goto failed;
+	}
+
+	err = hci_send_cmd(hdev, HCI_OP_LE_CLEAR_WHITE_LIST, 0, NULL);
+
+failed:
+	hci_dev_unlock_bh(hdev);
+	hci_dev_put(hdev);
+
+	return err;
+}
+
 static int set_io_capability(struct sock *sk, u16 index, unsigned char *data,
 									u16 len)
 {
@@ -1613,28 +1794,22 @@ static int pair_device(struct sock *sk, u16 index, unsigned char *data, u16 len)
 
 	hci_dev_lock_bh(hdev);
 
-	BT_DBG("SSP Cap is %d", cp->ssp_cap);
 	io_cap = cp->io_cap;
-	if ((cp->ssp_cap == 0) || (io_cap == 0x03)) {
-		sec_level = BT_SECURITY_MEDIUM;
-		auth_type = HCI_AT_DEDICATED_BONDING;
-	} else {
-		sec_level = BT_SECURITY_HIGH;
-		auth_type = HCI_AT_DEDICATED_BONDING_MITM;
-	}
+
+	sec_level = BT_SECURITY_MEDIUM;
+	auth_type = HCI_AT_DEDICATED_BONDING;
 
 	entry = hci_find_adv_entry(hdev, &cp->bdaddr);
 	if (entry && entry->flags & 0x04) {
-		conn = hci_connect(hdev, LE_LINK, 0, &cp->bdaddr, sec_level,
-								auth_type);
+		conn = hci_le_connect(hdev, 0, &cp->bdaddr, sec_level,
+							auth_type, NULL);
 	} else {
 		/* ACL-SSP does not support io_cap 0x04 (KeyboadDisplay) */
 		if (io_cap == 0x04)
 			io_cap = 0x01;
 		conn = hci_connect(hdev, ACL_LINK, 0, &cp->bdaddr, sec_level,
 								auth_type);
-		if(conn)
-                    conn->auth_initiator = 1;
+		conn->auth_initiator = 1;
 	}
 
 	if (IS_ERR(conn)) {
@@ -1812,6 +1987,81 @@ failed:
 	return err;
 }
 
+static int set_rssi_reporter(struct sock *sk, u16 index,
+				unsigned char *data, u16 len)
+{
+	struct mgmt_cp_set_rssi_reporter *cp = (void *) data;
+	struct hci_dev *hdev;
+	struct hci_conn *conn;
+	int err = 0;
+
+	if (len != sizeof(*cp))
+		return cmd_status(sk, index, MGMT_OP_SET_RSSI_REPORTER,
+								EINVAL);
+
+	hdev = hci_dev_get(index);
+	if (!hdev)
+		return cmd_status(sk, index, MGMT_OP_SET_RSSI_REPORTER,
+							ENODEV);
+
+	hci_dev_lock(hdev);
+
+	conn = hci_conn_hash_lookup_ba(hdev, LE_LINK, &cp->bdaddr);
+
+	if (!conn) {
+		err = cmd_status(sk, index, MGMT_OP_SET_RSSI_REPORTER,
+						ENOTCONN);
+		goto failed;
+	}
+
+	BT_DBG("updateOnThreshExceed %d ", cp->updateOnThreshExceed);
+	hci_conn_set_rssi_reporter(conn, cp->rssi_threshold,
+			__le16_to_cpu(cp->interval), cp->updateOnThreshExceed);
+
+failed:
+	hci_dev_unlock(hdev);
+	hci_dev_put(hdev);
+
+	return err;
+}
+
+static int unset_rssi_reporter(struct sock *sk, u16 index,
+			unsigned char *data, u16 len)
+{
+	struct mgmt_cp_unset_rssi_reporter *cp = (void *) data;
+	struct hci_dev *hdev;
+	struct hci_conn *conn;
+	int err = 0;
+
+	if (len != sizeof(*cp))
+		return cmd_status(sk, index, MGMT_OP_UNSET_RSSI_REPORTER,
+					EINVAL);
+
+	hdev = hci_dev_get(index);
+
+	if (!hdev)
+		return cmd_status(sk, index, MGMT_OP_UNSET_RSSI_REPORTER,
+					ENODEV);
+
+	hci_dev_lock(hdev);
+
+	conn = hci_conn_hash_lookup_ba(hdev, LE_LINK, &cp->bdaddr);
+
+	if (!conn) {
+		err = cmd_status(sk, index, MGMT_OP_UNSET_RSSI_REPORTER,
+					ENOTCONN);
+		goto failed;
+	}
+
+	hci_conn_unset_rssi_reporter(conn);
+
+failed:
+	hci_dev_unlock(hdev);
+	hci_dev_put(hdev);
+
+	return err;
+}
+
 static int set_local_name(struct sock *sk, u16 index, unsigned char *data,
 								u16 len)
 {
@@ -1916,10 +2166,7 @@ void mgmt_inquiry_complete_evt(u16 index, u8 status)
 						sizeof(le_cp), &le_cp);
 		if (err >= 0) {
 			mod_timer(&hdev->disco_le_timer, jiffies +
-			//	msecs_to_jiffies(hdev->disco_int_phase * 1000));
-                        //htc_bt ++
-                                msecs_to_jiffies(1000));
-                        //htc_bt --
+				msecs_to_jiffies(hdev->disco_int_phase * 1000));
 			hdev->disco_state = SCAN_LE;
 		} else
 			hdev->disco_state = SCAN_IDLE;
@@ -2370,6 +2617,12 @@ int mgmt_control(struct sock *sk, struct msghdr *msg, size_t msglen)
 	case MGMT_OP_SET_CONNECTION_PARAMS:
 		err = set_connection_params(sk, index, buf + sizeof(*hdr), len);
 		break;
+	case MGMT_OP_SET_RSSI_REPORTER:
+		err = set_rssi_reporter(sk, index, buf + sizeof(*hdr), len);
+		break;
+	case MGMT_OP_UNSET_RSSI_REPORTER:
+		err = unset_rssi_reporter(sk, index, buf + sizeof(*hdr), len);
+		break;
 	case MGMT_OP_READ_LOCAL_OOB_DATA:
 		err = read_local_oob_data(sk, index);
 		break;
@@ -2383,7 +2636,23 @@ int mgmt_control(struct sock *sk, struct msghdr *msg, size_t msglen)
 	case MGMT_OP_ENCRYPT_LINK:
 		err = encrypt_link(sk, index, buf + sizeof(*hdr), len);
 		break;
-
+	case MGMT_OP_LE_ADD_DEV_WHITE_LIST:
+		err = le_add_dev_white_list(sk, index, buf + sizeof(*hdr),
+									len);
+		break;
+	case MGMT_OP_LE_REMOVE_DEV_WHITE_LIST:
+		err = le_remove_dev_white_list(sk, index, buf + sizeof(*hdr),
+									len);
+		break;
+	case MGMT_OP_LE_CLEAR_WHITE_LIST:
+		err = le_clear_white_list(sk, index);
+		break;
+	case MGMT_OP_LE_CREATE_CONN_WHITE_LIST:
+		err = le_create_conn_white_list(sk, index);
+		break;
+	case MGMT_OP_LE_CANCEL_CREATE_CONN_WHITE_LIST:
+		err = le_cancel_create_conn_white_list(sk, index);
+		break;
 	default:
 		BT_DBG("Unknown op %u", opcode);
 		err = cmd_status(sk, index, opcode, 0x01);
@@ -2525,11 +2794,40 @@ int mgmt_new_key(u16 index, struct link_key *key, u8 bonded)
 int mgmt_connected(u16 index, bdaddr_t *bdaddr, u8 le)
 {
 	struct mgmt_ev_connected ev;
+	struct pending_cmd *cmd;
+	struct hci_dev *hdev;
+
+	BT_DBG("hci%u", index);
+
+	hdev = hci_dev_get(index);
+
+	if (!hdev)
+		return -ENODEV;
 
 	bacpy(&ev.bdaddr, bdaddr);
 	ev.le = le;
 
+	cmd = mgmt_pending_find(MGMT_OP_LE_CREATE_CONN_WHITE_LIST, index);
+	if (cmd) {
+		BT_ERR("mgmt_connected remove mgmt pending white_list");
+		mgmt_pending_remove(cmd);
+	}
+
 	return mgmt_event(MGMT_EV_CONNECTED, index, &ev, sizeof(ev), NULL);
+}
+
+int mgmt_le_conn_params(u16 index, bdaddr_t *bdaddr, u16 interval,
+						u16 latency, u16 timeout)
+{
+	struct mgmt_ev_le_conn_params ev;
+
+	bacpy(&ev.bdaddr, bdaddr);
+	ev.interval = interval;
+	ev.latency = latency;
+	ev.timeout = timeout;
+
+	return mgmt_event(MGMT_EV_LE_CONN_PARAMS, index, &ev, sizeof(ev),
+									NULL);
 }
 
 static void disconnect_rsp(struct pending_cmd *cmd, void *data)
@@ -2548,20 +2846,21 @@ static void disconnect_rsp(struct pending_cmd *cmd, void *data)
 	mgmt_pending_remove(cmd);
 }
 
-int mgmt_disconnected(u16 index, bdaddr_t *bdaddr)
+int mgmt_disconnected(u16 index, bdaddr_t *bdaddr, u8 reason)
 {
 	struct mgmt_ev_disconnected ev;
 	struct sock *sk = NULL;
 	int err;
 
-	mgmt_pending_foreach(MGMT_OP_DISCONNECT, index, disconnect_rsp, &sk);
-
 	bacpy(&ev.bdaddr, bdaddr);
+	ev.reason = reason;
 
 	err = mgmt_event(MGMT_EV_DISCONNECTED, index, &ev, sizeof(ev), sk);
 
 	if (sk)
 		sock_put(sk);
+
+	mgmt_pending_foreach(MGMT_OP_DISCONNECT, index, disconnect_rsp, &sk);
 
 	return err;
 }
@@ -2677,8 +2976,11 @@ int mgmt_user_confirm_request(u16 index, u8 event,
 	if ((conn->auth_type & HCI_AT_DEDICATED_BONDING) &&
 			conn->auth_initiator && rem_cap == 0x03)
 		ev.auto_confirm = 1;
-	else if (loc_cap == 0x01 && (rem_cap == 0x00 || rem_cap == 0x03))
+	else if (loc_cap == 0x01 && (rem_cap == 0x00 || rem_cap == 0x03)) {
+		if (!loc_mitm && !rem_mitm)
+			value = 0;
 		goto no_auto_confirm;
+	}
 
 
 	if ((!loc_mitm || rem_cap == 0x03) && (!rem_mitm || loc_cap == 0x03))
@@ -2818,6 +3120,57 @@ int mgmt_read_local_oob_data_reply_complete(u16 index, u8 *hash, u8 *randomizer,
 
 	return err;
 }
+
+void mgmt_read_rssi_complete(u16 index, s8 rssi, bdaddr_t *bdaddr,
+		u16 handle, u8 status)
+{
+	struct mgmt_ev_rssi_update ev;
+	struct hci_conn *conn;
+	struct hci_dev *hdev;
+
+	if (status)
+		return;
+
+	hdev = hci_dev_get(index);
+	conn = hci_conn_hash_lookup_handle(hdev, handle);
+
+	if (!conn)
+		return;
+
+	BT_DBG("rssi_update_thresh_exceed : %d ",
+		   conn->rssi_update_thresh_exceed);
+	BT_DBG("RSSI Threshold : %d , recvd RSSI : %d ",
+			conn->rssi_threshold, rssi);
+
+	if (conn->rssi_update_thresh_exceed == 1) {
+		BT_DBG("rssi_update_thresh_exceed == 1");
+		if (rssi >= conn->rssi_threshold) {
+			memset(&ev, 0, sizeof(ev));
+			bacpy(&ev.bdaddr, bdaddr);
+			ev.rssi = rssi;
+			mgmt_event(MGMT_EV_RSSI_UPDATE, index, &ev,
+				sizeof(ev), NULL);
+		} else {
+			hci_conn_set_rssi_reporter(conn, conn->rssi_threshold,
+				conn->rssi_update_interval,
+				conn->rssi_update_thresh_exceed);
+		}
+	} else {
+		BT_DBG("rssi_update_thresh_exceed == 0");
+		if (rssi <= conn->rssi_threshold) {
+			memset(&ev, 0, sizeof(ev));
+			bacpy(&ev.bdaddr, bdaddr);
+			ev.rssi = rssi;
+			mgmt_event(MGMT_EV_RSSI_UPDATE, index, &ev,
+				sizeof(ev), NULL);
+		} else {
+			hci_conn_set_rssi_reporter(conn, conn->rssi_threshold,
+				conn->rssi_update_interval,
+				conn->rssi_update_thresh_exceed);
+		}
+	}
+}
+
 
 int mgmt_device_found(u16 index, bdaddr_t *bdaddr, u8 type, u8 le,
 			u8 *dev_class, s8 rssi, u8 eir_len, u8 *eir)

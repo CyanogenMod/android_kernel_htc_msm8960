@@ -164,9 +164,6 @@ void hci_conn_del_sysfs(struct hci_conn *conn)
 {
 	BT_DBG("conn %p", conn);
 
-	if (conn == NULL || conn->hdev == NULL || conn->hdev->workqueue == NULL)
-		return;
-
 	queue_work(conn->hdev->workqueue, &conn->work_del);
 }
 
