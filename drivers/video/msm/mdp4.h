@@ -29,13 +29,8 @@ extern spinlock_t dsi_clk_lock;
 extern u32 mdp_max_clk;
 
 extern u64 mdp_max_bw;
-#ifdef CONFIG_FB_MSM_MIPI_SAMSUNG_OLED_VIDEO_HD_PT
-#define MDP4_BW_AB_FACTOR (345)	/* 3.45*/
-#define MDP4_BW_IB_FACTOR (375)	/* 3.75 */
-#else
 #define MDP4_BW_AB_FACTOR (115) /* 1.15 */
 #define MDP4_BW_IB_FACTOR (125) /* 1.25 */
-#endif
 
 #define MDP_BUS_SCALE_AB_STEP (0x4000000)
 #define MDP_BUS_SCALE_INIT (0x10000000)
