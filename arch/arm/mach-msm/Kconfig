@@ -757,6 +757,7 @@ config MACH_TAHITI
 
 config MACH_FIGHTER
 	depends on ARCH_MSM8960
+	select FB_MSM_MIPI_DSI
 	bool "Fighter"
 	help
 	  Support for the HTC Fighter
