@@ -435,6 +435,7 @@ static struct dsi_cmd_desc novatek_cmd_on_cmds[] = {
 		sizeof(led_pwm2), led_pwm2},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
 		sizeof(led_pwm3), led_pwm3},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
 };
 
 static struct dsi_cmd_desc novatek_c2_cmd_on_cmds[] = {
@@ -566,6 +567,7 @@ static struct dsi_cmd_desc novatek_c2_cmd_on_cmds[] = {
 		sizeof(led_pwm2), led_pwm2},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
 		sizeof(led_pwm3), led_pwm3},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
 };
 
 static struct dsi_cmd_desc novatek_c3_cmd_on_cmds[] = {
@@ -599,6 +601,7 @@ static struct dsi_cmd_desc novatek_c3_cmd_on_cmds[] = {
 		sizeof(led_pwm2), led_pwm2},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
 		sizeof(led_pwm3), led_pwm3},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
 };
 
 static struct dsi_cmd_desc lg_novatek_cmd_on_cmds[] = {
@@ -721,6 +724,7 @@ static struct dsi_cmd_desc lg_novatek_cmd_on_cmds[] = {
 		sizeof(led_pwm2), led_pwm2},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
 		sizeof(led_pwm3), led_pwm3},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
 };
 
 static struct dsi_cmd_desc lg_novatek_c2_cmd_on_cmds[] = {
@@ -793,6 +797,7 @@ static struct dsi_cmd_desc lg_novatek_c2_cmd_on_cmds[] = {
 		sizeof(led_pwm2), led_pwm2},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
 		sizeof(led_pwm3), led_pwm3},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
 };
 
 static struct dsi_cmd_desc lg_novatek_mp_cmd_on_cmds[] = {
@@ -866,6 +871,7 @@ static struct dsi_cmd_desc lg_novatek_mp_cmd_on_cmds[] = {
 		sizeof(led_pwm2), led_pwm2},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
 		sizeof(led_pwm3), led_pwm3},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
 };
 
 static unsigned char pwm_freq_sel_cmds1[] = {0x00, 0xB4}; /* address shift to pwm_freq_sel */
@@ -1474,6 +1480,7 @@ static struct dsi_cmd_desc sony_orise9608a_mp_panel_cmd_mode_cmds[] = {
 		sizeof(led_pwm2), led_pwm2},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
 		sizeof(led_pwm3), led_pwm3},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
 };
 
 static struct dsi_cmd_desc sony_orise9608a_c1_1_panel_cmd_mode_cmds[] = {
@@ -1514,6 +1521,7 @@ static struct dsi_cmd_desc sony_orise9608a_c1_1_panel_cmd_mode_cmds[] = {
 		sizeof(led_pwm2), led_pwm2},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
 		sizeof(led_pwm3), led_pwm3},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
 };
 
 static struct dsi_cmd_desc sony_orise9608a_panel_cmd_mode_cmds[] = {
@@ -1717,12 +1725,6 @@ static struct dsi_cmd_desc sony_orise9608a_panel_cmd_mode_cmds[] = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(no_wait_te2), no_wait_te2},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(led_pwm2), led_pwm2},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(led_pwm3), led_pwm3},
-};
-
-static struct dsi_cmd_desc sony_orise9608a_panel_display_on[] = {
-	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
-};
-static struct dsi_cmd_desc novatek_panel_display_on[] = {
 	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
 };
 
@@ -1739,29 +1741,6 @@ static struct dsi_cmd_desc novatek_display_off_lg_cmds[] = {
 	{DTYPE_DCS_WRITE, 1, 0, 0, 120,
 		sizeof(enter_sleep), enter_sleep}
 };
-
-static char manufacture_id[2] = {0x04, 0x00}; /* DTYPE_DCS_READ */
-
-static struct dsi_cmd_desc novatek_manufacture_id_cmd = {
-	DTYPE_DCS_READ, 1, 0, 1, 5, sizeof(manufacture_id), manufacture_id};
-
-static uint32 fighter_manufacture_id(struct msm_fb_data_type *mfd)
-{
-	struct dsi_buf *rp, *tp;
-	struct dsi_cmd_desc *cmd;
-	uint32 *lp;
-
-	tp = &fighter_panel_tx_buf;
-	rp = &fighter_panel_rx_buf;
-	mipi_dsi_buf_init(rp);
-	mipi_dsi_buf_init(tp);
-
-	cmd = &novatek_manufacture_id_cmd;
-	mipi_dsi_cmds_rx(mfd, tp, rp, cmd, 3);
-	lp = (uint32 *)rp->data;
-	PR_DISP_INFO("%s: manufacture_id=%x\n", __func__, *lp);
-	return *lp;
-}
 
 #define PWM_MIN                   7
 #define PWM_DEFAULT               91
@@ -1794,39 +1773,6 @@ static unsigned char fighter_shrink_pwm(int val)
 	return shrink_br;
 }
 
-static int bl_level_old;
-
-static void mipi_dsi_set_backlight(struct msm_fb_data_type *mfd)
-{
-	struct mipi_panel_info *mipi;
-
-	mipi  = &mfd->panel_info.mipi;
-	if (bl_level_old == mfd->bl_level)
-		return;
-
-	mutex_lock(&mfd->dma->ov_mutex);
-	/* mdp4_dsi_cmd_busy_wait: will turn on dsi clock also */
-
-	led_pwm1[1] = fighter_shrink_pwm(mfd->bl_level);
-
-/* Remove the check first for impact MFG test. Command by adb to set backlight not work */
-#if 0
-	if (mdp4_overlay_dsi_state_get() <= ST_DSI_SUSPEND) {
-		mutex_unlock(&mfd->dma->ov_mutex);
-		return;
-	}
-#endif
-
-	mdp4_dsi_cmd_dma_busy_wait(mfd);
-	mdp4_dsi_blt_dmap_busy_wait(mfd);
-	mipi_dsi_mdp_busy_wait(mfd);
-	mipi_dsi_cmds_tx(mfd, &fighter_panel_tx_buf, novatek_cmd_backlight_cmds,
-			ARRAY_SIZE(novatek_cmd_backlight_cmds));
-	bl_level_old = mfd->bl_level;
-	mutex_unlock(&mfd->dma->ov_mutex);
-	return;
-}
-
 static int mipi_lcd_on = 1;
 
 static int fighter_lcd_on(struct platform_device *pdev)
@@ -1843,82 +1789,55 @@ static int fighter_lcd_on(struct platform_device *pdev)
 	mipi  = &mfd->panel_info.mipi;
 
 	if (mipi->mode == DSI_VIDEO_MODE) {
-		mipi_dsi_cmds_tx(mfd, &fighter_panel_tx_buf, novatek_video_on_cmds,
+		mipi_dsi_cmds_tx(&fighter_panel_tx_buf, novatek_video_on_cmds,
 			ARRAY_SIZE(novatek_video_on_cmds));
 	} else {
 		if (!mipi_lcd_on) {
-			mipi_dsi_cmd_bta_sw_trigger(); /* clean up ack_err_status */
 			if (panel_type == PANEL_ID_FIGHTER_SAMSUNG_NT) {
 				PR_DISP_INFO("fighter_lcd_on PANEL_ID_FIGHTER_SAMSUNG_NT\n");
-				mipi_dsi_cmds_tx(mfd, &fighter_panel_tx_buf, novatek_cmd_on_cmds,
+				mipi_dsi_cmds_tx(&fighter_panel_tx_buf, novatek_cmd_on_cmds,
 					ARRAY_SIZE(novatek_cmd_on_cmds));
 			} else if (panel_type == PANEL_ID_FIGHTER_SAMSUNG_NT_C2) {
 				PR_DISP_INFO("fighter_lcd_on PANEL_ID_FIGHTER_SAMSUNG_NT_C2\n");
-				mipi_dsi_cmds_tx(mfd, &fighter_panel_tx_buf, novatek_c2_cmd_on_cmds,
+				mipi_dsi_cmds_tx(&fighter_panel_tx_buf, novatek_c2_cmd_on_cmds,
 					ARRAY_SIZE(novatek_c2_cmd_on_cmds));
 			} else if (panel_type == PANEL_ID_FIGHTER_SAMSUNG_NT_C3) {
 				PR_DISP_INFO("fighter_lcd_on PANEL_ID_FIGHTER_SAMSUNG_NT_C3\n");
-				mipi_dsi_cmds_tx(mfd, &fighter_panel_tx_buf, novatek_c3_cmd_on_cmds,
+				mipi_dsi_cmds_tx(&fighter_panel_tx_buf, novatek_c3_cmd_on_cmds,
 					ARRAY_SIZE(novatek_c3_cmd_on_cmds));
 			} else if (panel_type == PANEL_ID_FIGHTER_LG_NT) {
 				PR_DISP_INFO("fighter_lcd_on PANEL_ID_FIGHTER_LG_NT\n");
-				mipi_dsi_cmds_tx(mfd, &fighter_panel_tx_buf, lg_novatek_cmd_on_cmds,
+				mipi_dsi_cmds_tx(&fighter_panel_tx_buf, lg_novatek_cmd_on_cmds,
 					ARRAY_SIZE(lg_novatek_cmd_on_cmds));
 			} else if (panel_type == PANEL_ID_FIGHTER_LG_NT_C2) {
 				PR_DISP_INFO("fighter_lcd_on PANEL_ID_FIGHTER_LG_NT_C2\n");
-				mipi_dsi_cmds_tx(mfd, &fighter_panel_tx_buf, lg_novatek_c2_cmd_on_cmds,
+				mipi_dsi_cmds_tx(&fighter_panel_tx_buf, lg_novatek_c2_cmd_on_cmds,
 					ARRAY_SIZE(lg_novatek_c2_cmd_on_cmds));
 			} else if (panel_type == PANEL_ID_FIGHTER_LG_NT_MP) {
 				PR_DISP_INFO("fighter_lcd_on PANEL_ID_FIGHTER_LG_NT_MP\n");
-				mipi_dsi_cmds_tx(mfd, &fighter_panel_tx_buf, lg_novatek_mp_cmd_on_cmds,
+				mipi_dsi_cmds_tx(&fighter_panel_tx_buf, lg_novatek_mp_cmd_on_cmds,
 					ARRAY_SIZE(lg_novatek_mp_cmd_on_cmds));
 			} else if (panel_type == PANEL_ID_FIGHTER_SONY_OTM) {
 				PR_DISP_INFO("fighter_lcd_on PANEL_ID_FIGHTER_SONY_OTM\n");
-				mipi_dsi_cmds_tx(mfd, &fighter_panel_tx_buf, sony_orise9608a_panel_cmd_mode_cmds,
+				mipi_dsi_cmds_tx(&fighter_panel_tx_buf, sony_orise9608a_panel_cmd_mode_cmds,
 					ARRAY_SIZE(sony_orise9608a_panel_cmd_mode_cmds));
 			} else if (panel_type == PANEL_ID_FIGHTER_SONY_OTM_C1_1) {
 				PR_DISP_INFO("fighter_lcd_on PANEL_ID_FIGHTER_SONY_OTM_C1_1\n");
-				mipi_dsi_cmds_tx(mfd, &fighter_panel_tx_buf, sony_orise9608a_c1_1_panel_cmd_mode_cmds,
+				mipi_dsi_cmds_tx(&fighter_panel_tx_buf, sony_orise9608a_c1_1_panel_cmd_mode_cmds,
 					ARRAY_SIZE(sony_orise9608a_c1_1_panel_cmd_mode_cmds));
 			} else if (panel_type == PANEL_ID_FIGHTER_SONY_OTM_MP) {
 				PR_DISP_INFO("fighter_lcd_on PANEL_ID_FIGHTER_SONY_OTM_MP\n");
-				mipi_dsi_cmds_tx(mfd, &fighter_panel_tx_buf, sony_orise9608a_mp_panel_cmd_mode_cmds,
+				mipi_dsi_cmds_tx(&fighter_panel_tx_buf, sony_orise9608a_mp_panel_cmd_mode_cmds,
 					ARRAY_SIZE(sony_orise9608a_mp_panel_cmd_mode_cmds));
 			}
 		}
-		mipi_dsi_cmd_bta_sw_trigger(); /* clean up ack_err_status */
-
-		fighter_manufacture_id(mfd);
 	}
 	mipi_lcd_on = 1;
 
 	return 0;
 }
 
-static void fighter_display_on(struct msm_fb_data_type *mfd)
-{
-	/* The Orise-Sony panel need to set display on after first frame sent */
-	/*
-	if (panel_type != PANEL_ID_FIGHTER_SONY_OTM && panel_type != PANEL_ID_FIGHTER_SONY_OTM_C1_1)
-		return;
-	*/
-	mutex_lock(&mfd->dma->ov_mutex);
-
-	if (mfd->panel_info.type == MIPI_CMD_PANEL) {
-		mdp4_dsi_cmd_dma_busy_wait(mfd);
-		mdp4_dsi_blt_dmap_busy_wait(mfd);
-		mipi_dsi_mdp_busy_wait(mfd);
-	}
-	if (isorise) {
-		mipi_dsi_cmds_tx(mfd, &fighter_panel_tx_buf, sony_orise9608a_panel_display_on,
-			ARRAY_SIZE(sony_orise9608a_panel_display_on));
-	} else {
-		mipi_dsi_cmds_tx(mfd, &fighter_panel_tx_buf, novatek_panel_display_on,
-			ARRAY_SIZE(novatek_panel_display_on));
-	}
-
-	mutex_unlock(&mfd->dma->ov_mutex);
-}
+static int bl_level_old;
 
 static int fighter_lcd_off(struct platform_device *pdev)
 {
@@ -1936,10 +1855,10 @@ static int fighter_lcd_off(struct platform_device *pdev)
 	/* Remove mutex temporarily*/
 	/*mutex_lock(&mfd->dma->ov_mutex);*/
 	if (isorise) {
-		mipi_dsi_cmds_tx(mfd, &fighter_panel_tx_buf, novatek_display_off_cmds,
+		mipi_dsi_cmds_tx(&fighter_panel_tx_buf, novatek_display_off_cmds,
 				ARRAY_SIZE(novatek_display_off_cmds));
 	} else {
-		mipi_dsi_cmds_tx(mfd, &fighter_panel_tx_buf, novatek_display_off_lg_cmds,
+		mipi_dsi_cmds_tx(&fighter_panel_tx_buf, novatek_display_off_lg_cmds,
 				ARRAY_SIZE(novatek_display_off_lg_cmds));
 	}
 
@@ -1950,14 +1869,30 @@ static int fighter_lcd_off(struct platform_device *pdev)
 	return 0;
 }
 
-
-
 static void fighter_set_backlight(struct msm_fb_data_type *mfd)
 {
+	struct mipi_panel_info *mipi;
+
 	if (!mfd->panel_power_on)
 		return;
 
-	mipi_dsi_set_backlight(mfd);
+	mipi = &mfd->panel_info.mipi;
+	if (bl_level_old == mfd->bl_level)
+		return;
+
+	mutex_lock(&mfd->dma->ov_mutex);
+
+	led_pwm1[1] = fighter_shrink_pwm(mfd->bl_level);
+
+	mipi_dsi_mdp_busy_wait(mfd);
+
+	mipi_dsi_cmds_tx(&fighter_panel_tx_buf, novatek_cmd_backlight_cmds,
+			ARRAY_SIZE(novatek_cmd_backlight_cmds));
+
+	mutex_unlock(&mfd->dma->ov_mutex);
+
+	bl_level_old = mfd->bl_level;
+
 }
 
 static int __devinit fighter_lcd_probe(struct platform_device *pdev)
@@ -1986,7 +1921,6 @@ static struct msm_fb_panel_data novatek_panel_data = {
 	.on		= fighter_lcd_on,
 	.off		= fighter_lcd_off,
 	.set_backlight = fighter_set_backlight,
-	.display_on = fighter_display_on,
 };
 
 static int ch_used[3];
@@ -2079,8 +2013,6 @@ static int mipi_cmd_novatek_blue_qhd_pt_init(void)
 	pinfo.pdest = DISPLAY_1;
 	pinfo.wait_cycle = 0;
 	pinfo.bpp = 24;
-	pinfo.width = 49;
-	pinfo.height = 87;
 
 	pinfo.lcdc.h_back_porch = 64;
 	pinfo.lcdc.h_front_porch = 96;
