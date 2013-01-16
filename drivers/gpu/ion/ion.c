@@ -109,6 +109,24 @@ struct ion_handle {
 
 static void ion_iommu_release(struct kref *kref);
 
+static int ion_validate_buffer_flags(struct ion_buffer *buffer,
+					unsigned long flags)
+{
+	if (buffer->kmap_cnt || buffer->dmap_cnt || buffer->umap_cnt ||
+		buffer->iommu_map_cnt) {
+		if (buffer->flags != flags) {
+			pr_err("%s: buffer was already mapped with flags %lx,"
+				" cannot map with flags %lx\n", __func__,
+				buffer->flags, flags);
+			return 1;
+		}
+
+	} else {
+		buffer->flags = flags;
+	}
+	return 0;
+}
+
 /* this function should only be called while dev->lock is held */
 static void ion_buffer_add(struct ion_device *dev,
 			   struct ion_buffer *buffer)
@@ -214,7 +232,6 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 	}
 	buffer->dev = dev;
 	buffer->size = len;
-	buffer->flags = flags;
 	mutex_init(&buffer->lock);
 	ion_buffer_add(dev, buffer);
 	return buffer;
@@ -558,6 +575,11 @@ void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle,
 		return ERR_PTR(-ENODEV);
 	}
 
+	if (ion_validate_buffer_flags(buffer, flags)) {
+			vaddr = ERR_PTR(-EEXIST);
+			goto out;
+	}
+
 	if (_ion_map(&buffer->kmap_cnt, &handle->kmap_cnt)) {
 		vaddr = buffer->heap->ops->map_kernel(buffer->heap, buffer,
 							flags);
@@ -568,6 +590,7 @@ void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle,
 		vaddr = buffer->vaddr;
 	}
 
+out:
 	mutex_unlock(&buffer->lock);
 	mutex_unlock(&client->lock);
 	return vaddr;
@@ -783,6 +806,11 @@ struct scatterlist *ion_map_dma(struct ion_client *client,
 		return ERR_PTR(-ENODEV);
 	}
 
+	if (ion_validate_buffer_flags(buffer, flags)) {
+		sglist = ERR_PTR(-EEXIST);
+		goto out;
+	}
+
 	if (_ion_map(&buffer->dmap_cnt, &handle->dmap_cnt)) {
 		sglist = buffer->heap->ops->map_dma(buffer->heap, buffer);
 		if (IS_ERR_OR_NULL(sglist))
@@ -792,6 +820,7 @@ struct scatterlist *ion_map_dma(struct ion_client *client,
 		sglist = buffer->sglist;
 	}
 
+out:
 	mutex_unlock(&buffer->lock);
 	mutex_unlock(&client->lock);
 	return sglist;
@@ -873,6 +902,31 @@ end:
 	return handle;
 }
 EXPORT_SYMBOL(ion_import);
+
+static int check_vaddr_bounds(unsigned long start, unsigned long end)
+{
+	struct mm_struct *mm = current->active_mm;
+	struct vm_area_struct *vma;
+	int ret = 1;
+
+	if (end < start)
+		goto out;
+
+	down_read(&mm->mmap_sem);
+	vma = find_vma(mm, start);
+	if (vma && vma->vm_start < end) {
+		if (start < vma->vm_start)
+			goto out_up;
+		if (end > vma->vm_end)
+			goto out_up;
+		ret = 0;
+	}
+
+out_up:
+	up_read(&mm->mmap_sem);
+out:
+	return ret;
+}
 
 int ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
 			void *uaddr, unsigned long offset, unsigned long len,
@@ -1153,12 +1207,7 @@ int ion_handle_get_flags(struct ion_client *client, struct ion_handle *handle,
 	}
 	buffer = handle->buffer;
 	mutex_lock(&buffer->lock);
-	/*
-	 * Make sure we only return FLAGS. buffer->flags also holds
-	 * the heap_mask, so we need to make sure we're only looking
-	 * at the supported Ion flags.
-	 */
-	*flags = buffer->flags & (ION_FLAG_CACHED | ION_SECURE);
+	*flags = buffer->flags;
 	mutex_unlock(&buffer->lock);
 	mutex_unlock(&client->lock);
 
@@ -1273,7 +1322,10 @@ static int ion_share_mmap(struct file *file, struct vm_area_struct *vma)
 	struct ion_client *client;
 	struct ion_handle *handle;
 	int ret;
-	unsigned long flags = buffer->flags;
+	unsigned long flags = file->f_flags & O_DSYNC ?
+				ION_SET_CACHE(UNCACHED) :
+				ION_SET_CACHE(CACHED);
+
 
 	pr_debug("%s: %d\n", __func__, __LINE__);
 	/* make sure the client still exists, it's possible for the client to
@@ -1309,6 +1361,12 @@ static int ion_share_mmap(struct file *file, struct vm_area_struct *vma)
 	}
 
 	mutex_lock(&buffer->lock);
+
+	if (ion_validate_buffer_flags(buffer, flags)) {
+		ret = -EEXIST;
+		mutex_unlock(&buffer->lock);
+		goto err1;
+	}
 
 	/* now map it to userspace */
 	ret = buffer->heap->ops->map_user(buffer->heap, buffer, vma,
@@ -1367,6 +1425,9 @@ static int ion_ioctl_share(struct file *parent, struct ion_client *client,
 	if (IS_ERR_OR_NULL(file))
 		goto err;
 
+	if (parent->f_flags & O_DSYNC)
+		file->f_flags |= O_DSYNC;
+
 	ion_buffer_get(handle->buffer);
 	fd_install(fd, file);
 
@@ -1388,7 +1449,6 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 		if (copy_from_user(&data, (void __user *)arg, sizeof(data)))
 			return -EFAULT;
-		data.flags |= data.heap_mask;
 		data.handle = ion_alloc(client, data.len, data.align,
 					     data.flags);
 
@@ -1465,8 +1525,61 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case ION_IOC_CLEAN_CACHES:
 	case ION_IOC_INV_CACHES:
 	case ION_IOC_CLEAN_INV_CACHES:
+	{
+		struct ion_flush_data data;
+		unsigned long start, end;
+		struct ion_handle *handle = NULL;
+		int ret;
+
+		if (copy_from_user(&data, (void __user *)arg,
+				sizeof(struct ion_flush_data)))
+			return -EFAULT;
+
+		start = (unsigned long) data.vaddr;
+		end = (unsigned long) data.vaddr + data.length;
+
+		if (check_vaddr_bounds(start, end)) {
+			pr_err("%s: virtual address %p is out of bounds\n",
+				__func__, data.vaddr);
+			return -EINVAL;
+		}
+
+		if (!data.handle) {
+			handle = ion_import_fd(client, data.fd);
+			if (IS_ERR_OR_NULL(handle)) {
+				pr_info("%s: Could not import handle: %d\n",
+					__func__, (int)handle);
+				return -EINVAL;
+			}
+		}
+
+		ret = ion_do_cache_op(client,
+					data.handle ? data.handle : handle,
+					data.vaddr, data.offset, data.length,
+					cmd);
+
+		if (!data.handle)
+			ion_free(client, handle);
+
+		break;
+
+	}
 	case ION_IOC_GET_FLAGS:
-		return client->dev->custom_ioctl(client, cmd, arg);
+	{
+		struct ion_flag_data data;
+		int ret;
+		if (copy_from_user(&data, (void __user *)arg,
+				   sizeof(struct ion_flag_data)))
+			return -EFAULT;
+
+		ret = ion_handle_get_flags(client, data.handle, &data.flags);
+		if (ret < 0)
+			return ret;
+		if (copy_to_user((void __user *)arg, &data,
+				 sizeof(struct ion_flag_data)))
+			return -EFAULT;
+		break;
+	}
 	default:
 		return -ENOTTY;
 	}

@@ -52,14 +52,6 @@ enum ion_heap_type {
 #define ION_HEAP_CARVEOUT_MASK		(1 << ION_HEAP_TYPE_CARVEOUT)
 #define ION_HEAP_CP_MASK		(1 << ION_HEAP_TYPE_CP)
 
-/**
- * heap flags - the lower 16 bits are used by core ion, the upper 16
- * bits are reserved for use by the heaps themselves.
- */
-#define ION_FLAG_CACHED 1		/* mappings of this buffer should be
-					   cached, ion will do cache
-					   maintenance when the buffer is
-					   mapped for dma */
 
 /**
  * These are the only ids that should be used for Ion heap ids.
@@ -72,13 +64,6 @@ enum ion_heap_type {
 
 enum ion_heap_ids {
 	INVALID_HEAP_ID = -1,
-	/* In a system with the "Mini Ion Upgrade" (such as this one)
-	 * the heap_mask and caching flag end up sharing a spot in
-	 * ion_allocation_data.flags. We should make sure to never use
-	 * the 0th bit for a heap because that's where the caching bit
-	 * ends up.
-	 */
-	ION_BOGUS_HEAP_DO_NOT_USE = 0,
 	ION_CP_MM_HEAP_ID = 8,
 	ION_CP_MFC_HEAP_ID = 12,
 	ION_CP_WB_HEAP_ID = 16, /* 8660 only */
@@ -695,7 +680,6 @@ static inline int msm_ion_do_cache_op(struct ion_client *client,
 struct ion_allocation_data {
 	size_t len;
 	size_t align;
-	unsigned int heap_mask;
 	unsigned int flags;
 	struct ion_handle *handle;
 };
@@ -856,14 +840,5 @@ struct ion_flag_data {
  * secure state etc.
  */
 #define ION_IOC_GET_FLAGS		_IOWR(ION_IOC_MAGIC, 23, \
-						struct ion_flag_data)
-
-
-/**
- * DOC: ION_IOC_SYNC - BOGUS
- *
- * NOT SUPPORTED
- */
-#define ION_IOC_SYNC		_IOWR(ION_IOC_MAGIC, 42, \
 						struct ion_flag_data)
 #endif /* _LINUX_ION_H */
