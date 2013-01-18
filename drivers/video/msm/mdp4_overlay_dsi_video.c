@@ -346,6 +346,8 @@ void mdp4_dsi_video_wait4vsync(int cndx)
 
 	mdp4_video_vsync_irq_ctrl(cndx, 1);
 
+	mdp4_video_vsync_irq_ctrl(cndx, 1);
+
 	spin_lock_irqsave(&vctrl->spin_lock, flags);
 	if (vctrl->wait_vsync_cnt == 0)
 		INIT_COMPLETION(vctrl->vsync_comp);
