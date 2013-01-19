@@ -3253,7 +3253,7 @@ static struct resource hdmi_msm_resources[] = {
 
 static int hdmi_enable_5v(int on);
 static int hdmi_core_power(int on, int show);
-static int hdmi_cec_power(int on);
+/*static int hdmi_cec_power(int on);*/
 static int hdmi_gpio_config(int on);
 static int hdmi_panel_power(int on);
 
@@ -3261,7 +3261,7 @@ static struct msm_hdmi_platform_data hdmi_msm_data = {
 	.irq = HDMI_IRQ,
 	.enable_5v = hdmi_enable_5v,
 	.core_power = hdmi_core_power,
-	.cec_power = hdmi_cec_power,
+	/*.cec_power = hdmi_cec_power,*/
 	.panel_power = hdmi_panel_power,
 	.gpio_config = hdmi_gpio_config,
 };
@@ -3486,7 +3486,8 @@ error1:
 	regulator_disable(reg_8921_s4);
 	return rc;
 }
-
+#if 0
+/* disable hdmi power on because we are missing display code support */
 static int hdmi_cec_power(int on)
 {
 	static int prev_on;
@@ -3514,7 +3515,7 @@ static int hdmi_cec_power(int on)
 error:
 	return rc;
 }
-
+#endif
 static int hdmi_gpio_config(int on)
 {
 	return 0;
