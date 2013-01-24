@@ -1045,29 +1045,6 @@ static void mipi_dsi_wait4video_done(void)
 
 void mipi_dsi_mdp_busy_wait(void)
 {
-	unsigned long flag;
-	int need_wait = 0;
-
-	pr_debug("%s: start pid=%d\n",
-			__func__, current->pid);
-	spin_lock_irqsave(&dsi_mdp_lock, flag);
-	if (dsi_mdp_busy == TRUE) {
-		INIT_COMPLETION(dsi_mdp_comp);
-		need_wait++;
-	}
-	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
-
-	if (need_wait) {
-		/* wait until DMA finishes the current job */
-		pr_debug("%s: pending pid=%d\n",
-				__func__, current->pid);
-		if (!wait_for_completion_timeout(&dsi_mdp_comp,
-					msecs_to_jiffies(200))) {
-			pr_err("%s: dma timeout error\n", __func__);
-		}
-	}
-	pr_debug("%s: done pid=%d\n",
-			__func__, current->pid);
 	mutex_lock(&cmd_mutex);
 	mipi_dsi_cmd_mdp_busy();
 	mutex_unlock(&cmd_mutex);
