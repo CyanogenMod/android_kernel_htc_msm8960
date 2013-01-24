@@ -419,6 +419,13 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 			continue;
 		/* if the caller didn't specify this heap type */
 		if (!((1 << heap->id) & flags))
+#ifndef CONFIG_MSM_IOMMU
+			/* hack for HTC IOMMU based liboemcamera,
+			 * if CAMERA heap requested, use CP_MM heap
+			 */
+			if (!(heap->id == ION_CP_MM_HEAP_ID &&
+				((1 << ION_CAMERA_HEAP_ID) & flags)))
+#endif
 			continue;
 		/* Do not allow un-secure heap if secure is specified */
 		if (secure_allocation && (heap->type != ION_HEAP_TYPE_CP))
