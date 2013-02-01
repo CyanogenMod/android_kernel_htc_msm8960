@@ -317,7 +317,7 @@ void jet_lcd_id_power(int pull)
 
 #define MSM_PMEM_ADSP_SIZE         0x65D0000 /* Need to be multiple of 64K */
 #define MSM_PMEM_AUDIO_SIZE        0x4CF000
-#define MSM_PMEM_SIZE 0x4000000 /* 64 Mbytes */
+#define MSM_PMEM_SIZE 0x5000000 /* 80 Mbytes */
 #define MSM_LIQUID_PMEM_SIZE 0x4000000 /* 64 Mbytes */
 
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
