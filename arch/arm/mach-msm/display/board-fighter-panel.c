@@ -1884,7 +1884,7 @@ static void fighter_set_backlight(struct msm_fb_data_type *mfd)
 
 	led_pwm1[1] = fighter_shrink_pwm(mfd->bl_level);
 
-	mipi_dsi_mdp_busy_wait(mfd);
+	mipi_dsi_mdp_busy_wait();
 
 	mipi_dsi_cmds_tx(&fighter_panel_tx_buf, novatek_cmd_backlight_cmds,
 			ARRAY_SIZE(novatek_cmd_backlight_cmds));
