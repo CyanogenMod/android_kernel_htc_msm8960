@@ -61,6 +61,12 @@ enum usb_otg_event {
 	 * within TB_SRP_FAIL time.
 	 */
 	OTG_EVENT_NO_RESP_FOR_SRP,
+#ifdef CONFIG_MACH_HTC
+	/* broadcast uevent when device vbus ouput is
+	    lower than the repuirement of otg device.
+	*/
+	OTG_EVENT_INSUFFICIENT_POWER,
+#endif
 };
 
 enum usb_phy_events {
@@ -149,6 +155,13 @@ struct usb_phy {
 	int	(*set_suspend)(struct usb_phy *x,
 				int suspend);
 
+#ifdef CONFIG_MACH_HTC
+	/* send events to user space */
+	int	(*send_event)(struct usb_phy *phy,
+			enum usb_otg_event event);
+
+	void	(*notify_usb_attached)(void);
+#endif
 };
 
 

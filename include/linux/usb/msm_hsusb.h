@@ -23,6 +23,9 @@
 #include <linux/usb/gadget.h>
 #include <linux/usb/otg.h>
 #include <linux/wakelock.h>
+#ifdef CONFIG_MACH_HTC
+#include <mach/board.h>
+#endif
 #include <linux/pm_qos.h>
 #include <linux/hrtimer.h>
 
@@ -174,6 +177,9 @@ enum usb_vdd_value {
 	VDD_VAL_MAX,
 };
 
+#define POWER_COLLAPSE_LDO3V3	(1 << 0) /* Regulator L3 */
+#define POWER_COLLAPSE_LDO1V8	(1 << 1) /* Regulator L4 */
+
 /**
  * struct msm_otg_platform_data - platform device data
  *              for msm_otg driver.
@@ -213,10 +219,19 @@ struct msm_otg_platform_data {
 	unsigned int mpm_otgsessvld_int;
 	bool mhl_enable;
 	bool disable_reset_on_disconnect;
+#ifdef CONFIG_MACH_HTC
+        bool enable_dcd;
+#endif
 	bool enable_lpm_on_dev_suspend;
 	bool core_clk_always_on_workaround;
 	struct msm_bus_scale_pdata *bus_scale_table;
+#ifdef CONFIG_MACH_HTC
+	int reset_phy_before_lpm;
+	void (*usb_uart_switch)(int uart);
+	int ldo_power_collapse;
+#else
 	const char *mhl_dev_name;
+#endif
 };
 
 /* Timeout (in msec) values (min - max) associated with OTG timers */
@@ -295,7 +310,9 @@ struct msm_otg {
 	struct usb_phy phy;
 	struct msm_otg_platform_data *pdata;
 	int irq;
+#ifndef CONFIG_MACH_HTC
 	int async_irq;
+#endif
 	struct clk *clk;
 	struct clk *pclk;
 	struct clk *phy_reset_clk;
@@ -318,7 +335,9 @@ struct msm_otg {
 #define A_BUS_SUSPEND	14
 #define A_CONN		15
 #define B_BUS_REQ	16
+#ifndef CONFIG_MACH_HTC
 #define MHL	        17
+#endif
 	unsigned long inputs;
 	struct work_struct sm_work;
 	bool sm_work_pending;
@@ -328,18 +347,26 @@ struct msm_otg {
 	unsigned cur_power;
 	struct delayed_work chg_work;
 	struct delayed_work pmic_id_status_work;
+#ifndef CONFIG_MACH_HTC
 	struct delayed_work check_ta_work;
+#endif
 	enum usb_chg_state chg_state;
 	enum usb_chg_type chg_type;
 	unsigned dcd_time;
 	struct wake_lock wlock;
+#ifdef CONFIG_MACH_HTC
+	struct wake_lock usb_otg_wlock;
+	struct wake_lock cable_detect_wlock;
+#endif
 	struct notifier_block usbdev_nb;
 	unsigned mA_port;
 	struct timer_list id_timer;
 	unsigned long caps;
 	struct msm_xo_voter *xo_handle;
 	uint32_t bus_perf_client;
+#ifndef CONFIG_MACH_HTC
 	bool mhl_enabled;
+#endif
 	/*
 	 * Allowing PHY power collpase turns off the HSUSB 3.3v and 1.8v
 	 * analog regulators while going to low power mode.
@@ -362,7 +389,18 @@ struct msm_otg {
 #define PHY_PWR_COLLAPSED		BIT(0)
 #define PHY_RETENTIONED			BIT(1)
 #define XO_SHUTDOWN			BIT(2)
+#ifndef CONFIG_MACH_HTC
 #define CLOCKS_DOWN			BIT(3)
+#endif
+#ifdef CONFIG_MACH_HTC
+	struct work_struct notifier_work;
+	enum usb_connect_type connect_type;
+	int connect_type_ready;
+	struct workqueue_struct *usb_wq;
+	struct delayed_work ac_detect_work;
+	int ac_detect_count;
+	int reset_phy_before_lpm;
+#endif
 	int reset_counter;
 	unsigned long b_last_se0_sess;
 	unsigned long tmouts;
