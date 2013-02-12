@@ -1876,6 +1876,34 @@ struct platform_device msm8960_device_qup_i2c_gsbi3 = {
 	.resource	= resources_qup_i2c_gsbi3,
 };
 
+static struct resource resources_qup_i2c_gsbi5[] = {
+	{
+		.name	= "gsbi_qup_i2c_addr",
+		.start	= MSM_GSBI5_PHYS,
+		.end	= MSM_GSBI5_PHYS + MSM_QUP_SIZE - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "qup_phys_addr",
+		.start	= MSM_GSBI5_QUP_PHYS,
+		.end	= MSM_GSBI5_QUP_PHYS + 4 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "qup_err_intr",
+		.start	= GSBI5_QUP_IRQ,
+		.end	= GSBI5_QUP_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm8960_device_qup_i2c_gsbi5 = {
+	.name		= "qup_i2c",
+	.id		= 5,
+	.num_resources	= ARRAY_SIZE(resources_qup_i2c_gsbi5),
+	.resource	= resources_qup_i2c_gsbi5,
+};
+
 static struct resource resources_qup_i2c_gsbi9[] = {
 	{
 		.name	= "gsbi_qup_i2c_addr",
@@ -1951,6 +1979,20 @@ static struct resource resources_qup_i2c_gsbi12[] = {
 		.end	= GSBI12_QUP_IRQ,
 		.flags	= IORESOURCE_IRQ,
 	},
+#ifdef CONFIG_MACH_HTC
+	{
+		.name	= "i2c_sda",
+		.start	= 44,
+		.end	= 44,
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.name	= "i2c_clk",
+		.start	= 45,
+		.end	= 45,
+		.flags	= IORESOURCE_IO,
+	},
+#endif
 };
 
 struct platform_device msm8960_device_qup_i2c_gsbi12 = {
@@ -2358,6 +2400,61 @@ struct platform_device msm8960_device_qup_spi_gsbi1 = {
 	.id	= 0,
 	.num_resources	= ARRAY_SIZE(resources_qup_spi_gsbi1),
 	.resource	= resources_qup_spi_gsbi1,
+};
+
+static struct resource resources_qup_spi_gsbi10[] = {
+	{
+		.name	= "spi_base",
+		.start	= MSM_GSBI10_QUP_PHYS,
+		.end	= MSM_GSBI10_QUP_PHYS + SZ_4K - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "gsbi_base",
+		.start	= MSM_GSBI10_PHYS,
+		.end	= MSM_GSBI10_PHYS + 4 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "spi_irq_in",
+		.start	= GSBI10_QUP_IRQ,
+		.end	= GSBI10_QUP_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+#if 0 /* move gpio config to board file */
+	{
+		.name   = "spi_clk",
+		.start  = 74,
+		.end    = 74,
+		.flags  = IORESOURCE_IO,
+	},
+	{
+		.name   = "spi_cs",
+		.start  = 73,
+		.end    = 73,
+		.flags  = IORESOURCE_IO,
+	},
+	{
+		.name   = "spi_miso",
+		.start  = 72,
+		.end    = 72,
+		.flags  = IORESOURCE_IO,
+	},
+	{
+		.name   = "spi_mosi",
+		.start  = 71,
+		.end    = 71,
+		.flags  = IORESOURCE_IO,
+	},
+#endif
+};
+
+/* Use GSBI10 QUP for SPI-1 */
+struct platform_device msm8960_device_qup_spi_gsbi10 = {
+	.name		= "spi_qsd",
+	.id		= 1,
+	.num_resources	= ARRAY_SIZE(resources_qup_spi_gsbi10),
+	.resource	= resources_qup_spi_gsbi10,
 };
 
 struct platform_device msm_pcm = {
