@@ -1,0 +1,6 @@
+#
+# Include the specific Kconfig file for HTC board
+#
+
+config MACH_HTC_DUMMY
+	bool "NONE (No device)"
