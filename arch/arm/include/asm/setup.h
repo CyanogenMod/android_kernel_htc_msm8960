@@ -18,6 +18,11 @@
 
 #define COMMAND_LINE_SIZE 1024
 
+#ifdef CONFIG_MACH_HTC
+/* information about the system we're running on */
+extern unsigned int system_rev;
+#endif
+
 /* The list ends with an ATAG_NONE node. */
 #define ATAG_NONE	0x00000000
 
@@ -143,6 +148,14 @@ struct tag_memclk {
 	__u32 fmemclk;
 };
 
+#ifdef CONFIG_MACH_HTC
+#define ATAG_ALS	0x5441001b
+
+struct tag_als_kadc {
+	__u32 kadc;
+};
+#endif
+
 struct tag {
 	struct tag_header hdr;
 	union {
@@ -155,6 +168,9 @@ struct tag {
 		struct tag_revision	revision;
 		struct tag_videolfb	videolfb;
 		struct tag_cmdline	cmdline;
+#ifdef CONFIG_MACH_HTC
+		struct tag_als_kadc als_kadc;
+#endif
 
 		/*
 		 * Acorn specific
