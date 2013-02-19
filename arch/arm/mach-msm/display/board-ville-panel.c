@@ -763,7 +763,6 @@ static int mipi_cmd_samsung_blue_qhd_pt_init(void)
 	pinfo.bl_max = 255;
 	pinfo.bl_min = 1;
 	pinfo.fb_num = 2;
-	pinfo.lcd.blt_ctrl = 1;
 	pinfo.clk_rate = 528000000;
 	pinfo.lcd.vsync_enable = TRUE;
 	pinfo.lcd.hw_vsync_mode = TRUE;
