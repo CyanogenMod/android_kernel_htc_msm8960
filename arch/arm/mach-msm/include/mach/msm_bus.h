@@ -43,8 +43,8 @@
 struct msm_bus_vectors {
 	int src; /* Master */
 	int dst; /* Slave */
-	uint64_t ab; /* Arbitrated bandwidth */
-	uint64_t ib; /* Instantaneous bandwidth */
+	unsigned int ab; /* Arbitrated bandwidth */
+	unsigned int ib; /* Instantaneous bandwidth */
 };
 
 struct msm_bus_paths {
