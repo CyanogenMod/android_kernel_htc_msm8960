@@ -3276,7 +3276,7 @@ static int mipi_video_auo_hd720p_init(void)
 	pinfo.fb_num = 2;
 	/*pinfo.clk_rate = 742500000;*/
 	/*pinfo.clk_rate = 482000000;*/
-	pinfo.clk_rate = 569000000;
+	/*pinfo.clk_rate = 569000000;*/
 
 	pinfo.mipi.vc = 0;
 	pinfo.mipi.rgb_swap = DSI_RGB_SWAP_RGB;
@@ -3419,7 +3419,7 @@ static int mipi_video_sony_hd720p_init(void)
 	pinfo.bl_max = 255;
 	pinfo.bl_min = 1;
 	pinfo.fb_num = 2;
-	pinfo.clk_rate = 569000000;
+	/*pinfo.clk_rate = 569000000;*/
 
 	pinfo.mipi.vc = 0;
 	pinfo.mipi.rgb_swap = DSI_RGB_SWAP_RGB;
