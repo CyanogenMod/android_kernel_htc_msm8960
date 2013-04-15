@@ -110,4 +110,6 @@
 extern void msm_map_msm8960_io(void);
 #endif
 
+#define MSM_SHARED_RAM_PHYS		0x80000000
+
 #endif

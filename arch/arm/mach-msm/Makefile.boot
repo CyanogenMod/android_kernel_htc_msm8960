@@ -37,7 +37,11 @@ endif
    zreladdr-$(CONFIG_ARCH_MSM8X60)	:= 0x40208000
 
 # MSM8960
+ifeq ($(CONFIG_MACH_HTC),y)
+   zreladdr-$(CONFIG_ARCH_MSM8960)	:= 0x80408000
+else
    zreladdr-$(CONFIG_ARCH_MSM8960)	:= 0x80208000
+endif
 
 # MSM8930
    zreladdr-$(CONFIG_ARCH_MSM8930)	:= 0x80208000
