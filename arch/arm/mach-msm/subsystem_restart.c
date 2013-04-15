@@ -114,6 +114,20 @@ DEFINE_SINGLE_RESTART_ORDER(orders_8x60_all, _order_8x60_all);
 static const char * const _order_8x60_modems[] = {"external_modem", "modem"};
 DEFINE_SINGLE_RESTART_ORDER(orders_8x60_modems, _order_8x60_modems);
 
+#ifdef CONFIG_MACH_HTC
+/* MSM 8960 restart ordering info */
+static const char * const order_8960[] = {"modem", "lpass"};
+
+static struct subsys_soc_restart_order restart_orders_8960_one = {
+	.subsystem_list = order_8960,
+	.count = ARRAY_SIZE(order_8960),
+	.subsys_ptrs = {[ARRAY_SIZE(order_8960)] = NULL}
+	};
+
+static struct subsys_soc_restart_order *restart_orders_8960[] = {
+	&restart_orders_8960_one,
+	};
+#else
 /*SGLTE restart ordering info*/
 static const char * const order_8960_sglte[] = {"external_modem",
 						"modem"};
@@ -127,6 +141,7 @@ static struct subsys_soc_restart_order restart_orders_8960_fusion_sglte = {
 static struct subsys_soc_restart_order *restart_orders_8960_sglte[] = {
 	&restart_orders_8960_fusion_sglte,
 	};
+#endif
 
 /* SGLTE2 restart ordering info*/
 static const char * const order_8064_sglte2[] = {"external_modem",
@@ -614,10 +629,15 @@ static int __init ssr_init_soc_restart_orders(void)
 		n_restart_orders = ARRAY_SIZE(orders_8x60_all);
 	}
 
+#ifdef CONFIG_MACH_HTC
+	restart_orders = restart_orders_8960;
+	n_restart_orders = ARRAY_SIZE(restart_orders_8960);
+#else
 	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE) {
 		restart_orders = restart_orders_8960_sglte;
 		n_restart_orders = ARRAY_SIZE(restart_orders_8960_sglte);
 	}
+#endif
 
 	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE2) {
 		restart_orders = restart_orders_8064_sglte2;
