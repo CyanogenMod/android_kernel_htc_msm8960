@@ -675,3 +675,9 @@ config BMP18X_I2C
          module will be called bmp18x-i2c.
 
 endif
+
+config SENSORS_BMA250
+	tristate "BMA250 accelerometer sensor support"
+	depends on I2C
+	help
+	  BMA250 G-sensor driver for HTC
