@@ -681,6 +681,20 @@ config BU52031NVX_POUCHDETECT
 	help
 	  depends on BU52031NVX
 
+config CABLE_DETECT_8XXX
+	boolean "Cable detect driver"
+	default n
+	help
+	  Detect USB, AC, and other accessories.
+
+config CABLE_DETECT_ACCESSORY
+	boolean "Cable accessory detect"
+	default n
+
+config CABLE_DETECT_ACCESSORY_BY_ADC
+	boolean "Cable detect accessory by PMIC ADC"
+	default n
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
