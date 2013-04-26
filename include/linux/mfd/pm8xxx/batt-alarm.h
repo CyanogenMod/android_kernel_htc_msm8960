@@ -162,6 +162,34 @@ int pm8xxx_batt_alarm_hold_time_set(enum pm8xxx_batt_alarm_hold_time hold_time);
  */
 int pm8xxx_batt_alarm_pwm_rate_set(int use_pwm, int clock_scaler,
 				   int clock_divider);
+
+#ifdef CONFIG_MACH_HTC
+/**
+ * pm8xxx_batt_lower_alarm_register_notifier - register notifier for
+ *					       htc_gauge
+ * @callback:	callback function to register
+ *
+ * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
+ */
+int pm8xxx_batt_lower_alarm_register_notifier(void (*callback)(int));
+
+/**
+ * pm8xxx_batt_lower_alarm_enable - enable low comparator voltage alarm *
+ * @enable:	1 = enable, 0 = disable
+ *
+ * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
+ */
+int pm8xxx_batt_lower_alarm_enable(int enable);
+
+/**
+ * pm8xxx_batt_lower_alarm_threshold_set - set the lower alarm thresholds
+ * @threshold_mV:  battery voltage threshold in millivolts
+ *      set points = 2500-5675 mV in 25 mV steps
+ *
+ * RETURNS: an appropriate -ERRNO error value on error, or zero for success.
+ */
+int pm8xxx_batt_lower_alarm_threshold_set(int threshold_mV);
+#endif /* CONFIG_MACH_HTC */
 #else
 
 static inline int
@@ -194,6 +222,15 @@ pm8xxx_batt_alarm_hold_time_set(enum pm8xxx_batt_alarm_hold_time hold_time)
 static inline int
 pm8xxx_batt_alarm_pwm_rate_set(int use_pwm, int clock_scaler, int clock_divider)
 { return -ENODEV; }
+
+#ifdef CONFIG_MACH_HTC
+static inline int
+pm8xxx_batt_lower_alarm_register_notifier(void (*callback)(int))
+{ return -ENODEV; }
+
+static inline int pm8xxx_batt_lower_alarm_threshold_set(int threshold_mV)
+{ return -ENODEV; }
+#endif /* CONFIG_MACH_HTC */
 
 #endif
 

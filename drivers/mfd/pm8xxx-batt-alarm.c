@@ -591,6 +591,53 @@ int pm8xxx_batt_alarm_unregister_notifier(struct notifier_block *nb)
 }
 EXPORT_SYMBOL(pm8xxx_batt_alarm_unregister_notifier);
 
+#ifdef CONFIG_MACH_HTC
+static void (*notify_batt_lower_alarm_func_ptr)(int);
+static int pm8xxx_batt_alarm_internal_notifier_func(
+		struct notifier_block *nfb, unsigned long value, void *data)
+{
+	unsigned int lower_alarm_state = !!((unsigned int)value & BIT(0));
+	pr_info("value = %lu\n", value);
+	if (notify_batt_lower_alarm_func_ptr)
+		notify_batt_lower_alarm_func_ptr(lower_alarm_state);
+	return 0;
+}
+
+static struct notifier_block htc_gauge_batt_alarm_notifier = {
+	.notifier_call = pm8xxx_batt_alarm_internal_notifier_func,
+};
+
+int pm8xxx_batt_lower_alarm_register_notifier(void (*callback)(int))
+{
+	if (!callback) {
+		pr_warn("no callback function assigned\n");
+		return -ENXIO;
+	}
+	notify_batt_lower_alarm_func_ptr = callback;
+	return pm8xxx_batt_alarm_register_notifier(
+			&htc_gauge_batt_alarm_notifier);
+}
+EXPORT_SYMBOL(pm8xxx_batt_lower_alarm_register_notifier);
+
+int pm8xxx_batt_lower_alarm_enable(int enable)
+{
+	int rc;
+	if (enable)
+		rc = pm8xxx_batt_alarm_enable(PM8XXX_BATT_ALARM_LOWER_COMPARATOR);
+	else
+		rc = pm8xxx_batt_alarm_disable(PM8XXX_BATT_ALARM_LOWER_COMPARATOR);
+	return rc;
+}
+EXPORT_SYMBOL(pm8xxx_batt_lower_alarm_enable);
+
+int pm8xxx_batt_lower_alarm_threshold_set(int threshold_mV)
+{
+	return pm8xxx_batt_alarm_threshold_set(PM8XXX_BATT_ALARM_LOWER_COMPARATOR,
+			threshold_mV);
+}
+EXPORT_SYMBOL(pm8xxx_batt_lower_alarm_threshold_set);
+#endif
+
 static int pm8xxx_batt_alarm_reg_init(struct pm8xxx_batt_alarm_chip *chip)
 {
 	int rc = 0;
