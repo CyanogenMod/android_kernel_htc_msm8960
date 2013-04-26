@@ -1009,3 +1009,9 @@ config TOUCHSCREEN_SYNAPTICS_DSX_FW_UPDATE
 	  module will be called synaptics_dsx_fw_update.
 
 endif
+
+config TOUCHSCREEN_ATMEL_224E
+	tristate "Atmel i2c touchscreen"
+	depends on I2C
+	help
+	  This enables support for Atmel over I2C based touchscreens.
