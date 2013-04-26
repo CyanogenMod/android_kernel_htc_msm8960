@@ -1045,6 +1045,36 @@ uint32_t pm8xxx_adc_btm_end(void)
 }
 EXPORT_SYMBOL_GPL(pm8xxx_adc_btm_end);
 
+#ifdef CONFIG_MACH_HTC
+int pm8xxx_adc_btm_is_cool(void)
+{
+	if (pmic_adc == NULL) {
+		pr_err("PMIC ADC not valid\n");
+		return 0;
+	}
+	if (pmic_adc->batt.btm_cool_fn == NULL) {
+		return 0;
+	}
+
+	return irq_read_line(pmic_adc->btm_cool_irq);
+}
+EXPORT_SYMBOL_GPL(pm8xxx_adc_btm_is_cool);
+
+int pm8xxx_adc_btm_is_warm(void)
+{
+	if (pmic_adc == NULL) {
+		pr_err("PMIC ADC not valid\n");
+		return 0;
+	}
+	if (pmic_adc->batt.btm_warm_fn == NULL) {
+		return 0;
+	}
+
+	return irq_read_line(pmic_adc->btm_warm_irq);
+}
+EXPORT_SYMBOL_GPL(pm8xxx_adc_btm_is_warm);
+#endif
+
 static ssize_t pm8xxx_adc_show(struct device *dev,
 			struct device_attribute *devattr, char *buf)
 {
@@ -1302,6 +1332,12 @@ static int __devinit pm8xxx_adc_probe(struct platform_device *pdev)
 		pr_err("failed to request pa_therm vreg with error %d\n", rc);
 		pa_therm = NULL;
 	}
+
+#ifdef CONFIG_MACH_HTC
+	if (pdata->pm8xxx_adc_device_register)
+		pdata->pm8xxx_adc_device_register();
+#endif
+
 	return 0;
 }
 

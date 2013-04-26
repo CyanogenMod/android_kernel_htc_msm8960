@@ -104,12 +104,18 @@ enum pm8xxx_adc_channels {
 #define PM8XXX_CHANNEL_MPP_SCALE1_IDX	20
 #define PM8XXX_CHANNEL_MPP_SCALE3_IDX	40
 
+#define PM8XXX_AMUX_MPP_1	0x1
+#define PM8XXX_AMUX_MPP_2	0x2
 #define PM8XXX_AMUX_MPP_3	0x3
 #define PM8XXX_AMUX_MPP_4	0x4
 #define PM8XXX_AMUX_MPP_5	0x5
 #define PM8XXX_AMUX_MPP_6	0x6
 #define PM8XXX_AMUX_MPP_7	0x7
 #define PM8XXX_AMUX_MPP_8	0x8
+#define PM8XXX_AMUX_MPP_9	0x9
+#define PM8XXX_AMUX_MPP_10	0xA
+#define PM8XXX_AMUX_MPP_11	0xB
+#define PM8XXX_AMUX_MPP_12	0xC
 
 #define PM8XXX_ADC_DEV_NAME	"pm8xxx-adc"
 
@@ -508,6 +514,9 @@ struct pm8xxx_adc_platform_data {
 	struct pm8xxx_adc_amux		*adc_channel;
 	uint32_t			adc_num_board_channel;
 	uint32_t			adc_mpp_base;
+#ifdef CONFIG_MACH_HTC
+	void				(*pm8xxx_adc_device_register)(void);
+#endif
 };
 
 /* Public API */
@@ -584,6 +593,20 @@ uint32_t pm8xxx_adc_btm_end(void);
  *			events are triggered.
  */
 uint32_t pm8xxx_adc_btm_configure(struct pm8xxx_adc_arb_btm_param *);
+
+#ifdef CONFIG_MACH_HTC
+/**
+ * pm8xxx_adc_btm_is_cool() - Get btm battery cool status
+ * @param: none.
+ */
+int pm8xxx_adc_btm_is_cool(void);
+
+/**
+ * pm8xxx_adc_btm_is_warm() - Get btm battery warm status
+ * @param: none.
+ */
+int pm8xxx_adc_btm_is_warm(void);
+#endif /* CONFIG_MACH_HTC */
 #else
 static inline uint32_t pm8xxx_adc_read(uint32_t channel,
 				struct pm8xxx_adc_chan_result *result)
@@ -599,6 +622,12 @@ static inline uint32_t pm8xxx_adc_btm_end(void)
 static inline uint32_t pm8xxx_adc_btm_configure(
 		struct pm8xxx_adc_arb_btm_param *param)
 { return -ENXIO; }
+#ifdef CONFIG_MACH_HTC
+static inline int pm8xxx_adc_btm_is_cool(void)
+{ return -ENXIO; }
+static inline int pm8xxx_adc_btm_is_warm(void)
+{ return -ENXIO; }
+#endif /* CONFIG_MACH_HTC */
 #endif
 
 #endif /* PM8XXX_ADC_H */
