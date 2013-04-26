@@ -676,6 +676,24 @@ config BMP18X_I2C
 
 endif
 
+config SENSORS_AKM8975
+	tristate "AKM8975 compass driver"
+	depends on I2C
+	help
+	  AKM8975 compass driver for HTC.
+
+config SENSORS_AKM8975_PANA_GYRO
+	tristate "AKM8975 compass driver for Panasonic gyro"
+	depends on I2C
+	help
+	  AKM8975 compass driver for Panasonic gyroscope.
+
+config SENSORS_PANASONIC_GYRO
+	tristate "Panasonic gyroscope sensor support"
+	depends on I2C
+	help
+	  Panasonic gyroscope driver for HTC
+
 config SENSORS_BMA250
 	tristate "BMA250 accelerometer sensor support"
 	depends on I2C
