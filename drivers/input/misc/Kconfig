@@ -681,3 +681,9 @@ config SENSORS_BMA250
 	depends on I2C
 	help
 	  BMA250 G-sensor driver for HTC
+
+config INPUT_CAPELLA_CM3629
+	tristate "CM3629 proximity and light sensor"
+	help
+	  Say Y here to enable the CM3629 short distance proximity
+	  sensor with ambient light sensor.
