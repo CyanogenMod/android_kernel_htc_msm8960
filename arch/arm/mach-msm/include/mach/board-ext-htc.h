@@ -43,7 +43,7 @@ enum usb_connect_type {
 };
 #endif
 
-struct t_usb_status_notifier{
+struct t_usb_status_notifier {
 	struct list_head notifier_link;
 	const char *name;
 	void (*func)(int cable_type);
@@ -69,5 +69,13 @@ extern int emmc_partition_read_proc(char *page, char **start, off_t off,
 
 extern int dying_processors_read_proc(char *page, char **start, off_t off,
 		int count, int *eof, void *data);
+
+#ifdef CONFIG_FB_MSM_HDMI_MHL_SII9234
+typedef struct {
+	uint8_t format;
+	uint8_t reg_a3;
+	uint8_t reg_a6;
+} mhl_driving_params;
+#endif
 
 #endif /* __ASM_ARCH_MSM_BOARD_EXT_HTC_H */

@@ -2,3 +2,5 @@
 # Makefile for the HTC board
 #
 
+# VILLE
+obj-$(CONFIG_MACH_VILLE) += ville/
