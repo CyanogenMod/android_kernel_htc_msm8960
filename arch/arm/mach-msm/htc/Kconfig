@@ -8,4 +8,14 @@ endmenu
 
 menu "HTC Specific Patches"
 
+config HTC_BATT_CORE
+	depends on POWER_SUPPLY
+	default n
+	bool "HTC battery core driver"
+
+config HTC_BATT_8960
+	depends on HTC_BATT_CORE
+	default n
+	bool "HTC battery driver for MSM8960"
+
 endmenu
