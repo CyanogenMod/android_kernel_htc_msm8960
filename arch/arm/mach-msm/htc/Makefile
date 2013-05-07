@@ -9,6 +9,7 @@ obj-y += htc_bdaddress.o
 obj-y += htc_ramdump.o
 obj-y += htc_awb_cal.o
 obj-y += htc_wifi_nvs.o
+obj-y += htc_sysinfo.o
 
 obj-$(CONFIG_HTC_BATT_CORE) += htc_battery_core.o
 obj-$(CONFIG_HTC_BATT_8960) += htc_battery_8960.o htc_battery_cell.o
