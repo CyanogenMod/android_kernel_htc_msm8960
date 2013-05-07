@@ -29,10 +29,16 @@
 #include <linux/input/pmic8xxx-pwrkey.h>
 #include <linux/input/pmic8xxx-keypad.h>
 #include <linux/regulator/pm8xxx-regulator.h>
-#include <linux/mfd/pm8xxx/pm8921-charger.h>
 #include <linux/mfd/pm8xxx/pm8xxx-adc.h>
+#ifdef CONFIG_HTC_BATT_8960
+#include <linux/mfd/pm8xxx/pm8921-charger-htc.h>
+#include <linux/mfd/pm8xxx/pm8921-bms-htc.h>
+#include <linux/leds-pm8xxx-htc.h>
+#else
+#include <linux/mfd/pm8xxx/pm8921-charger.h>
 #include <linux/mfd/pm8xxx/pm8921-bms.h>
 #include <linux/leds-pm8xxx.h>
+#endif
 #include <linux/mfd/pm8xxx/vibrator.h>
 #include <linux/mfd/pm8xxx/ccadc.h>
 

@@ -41,7 +41,7 @@
 #include "../video/msm/sii9234/TPI.h"
 #endif
 
-#include "linux/mfd/pm8xxx/pm8921-charger.h"
+#include "linux/mfd/pm8xxx/pm8921-charger-htc.h"
 
 static int vbus;
 

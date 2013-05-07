@@ -24,7 +24,11 @@
 #include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/mfd/pm8xxx/core.h>
 #include <linux/mfd/pm8xxx/regulator.h>
+#ifdef CONFIG_MACH_HTC
+#include <linux/leds-pm8xxx-htc.h>
+#else
 #include <linux/leds-pm8xxx.h>
+#endif
 
 #define REG_HWREV		0x002  /* PMIC4 revision */
 #define REG_HWREV_2		0x0E8  /* PMIC4 revision 2 */
