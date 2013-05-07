@@ -18,4 +18,24 @@ config HTC_BATT_8960
 	default n
 	bool "HTC battery driver for MSM8960"
 
+config HTC_HEADSET_MGR
+	tristate "HTC headset manager driver"
+	default n
+	help
+	  Provides support for HTC headset manager.
+
+config HTC_HEADSET_PMIC
+	tristate "HTC PMIC headset detection driver"
+	depends on HTC_HEADSET_MGR
+	default n
+	help
+	  Provides support for HTC PMIC headset detection.
+
+config HTC_HEADSET_ONE_WIRE
+	tristate "HTC 1-wire headset detection driver"
+	depends on HTC_HEADSET_MGR
+	default n
+	help
+	  Provides support for HTC 1-wire headset detection.
+
 endmenu
