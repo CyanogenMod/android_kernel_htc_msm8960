@@ -470,6 +470,9 @@ struct input_keymap_entry {
 
 #define KEY_MICMUTE		248	/* Mute / unmute the microphone */
 
+#define KEY_APP_SWITCH		249	/* key for app list */
+#define KEY_WEIBO		250	/* key for weibo */
+
 /* Code 255 is reserved for special needs of AT keyboard driver */
 
 #define BTN_MISC		0x100
