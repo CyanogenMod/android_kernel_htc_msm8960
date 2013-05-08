@@ -179,20 +179,20 @@ static int hs_1wire_init(void)
 	if (hi->pdata.uart_sw)
 		gpio_set_value_cansleep(hi->pdata.uart_sw, 1); 
 	hi->aid = 0;
-	hr_msleep(20);
+	msleep(20);
 	writeFile(fp,&all_zero,1);
-	hr_msleep(5);
+	msleep(5);
 	writeFile(fp,&send_data,1);
 	if (hi->pdata.remote_press) {
 		while(gpio_get_value(hi->pdata.remote_press) == 1) {
 			HS_LOG("[HS]Polling remote_press low");
 		}
 	}
-	hr_msleep(1);
+	msleep(1);
 	if (hi->pdata.tx_level_shift_en)
 		gpio_set_value(hi->pdata.tx_level_shift_en, 1);
 	HS_LOG("[HS]Disable level shift");
-	hr_msleep(22);
+	msleep(22);
 	if (hs_read_aid() == 0) {
 		HS_LOG("[1-wire]Valid AID received, enter 1-wire mode");
 		return 0;
@@ -213,10 +213,10 @@ static void hs_1wire_deinit(void)
 	if (fp) {
 		if (hi->pdata.tx_level_shift_en)
 			gpio_set_value_cansleep(hi->pdata.tx_level_shift_en, 0);
-		hr_msleep(20);
+		msleep(20);
 		writeFile(fp, &all_zero, 1); 
 		HS_LOG("Write 0xaa to unblock");
-		hr_msleep(10);
+		msleep(10);
 		HS_LOG("close file");
 		closeFile(fp);
 		fp = NULL;
