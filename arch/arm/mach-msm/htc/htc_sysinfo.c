@@ -110,8 +110,10 @@ static int __init sysinfo_proc_init(void)
 	entry = create_proc_read_entry("powerkey_debounce_ms", 0, NULL, sys_boot_powerkey_debounce_ms, NULL);
 	CHECK_PROC_ENTRY("powerkey_debounce_ms", entry);
 
+#ifdef CONFIG_HTC_DYING_PROCESS_COUNT
 	entry = create_proc_read_entry("dying_processes", 0, NULL, dying_processors_read_proc, NULL);
 	CHECK_PROC_ENTRY("dying_processes", entry);
+#endif
 
 	return 0;
 }
