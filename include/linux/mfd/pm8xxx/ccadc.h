@@ -76,6 +76,24 @@ void pm8xxx_calib_ccadc(void);
  *
  */
 int pm8xxx_ccadc_get_battery_current(int *bat_current);
+
+#ifdef CONFIG_MACH_HTC
+/**
+ * pm8xxx_ccadc_dump_all - dump register contents to log
+ *
+ * RETURNS:	0
+ */
+int pm8xxx_ccadc_dump_all(void);
+
+/**
+ * pm8xxx_ccadc_get_attr_text - get registers contents as text string
+ * @buf:	The pointer to the buffer
+ * @size:	The size in bytes of the buffer
+ *
+ * RETURNS:	The length of the text string returned.
+ */
+int pm8xxx_ccadc_get_attr_text(char *buf, int size);
+#endif /* CONFIG_MACH_HTC */
 #else
 static inline s64 pm8xxx_cc_adjust_for_gain(s64 uv)
 {
@@ -88,6 +106,16 @@ static inline int pm8xxx_ccadc_get_battery_current(int *bat_current)
 {
 	return -ENXIO;
 }
+#ifdef CONFIG_MACH_HTC
+static inline int pm8xxx_ccadc_dump_all(void)
+{
+	return -ENXIO;
+}
+static inline int pm8xxx_ccadc_get_attr_text(char *buf, int size)
+{
+	return -ENXIO;
+}
+#endif /* CONFIG_MACH_HTC */
 #endif
 
 #endif /* __PMIC8XXX_CCADC_H__ */
