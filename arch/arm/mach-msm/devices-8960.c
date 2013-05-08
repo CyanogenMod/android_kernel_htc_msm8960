@@ -38,6 +38,7 @@
 #include <mach/clk-provider.h>
 #include <sound/msm-dai-q6.h>
 #include <sound/apr_audio.h>
+#include <asm/mach/flash.h>
 #include <mach/msm_tsif.h>
 #include <mach/msm_serial_hs_lite.h>
 #include "clock.h"
@@ -110,6 +111,13 @@
 
 #define MSM8960_PC_CNTR_PHYS	(MSM8960_IMEM_PHYS + 0x664)
 #define MSM8960_PC_CNTR_SIZE		0x40
+
+#ifdef CONFIG_MACH_HTC
+struct flash_platform_data msm_nand_data = {
+	.parts		= NULL,
+	.nr_parts	= 0,
+};
+#endif
 
 static struct resource msm8960_resources_pccntr[] = {
 	{
