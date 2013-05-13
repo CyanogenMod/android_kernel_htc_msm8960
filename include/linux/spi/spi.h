@@ -685,6 +685,9 @@ extern int spi_write_then_read(struct spi_device *spi,
 		const void *txbuf, unsigned n_tx,
 		void *rxbuf, unsigned n_rx);
 
+extern int spi_write_and_read(struct spi_device *spi,
+		u8 *txbuf, u8 *rxbuf, unsigned size);
+
 /**
  * spi_w8r8 - SPI synchronous 8 bit write followed by 8 bit read
  * @spi: device with which data will be exchanged

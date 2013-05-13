@@ -1439,6 +1439,73 @@ int spi_write_then_read(struct spi_device *spi,
 }
 EXPORT_SYMBOL_GPL(spi_write_then_read);
 
+/**
+ * spi_write_and_read - SPI synchronous write and read in full duplex
+ * @spi: device with which data will be exchanged
+ * @txbuf: data to be written (need not be dma-safe)
+ * @rxbuf: buffer into which data will be read (need not be dma-safe)
+ * @size: size of transmission, in bytes
+ * Context: can sleep
+ * (Modify from spi_write_then_read)
+ *
+ * This performs a full duplex MicroWire style transaction with the
+ * device, sending txbuf and reading rxbuf at same time. The return value
+ * is zero for success, else a negative errno status code.
+ * This call may only be used from a context that may sleep.
+ *
+ * Parameters to this routine are always copied using a small buffer;
+ * portable code should never use this for more than 32 bytes.
+ * Performance-sensitive or bulk transfer code should instead use
+ * spi_{async,sync}() calls with dma-safe buffers.
+ */
+int spi_write_and_read(struct spi_device *spi,
+		u8 *txbuf, u8 *rxbuf, unsigned size)
+{
+	static DEFINE_MUTEX(lock);
+
+	int			status;
+	struct spi_message	message;
+	struct spi_transfer	x;
+	u8			*local_buf;
+
+	if (2*size > SPI_BUFSIZ) {
+		pr_err("%s size %d is over %d\n", __func__, size, SPI_BUFSIZ);
+		return -EINVAL;
+	}
+
+	spi_message_init(&message);
+	memset(&x, 0, sizeof x);
+	if (size) {
+		x.len = size;
+		spi_message_add_tail(&x, &message);
+	}
+
+	if (!mutex_trylock(&lock)) {
+		local_buf = kmalloc(SPI_BUFSIZ, GFP_KERNEL);
+		if (!local_buf) {
+			pr_err("%s out of memory\n", __func__);
+			return -ENOMEM;
+		}
+	} else
+		local_buf = buf;
+
+	memcpy(local_buf, txbuf, size);
+	x.tx_buf = local_buf;
+	x.rx_buf = local_buf + size;
+
+	status = spi_sync(spi, &message);
+	if (status == 0)
+		memcpy(rxbuf, x.rx_buf, size);
+
+	if (x.tx_buf == buf)
+		mutex_unlock(&lock);
+	else
+		kfree(local_buf);
+
+	return status;
+}
+EXPORT_SYMBOL_GPL(spi_write_and_read);
+
 /*-------------------------------------------------------------------------*/
 
 static int __init spi_init(void)
