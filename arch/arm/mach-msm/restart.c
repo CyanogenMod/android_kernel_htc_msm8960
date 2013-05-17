@@ -174,7 +174,7 @@ EXPORT_SYMBOL(msm_set_restart_mode);
 static atomic_t restart_counter = ATOMIC_INIT(0);
 static int modem_cache_flush_done;
 
-inline void notify_modem_cache_flush_done(void)
+void notify_modem_cache_flush_done(void)
 {
 	modem_cache_flush_done = 1;
 }
