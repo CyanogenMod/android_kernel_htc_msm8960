@@ -890,7 +890,11 @@ enum msm_pm_sleep_mode msm_pm_idle_enter(struct cpuidle_device *dev,
 
 	case MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE:
 		collapsed = msm_pm_power_collapse_standalone(true);
-		exit_stat = MSM_PM_STAT_IDLE_STANDALONE_POWER_COLLAPSE;
+		if (collapsed)
+			exit_stat = MSM_PM_STAT_IDLE_STANDALONE_POWER_COLLAPSE;
+		else
+			exit_stat
+			    = MSM_PM_STAT_IDLE_FAILED_STANDALONE_POWER_COLLAPSE;
 		break;
 
 	case MSM_PM_SLEEP_MODE_POWER_COLLAPSE:
@@ -900,7 +904,11 @@ enum msm_pm_sleep_mode msm_pm_idle_enter(struct cpuidle_device *dev,
 		collapsed = msm_pm_power_collapse(true);
 		timer_halted = true;
 
-		exit_stat = MSM_PM_STAT_IDLE_POWER_COLLAPSE;
+		if (collapsed)
+			exit_stat = MSM_PM_STAT_IDLE_POWER_COLLAPSE;
+		else
+			exit_stat = MSM_PM_STAT_IDLE_FAILED_POWER_COLLAPSE;
+
 		msm_pm_timer_exit_idle(timer_halted);
 		break;
 
