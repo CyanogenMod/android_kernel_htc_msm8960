@@ -80,4 +80,4 @@ fail_driver_registration:
 	return rc;
 }
 
-module_init(writeback_panel_init);
+late_initcall(writeback_panel_init);
