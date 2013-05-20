@@ -3328,8 +3328,7 @@ static void __init register_i2c_devices(void)
 			}
 		}
 	}
-
-#endif
+#endif /* CONFIG_I2C */
 }
 
 /*UART -> GSBI8*/
@@ -3419,9 +3418,7 @@ static void __init ville_init(void)
 	ville_pm8921_gpio_mpp_init();
 	msm_region_id_gpio_init();
 	platform_add_devices(ville_devices, ARRAY_SIZE(ville_devices));
-#ifdef CONFIG_MSM_CAMERA
 	ville_init_camera();
-#endif
 	ville_init_mmc();
 	register_i2c_devices();
 	ville_init_fb();
