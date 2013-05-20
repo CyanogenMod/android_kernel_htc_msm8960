@@ -1,5 +1,6 @@
 config MACH_HTC
 	bool
+	select FB_MSM_MIPI_DSI
 
 menu "HTC Board Selection"
 source "arch/arm/mach-msm/htc/Kconfig.board"
