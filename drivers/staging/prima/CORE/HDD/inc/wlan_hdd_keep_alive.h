@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -49,7 +49,6 @@ typedef struct
     v_U8_t  hostIpv4Addr[4]; 
     v_U8_t  destIpv4Addr[4];
     v_U8_t  destMacAddr [6];
-    v_U8_t  bssIdx;
 } tKeepAliveRequest, *tpKeepAliveRequest;
 
 #endif // __WLAN_HDD_KEEP_ALIVE_H__

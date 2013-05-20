@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -324,6 +324,9 @@ tANI_U8* macTraceGetLimMsgString( tANI_U16 limMsg )
 {
     switch( limMsg )
     {
+         CASE_RETURN_STRING(SIR_LIM_RESUME_ACTIVITY_NTF);
+        CASE_RETURN_STRING(SIR_LIM_SUSPEND_ACTIVITY_REQ );
+        CASE_RETURN_STRING(SIR_HAL_SUSPEND_ACTIVITY_RSP );
         CASE_RETURN_STRING(SIR_LIM_RETRY_INTERRUPT_MSG);
         CASE_RETURN_STRING(SIR_BB_XPORT_MGMT_MSG );
         CASE_RETURN_STRING(SIR_LIM_INV_KEY_INTERRUPT_MSG );

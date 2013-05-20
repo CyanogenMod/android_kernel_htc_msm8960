@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -497,9 +497,11 @@ WLANSAP_pmcFullPwrReqCB
     }
     else
     {
-        VOS_TRACE(VOS_MODULE_ID_SAP, VOS_TRACE_LEVEL_FATAL, 
+        VOS_TRACE(VOS_MODULE_ID_SAP, VOS_TRACE_LEVEL_ERROR, 
                "WLANSAP_pmcFullPwrReqCB: PMC failed to put the chip in Full power\n");
 
+        //ASSERT
+        VOS_ASSERT(0);
     }
 
 }// WLANSAP_pmcFullPwrReqCB

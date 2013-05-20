@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -87,7 +87,6 @@ typedef struct
     v_U8_t            filterId;
     v_U8_t            numParams;
     struct PacketFilterParamsCfg paramsData [HDD_MAX_CMP_PER_PACKET_FILTER];
-    v_U8_t            bssIdx;
 }tPacketFilterCfg, *tpPacketFilterCfg;
 
 #endif

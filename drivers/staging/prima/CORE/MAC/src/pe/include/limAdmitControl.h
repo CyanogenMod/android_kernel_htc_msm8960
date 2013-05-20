@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -92,7 +92,7 @@ limUpdateAdmitPolicy(
 tSirRetStatus limAdmitControlInit(tpAniSirGlobal pMac);
 
 tSirRetStatus limSendHalMsgAddTs(tpAniSirGlobal pMac, tANI_U16 staIdx, tANI_U8 tspecIdx, tSirMacTspecIE tspecIE, tANI_U8 sessionId);
-tSirRetStatus limSendHalMsgDelTs(tpAniSirGlobal pMac,  tANI_U16 staIdx,  tANI_U8 tspecIdx,  tSirDeltsReqInfo delts, tANI_U8 sessionId);
+tSirRetStatus limSendHalMsgDelTs(tpAniSirGlobal pMac,  tANI_U16 staIdx,  tANI_U8 tspecIdx,  tSirDeltsReqInfo delts);
 void limProcessHalAddTsRsp(tpAniSirGlobal pMac, tpSirMsgQ limMsg);
 
 #endif

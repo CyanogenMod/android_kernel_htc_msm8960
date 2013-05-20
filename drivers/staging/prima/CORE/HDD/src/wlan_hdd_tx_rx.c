@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -543,14 +543,7 @@ int hdd_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 #endif // HDD_WMM_DEBUG
 
    spin_lock(&pAdapter->wmm_tx_queue[ac].lock);
-   /*For every increment of 10 pkts in the queue, we inform TL about pending pkts.
-    * We check for +1 in the logic,to take care of Zero count which 
-    * occurs very frequently in low traffic cases */
-   if((pAdapter->wmm_tx_queue[ac].count + 1) % 10 == 0)
-   {
-           VOS_TRACE( VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,"%s:Queue is Filling up.Inform TL again about pending packets", __FUNCTION__);
-           WLANTL_STAPktPending( (WLAN_HDD_GET_CTX(pAdapter))->pvosContext, pHddStaCtx->conn_info.staId[0], ac );
-   }
+
    //If we have already reached the max queue size, disable the TX queue
    if ( pAdapter->wmm_tx_queue[ac].count == pAdapter->wmm_tx_queue[ac].max_size)
    {
@@ -656,9 +649,6 @@ void hdd_tx_timeout(struct net_device *dev)
    //disabled either because of disassociation or low resource scenarios. In
    //case of disassociation it is ok to ignore this. But if associated, we have
    //do possible recovery here
-
-   //testing underlying data path stall
-   sme_transportDebug(0, 1);
 } 
 
 
@@ -847,7 +837,7 @@ VOS_STATUS hdd_tx_complete_cbk( v_VOID_t *vosContext,
    pAdapter = hdd_get_adapter(pHddCtx,WLAN_HDD_INFRA_STATION);
    if(pAdapter == NULL)
    {
-      VOS_TRACE( VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO,"%s: HDD adapter context is Null", __FUNCTION__);
+      VOS_TRACE( VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,"%s: HDD adapter context is Null", __FUNCTION__);
    }
    else
    {
@@ -1340,9 +1330,6 @@ VOS_STATUS hdd_rx_packet_cbk( v_VOID_t *vosContext,
       ++pAdapter->hdd_stats.hddTxRxStats.rxPackets;
       ++pAdapter->stats.rx_packets;
       pAdapter->stats.rx_bytes += skb->len;
-#ifdef WLAN_FEATURE_HOLD_RX_WAKELOCK
-      wake_lock_timeout(&pHddCtx->rx_wake_lock, HDD_WAKE_LOCK_DURATION);
-#endif
       rxstat = netif_rx_ni(skb);
       if (NET_RX_SUCCESS == rxstat)
       {

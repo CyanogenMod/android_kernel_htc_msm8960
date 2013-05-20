@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -177,17 +177,7 @@ typedef enum
 {
   WDI_SECONDARY_CHANNEL_OFFSET_NONE   = 0,
   WDI_SECONDARY_CHANNEL_OFFSET_UP     = 1,
-  WDI_SECONDARY_CHANNEL_OFFSET_DOWN   = 3,
-#ifdef WLAN_FEATURE_11AC
-  WDI_CHANNEL_20MHZ_LOW_40MHZ_CENTERED = 4, //20/40MHZ offset LOW 40/80MHZ offset CENTERED
-  WDI_CHANNEL_20MHZ_CENTERED_40MHZ_CENTERED = 5, //20/40MHZ offset CENTERED 40/80MHZ offset CENTERED
-  WDI_CHANNEL_20MHZ_HIGH_40MHZ_CENTERED = 6, //20/40MHZ offset HIGH 40/80MHZ offset CENTERED
-  WDI_CHANNEL_20MHZ_LOW_40MHZ_LOW = 7,//20/40MHZ offset LOW 40/80MHZ offset LOW
-  WDI_CHANNEL_20MHZ_HIGH_40MHZ_LOW = 8, //20/40MHZ offset HIGH 40/80MHZ offset LOW
-  WDI_CHANNEL_20MHZ_LOW_40MHZ_HIGH = 9, //20/40MHZ offset LOW 40/80MHZ offset HIGH
-  WDI_CHANNEL_20MHZ_HIGH_40MHZ_HIGH = 10,//20/40MHZ offset-HIGH 40/80MHZ offset HIGH
-#endif
-  WDI_SECONDARY_CHANNEL_OFFSET_MAX
+  WDI_SECONDARY_CHANNEL_OFFSET_DOWN   = 3
 }WDI_HTSecondaryChannelOffset;
 
 /*---------------------------------------------------------------------------
@@ -762,10 +752,7 @@ typedef enum
   WDI_SCAN_MODE_LEARN,
   WDI_SCAN_MODE_SCAN,
   WDI_SCAN_MODE_PROMISC,
-  WDI_SCAN_MODE_SUSPEND_LINK,
-  WDI_SCAN_MODE_ROAM_SCAN,
-  WDI_SCAN_MODE_ROAM_SUSPEND_LINK,
-
+  WDI_SCAN_MODE_SUSPEND_LINK
 } WDI_ScanMode;
 
 /*---------------------------------------------------------------------------
@@ -896,17 +883,7 @@ typedef enum
   WDI_PHY_SINGLE_CHANNEL_CENTERED = 0,            
   WDI_PHY_DOUBLE_CHANNEL_LOW_PRIMARY = 1,     
   WDI_PHY_DOUBLE_CHANNEL_CENTERED = 2,            
-  WDI_PHY_DOUBLE_CHANNEL_HIGH_PRIMARY = 3,
-#ifdef WLAN_FEATURE_11AC
-  WDI_QUADRUPLE_CHANNEL_20MHZ_LOW_40MHZ_CENTERED = 4, //20/40MHZ offset LOW 40/80MHZ offset CENTERED
-  WDI_QUADRUPLE_CHANNEL_20MHZ_CENTERED_40MHZ_CENTERED = 5, //20/40MHZ offset CENTERED 40/80MHZ offset CENTERED
-  WDI_QUADRUPLE_CHANNEL_20MHZ_HIGH_40MHZ_CENTERED = 6, //20/40MHZ offset HIGH 40/80MHZ offset CENTERED
-  WDI_QUADRUPLE_CHANNEL_20MHZ_LOW_40MHZ_LOW = 7,//20/40MHZ offset LOW 40/80MHZ offset LOW
-  WDI_QUADRUPLE_CHANNEL_20MHZ_HIGH_40MHZ_LOW = 8, //20/40MHZ offset HIGH 40/80MHZ offset LOW
-  WDI_QUADRUPLE_CHANNEL_20MHZ_LOW_40MHZ_HIGH = 9, //20/40MHZ offset LOW 40/80MHZ offset HIGH
-  WDI_QUADRUPLE_CHANNEL_20MHZ_HIGH_40MHZ_HIGH = 10,//20/40MHZ offset-HIGH 40/80MHZ offset HIGH
-#endif
-  WDI_MAX_CB_STATE
+  WDI_PHY_DOUBLE_CHANNEL_HIGH_PRIMARY = 3     
 } WDI_PhyChanBondState;
 
 /*---------------------------------------------------------------------------
@@ -1174,20 +1151,6 @@ typedef struct
      */
     wpt_uint16         aRxHighestDataRate;
 
-   
-#ifdef WLAN_FEATURE_11AC
-   /*Indicates the Maximum MCS that can be received for each number
-        of spacial streams */
-    wpt_uint16         vhtRxMCSMap;
-  /*Indicate the highest VHT data rate that the STA is able to receive*/
-    wpt_uint16         vhtRxHighestDataRate;
-  /*Indicates the Maximum MCS that can be transmitted  for each number
-       of spacial streams */
-    wpt_uint16         vhtTxMCSMap;
-  /*Indicate the highest VHT data rate that the STA is able to transmit*/
-    wpt_uint16         vhtTxHighestDataRate;
-#endif
-
 } WDI_SupportedRates;
 
 /*-------------------------------------------------------------------------- 
@@ -1300,10 +1263,6 @@ typedef struct
   wpt_uint8                 ucDsssCckMode40Mhz;
 
   wpt_uint8                 ucP2pCapableSta;
-#ifdef WLAN_FEATURE_11AC
-  wpt_uint8                 ucVhtCapableSta;
-  wpt_uint8                 ucVhtTxChannelWidthSet;
-#endif
 }WDI_ConfigStaReqInfoType;
 
 
@@ -1835,11 +1794,6 @@ typedef struct
 #ifdef WLAN_FEATURE_VOWIFI_11R
   wpt_uint8                 bExtSetStaKeyParamValid;
   WDI_SetSTAKeyReqInfoType  wdiExtSetKeyParam;
-#endif
-
-#ifdef WLAN_FEATURE_11AC
-  wpt_uint8                 ucVhtCapableSta;
-  wpt_uint8                 ucVhtTxChannelWidthSet;
 #endif
 
 }WDI_ConfigBSSReqInfoType;
@@ -3078,7 +3032,6 @@ typedef struct
 typedef struct
 {
    wpt_uint8     ucSendDataNull;
-   wpt_uint8     bssIdx;
 }WDI_ExitBmpsReqinfoType;
 
 /*---------------------------------------------------------------------------
@@ -3112,7 +3065,6 @@ typedef struct
    wpt_uint8     ucBeTriggerEnabled:1;
    wpt_uint8     ucViTriggerEnabled:1;
    wpt_uint8     ucVoTriggerEnabled:1;
-   wpt_uint8     bssIdx;
 }WDI_EnterUapsdReqinfoType;
 
 /*---------------------------------------------------------------------------
@@ -3297,7 +3249,6 @@ typedef struct
    wpt_uint8 srcIPv6AddrValid : 1;
    wpt_uint8 targetIPv6Addr1Valid : 1;
    wpt_uint8 targetIPv6Addr2Valid : 1;
-   wpt_uint8 bssIdx;
 } WDI_NSOffloadParams;
 #endif //WLAN_NS_OFFLOAD
 
@@ -3305,7 +3256,6 @@ typedef struct
 {
    wpt_uint8 ucOffloadType;
    wpt_uint8 ucEnableOrDisable;
-   wpt_uint8 bssIdx;
    union
    {
        wpt_uint8 aHostIpv4Addr [4];
@@ -3344,7 +3294,6 @@ typedef struct
     wpt_uint8  aHostIpv4Addr[4];
     wpt_uint8  aDestIpv4Addr[4];
     wpt_uint8  aDestMacAddr[6];
-    wpt_uint8  bssIdx;
 } WDI_KeepAliveReqType;
 
 /*---------------------------------------------------------------------------
@@ -3380,7 +3329,6 @@ typedef struct
    wpt_uint8  ucPatternMask[WDI_WOWL_BCAST_PATTERN_MAX_SIZE]; // Pattern mask
    wpt_uint8  ucPatternExt[WDI_WOWL_BCAST_PATTERN_MAX_SIZE]; // Extra pattern
    wpt_uint8  ucPatternMaskExt[WDI_WOWL_BCAST_PATTERN_MAX_SIZE]; // Extra pattern mask
-   wpt_uint8  bssIdx;
 } WDI_WowlAddBcPtrnInfoType;
 
 /*---------------------------------------------------------------------------
@@ -4263,8 +4211,6 @@ typedef struct
   wpt_uint32                      numFieldParams;
   wpt_uint32                      coalesceTime;
   WDI_RcvPktFilterFieldParams     paramsData[1];
-  wpt_macAddr                     selfMacAddr;
-  wpt_macAddr                     bssId;
 }WDI_RcvPktFilterCfgType;
 
 typedef struct 
@@ -4340,8 +4286,6 @@ typedef struct
 {
   wpt_uint32   status;  /* only valid for response message */
   wpt_uint8    filterId;
-  wpt_macAddr  selfMacAddr;
-  wpt_macAddr  bssId;
 }WDI_RcvFltPktClearParam;
 
 typedef struct
@@ -4364,8 +4308,6 @@ typedef struct
 {
   wpt_uint32     ulMulticastAddrCnt;
   wpt_macAddr    multicastAddr[WDI_MAX_NUM_MULTICAST_ADDRESS];
-  wpt_macAddr    selfMacAddr;
-  wpt_macAddr    bssId;
 } WDI_RcvFltMcAddrListType;
 
 typedef struct
@@ -8793,8 +8735,8 @@ wpt_uint8 WDI_getHostWlanFeatCaps(wpt_uint8 feat_enum_value);
  
  @param 
   
-        feat_enum_value: enum value for the feature as in placeHolderInCapBitmap 
-        in wlan_hal_msg.h.
+        feat_enum_value: enum value for the feature as in placeHolderInCapBitmap
+                                    in wlan_hal_msg.h.
 
  @see
  @return 
@@ -8818,26 +8760,6 @@ void WDI_GetWcnssCompiledApiVersion
 );
 
 
-
-
-/**
- @brief WDI_TransportChannelDebug -
-    Display DXE Channel debugging information
-    User may request to display DXE channel snapshot
-    Or if host driver detects any abnormal stcuk may display
-        
- @param  displaySnapshot : Dispaly DXE snapshot option
- @param  enableStallDetect : Enable stall detect feature
-                        This feature will take effect to data performance
-                        Not integrate till fully verification
- @see
- @return none
-*/
-void WDI_TransportChannelDebug
-(
-   wpt_boolean  displaySnapshot,
-   wpt_boolean  toggleStallDetect
-);
 
 #ifdef __cplusplus
  }

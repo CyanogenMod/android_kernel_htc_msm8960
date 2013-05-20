@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -23,9 +23,9 @@
   vos_getBin.c
   \brief
   Description...
-   Copyright (c) 2012 Qualcomm Atheros, Inc.
-   All Rights Reserved.
-   Qualcomm Atheros Confidential and Proprietary.
+               Copyright 2008 (c) Qualcomm, Incorporated.
+               All Rights Reserved.
+               Qualcomm Confidential and Proprietary.
   ==============================================================================*/
 /* $HEADER$ */
 /**-----------------------------------------------------------------------------
@@ -163,12 +163,10 @@ v_BOOL_t vos_concurrent_sessions_running(void)
     if (NULL != pVosContext)
     {
        pHddCtx = vos_get_context( VOS_MODULE_ID_HDD, pVosContext);
-       if (NULL != pHddCtx)
+
+       for (i=0; i < VOS_MAX_NO_OF_MODE; i++)
        {
-          for (i=0; i < VOS_MAX_NO_OF_MODE; i++)
-          {
-             j += pHddCtx->no_of_sessions[i];
-          }
+          j += pHddCtx->no_of_sessions[i];
        }
     }
 

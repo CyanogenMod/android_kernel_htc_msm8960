@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -231,7 +231,6 @@ typedef struct
 
 #define QCSAP_IOCTL_MODIFY_ACL          (SIOCIWFIRSTPRIV+18)
 #define QCSAP_IOCTL_GET_CHANNEL_LIST    (SIOCIWFIRSTPRIV+19)
-#define QCSAP_IOCTL_SET_TX_POWER        (SIOCIWFIRSTPRIV+20) 
 
 #define MAX_VAR_ARGS         7
 #define QCSAP_IOCTL_PRIV_GET_SOFTAP_LINK_SPEED (SIOCIWFIRSTPRIV + 31)

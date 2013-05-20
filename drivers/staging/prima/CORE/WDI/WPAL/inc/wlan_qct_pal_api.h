@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -295,13 +295,4 @@ wpt_status wpalDriverReInit(void);
 ---------------------------------------------------------------------------*/
 wpt_status wpalRivaSubystemRestart(void);
 
-/*---------------------------------------------------------------------------
-    wpalWlanReload -  Initiate WLAN Driver reload
-
-    Param:
-       None
-    Return:
-       NONE
----------------------------------------------------------------------------*/
-void wpalWlanReload(void);
 #endif // __WLAN_QCT_PAL_API_H

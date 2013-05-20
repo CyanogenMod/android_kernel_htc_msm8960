@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -63,11 +63,11 @@ tANI_U8 limGetCurrentLearnChannel(tpAniSirGlobal);
 // Determine if a newly discovered BSS is TITAN-compatible
 void handleNonTitanBss( tpAniSirGlobal, tSirNeighborBssWdsInfo );
 #endif
+ePhyChanBondState limGetPhyCBState( tpAniSirGlobal );
 tStaRateMode limGetStaPeerType( tpAniSirGlobal, tpDphHashNode ,tpPESession);
-#ifdef WLAN_FEATURE_11AC
-ePhyChanBondState  limGetHTCBState(ePhyChanBondState aniCBMode) ;
-#endif
+void setupCBState( tpAniSirGlobal, tAniCBSecondaryMode );
 
+tANI_U8 limGetCurrentCBSecChannel( tpAniSirGlobal,tpPESession );
 
 #endif /* __LIM_PROP_EXTS_UTILS_H */
 

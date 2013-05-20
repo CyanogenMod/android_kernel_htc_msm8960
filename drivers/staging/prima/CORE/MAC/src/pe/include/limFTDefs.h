@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -54,8 +54,6 @@ typedef struct sSirFTPreAuthReq
 {
    tANI_U16    messageType;      // eWNI_SME_FT_PRE_AUTH_REQ
    tANI_U16    length;
-   tANI_BOOLEAN bPreAuthRspProcessed; /* Track if response is processed for this request
-                                         We expect only one response per request. */
    tANI_U8     preAuthchannelNum;
    tSirMacAddr currbssId;        // BSSID currently associated to suspend the link
    tSirMacAddr preAuthbssId;     // BSSID to preauth to

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -342,7 +342,7 @@ static eHalStatus cfgSet(tHalHandle hHal, tANI_U32 cfgId, tANI_U32 type, tANI_S3
     if (pal_in_interrupt())
     {
 #ifdef CCM_DEBUG2
-        smsLog(pMac, LOG1, FL("WNI_CFG_%s (%d 0x%x), in_interrupt()=TRUE"), gCfgParamName[cfgId], (int)cfgId, (int)cfgId);
+        smsLog(pMac, LOGE, FL("WNI_CFG_%s (%d 0x%x), in_interrupt()=TRUE\n"), gCfgParamName[cfgId], (int)cfgId, (int)cfgId);
 #endif
         status = cfgSetSub(pMac, hHdd, cfgId, type, length, ccmPtr, ccmValue, callback, toBeSaved, NULL, &req);
     }
@@ -351,7 +351,7 @@ static eHalStatus cfgSet(tHalHandle hHal, tANI_U32 cfgId, tANI_U32 type, tANI_S3
         void *sem ;
 
 #ifdef CCM_DEBUG2
-        smsLog(pMac, LOG1, FL("WNI_CFG_%s (%d 0x%x), in_interrupt()=FALSE"), gCfgParamName[cfgId], (int)cfgId, (int)cfgId);
+        smsLog(pMac, LOGE, FL("WNI_CFG_%s (%d 0x%x), in_interrupt()=FALSE\n"), gCfgParamName[cfgId], (int)cfgId, (int)cfgId);
 #endif
         pal_local_bh_disable() ;
 
@@ -377,12 +377,12 @@ static eHalStatus cfgSet(tHalHandle hHal, tANI_U32 cfgId, tANI_U32 type, tANI_S3
         if ((status == eHAL_STATUS_SUCCESS) && (sem != NULL))
         {
 #ifdef CCM_DEBUG
-            smsLog(pMac, LOG1, FL("ccmWaitForCompletion(%p)"), req->done);
+            smsLog(pMac, LOGW, FL("ccmWaitForCompletion(%p)\n"), req->done);
 #endif
             ccmWaitForCompletion(hHdd, sem);
 
 #ifdef CCM_DEBUG
-            smsLog(pMac, LOG1, FL("free(%p)"), req->done);
+            smsLog(pMac, LOGW, FL("free(%p)\n"), req->done);
 #endif
             palSemaphoreFree( hHdd, sem ) ;
         }

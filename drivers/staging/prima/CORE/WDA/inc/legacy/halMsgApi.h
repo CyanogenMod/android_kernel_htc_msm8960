@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -302,11 +302,6 @@ typedef struct
     tANI_U8     p2pCapableSta;
 #endif
 
-#ifdef WLAN_FEATURE_11AC
-    tANI_U8    vhtCapable;
-    tANI_U8    vhtTxChannelWidthSet;
-#endif
-
 } tAddStaParams, *tpAddStaParams;
 
 
@@ -510,10 +505,7 @@ typedef struct
 
     //Spectrum Management Capability, 1 - Enabled, 0 - Disabled.
     tANI_U8 bSpectrumMgtEnabled;
-#ifdef WLAN_FEATURE_11AC
-    tANI_U8 vhtCapable;
-    tANI_U8    vhtTxChannelWidthSet;
-#endif
+
 } tAddBssParams, * tpAddBssParams;
 
 typedef struct
@@ -949,7 +941,7 @@ typedef struct
 #ifndef WLAN_FEATURE_VOWIFI    
     tANI_U8 localPowerConstraint;
 #endif /* WLAN_FEATURE_VOWIFI  */
-    ePhyChanBondState secondaryChannelOffset;
+    tSirMacHTSecondaryChannelOffset secondaryChannelOffset;
     tANI_U8 peSessionId;
 #if defined WLAN_FEATURE_VOWIFI
     tPowerdBm txMgmtPower; //HAL fills in the tx power used for mgmt frames in this field.
@@ -1161,7 +1153,6 @@ typedef struct sExitBmpsParams
 {
     tANI_U8     sendDataNull;
     eHalStatus  status;
-    tANI_U8     bssIdx;
 } tExitBmpsParams, *tpExitBmpsParams;
 
 //
@@ -1179,7 +1170,6 @@ typedef struct sUapsdParams
     tANI_U8     viTriggerEnabled:1;
     tANI_U8     voTriggerEnabled:1;
     eHalStatus  status;
-    tANI_U8     bssIdx;
 }tUapsdParams, *tpUapsdParams;
 
 //

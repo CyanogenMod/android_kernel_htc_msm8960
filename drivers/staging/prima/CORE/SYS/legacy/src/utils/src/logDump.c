@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -359,7 +359,7 @@ static void Log_getCfg(tpAniSirGlobal pMac, tANI_U16 cfgId)
         else
         {
             sysLog( pMac, LOGE, FL("WNI_CFG_%s(%d  0x%x) len=%ld\n"),  gCfgParamName[cfgId], cfgId, cfgId, valueLen );
-            sirDumpBuf(pMac, SIR_WDA_MODULE_ID, LOG1, buf, valueLen) ;
+            sirDumpBuf(pMac, SIR_WDA_MODULE_ID, LOGW, buf, valueLen) ;
         }
     }
 

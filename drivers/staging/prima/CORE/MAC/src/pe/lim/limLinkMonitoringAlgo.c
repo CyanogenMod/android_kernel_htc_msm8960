@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -172,19 +172,11 @@ limDeleteStaContext(tpAniSirGlobal pMac, tpSirMsgQ limMsg)
             case HAL_DEL_STA_REASON_CODE_KEEP_ALIVE:
             case HAL_DEL_STA_REASON_CODE_TIM_BASED:
                 PELOGE(limLog(pMac, LOGE, FL(" Deleting station: staId = %d, reasonCode = %d\n"), pMsg->staId, pMsg->reasonCode);)
-#endif
-                if((eLIM_BT_AMP_AP_ROLE == psessionEntry->limSystemRole) ||
-                   (eLIM_AP_ROLE == psessionEntry->limSystemRole))
-                {
-                    pStaDs = dphGetHashEntry(pMac, pMsg->assocId, &psessionEntry->dph.dphHashTable);
-                }
-                else
-                {
-                    pStaDs = dphGetHashEntry(pMac, DPH_STA_HASH_INDEX_PEER, &psessionEntry->dph.dphHashTable);
-                }
+#endif        
+                pStaDs = dphGetHashEntry(pMac, pMsg->assocId, &psessionEntry->dph.dphHashTable);
                 if (! pStaDs)
                 {
-                   PELOGE(limLog(pMac, LOGE, FL("Skip STA deletion (invalid STA) limSystemRole=%d\n"),psessionEntry->limSystemRole);)
+                   PELOGW(limLog(pMac, LOGW, FL("Skip STA deletion (invalid STA)\n"));)
                    palFreeMemory(pMac->hHdd, pMsg);
                    return;
                 }
@@ -194,7 +186,7 @@ limDeleteStaContext(tpAniSirGlobal pMac, tpSirMsgQ limMsg)
                 */
                 if (pStaDs->staIndex != pMsg->staId)
                 {
-                    PELOGE(limLog(pMac, LOGE, FL("staid mismatch: %d vs %d \n"), pStaDs->staIndex, pMsg->staId);)
+                    PELOGW(limLog(pMac, LOGW, FL("staid mismatch: %d vs %d \n"), pStaDs->staIndex, pMsg->staId);)
                     palFreeMemory(pMac->hHdd, pMsg);
                     return;
                 }
@@ -210,7 +202,7 @@ limDeleteStaContext(tpAniSirGlobal pMac, tpSirMsgQ limMsg)
                 {
                     //TearDownLink with AP
                     tLimMlmDeauthInd  mlmDeauthInd;
-                    PELOGW(limLog(pMac, LOGW, FL("lim Delete Station Context (staId: %d, assocId: %d) \n"),
+                    PELOG1(limLog(pMac, LOG1, FL("lim Delete Station Context (staId: %d, assocId: %d) \n"),
                                   pMsg->staId, pMsg->assocId);)
 
                     pStaDs->mlmStaContext.disassocReason = eSIR_MAC_UNSPEC_FAILURE_REASON;
@@ -306,12 +298,12 @@ limTriggerSTAdeletion(tpAniSirGlobal pMac, tpDphHashNode pStaDs, tpPESession pse
     pLen = pBuf;
     pBuf += sizeof(tANI_U16);
     msgLength += sizeof(tANI_U16);
-
+    
     //sessionId
-    *pBuf = psessionEntry->smeSessionId;
+    *pBuf = psessionEntry->peSessionId;
     pBuf++;
     msgLength++;
-
+  
     //transactionId
     limCopyU16((tANI_U8*)pBuf, psessionEntry->transactionId);
     pBuf += sizeof(tANI_U16);

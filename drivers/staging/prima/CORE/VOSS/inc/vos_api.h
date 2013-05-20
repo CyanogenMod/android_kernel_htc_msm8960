@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -285,21 +285,5 @@ VOS_STATUS vos_wlanShutdown(void);
 
 */
 VOS_STATUS vos_wlanReInit(void);
-
-/**
-  @brief vos_wlanRestart() - This API will reload WLAN driver.
-
-  This function is called if driver detects any fatal state which 
-  can be recovered by a WLAN module reload ( Android framwork initiated ).
-  Note that this API will not initiate any RIVA subsystem restart.
-
-  @param
-       NONE
-  @return
-       VOS_STATUS_SUCCESS   - Operation completed successfully.
-       VOS_STATUS_E_FAILURE - Operation failed.
-
-*/
-VOS_STATUS vos_wlanRestart(void);
 
 #endif // if !defined __VOS_NVITEM_H

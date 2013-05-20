@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -36,8 +36,6 @@
 #define WAIT_CANCEL_REM_CHAN    1000
 #define WAIT_REM_CHAN_READY     1000
 #define WAIT_CHANGE_CHANNEL_FOR_OFFCHANNEL_TX 3000
-
-#define ACTION_FRAME_DEFAULT_WAIT 200
 
 #define WLAN_HDD_GET_TYPE_FRM_FC(__fc__)         (((__fc__) & 0x0F) >> 2)
 #define WLAN_HDD_GET_SUBTYPE_FRM_FC(__fc__)      (((__fc__) & 0xF0) >> 4)
@@ -94,7 +92,6 @@ void hdd_indicateMgmtFrame( hdd_adapter_t *pAdapter,
 
 void hdd_remainChanReadyHandler( hdd_adapter_t *pAdapter );
 void hdd_sendActionCnf( hdd_adapter_t *pAdapter, tANI_BOOLEAN actionSendSuccess );
-int wlan_hdd_check_remain_on_channel(hdd_adapter_t *pAdapter);
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0))
 int wlan_hdd_action( struct wiphy *wiphy, struct net_device *dev,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -75,7 +75,7 @@ limDeactivateMinChannelTimerDuringScan(tpAniSirGlobal pMac)
             */
         
         limDeactivateAndChangeTimer(pMac,eLIM_MIN_CHANNEL_TIMER);
-        MTRACE(macTrace(pMac, TRACE_CODE_TIMER_ACTIVATE, NO_SESSION, eLIM_MAX_CHANNEL_TIMER));
+        MTRACE(macTrace(pMac, TRACE_CODE_TIMER_ACTIVATE, 0, eLIM_MAX_CHANNEL_TIMER));
         if (tx_timer_activate(&pMac->lim.limTimers.gLimMaxChannelTimer)
                                           == TX_TIMER_ERROR)
         {
@@ -196,6 +196,33 @@ limCollectBssDescription(tpAniSirGlobal pMac,
    }
 
     pBssDescr->channelIdSelf = rxChannel;
+    pBssDescr->titanHtCaps = 0;
+
+    //FIXME_CBMODE : need to seperate out TITAN and HT CB mode.
+    //HT neighbor with channel bonding
+    if( pBPR->HTCaps.present  )
+    {
+        tAniTitanHtCapabilityInfo titanHtCaps = 0;
+        limGetHtCbAdminState(pMac, pBPR->HTCaps, &titanHtCaps);
+        if( pBPR->HTInfo.present &&
+          pBPR->HTInfo.secondaryChannelOffset )
+        {
+
+            limGetHtCbOpState( pMac,
+                pBPR->HTInfo,
+                &titanHtCaps );
+        }
+        pBssDescr->titanHtCaps = (tANI_U32) titanHtCaps;
+    }
+
+    // Is this is a TITAN neighbor?
+    else if( pBPR->propIEinfo.aniIndicator &&
+        pBPR->propIEinfo.titanPresent )
+    {
+    tAniTitanHtCapabilityInfo titanHtCaps = 0;
+      pBssDescr->titanHtCaps = (tANI_U32) titanHtCaps;
+    }
+
     //set the network type in bss description
     channelNum = pBssDescr->channelId;
     pBssDescr->nwType = limGetNwType(pMac, channelNum, SIR_MAC_MGMT_FRAME, pBPR);
@@ -341,7 +368,6 @@ limCheckAndAddBssDescription(tpAniSirGlobal pMac,
     tANI_U32              frameLen, ieLen = 0;
     tANI_U8               rxChannelInBeacon = 0;
     eHalStatus            status;
-    tANI_U8               dontUpdateAll = 0;
 
 #ifdef WLAN_FEATURE_P2P
     tSirMacAddr bssid = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
@@ -417,23 +443,10 @@ limCheckAndAddBssDescription(tpAniSirGlobal pMac,
           /* This means that we are in 2.4GHz mode */
           if(WDA_GET_RX_CH(pRxPacketInfo) != rxChannelInBeacon)
           {
-             /* BCAST Frame, if CH do not match, Drop */
-             if(WDA_IS_RX_BCAST(pRxPacketInfo))
-             {
-                limLog(pMac, LOG3, FL("Beacon/Probe Rsp dropped. Channel in BD %d. "
-                                      "Channel in beacon" " %d\n"), 
-                       WDA_GET_RX_CH(pRxPacketInfo),limGetChannelFromBeacon(pMac, pBPR));
-                return;
-             }
-             /* Unit cast frame, Probe RSP, do not drop */
-             else
-             {
-                dontUpdateAll = 1;
-                limLog(pMac, LOG3, FL("SSID %s, CH in ProbeRsp %d, CH in BD %d, miss-match, Do Not Drop"), 
-                                       pBPR->ssId.ssId,
-                                       rxChannelInBeacon,
-                                       limGetChannelFromBeacon(pMac, pBPR));
-             }
+             limLog(pMac, LOG3, FL("Beacon/Probe Rsp dropped. Channel in BD %d. "
+                                   "Channel in beacon" " %d\n"), 
+                    WDA_GET_RX_CH(pRxPacketInfo),limGetChannelFromBeacon(pMac, pBPR));
+             return;
           }
        }
     }
@@ -477,11 +490,11 @@ limCheckAndAddBssDescription(tpAniSirGlobal pMac,
     //If it is not scanning, only save unique results
     if (pMac->lim.gLimReturnUniqueResults || (!fScanning))
     {
-        status = limLookupNaddHashEntry(pMac, pBssDescr, LIM_HASH_UPDATE, dontUpdateAll);
+        status = limLookupNaddHashEntry(pMac, pBssDescr, LIM_HASH_UPDATE);
     }
     else
     {
-        status = limLookupNaddHashEntry(pMac, pBssDescr, LIM_HASH_ADD, dontUpdateAll);
+        status = limLookupNaddHashEntry(pMac, pBssDescr, LIM_HASH_ADD);
     }
 
     if(fScanning)
@@ -634,8 +647,7 @@ limInitHashTable(tpAniSirGlobal pMac)
 
 eHalStatus
 limLookupNaddHashEntry(tpAniSirGlobal pMac,
-                       tLimScanResultNode *pBssDescr, tANI_U8 action,
-                       tANI_U8 dontUpdateAll)
+                       tLimScanResultNode *pBssDescr, tANI_U8 action)
 {
     tANI_U8                  index, ssidLen = 0;
     tANI_U8                found = false;
@@ -643,7 +655,6 @@ limLookupNaddHashEntry(tpAniSirGlobal pMac,
     tSirMacCapabilityInfo *pSirCap, *pSirCapTemp;
     int idx, len;
     tANI_U8 *pbIe;
-    tANI_S8  rssi = 0;
 
     index = limScanHashFunction(pBssDescr->bssDescription.bssId);
     ptemp = pMac->lim.gLimCachedScanHashTable[index];
@@ -660,8 +671,6 @@ limLookupNaddHashEntry(tpAniSirGlobal pMac,
             (palEqualMemory( pMac->hHdd,(tANI_U8 *) pBssDescr->bssDescription.bssId,
                       (tANI_U8 *) ptemp->bssDescription.bssId,
                       sizeof(tSirMacAddr))) &&   //matching BSSID
-            (pBssDescr->bssDescription.channelId ==
-                                      ptemp->bssDescription.channelId) &&
             palEqualMemory( pMac->hHdd,((tANI_U8 *) &pBssDescr->bssDescription.ieFields + 1),
                            ((tANI_U8 *) &ptemp->bssDescription.ieFields + 1),
                            (tANI_U8) (ssidLen + 1)) &&
@@ -676,11 +685,6 @@ limLookupNaddHashEntry(tpAniSirGlobal pMac,
             // Found the same BSS description
             if (action == LIM_HASH_UPDATE)
             {
-                if(dontUpdateAll)
-                {
-                   rssi = ptemp->bssDescription.rssi;
-                }
-
                 if(pBssDescr->bssDescription.fProbeRsp != ptemp->bssDescription.fProbeRsp)
                 {
                     //We get a different, save the old frame WSC IE if it is there
@@ -732,12 +736,6 @@ limLookupNaddHashEntry(tpAniSirGlobal pMac,
             found = true;
             break;
         }
-    }
-
-    //for now, only rssi, we can add more if needed
-    if ((action == LIM_HASH_UPDATE) && dontUpdateAll)
-    {
-        pBssDescr->bssDescription.rssi = rssi;
     }
 
     // Add this BSS description at same index

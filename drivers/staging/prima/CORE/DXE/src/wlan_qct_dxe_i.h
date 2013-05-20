@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -63,7 +63,6 @@ when           who        what, where, why
  * -------------------------------------------------------------------------*/
 #include "wlan_qct_dxe.h"
 #include "wlan_qct_pal_trace.h"
-#include "wlan_qct_pal_timer.h"
 #include "vos_trace.h"
 /*----------------------------------------------------------------------------
  * Preprocessor Definitions and Constants
@@ -71,34 +70,22 @@ when           who        what, where, why
 #define WLANDXE_CTXT_COOKIE              0xC00CC111
 
 
-/* From here WCNSS DXE register information
+/* From here RIVA DXE register information
  * This is temporary definition location to make compile and unit test
  * If official msmreg.h integrated, this part will be eliminated */
 /* Start with base address */
 
-#define WLANDXE_BMU_AVAILABLE_BD_PDU     0x03080084
-
-#ifdef WCN_PRONTO
-#define WLANDXE_CCU_DXE_INT_SELECT       0xfb2050dc
-#define WLANDXE_CCU_DXE_INT_SELECT_STAT  0xfb2050e0
-#define WLANDXE_CCU_ASIC_INT_ENABLE      0xfb2050e4
-#else
 #define WLANDXE_CCU_DXE_INT_SELECT       0x03200b10
 #define WLANDXE_CCU_DXE_INT_SELECT_STAT  0x03200b14
 #define WLANDXE_CCU_ASIC_INT_ENABLE      0x03200b18
-#endif
 
 #ifdef PAL_OS_TYPE_BMP
-#define WLANDXE_WCNSS_BASE_ADDRESS        0xCDD00000
+#define WLANDXE_RIVA_BASE_ADDRESS        0xCDD00000
 #else
-#ifdef WCN_PRONTO
-#define WLANDXE_WCNSS_BASE_ADDRESS        0xfb000000
-#else
-#define WLANDXE_WCNSS_BASE_ADDRESS        0x03000000
-#endif
+#define WLANDXE_RIVA_BASE_ADDRESS        0x03000000
 #endif /* PAL_OS_TYPE_BMP */
 
-#define WLANDXE_REGISTER_BASE_ADDRESS    WLANDXE_WCNSS_BASE_ADDRESS + 0x202000
+#define WLANDXE_REGISTER_BASE_ADDRESS    WLANDXE_RIVA_BASE_ADDRESS + 0x202000
 
 /* Common over the channels register addresses */
 #define WALNDEX_DMA_CSR_ADDRESS          WLANDXE_REGISTER_BASE_ADDRESS + 0x00
@@ -358,7 +345,7 @@ when           who        what, where, why
 #define WLANDXE_CH_STAT_INT_ED_MASK     0x00002000
 
 #define WLANDXE_CH_STAT_MASKED_MASK     0x00000008
-/* Till here WCNSS DXE register information
+/* Till here RIVA DXE register information
  * This is temporary definition location to make compile and unit test
  * If official msmreg.h integrated, this part will be eliminated */
 
@@ -581,8 +568,6 @@ typedef struct
    WLANDXE_ChannelExConfigType     extraConfig;
    WLANDXE_DMAChannelType          assignedDMAChannel;
    wpt_uint64                      rxDoneHistogram;
-   wpt_timer                       healthMonitorTimer;
-   wpt_msg                        *healthMonitorMsg;
 } WLANDXE_ChannelCBType;
 
 typedef struct
@@ -620,7 +605,6 @@ typedef struct
    wpt_uint32                      dxeCookie;
    wpt_packet                     *freeRXPacket;
    wpt_boolean                     rxPalPacketUnavailable;
-   wpt_boolean                     driverReloadInProcessing;
 } WLANDXE_CtrlBlkType;
 
 /*==========================================================================

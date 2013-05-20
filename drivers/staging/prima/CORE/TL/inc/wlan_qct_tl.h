@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -775,18 +775,6 @@ typedef VOS_STATUS (*WLANTL_RSSICrossThresholdCBType)
    v_PVOID_t                       pUserCtxt
 );
 
-typedef struct
-{
-    // Common for all types are requests
-    v_U16_t                         msgType;    // message type is same as the request type
-    v_U16_t                         msgLen;  // length of the entire request
-    v_U8_t                          sessionId; //sme Session Id
-    v_U8_t                          rssiNotification;    
-    v_PVOID_t                       tlCallback;
-    v_PVOID_t                       pAdapter;
-    v_PVOID_t                       pUserCtxt;
-} WLANTL_TlIndicationReq;
-
 /*----------------------------------------------------------------------------
  * Function Declarations and Documentation
  * -------------------------------------------------------------------------*/
@@ -1101,51 +1089,6 @@ WLANTL_ChangeSTAState
   v_PVOID_t             pvosGCtx,
   v_U8_t                ucSTAId,
   WLANTL_STAStateType   tlSTAState 
-);
-
-/*===========================================================================
-
-  FUNCTION    WLANTL_GetSTAState
-
-  DESCRIPTION
-
-    Returns connectivity state of a particular STA.
-
-  DEPENDENCIES
-
-    A station must have been registered before its state can be retrieved.
-
-
-  PARAMETERS
-
-    IN
-    pvosGCtx:       pointer to the global vos context; a handle to TL's
-                    control block can be extracted from its context
-    ucSTAId:        identifier of the station
-
-    OUT
-    ptlSTAState:    the current state of the connection to the given station
-
-
-  RETURN VALUE
-
-    The result code associated with performing the operation
-
-    VOS_STATUS_E_INVAL:  Input parameters are invalid
-    VOS_STATUS_E_FAULT:  Station ID is outside array boundaries or pointer to
-                         TL cb is NULL ; access would cause a page fault
-    VOS_STATUS_E_EXISTS: Station was not registered
-    VOS_STATUS_SUCCESS:  Everything is good :)
-
-  SIDE EFFECTS
-
-============================================================================*/
-VOS_STATUS
-WLANTL_GetSTAState
-(
-  v_PVOID_t             pvosGCtx,
-  v_U8_t                ucSTAId,
-  WLANTL_STAStateType   *ptlSTAState
 );
 
 /*===========================================================================

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -181,13 +181,13 @@ static inline VOS_TRACE_LEVEL getVosDebugLevel(tANI_U32 debugLevel)
             return VOS_TRACE_LEVEL_ERROR;
         case LOGW:
             return VOS_TRACE_LEVEL_WARN;
-        case LOG1:
-            return VOS_TRACE_LEVEL_INFO;
-        case LOG2:
-            return VOS_TRACE_LEVEL_INFO_HIGH;
-        case LOG3:
-            return VOS_TRACE_LEVEL_INFO_MED;
         case LOG4:
+            return VOS_TRACE_LEVEL_INFO;
+        case LOG3:
+            return VOS_TRACE_LEVEL_INFO_HIGH;
+        case LOG2:
+            return VOS_TRACE_LEVEL_INFO_MED;
+        case LOG1:
             return VOS_TRACE_LEVEL_INFO_LOW;
         default:
             return VOS_TRACE_LEVEL_INFO_LOW;

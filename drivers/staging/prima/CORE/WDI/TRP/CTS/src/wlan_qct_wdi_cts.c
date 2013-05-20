@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -440,7 +440,7 @@ WCTS_PALDataCallback
  @see
  @return   0 for success
 */
-wpt_uint32
+static wpt_uint32
 WCTS_ClearPendingQueue
 (
    WCTS_HandleType      wctsHandle
@@ -467,6 +467,7 @@ WCTS_ClearPendingQueue
       wpalMemoryFree(pBuffer);
       wpalMemoryFree(pBufferQueue);
    }
+
    return eWLAN_PAL_STATUS_SUCCESS;
 
 }/*WCTS_ClearPendingQueue*/
@@ -550,6 +551,7 @@ WCTS_NotifyCallback
        * this would happen only when Riva crashed and SMD is
        * closing the channel on behalf of Riva */
       pWCTSCb->wctsState = WCTS_STATE_REM_CLOSED;
+      WCTS_ClearPendingQueue (pWCTSCb);
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
                  "%s: received SMD_EVENT_CLOSE WLAN driver going down now",
                  __FUNCTION__);
@@ -864,7 +866,6 @@ WCTS_CloseTransport
    /* release the resource */
    pWCTSCb->wctsMagic = 0;
    wpalMemoryFree(pWCTSCb);
-   gwctsHandle = NULL;
 
    return eWLAN_PAL_STATUS_SUCCESS;
 

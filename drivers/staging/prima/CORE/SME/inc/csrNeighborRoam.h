@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -85,9 +85,9 @@ typedef struct sCsrNeighborRoamBSSInfo
 
 #ifdef WLAN_FEATURE_VOWIFI_11R
 #define CSR_NEIGHBOR_ROAM_REPORT_QUERY_TIMEOUT  1000    //in milliseconds
-#define CSR_NEIGHBOR_ROAM_PREAUTH_RSP_WAIT_MULTIPLIER   10     //in milliseconds
+#define CSR_NEIGHBOR_ROAM_PREAUTH_RSP_WAIT_MULTIPLIER   5     //in milliseconds
 #define MAX_NUM_PREAUTH_FAIL_LIST_ADDRESS       10 //Max number of MAC addresses with which the pre-auth was failed
-#define MAX_BSS_IN_NEIGHBOR_RPT                 15
+#define MAX_BSS_IN_NEIGHBOR_RPT                 4
 #define CSR_NEIGHBOR_ROAM_MAX_NUM_PREAUTH_RETRIES 3
 
 /* Black listed APs. List of MAC Addresses with which the Preauthentication was failed. */
@@ -127,15 +127,6 @@ typedef struct sCsr11rAssocNeighborInfo
  * NEIGHBOR_LOOKUP_THRESHOLD_INCREMENT_CONSTANT) */
 #define NEIGHBOR_LOOKUP_THRESHOLD_INCREMENT_CONSTANT    5
 #define LOOKUP_THRESHOLD_INCREMENT_MULTIPLIER_MAX       4
-/* 
- * For every scan that results in no candidates, double the scan periodicity 
- * (initialized to NEIGHBOR_SCAN_RESULTS_REFRESH_PERIOD_MIN) until we hit 
- * NEIGHBOR_SCAN_RESULTS_REFRESH_PERIOD_MAX (60s). Subsequently, scan every 
- * 60s if we continue to find no candidates. Once a candidate is found, 
- * the periodicity is reset back to NEIGHBOR_SCAN_RESULTS_REFRESH_PERIOD_MIN.
- */
-#define NEIGHBOR_SCAN_RESULTS_REFRESH_PERIOD_MIN (1000)
-#define NEIGHBOR_SCAN_RESULTS_REFRESH_PERIOD_MAX (60000)
 
 /* Complete control information for neighbor roam algorithm */
 typedef struct sCsrNeighborRoamControlInfo
@@ -150,6 +141,7 @@ typedef struct sCsrNeighborRoamControlInfo
     tCsrTimerInfo               neighborScanTimerInfo;
     tCsrNeighborRoamChannelInfo roamChannelInfo;
     tANI_U8                     currentNeighborLookupThreshold;
+    tANI_U8                     currentLookupIncrementMultiplier;
     tANI_BOOLEAN                scanRspPending;
     tANI_TIMESTAMP              scanRequestTimeStamp;
     tDblLinkList                roamableAPList;    // List of current FT candidates
@@ -164,7 +156,6 @@ typedef struct sCsrNeighborRoamControlInfo
     tANI_BOOLEAN                isVOAdmitted;
     tANI_U32                    MinQBssLoadRequired;
 #endif
-    tANI_U16                    currentScanResultsRefreshPeriod;
 } tCsrNeighborRoamControlInfo, *tpCsrNeighborRoamControlInfo;
 
 
@@ -180,7 +171,7 @@ VOS_STATUS csrNeighborRoamTransitToCFGChanScan(tpAniSirGlobal pMac);
 VOS_STATUS csrNeighborRoamTransitionToPreauthDone(tpAniSirGlobal pMac);
 eHalStatus csrNeighborRoamPrepareScanProfileFilter(tpAniSirGlobal pMac, tCsrScanResultFilter *pScanFilter);
 void csrNeighborRoamGetHandoffAPInfo(tpAniSirGlobal pMac, tpCsrNeighborRoamBSSInfo pHandoffNode);
-eHalStatus csrNeighborRoamPreauthRspHandler(tpAniSirGlobal pMac, VOS_STATUS vosStatus);
+void csrNeighborRoamPreauthRspHandler(tpAniSirGlobal pMac, VOS_STATUS vosStatus);
 #ifdef WLAN_FEATURE_VOWIFI_11R
 tANI_BOOLEAN csrNeighborRoamIs11rAssoc(tpAniSirGlobal pMac);
 #endif

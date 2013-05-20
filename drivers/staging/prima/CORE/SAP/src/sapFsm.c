@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -498,7 +498,7 @@ sapSignalHDDevent
     switch (sapHddevent)
     {
         case eSAP_STA_ASSOC_IND:
-            //  TODO - Indicate the assoc request indication to OS
+            VOS_TRACE( VOS_MODULE_ID_SAP, VOS_TRACE_LEVEL_ERROR, "TODO: Indicate the assoc request indication to OS\n");
             sapApAppEvent.sapHddEventCode = eSAP_STA_ASSOC_IND;
 
             vos_mem_copy( &sapApAppEvent.sapevt.sapAssocIndication.staMac, pCsrRoamInfo->peerMac,sizeof(tSirMacAddr));

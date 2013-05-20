@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -1889,7 +1889,7 @@ VOS_STATUS hdd_wmm_acquire_access( hdd_adapter_t* pAdapter,
 
    pAdapter->hddWmmStatus.wmmAcStatus[acType].wmmAcAccessNeeded = VOS_TRUE;
 
-   pQosContext = kmalloc(sizeof(*pQosContext), GFP_ATOMIC);
+   pQosContext = kmalloc(sizeof(*pQosContext), GFP_KERNEL);
    if (NULL == pQosContext)
    {
       // no memory for QoS context.  Nothing we can do but let data flow

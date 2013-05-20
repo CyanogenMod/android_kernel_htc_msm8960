@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -64,7 +64,7 @@
 
 // the number of Receive vos packets used exclusively for vos packet
 // allocations of type VOS_PKT_TYPE_RX_RAW
-#define VPKT_NUM_RX_RAW_PACKETS (1024)
+#define VPKT_NUM_RX_RAW_PACKETS (  512 )
 
 // the number of Transmit Management vos packets, used exclusively for
 // vos packet allocations of type VOS_PKT_TYPE_TX_802_11_MGMT

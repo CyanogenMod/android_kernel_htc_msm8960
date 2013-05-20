@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -66,9 +66,6 @@ void          ConvertWMMSchedule    (tpAniSirGlobal, tSirMacScheduleIE*,        
 tSirRetStatus ConvertWscOpaque      (tpAniSirGlobal, tSirAddie*,                 tDot11fIEWscIEOpaque*);
 #ifdef WLAN_FEATURE_P2P
 tSirRetStatus ConvertP2POpaque      (tpAniSirGlobal, tSirAddie*,                 tDot11fIEP2PIEOpaque*);
-#endif
-#ifdef WLAN_FEATURE_WFD
-tSirRetStatus ConvertWFDOpaque      (tpAniSirGlobal, tSirAddie*,                 tDot11fIEWFDIEOpaque*);
 #endif
 
 

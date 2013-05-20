@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -68,7 +68,7 @@ void limPostSmeSetKeysCnf( tpAniSirGlobal, tLimMlmSetKeysReq *, tLimMlmSetKeysCn
 
 void limSendRemoveBssKeyReq(tpAniSirGlobal pMac, tLimMlmRemoveKeyReq * pMlmRemoveKeyReq,tpPESession);
 void limSendRemoveStaKeyReq(tpAniSirGlobal pMac, tLimMlmRemoveKeyReq * pMlmRemoveKeyReq, tANI_U16 staIdx,tpPESession);
-void limPostSmeRemoveKeyCnf(tpAniSirGlobal pMac, tpPESession psessionEntry, tLimMlmRemoveKeyReq * pMlmRemoveKeyReq, tLimMlmRemoveKeyCnf * mlmRemoveKeyCnf);
+void limPostSmeRemoveKeyCnf(tpAniSirGlobal pMac, tLimMlmRemoveKeyReq * pMlmRemoveKeyReq, tLimMlmRemoveKeyCnf * mlmRemoveKeyCnf);
 
 #define  PTAPS  0xedb88320
 

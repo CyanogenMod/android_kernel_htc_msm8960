@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -84,18 +84,14 @@ typedef struct _smeConfigParams
 #if defined WLAN_FEATURE_VOWIFI
    tRrmConfigParam  rrmConfig;
 #endif
-#if defined FEATURE_WLAN_LFR
-    tANI_U8   isFastRoamIniFeatureEnabled;
-#endif
 #if defined FEATURE_WLAN_CCX
     tANI_U8   isCcxIniFeatureEnabled;
 #endif
 #if defined WLAN_FEATURE_P2P_INTERNAL
    tP2PConfigParam  p2pConfig;
 #endif
-#if  defined (WLAN_FEATURE_VOWIFI_11R) || defined (FEATURE_WLAN_CCX) || defined(FEATURE_WLAN_LFR)
+#if  defined (WLAN_FEATURE_VOWIFI_11R) || defined (FEATURE_WLAN_CCX)
     tANI_U8   isFastTransitionEnabled;
-    tANI_U8   RoamRssiDiff;
 #endif
 } tSmeConfigParams, *tpSmeConfigParams;
 
@@ -422,7 +418,7 @@ eHalStatus sme_ScanGetResult(tHalHandle hHal, tANI_U8 sessionId, tCsrScanResultF
     \return eHalStatus     
   ---------------------------------------------------------------------------*/
 eHalStatus sme_ScanFlushResult(tHalHandle hHal, tANI_U8 sessionId);
-eHalStatus sme_ScanFlushP2PResult(tHalHandle hHal, tANI_U8 sessionId);
+
 
 /* ---------------------------------------------------------------------------
     \fn sme_ScanResultGetFirst
@@ -1640,8 +1636,7 @@ eHalStatus sme_sendBTAmpEvent(tHalHandle hHal, tSmeBtAmpEvent btAmpEvent);
     \param  pRequest -  Pointer to the offload request.
     \return eHalStatus
    ---------------------------------------------------------------------------*/
-eHalStatus sme_SetHostOffload (tHalHandle hHal, tANI_U8 sessionId,
-                                    tpSirHostOffloadReq pRequest);
+eHalStatus sme_SetHostOffload (tHalHandle hHal, tpSirHostOffloadReq pRequest);
 
 /* ---------------------------------------------------------------------------
     \fn sme_SetKeepAlive
@@ -1650,8 +1645,7 @@ eHalStatus sme_SetHostOffload (tHalHandle hHal, tANI_U8 sessionId,
     \param  pRequest -  Pointer to the Keep Alive request.
     \return eHalStatus
   ---------------------------------------------------------------------------*/
-eHalStatus sme_SetKeepAlive (tHalHandle hHal, tANI_U8 sessionId,
-                                  tpSirKeepAliveReq pRequest);
+eHalStatus sme_SetKeepAlive (tHalHandle hHal, tpSirKeepAliveReq pRequest);
 
 
 /* ---------------------------------------------------------------------------
@@ -1940,8 +1934,7 @@ eHalStatus sme_8023MulticastList(tHalHandle hHal, tpSirRcvFltMcAddrList pMultica
     \param  pRcvPktFilterCfg - Receive Packet Filter parameter
     \return eHalStatus   
   ---------------------------------------------------------------------------*/
-eHalStatus sme_ReceiveFilterSetFilter(tHalHandle hHal, tpSirRcvPktFilterCfgType pRcvPktFilterCfg,
-                                           tANI_U8 sessionId);
+eHalStatus sme_ReceiveFilterSetFilter(tHalHandle hHal, tpSirRcvPktFilterCfgType pRcvPktFilterCfg);
 
 /* ---------------------------------------------------------------------------
     \fn sme_GetFilterMatchCount
@@ -1963,8 +1956,7 @@ eHalStatus sme_GetFilterMatchCount(tHalHandle hHal,
     \return eHalStatus   
   ---------------------------------------------------------------------------*/
 eHalStatus sme_ReceiveFilterClearFilter(tHalHandle hHal,
-                                        tpSirRcvFltPktClearParam pRcvFltPktClearParam,
-                                        tANI_U8  sessionId);
+                                        tpSirRcvFltPktClearParam pRcvFltPktClearParam);
 #endif // WLAN_FEATURE_PACKET_FILTERING
 /* ---------------------------------------------------------------------------
 
@@ -2126,46 +2118,4 @@ eHalStatus sme_SetTmLevel(tHalHandle hHal, v_U16_t newTMLevel, v_U16_t tmMode);
 ---------------------------------------------------------------------------*/
 void sme_featureCapsExchange(tHalHandle hHal);
 
-/*---------------------------------------------------------------------------
-
-  \brief sme_GetDefaultCountryCodeFrmNv() - SME interface to get the default 
-         country code
-  Host and FW.
-
-  \param  hHal - HAL handle for device
-  \param  pCountry - pointer to country code
-
-  \return Sucess or failure
-
-  ---------------------------------------------------------------------------*/
-eHalStatus sme_GetDefaultCountryCodeFrmNv(tHalHandle hHal, tANI_U8 *pCountry);
-
-/*---------------------------------------------------------------------------
-
-  \brief sme_GetCurrentCountryCode() - SME interface to get the current operating
-          country code.
-
-  \param  hHal - HAL handle for device
-  \param  pCountry - pointer to country code
-
-  \return Success or failure
-
-  ---------------------------------------------------------------------------*/
-eHalStatus sme_GetCurrentCountryCode(tHalHandle hHal, tANI_U8 *pCountry);
-
-/* ---------------------------------------------------------------------------
-    \fn sme_transportDebug
-    \brief  Dynamically monitoring Transport channels
-            Private IOCTL will querry transport channel status if driver loaded
-    \param  displaySnapshot Dispaly transport cahnnel snapshot option
-    \param  toggleStallDetect Enable stall detect feature
-                              This feature will take effect to data performance
-                              Not integrate till fully verification
-    \- return NONE
-    -------------------------------------------------------------------------*/
-void sme_transportDebug
-(
-   v_BOOL_t  displaySnapshot,
-   v_BOOL_t  toggleStallDetect
-);
 #endif //#if !defined( __SME_API_H )

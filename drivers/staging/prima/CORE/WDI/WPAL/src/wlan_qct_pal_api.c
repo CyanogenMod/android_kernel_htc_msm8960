@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -375,18 +375,4 @@ wpt_status wpalRivaSubystemRestart(void)
         return eWLAN_PAL_STATUS_SUCCESS;
     }
     return eWLAN_PAL_STATUS_E_FAILURE;
-}
-
-/*---------------------------------------------------------------------------
-    wpalWlanReload -  Initiate WLAN Driver reload
-
-    Param:
-       None
-    Return:
-       NONE
----------------------------------------------------------------------------*/
-void wpalWlanReload(void)
-{
-   vos_wlanRestart();
-   return;
 }

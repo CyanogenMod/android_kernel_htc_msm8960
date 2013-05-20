@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -798,15 +798,6 @@ eHalStatus csrGetPhyModeFromBss(tpAniSirGlobal pMac, tSirBssDescription *pBSSDes
 eHalStatus csrReassoc(tpAniSirGlobal pMac, tANI_U32 sessionId,
                       tCsrRoamModifyProfileFields *pModProfileFields,
                       tANI_U32 *pRoamId, v_BOOL_t fForce);
-
-eHalStatus
-csrIsconcurrentsessionValid(tpAniSirGlobal pMac,tANI_U32 cursessionId,
-                                 tVOS_CON_MODE currBssPersona);
-
-//BeaconInterval valiadation for MCC support
-eHalStatus csrValidateBeaconInterval(tpAniSirGlobal pMac, tANI_U8 channelId, 
-                                     tANI_U16 *beaconInterval, tANI_U32 cursessionId,
-                                     tVOS_CON_MODE currBssPersona);
 
 #ifdef WLAN_FEATURE_VOWIFI_11R
 tANI_BOOLEAN csrIsProfile11r( tCsrRoamProfile *pProfile );

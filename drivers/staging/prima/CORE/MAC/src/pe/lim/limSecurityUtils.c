@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -375,7 +375,7 @@ void
 limReleasePreAuthNode(tpAniSirGlobal pMac, tpLimPreAuthNode pAuthNode)
 {
     pAuthNode->fFree = 1;
-    MTRACE(macTrace(pMac, TRACE_CODE_TIMER_DEACTIVATE, NO_SESSION, eLIM_PRE_AUTH_CLEANUP_TIMER));
+    MTRACE(macTrace(pMac, TRACE_CODE_TIMER_DEACTIVATE, 0, eLIM_PRE_AUTH_CLEANUP_TIMER));
     tx_timer_deactivate(&pAuthNode->timer);                
     pMac->lim.gLimNumPreAuthContexts--;
 } /*** end limReleasePreAuthNode() ***/
@@ -642,7 +642,7 @@ limRestoreFromAuthState(tpAniSirGlobal pMac, tSirResultCodes resultCode, tANI_U1
 
     sessionEntry->limMlmState = sessionEntry->limPrevMlmState;
     
-    MTRACE(macTrace(pMac, TRACE_CODE_MLM_STATE, sessionEntry->peSessionId, sessionEntry->limMlmState));
+    MTRACE(macTrace(pMac, TRACE_CODE_MLM_STATE, 0, pMac->lim.gLimMlmState));
 
 
     // 'Change' timer for future activations
@@ -1000,7 +1000,6 @@ void limPostSmeSetKeysCnf( tpAniSirGlobal pMac,
  * A utility API to send MLM_REMOVEKEY_CNF to SME
  */
 void limPostSmeRemoveKeyCnf( tpAniSirGlobal pMac,
-    tpPESession psessionEntry,
     tLimMlmRemoveKeyReq *pMlmRemoveKeyReq,
     tLimMlmRemoveKeyCnf *mlmRemoveKeyCnf)
 {
@@ -1013,8 +1012,8 @@ void limPostSmeRemoveKeyCnf( tpAniSirGlobal pMac,
   palFreeMemory( pMac->hHdd, (tANI_U8 *) pMlmRemoveKeyReq );
   pMac->lim.gpLimMlmRemoveKeyReq = NULL;
 
-  psessionEntry->limMlmState = psessionEntry->limPrevMlmState; //Restore the state.
-  MTRACE(macTrace(pMac, TRACE_CODE_MLM_STATE, psessionEntry->peSessionId, psessionEntry->limMlmState));
+  pMac->lim.gLimMlmState = pMac->lim.gLimPrevMlmState; //Restore the state.
+  MTRACE(macTrace(pMac, TRACE_CODE_MLM_STATE, 0, pMac->lim.gLimMlmState));
 
   limPostSmeMessage( pMac,
       LIM_MLM_REMOVEKEY_CNF,
@@ -1082,7 +1081,7 @@ tANI_U32 val = 0;
   // Update the WDA_SET_BSSKEY_REQ parameters
   pSetBssKeyParams->bssIdx = psessionEntry->bssIdx;
   pSetBssKeyParams->encType = pMlmSetKeysReq->edType;
-
+  pSetBssKeyParams->numKeys = pMlmSetKeysReq->numKeys;
 
   if(eSIR_SUCCESS != wlan_cfgGetInt(pMac, WNI_CFG_SINGLE_TID_RC, &val))
   {
@@ -1094,27 +1093,10 @@ tANI_U32 val = 0;
   /* Update PE session Id*/
   pSetBssKeyParams->sessionId = psessionEntry ->peSessionId;
 
-  if(pMlmSetKeysReq->key[0].keyId && 
-     ((pMlmSetKeysReq->edType == eSIR_ED_WEP40) || 
-      (pMlmSetKeysReq->edType == eSIR_ED_WEP104))
-    )
-  {
-    /* IF the key id is non-zero and encryption type is WEP, Send all the 4 
-     * keys to HAL with filling the key at right index in pSetBssKeyParams->key. */
-    pSetBssKeyParams->numKeys = SIR_MAC_MAX_NUM_OF_DEFAULT_KEYS;
-    palCopyMemory( pMac->hHdd,
-      (tANI_U8 *) &pSetBssKeyParams->key[pMlmSetKeysReq->key[0].keyId],
-      (tANI_U8 *) &pMlmSetKeysReq->key[0], sizeof(pMlmSetKeysReq->key[0]));
-
-  }
-  else
-  {
-    pSetBssKeyParams->numKeys = pMlmSetKeysReq->numKeys;
-    palCopyMemory( pMac->hHdd,
+  palCopyMemory( pMac->hHdd,
       (tANI_U8 *) &pSetBssKeyParams->key,
       (tANI_U8 *) &pMlmSetKeysReq->key,
       sizeof( tSirKeys ) * pMlmSetKeysReq->numKeys );
-  }
 
   SET_LIM_PROCESS_DEFD_MESGS(pMac, false);
   msgQ.type = WDA_SET_BSSKEY_REQ;
@@ -1129,7 +1111,7 @@ tANI_U32 val = 0;
 
   limLog( pMac, LOGW,
       FL( "Sending WDA_SET_BSSKEY_REQ...\n" ));
-  MTRACE(macTraceMsgTx(pMac, psessionEntry->peSessionId, msgQ.type));
+  MTRACE(macTraceMsgTx(pMac, 0, msgQ.type));
   if( eSIR_SUCCESS != (retCode = wdaPostCtrlMsg( pMac, &msgQ )))
   {
     limLog( pMac, LOGE,
@@ -1226,7 +1208,7 @@ tANI_U32 val = 0;
       sessionEntry->limMlmState = eLIM_MLM_WT_SET_STA_KEY_STATE;
       msgQ.type = WDA_SET_STAKEY_REQ;
   }
-  MTRACE(macTrace(pMac, TRACE_CODE_MLM_STATE, sessionEntry->peSessionId, sessionEntry->limMlmState));
+  MTRACE(macTrace(pMac, TRACE_CODE_MLM_STATE, 0, pMac->lim.gLimMlmState));
 
   /**
    * In the Case of WEP_DYNAMIC, ED_TKIP and ED_CCMP
@@ -1250,14 +1232,12 @@ tANI_U32 val = 0;
 #endif
           pSetStaKeyParams->wepType = eSIR_WEP_STATIC;
           sessionEntry->limMlmState = eLIM_MLM_WT_SET_STA_KEY_STATE;
-          MTRACE(macTrace(pMac, TRACE_CODE_MLM_STATE, sessionEntry->peSessionId, sessionEntry->limMlmState));
+          MTRACE(macTrace(pMac, TRACE_CODE_MLM_STATE, 0, pMac->lim.gLimMlmState));
       }else {
-          /*This case the keys are coming from upper layer so need to fill the 
-          * key at the default wep key index and send to the HAL */
+          pSetStaKeyParams->wepType = eSIR_WEP_DYNAMIC;
           palCopyMemory( pMac->hHdd,
-                             (tANI_U8 *) &pSetStaKeyParams->key[defWEPIdx],
-                             (tANI_U8 *) &pMlmSetKeysReq->key[0], sizeof( pMlmSetKeysReq->key[0] ));
-          pMlmSetKeysReq->numKeys = SIR_MAC_MAX_NUM_OF_DEFAULT_KEYS;
+                         (tANI_U8 *) &pSetStaKeyParams->key,
+                         (tANI_U8 *) &pMlmSetKeysReq->key[0], sizeof( tSirKeys ));
       }
       break;
   case eSIR_ED_TKIP:
@@ -1285,7 +1265,7 @@ tANI_U32 val = 0;
   msgQ.bodyval = 0;
 
   limLog( pMac, LOG1, FL( "Sending WDA_SET_STAKEY_REQ...\n" ));
-  MTRACE(macTraceMsgTx(pMac, sessionEntry->peSessionId, msgQ.type));
+  MTRACE(macTraceMsgTx(pMac, 0, msgQ.type));
   if( eSIR_SUCCESS != (retCode = wdaPostCtrlMsg( pMac, &msgQ ))) {
       limLog( pMac, LOGE, FL("Posting SET_STAKEY to HAL failed, reason=%X\n"), retCode );
       // Respond to SME with LIM_MLM_SETKEYS_CNF
@@ -1365,7 +1345,7 @@ tSirRetStatus      retCode;
 
   limLog( pMac, LOGW,
       FL( "Sending WDA_REMOVE_BSSKEY_REQ...\n" ));
-  MTRACE(macTraceMsgTx(pMac, psessionEntry->peSessionId, msgQ.type));
+  MTRACE(macTraceMsgTx(pMac, 0, msgQ.type));
 
   if( eSIR_SUCCESS != (retCode = wdaPostCtrlMsg( pMac, &msgQ )))
   {
@@ -1381,7 +1361,6 @@ tSirRetStatus      retCode;
 
 end:
   limPostSmeRemoveKeyCnf( pMac,
-      psessionEntry,
       pMlmRemoveKeyReq,
       &mlmRemoveKeysCnf );
 
@@ -1411,7 +1390,7 @@ end:
 void limSendRemoveStaKeyReq( tpAniSirGlobal pMac,
     tLimMlmRemoveKeyReq *pMlmRemoveKeyReq,
     tANI_U16 staIdx ,
-    tpPESession psessionEntry)
+    tpPESession sessionEntry)
 {
 tSirMsgQ           msgQ;
 tpRemoveStaKeyParams  pRemoveStaKeyParams = NULL;
@@ -1451,7 +1430,7 @@ tSirRetStatus      retCode;
   pRemoveStaKeyParams->unicast = pMlmRemoveKeyReq->unicast;
 
   /* Update PE session ID*/
-  pRemoveStaKeyParams->sessionId = psessionEntry->peSessionId;
+  pRemoveStaKeyParams->sessionId = sessionEntry->peSessionId;
 
   SET_LIM_PROCESS_DEFD_MESGS(pMac, false);
   
@@ -1467,7 +1446,7 @@ tSirRetStatus      retCode;
 
   limLog( pMac, LOGW,
       FL( "Sending WDA_REMOVE_STAKEY_REQ...\n" ));
-  MTRACE(macTraceMsgTx(pMac, psessionEntry->peSessionId, msgQ.type));
+  MTRACE(macTraceMsgTx(pMac, 0, msgQ.type));
   if( eSIR_SUCCESS != (retCode = wdaPostCtrlMsg( pMac, &msgQ )))
   {
     limLog( pMac, LOGE,
@@ -1482,7 +1461,6 @@ tSirRetStatus      retCode;
 
 end:
   limPostSmeRemoveKeyCnf( pMac,
-      psessionEntry,
       pMlmRemoveKeyReq,
       &mlmRemoveKeyCnf );
 

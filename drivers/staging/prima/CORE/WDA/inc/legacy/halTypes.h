@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -290,9 +290,7 @@ typedef enum
     eHAL_SYS_MODE_LEARN,
     eHAL_SYS_MODE_SCAN,
     eHAL_SYS_MODE_PROMISC,
-    eHAL_SYS_MODE_SUSPEND_LINK,
-    eHAL_SYS_MODE_ROAM_SCAN,
-    eHAL_SYS_MODE_ROAM_SUSPEND_LINK,
+    eHAL_SYS_MODE_SUSPEND_LINK
 } eHalSysMode;
 
 

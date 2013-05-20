@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -124,12 +124,6 @@ typedef struct sSirProbeRespBeacon
     tANI_U8                   mdiePresent;
 #endif
 
-#ifdef WLAN_FEATURE_11AC
-    tDot11fIEVHTCaps          VHTCaps;
-    tDot11fIEVHTOperation     VHTOperation;
-    tDot11fIEVHTExtBssLoad    VHTExtBssLoad;
-#endif
-
 } tSirProbeRespBeacon, *tpSirProbeRespBeacon;
 
 // probe Request structure
@@ -145,10 +139,6 @@ typedef struct sSirProbeReq
     tANI_U8                   extendedRatesPresent;
     tANI_U8                   wscIePresent;
     tANI_U8                   p2pIePresent;
-#ifdef WLAN_FEATURE_11AC
-    tDot11fIEVHTCaps          VHTCaps;
-#endif
-
 
 } tSirProbeReq, *tpSirProbeReq;
 
@@ -201,9 +191,6 @@ typedef struct sSirAssocReq
     tANI_U32                  assocReqFrameLength;
     tANI_U8*                  assocReqFrame;
 #endif
-#ifdef WLAN_FEATURE_11AC
-    tDot11fIEVHTCaps          VHTCaps;
-#endif
 } tSirAssocReq, *tpSirAssocReq;
 
 
@@ -251,10 +238,6 @@ typedef struct sSirAssocRsp
     tANI_U8                   tspecPresent;
     tANI_U8                   tsmPresent;
 #endif    
-#ifdef WLAN_FEATURE_11AC
-    tDot11fIEVHTCaps          VHTCaps;
-    tDot11fIEVHTOperation     VHTOperation;
-#endif
 } tSirAssocRsp, *tpSirAssocRsp;
 
 tANI_U8
@@ -440,14 +423,12 @@ PopulateDot11fCapabilities2(tpAniSirGlobal         pMac,
 /// Populate a tDot11fIEChanSwitchAnn
 void
 PopulateDot11fChanSwitchAnn(tpAniSirGlobal          pMac,
-                            tDot11fIEChanSwitchAnn *pDot11f,
-                            tpPESession psessionEntry);
+                            tDot11fIEChanSwitchAnn *pDot11f);
 
 /// Populate a tDot11fIEChanSwitchAnn
 void
 PopulateDot11fExtChanSwitchAnn(tpAniSirGlobal          pMac,
-                             tDot11fIEExtChanSwitchAnn *pDot11f,
-                             tpPESession psessionEntry);
+                             tDot11fIEExtChanSwitchAnn *pDot11f);
 
 /// Populate a tDot11fIECountry
 tSirRetStatus
@@ -517,8 +498,7 @@ PopulateDot11fHCF(tpAniSirGlobal  pMac,
 
 tSirRetStatus
 PopulateDot11fHTCaps(tpAniSirGlobal           pMac,
-                           tpPESession      psessionEntry,
-                           tDot11fIEHTCaps *pDot11f);
+                             tDot11fIEHTCaps *pDot11f);
 
 #ifdef WLAN_SOFTAP_FEATURE
 tSirRetStatus
@@ -862,16 +842,4 @@ void PopulateDot11fAssocRspRates ( tpAniSirGlobal pMac, tDot11fIESuppRates *pSup
 int FindIELocation( tpAniSirGlobal pMac,
                            tpSirRSNie pRsnIe,
                            tANI_U8 EID);
-#endif
-
-#ifdef WLAN_FEATURE_11AC
-tSirRetStatus
-PopulateDot11fVHTCaps(tpAniSirGlobal  pMac, tDot11fIEVHTCaps *pDot11f);
-
-tSirRetStatus
-PopulateDot11fVHTOperation(tpAniSirGlobal  pMac, tDot11fIEVHTOperation  *pDot11f);
-
-tSirRetStatus
-PopulateDot11fVHTExtBssLoad(tpAniSirGlobal  pMac, tDot11fIEVHTExtBssLoad   *pDot11f);
-
 #endif

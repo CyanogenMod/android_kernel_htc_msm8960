@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -332,11 +332,7 @@ static eHalStatus hdd_IndicateScanResult(hdd_scan_info_t *scanInfo, tCsrScanResu
 
    if (ie_length > 0)
    {
-       /* dot11BeaconIEs is a large struct, so we make it static to
-          avoid stack overflow.  This API is only invoked via ioctl,
-          so it is serialized by the kernel rtnl_lock and hence does
-          not need to be reentrant */
-       static tDot11fBeaconIEs dot11BeaconIEs;
+       tDot11fBeaconIEs dot11BeaconIEs;
        tDot11fIESSID *pDot11SSID;
        tDot11fIESuppRates *pDot11SuppRates;
        tDot11fIEExtSuppRates *pDot11ExtSuppRates;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -2606,9 +2606,6 @@ void wlan_hdd_process_ftm_cmd
 #endif /* FEATURE_WLAN_INTEGRATED_SOC */        
 
     ENTER();
-
-    //Delay to fix NV write failure on JB
-    vos_busy_wait(10000); //10ms
 
     if (!pRequestBuf) {
 

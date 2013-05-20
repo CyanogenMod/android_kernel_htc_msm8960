@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -109,9 +109,10 @@ limProcessDisassocFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo, tpPESession
     // Get reasonCode from Disassociation frame body
     reasonCode = sirReadU16(pBody);
 
-    PELOG2(limLog(pMac, LOG2,
-        FL("Received Disassoc frame (mlm state %d sme state %d), with reason code %d from "MAC_ADDRESS_STR), 
-        psessionEntry->limMlmState, psessionEntry->limSmeState, reasonCode, MAC_ADDR_ARRAY(pHdr->sa));)
+    PELOGE(limLog(pMac, LOGE,
+        FL("Received Disassoc frame (mlm state %d sme state %d), with reason code %d from \n"), 
+        psessionEntry->limMlmState, psessionEntry->limSmeState, reasonCode);)
+    limPrintMacAddr(pMac, pHdr->sa, LOGE);
 
     /**
    * Extract 'associated' context for STA, if any.
@@ -205,7 +206,7 @@ limProcessDisassocFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo, tpPESession
             case eSIR_MAC_DISASSOC_LEAVING_BSS_REASON:
                 // Valid reasonCode in received Disassociation frame
                 // as long as we're not about to channel switch
-                if(psessionEntry->gLimChannelSwitch.state != eLIM_CHANNEL_SWITCH_IDLE)
+                if(pMac->lim.gLimChannelSwitch.state != eLIM_CHANNEL_SWITCH_IDLE)
                 {
                     limLog(pMac, LOGW,
                         FL("Ignoring disassoc frame due to upcoming "
@@ -240,9 +241,9 @@ limProcessDisassocFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo, tpPESession
 
     // Disassociation from peer MAC entity
 
-   PELOGE(limLog(pMac, LOGE,
-           FL("Received Disassoc frame from sta with assocId=%d with reasonCode=%d. Peer MAC is "MAC_ADDRESS_STR),
-           pStaDs->assocId, reasonCode, MAC_ADDR_ARRAY(pHdr->sa));)
+   PELOG3(limLog(pMac, LOG3,
+           FL("Received Disassoc frame from sta with assocId=%d, with reasonCode=%d\n"),
+           pStaDs->assocId, reasonCode);)
 
     if ((pStaDs->mlmStaContext.mlmState == eLIM_MLM_WT_DEL_STA_RSP_STATE) ||
         (pStaDs->mlmStaContext.mlmState == eLIM_MLM_WT_DEL_BSS_RSP_STATE))
