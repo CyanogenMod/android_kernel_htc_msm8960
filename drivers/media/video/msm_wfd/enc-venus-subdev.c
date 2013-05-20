@@ -13,7 +13,7 @@
 
 #include <linux/bitmap.h>
 #include <linux/completion.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include <linux/kthread.h>
 #include <linux/list.h>
 #include <linux/mutex.h>
