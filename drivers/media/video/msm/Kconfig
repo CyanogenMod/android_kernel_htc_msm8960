@@ -36,6 +36,38 @@ config IMX074
 	depends on MSM_CAMERA
 	---help---
 	SONY 13.5 MP Bayer Sensor
+
+config S5K3H2YX
+	bool "Sensor s5k3h2yx (Samsung 8M)"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  Support for S5K3H2YX samsung sensor driver.
+	  It is a Bayer 8MP sensor with auto focus and it supports
+	  two mipi lanes.
+
+config S5K6A1GX
+	bool "Sensor s5k6a1gx (Samsung 1.3M)"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  Support for S5K6A1GX samsung sensor driver.
+	  It is a Bayer 1.3MP sensor it supports one mipi lanes.
+
+config AR0260
+	bool "Sensor ar0260"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  Support for AR0260 sensor driver.
+
+config OV2722
+	bool "Sensor ov2722"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  Support for OV2722 sensor driver.
+
 config OV5640
 	bool "Sensor OV5640 (YUV 5M)"
 	depends on MSM_CAMERA && !MSM_CAMERA_V4L2
@@ -57,7 +89,7 @@ config AD5046_ACT
 	  Say Y here if this is msm7627A variant platform.
 config WEBCAM_OV7692_QRD
 	bool "Sensor OV7692 QRD(VGA YUV)"
-	depends on MSM_CAMERA && (ARCH_MSM7X27A || ARCH_MSM8X60)
+	depends on MSM_CAMERA && ARCH_MSM7X27A
 	default n
 	---help---
 	  Omni Vision VGA YUV Sensor for QRD Devices
@@ -82,7 +114,7 @@ config WEBCAM_OV9726
 #	This uses the CSI interface.
 config VX6953
 	bool "Sensor VX6953 (BAYER 5M)"
-	depends on MSM_CAMERA && (ARCH_MSM7X30 || ARCH_MSM8X60) && !MSM_CAMERA_V4L2
+	depends on MSM_CAMERA && (ARCH_MSM7X30 || ARCH_MSM8X60)
 	default y
 	---help---
 	STM 5M Bayer Sensor with EDOF
@@ -136,6 +168,13 @@ config IMX074_ACT
 	---help---
 	Actuator for SONY 13.5 MP Bayer Sensor
 
+config S5K3H2YX_ACT
+	bool "Sensor s5k3h2yx actuator"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  Autofocus of s5k3h2yx actuator
+
 config S5K3E2FX
 	bool "Sensor s5k3e2fx (Samsung 5M)"
 	depends on MSM_CAMERA && !ARCH_MSM8X60 && !MSM_CAMERA_V4L2
@@ -177,15 +216,6 @@ config MSM_CAMERA_FLASH_SC628A
 	  supports spotlight and flash light modes with
 	  differrent current levels.
 
-config MSM_CAMERA_FLASH_TPS61310
-	bool "Qualcomm MSM camera tps61310 flash support"
-	depends on MSM_CAMERA
-	default n
-	---help---
-	  Enable support for LED flash for msm camera.
-	  It is a Texas Instruments multiple LED Flash
-	  for camera flash and video light applications.
-
 config IMX072
 	bool "Sensor imx072 (Sony 5M)"
 	default n
@@ -198,33 +228,6 @@ config IMX072
 config OV2720
 	bool "Sensor ov2720 (Omnivision 2MP)"
 	depends on MSM_CAMERA
-
-config OV8825
-	bool "Sensor ov8825 (Omnivision 8M)"
-	depends on MSM_CAMERA
-	---help---
-	  Support for OV8825 sensor driver.
-	  It is a Bayer 8MP sensor with auto focus and it supports
-	  two mipi lanes, required for msm8625 platform.
-	  Say Y here if this is msm8625 variant platform.
-
-config IMX135
-	bool "Sensor imx135 (Sony 13MP)"
-	depends on MSM_CAMERA
-	---help---
-	  Support for IMX135 sensor driver.
-	  This is a Sony 13MP Bayer Sensor with autofocus and video HDR
-	  support.
-	  Say Y if the platform uses IMX135 sensor.
-
-config OV9724
-	bool "Sensor ov9724 (Omnivision 1.3M)"
-	depends on MSM_CAMERA
-	---help---
-	  Support for OV9724 sensor driver.
-	  It is a Bayer 1.3MP sensor with auto focus and it supports
-	  two mipi lanes, required for msm8625 platform.
-	  Say Y here if this is msm8625 variant platform.
 
 config VB6801
 	bool "Sensor vb6801"
@@ -247,39 +250,12 @@ config MSM_ACTUATOR
 	bool "Qualcomm MSM actuator support"
 	depends on MSM_CAMERA
 
-config MSM_EEPROM
-	bool "Qualcomm MSM EEPROM support"
-	depends on MSM_CAMERA
-
-config IMX074_EEPROM
-	bool "IMX074 EEPROM support"
-	depends on MSM_CAMERA
-
-config IMX091_EEPROM
-	bool "IMX091 EEPROM support"
-	depends on MSM_CAMERA
-
 config MSM_GEMINI
 	tristate "Qualcomm MSM Gemini Jpeg Engine support"
 	depends on MSM_CAMERA && (ARCH_MSM7X30 || ARCH_MSM8X60 || ARCH_MSM8960)
 	default n
 	---help---
 	  Enable support for Gemini Jpeg Engine
-
-config MSM_MERCURY
-        tristate "Qualcomm MSM Mercury Jpeg Decoder Engine support"
-        depends on MSM_CAMERA && ARCH_MSM8960
-        ---help---
-          Enable support for Mercury Jpeg Engine
-
-config MSM_JPEG
-	tristate "Qualcomm MSM Jpeg Encoder Engine support"
-	depends on MSM_CAMERA && ARCH_MSM8974
-	---help---
-          Enable support for Jpeg Encoder/Decoder
-	  Engine for 8974.
-	  This module serves as the common driver
-	  for the JPEG 1.0 encoder and decoder.
 
 config MSM_VPE
 	tristate "Qualcomm MSM Video Pre-processing Engine support"
@@ -288,34 +264,12 @@ config MSM_VPE
 	---help---
 	  Enable support for Video Pre-processing Engine
 
-config MSM_CAM_IRQ_ROUTER
-	bool "Enable MSM CAM IRQ Router"
+config RAWCHIP
+	bool "Rawchip"
 	depends on MSM_CAMERA
+	default n
 	---help---
-	Enable IRQ Router for Camera. Depending on the
-	configuration, this module can handle the
-	interrupts from multiple camera hardware
-	cores and composite them into a single
-	interrupt to the MSM.
-
-config MSM_CPP
-        bool "Qualcomm MSM Camera Post Processing Engine support"
-        depends on MSM_CAMERA && MSM_CAMERA_V4L2
-        ---help---
-          Enable support for Camera Post-processing Engine
-          The Post processing engine is capable of scaling
-          and cropping image. The driver support V4L2 subdev
-          APIs.
-
-config MSM_CCI
-        bool "Qualcomm MSM Camera Control Interface support"
-        depends on MSM_CAMERA
-        ---help---
-          Enable support for Camera Control Interface driver only
-          for those platforms that have hardware support. This driver
-          is responsible for handling I2C read and write on the I2C
-          bus. It is also responsible for synchronization with
-          GPIO and data frames.
+	  ST Yushan rawchip
 
 config QUP_EXCLUSIVE_TO_CAMERA
 	bool "QUP exclusive to camera"
@@ -328,63 +282,6 @@ config QUP_EXCLUSIVE_TO_CAMERA
 	  by QUP in the board file as QUP is used by
 	  applications other than camera.
 
-config MSM_CSI20_HEADER
-        bool "Qualcomm MSM CSI 2.0 Header"
-        depends on MSM_CAMERA
-        ---help---
-          Enable support for CSI drivers to include 2.0
-          header. This header has register macros and its
-          values and bit mask for register configuration bits
-          This config macro is required targets based on 8960,
-          8930 and 8064 platforms.
-
-config MSM_CSI30_HEADER
-        bool "Qualcomm MSM CSI 3.0 Header"
-        depends on MSM_CAMERA
-        ---help---
-          Enable support for CSI drivers to include 3.0
-          header. This header has register macros and its
-          values and bit mask for register configuration bits
-          This config macro is required for targets based on
-          8064 platforms.
-
-config MSM_CSIPHY
-        bool "Qualcomm MSM Camera Serial Interface Physical receiver support"
-        depends on MSM_CAMERA
-        ---help---
-          Enable support for Camera Serial Interface
-          Physical receiver. It deserializes packets and
-          supports detection of packet start and stop
-          signalling.
-
-config MSM_CSID
-        bool "Qualcomm MSM Camera Serial Interface decoder support"
-        depends on MSM_CAMERA
-        ---help---
-          Enable support for Camera Serial Interface decoder.
-          It supports lane merging and decoding of packets
-          based on cid which is mapped to a virtual channel
-          and datatype.
-
-config MSM_CSI2_REGISTER
-        bool "Qualcomm MSM CSI2 Register"
-        depends on MSM_CAMERA
-        ---help---
-          Register CSIPHY, CSID and ISPIF subdevices during
-          msm_open. Different CSI components are registered
-          based on platform. This macro specifies registering
-          of CSIPHY, CSID and ISPIF subdevices to receive data
-          from sensor.
-
-config MSM_ISPIF
-        bool "Qualcomm MSM Image Signal Processing interface support"
-        depends on MSM_CAMERA
-        ---help---
-          Enable support for Image Signal Processing interface module.
-          This module acts as a crossbar between CSID and VFE. Output
-          of any CID of CSID can be routed to of of pixel or raw
-          data interface in VFE.
-
 config S5K3L1YX
 	bool "Sensor S5K3L1YX (BAYER 12M)"
 	depends on MSM_CAMERA
@@ -395,22 +292,96 @@ config S5K3L1YX
 		hfr video at 60, 90 and 120 fps.
 
 config IMX091
-        bool "Sensor imx091 (Sony 13MP)"
-        depends on MSM_CAMERA
-	---help---
-	  Sony 13MP sensor back camera that uses 4 mipi lanes,
-	  runs at 30 fps preview and 14 fps snapshot
-
-config MSM_V4L2_VIDEO_OVERLAY_DEVICE
-	tristate "Qualcomm MSM V4l2 video overlay device"
-	---help---
-	  Enables support for the MSM V4L2 video
-	  overlay driver. This allows video rendering
-	  apps to render overlaid video using Video4Linux2
-	  APIs, by using /dev/videoX device
-
-config OV7692
-	bool "Sensor OV7692 (VGA YUV)"
+	bool "Sensor IMX091 (BAYER 13M)"
 	depends on MSM_CAMERA
 	---help---
-	  Omni Vision VGA YUV Sensor
+	SONY 13 MP Bayer Sensor
+
+config IMX175
+	bool "Sensor IMX175 (BAYER 8M)"
+	depends on MSM_CAMERA
+	---help---
+	SONY 8 MP Bayer Sensor
+
+config IMX135
+	bool "Sensor IMX135 (BAYER 13M)"
+	depends on MSM_CAMERA
+	---help---
+	SONY 13 MP Bayer Sensor
+
+config OV8838
+	bool "Sensor OV8838 (OmniVision 8M)"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  Support for OV8838 OmniVision sensor driver.
+	  It is a Bayer 8MP sensor with auto focus and it supports
+	  four mipi lanes and BSI.
+
+config IMX175_ACT
+	bool "Sensor imx175 actuator"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  Autofocus of imx175 actuator
+
+config AD5823_ACT
+       bool "Lens actuator ad5823"
+       depends on MSM_CAMERA
+       ---help---
+         ad5823 lens actuator driver for SONY IMX175 and IMX091.
+
+config AD5816_ACT
+       bool "Lens actuator ad5816"
+       depends on MSM_CAMERA
+       ---help---
+         ad5816 lens actuator driver for SONY IMX175 and IMX091.
+
+config TI201_ACT
+       bool "Lens actuator ti201"
+       depends on MSM_CAMERA
+       ---help---
+         ti201 lens actuator driver for SONY IMX175 and IMX091.
+
+config MT9V113
+	bool "Sensor mt9v113 (VGA YUV)"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  Support for MT9V113 Micron sensor driver.
+	  It is a Bayer 0.3MP sensor it supports two mipi lanes.
+
+config IMX175_2LANE
+	bool "Sensor IMX175 2-Lane(BAYER 8M)"
+	depends on MSM_CAMERA
+	---help---
+	SONY 8 MP Bayer Sensor for 2-lane hardware
+
+config OV5693_ACT
+	bool "Sensor OV5693 actuator"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  Autofocus of ov5693 actuator
+
+config OV5693
+	bool "Sensor ov5693 (BAYER 5M)"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  OV 5M Bayer Sensor with AutoFocus
+
+config RAWCHIP_MCLK
+	bool "Rawchip MCLK"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  ST Yushan rawchip MCLK
+
+config S5K6A2YA
+	bool "Sensor s5k6a2ya (Samsung 1.6M)"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  Support for S5K6A2YA samsung sensor driver.
+	  It is a Bayer 1.6MP sensor it supports one mipi lanes.

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,7 +28,7 @@ int msm_gemini_core_reset(uint8_t op_mode, void *base, int size)
 {
 	unsigned long flags;
 	int rc = 0;
-	int tm = 500; /*500ms*/
+	int tm = 500; 
 	memset(&fe_pingpong_buf, 0, sizeof(fe_pingpong_buf));
 	fe_pingpong_buf.is_fe = 1;
 	we_pingpong_index = 0;
@@ -53,14 +53,14 @@ int msm_gemini_core_reset(uint8_t op_mode, void *base, int size)
 	spin_unlock_irqrestore(&reset_lock, flags);
 
 	if (op_mode == MSM_GEMINI_MODE_REALTIME_ENCODE) {
-		/* Nothing needed for fe buffer cfg, config we only */
+		
 		msm_gemini_hw_we_buffer_cfg(1);
 	} else {
-		/* Nothing needed for fe buffer cfg, config we only */
+		
 		msm_gemini_hw_we_buffer_cfg(0);
 	}
 
-	/* @todo wait for reset done irq */
+	
 
 	return 0;
 }
@@ -88,7 +88,6 @@ int msm_gemini_core_fe_start(void)
 	return 0;
 }
 
-/* fetch engine */
 int msm_gemini_core_fe_buf_update(struct msm_gemini_core_buf *buf)
 {
 	GMN_DBG("%s:%d] 0x%08x %d 0x%08x %d\n", __func__, __LINE__,
@@ -102,7 +101,6 @@ void *msm_gemini_core_fe_pingpong_irq(int gemini_irq_status, void *context)
 	return msm_gemini_hw_pingpong_irq(&fe_pingpong_buf);
 }
 
-/* write engine */
 int msm_gemini_core_we_buf_update(struct msm_gemini_core_buf *buf)
 {
 	int rc;
@@ -142,7 +140,7 @@ void *msm_gemini_core_framedone_irq(int gemini_irq_status, void *context)
 	buf_p = msm_gemini_hw_pingpong_active_buffer(&we_pingpong_buf);
 	if (buf_p) {
 		buf_p->framedone_len = msm_gemini_hw_encode_output_size();
-		pr_err("%s:%d] framedone_len %d\n", __func__, __LINE__,
+		GMN_DBG("%s:%d] framedone_len %d\n", __func__, __LINE__,
 			buf_p->framedone_len);
 	}
 
@@ -151,7 +149,7 @@ void *msm_gemini_core_framedone_irq(int gemini_irq_status, void *context)
 
 void *msm_gemini_core_reset_ack_irq(int gemini_irq_status, void *context)
 {
-	/* @todo return the status back to msm_gemini_core_reset */
+	
 	GMN_DBG("%s:%d]\n", __func__, __LINE__);
 	return NULL;
 }
@@ -177,10 +175,10 @@ irqreturn_t msm_gemini_core_irq(int irq_num, void *context)
 	spin_unlock_irqrestore(&reset_lock, flags);
 	gemini_irq_status = msm_gemini_hw_irq_get_status();
 
-	pr_err("%s:%d] gemini_irq_status = %0x\n", __func__, __LINE__,
+	GMN_DBG("%s:%d] gemini_irq_status = %0x\n", __func__, __LINE__,
 		gemini_irq_status);
 
-	/*For reset and framedone IRQs, clear all bits*/
+	
 	if (gemini_irq_status & 0x400) {
 		wake_up(&reset_wait);
 		msm_gemini_hw_irq_clear(HWIO_JPEG_IRQ_CLEAR_RMSK,
@@ -202,34 +200,6 @@ irqreturn_t msm_gemini_core_irq(int irq_num, void *context)
 				context, data);
 	}
 
-	if (msm_gemini_hw_irq_is_reset_ack(gemini_irq_status)) {
-		data = msm_gemini_core_reset_ack_irq(gemini_irq_status,
-			context);
-		if (msm_gemini_irq_handler)
-			msm_gemini_irq_handler(
-				MSM_GEMINI_HW_MASK_COMP_RESET_ACK,
-				context, data);
-	}
-
-	/* Unexpected/unintended HW interrupt */
-	if (msm_gemini_hw_irq_is_err(gemini_irq_status) &&
-		!msm_gemini_hw_irq_is_frame_done(gemini_irq_status)) {
-		data = msm_gemini_core_err_irq(gemini_irq_status, context);
-		if (msm_gemini_irq_handler) {
-			msm_gemini_irq_handler(MSM_GEMINI_HW_MASK_COMP_ERR,
-				context, data);
-			data = msm_gemini_core_fe_pingpong_irq(
-					gemini_irq_status, context);
-			msm_gemini_irq_handler(MSM_GEMINI_HW_MASK_COMP_FE,
-				context, data);
-			data = msm_gemini_core_we_pingpong_irq(
-					gemini_irq_status, context);
-			msm_gemini_irq_handler(MSM_GEMINI_HW_MASK_COMP_WE,
-				context, data);
-		}
-		return IRQ_HANDLED;
-	}
-
 	if (msm_gemini_hw_irq_is_fe_pingpong(gemini_irq_status)) {
 		data = msm_gemini_core_fe_pingpong_irq(gemini_irq_status,
 			context);
@@ -244,6 +214,23 @@ irqreturn_t msm_gemini_core_irq(int irq_num, void *context)
 			context);
 		if (msm_gemini_irq_handler)
 			msm_gemini_irq_handler(MSM_GEMINI_HW_MASK_COMP_WE,
+				context, data);
+	}
+
+	if (msm_gemini_hw_irq_is_reset_ack(gemini_irq_status)) {
+		data = msm_gemini_core_reset_ack_irq(gemini_irq_status,
+			context);
+		if (msm_gemini_irq_handler)
+			msm_gemini_irq_handler(
+				MSM_GEMINI_HW_MASK_COMP_RESET_ACK,
+				context, data);
+	}
+
+	
+	if (msm_gemini_hw_irq_is_err(gemini_irq_status)) {
+		data = msm_gemini_core_err_irq(gemini_irq_status, context);
+		if (msm_gemini_irq_handler)
+			msm_gemini_irq_handler(MSM_GEMINI_HW_MASK_COMP_ERR,
 				context, data);
 	}
 

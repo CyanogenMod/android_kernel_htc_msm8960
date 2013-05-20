@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,8 +15,8 @@
 
 #include <media/msm_gemini.h>
 #include "msm_gemini_hw_reg.h"
-#include <linux/msm_ion.h>
-#include <mach/iommu_domains.h>
+#include <mach/msm_subsystem_map.h>
+#include <linux/ion.h>
 
 struct msm_gemini_hw_buf {
 	struct msm_gemini_buf vbuf;
@@ -31,7 +31,7 @@ struct msm_gemini_hw_buf {
 };
 
 struct msm_gemini_hw_pingpong {
-	uint8_t is_fe; /* 1: fe; 0: we */
+	uint8_t is_fe; 
 	struct  msm_gemini_hw_buf buf[2];
 	int     buf_status[2];
 	int     buf_active_index;
@@ -96,12 +96,9 @@ int msm_gemini_hw_wait(struct msm_gemini_hw_cmd *hw_cmd_p, int m_us);
 void msm_gemini_hw_delay(struct msm_gemini_hw_cmd *hw_cmd_p, int m_us);
 int msm_gemini_hw_exec_cmds(struct msm_gemini_hw_cmd *hw_cmd_p, int m_cmds);
 void msm_gemini_hw_region_dump(int size);
-void msm_gemini_io_dump(int size);
-void msm_gemini_io_w(uint32_t offset, uint32_t val);
-uint32_t msm_gemini_io_r(uint32_t offset);
 
-#define MSM_GEMINI_PIPELINE_CLK_128MHZ 128 /* 8MP  128MHz */
-#define MSM_GEMINI_PIPELINE_CLK_140MHZ 140 /* 9MP  140MHz */
-#define MSM_GEMINI_PIPELINE_CLK_200MHZ 153 /* 12MP 153MHz */
+#define MSM_GEMINI_PIPELINE_CLK_128MHZ 128 
+#define MSM_GEMINI_PIPELINE_CLK_140MHZ 140 
+#define MSM_GEMINI_PIPELINE_CLK_200MHZ 153 
 
-#endif /* MSM_GEMINI_HW_H */
+#endif 

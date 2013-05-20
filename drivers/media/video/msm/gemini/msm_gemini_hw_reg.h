@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -80,7 +80,7 @@
 
 #define JPEG_WE_YUB_ENCODE 0x01ff0000
 
-#define JPEG_RESET_DEFAULT 0x0004ffff /* cfff? */
+#define JPEG_RESET_DEFAULT 0x0004ffff 
 
 #define JPEG_IRQ_DISABLE_ALL 0x00000000
 #define JPEG_IRQ_CLEAR_ALL 0xffffffff
@@ -171,6 +171,6 @@
 #define HWIO_JPEG_IRQ_STATUS_RMSK 0xffffffff
 
 #define HWIO_JPEG_STATUS_ENCODE_OUTPUT_SIZE_ADDR (GEMINI_REG_BASE + 0x00000034)
-#define HWIO_JPEG_STATUS_ENCODE_OUTPUT_SIZE_RMSK 0xffffffff
+#define HWIO_JPEG_STATUS_ENCODE_OUTPUT_SIZE_RMSK 0xffffff
 
-#endif /* MSM_GEMINI_HW_REG_H */
+#endif 

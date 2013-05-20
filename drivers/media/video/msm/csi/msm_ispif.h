@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,12 +20,6 @@
 struct ispif_irq_status {
 	uint32_t ispifIrqStatus0;
 	uint32_t ispifIrqStatus1;
-	uint32_t ispifIrqStatus2;
-};
-
-enum msm_ispif_state_t {
-	ISPIF_POWER_UP,
-	ISPIF_POWER_DOWN,
 };
 
 struct ispif_device {
@@ -40,26 +34,35 @@ struct ispif_device {
 	struct completion reset_complete;
 	uint32_t csid_version;
 	struct clk *ispif_clk[5];
-	uint32_t pix_sof_count;
-	uint32_t rdi0_sof_count;
-	uint32_t rdi1_sof_count;
-	uint32_t rdi2_sof_count;
-	uint32_t global_intf_cmd_mask;
-	struct tasklet_struct ispif_tasklet;
-	enum msm_ispif_state_t ispif_state;
 };
 
 struct ispif_isr_queue_cmd {
 	struct list_head list;
 	uint32_t    ispifInterruptStatus0;
 	uint32_t    ispifInterruptStatus1;
-	uint32_t    ispifInterruptStatus2;
 };
 
 #define VIDIOC_MSM_ISPIF_CFG \
-	_IOWR('V', BASE_VIDIOC_PRIVATE + 18, struct ispif_cfg_data*)
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 1, struct msm_ispif_params)
 
-#define VIDIOC_MSM_ISPIF_REL \
-	_IOWR('V', BASE_VIDIOC_PRIVATE + 19, struct ispif_cfg_data*)
+#define VIDIOC_MSM_ISPIF_INIT \
+	_IO('V', BASE_VIDIOC_PRIVATE + 2)
+
+#define VIDIOC_MSM_ISPIF_RELEASE \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 3, struct v4l2_subdev*)
+
+#define ISPIF_STREAM(intf, action) (((intf)<<ISPIF_S_STREAM_SHIFT)+(action))
+#define ISPIF_ON_FRAME_BOUNDARY	(0x01 << 0)
+#define ISPIF_OFF_FRAME_BOUNDARY    (0x01 << 1)
+#define ISPIF_OFF_IMMEDIATELY       (0x01 << 2)
+#define ISPIF_S_STREAM_SHIFT	4
+
+
+#define PIX_0 (0x01 << 0)
+#define RDI_0 (0x01 << 1)
+#define PIX_1 (0x01 << 2)
+#define RDI_1 (0x01 << 3)
+
+void msm_ispif_vfe_get_cid(uint8_t intftype, char *cids, int *num);
 
 #endif

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,12 +11,12 @@
  */
 
 #include <linux/module.h>
+#include <mach/camera.h>
 #include <media/v4l2-subdev.h>
+#include "msm.h"
 #include <media/msm_camera.h>
 #include <media/msm_gestures.h>
 #include <media/v4l2-ctrls.h>
-#include <mach/camera.h>
-#include "msm.h"
 
 #ifdef CONFIG_MSM_CAMERA_DEBUG
 #define D(fmt, args...) pr_debug("msm_gesture: " fmt, ##args)
@@ -43,7 +43,7 @@ int msm_gesture_subscribe_event(struct v4l2_subdev *sd, struct v4l2_fh *fh,
 	D("%s\n", __func__);
 	if (sub->type == V4L2_EVENT_ALL)
 		sub->type = MSM_GES_APP_NOTIFY_EVENT;
-	return v4l2_event_subscribe(fh, sub, 30);
+	return v4l2_event_subscribe(fh, sub);
 }
 
 static int msm_gesture_send_ctrl(struct msm_gesture_ctrl *p_gesture_ctrl,
@@ -78,12 +78,6 @@ static int msm_gesture_proc_ctrl_cmd(struct msm_gesture_ctrl *p_gesture_ctrl,
 	tmp_cmd = (struct msm_ctrl_cmd *)ctrl->value;
 	uptr_cmd = (void __user *)ctrl->value;
 	uptr_value = (void __user *)tmp_cmd->value;
-
-	if(tmp_cmd->length > 0xffff) {
-                pr_err("%s Integer Overflow occurred \n",__func__);
-                rc = -EINVAL;
-                goto end;
-       }
 	value_len = tmp_cmd->length;
 
 	D("%s: cmd type = %d, up1=0x%x, ulen1=%d, up2=0x%x, ulen2=%d\n",
@@ -115,7 +109,7 @@ static int msm_gesture_proc_ctrl_cmd(struct msm_gesture_ctrl *p_gesture_ctrl,
 	} else
 		tmp_cmd->value = NULL;
 
-	/* send command to config thread in usersspace, and get return value */
+	
 	rc = msm_server_send_ctrl((struct msm_ctrl_cmd *)ctrl_data,
 			MSM_GES_RESP_V4L2);
 	D("%s: msm_server_control rc=%d\n", __func__, rc);
@@ -206,38 +200,39 @@ static int msm_gesture_handle_event(struct v4l2_subdev *sd,
 	D("%s: Received gesture evt 0x%x ", __func__, evt->type);
 	p_gesture_ctrl->event.evt_len = 0;
 	p_gesture_ctrl->event.evt_data = NULL;
+	if (0 != evt->u.data[0]) {
+		p_ges_evt = (struct msm_ges_evt *)evt->u.data;
+		D("%s: event data %p len %d", __func__,
+			p_ges_evt->evt_data,
+			p_ges_evt->evt_len);
 
-	p_ges_evt = (struct msm_ges_evt *)evt->u.data;
-	D("%s: event data %p len %d", __func__,
-		p_ges_evt->evt_data,
-		p_ges_evt->evt_len);
+		if (p_ges_evt->evt_len > 0) {
+			p_gesture_ctrl->event.evt_data =
+				kzalloc(p_ges_evt->evt_len, GFP_KERNEL);
 
-	if (p_ges_evt->evt_len > 0) {
-		p_gesture_ctrl->event.evt_data =
-			kzalloc(p_ges_evt->evt_len, GFP_KERNEL);
-
-		if (NULL == p_gesture_ctrl->event.evt_data) {
-			pr_err("%s: cannot allocate event", __func__);
-			rc = -ENOMEM;
-		} else {
-			if (copy_from_user(
-				(void *)p_gesture_ctrl->event.evt_data,
-				(void __user *)p_ges_evt->evt_data,
-				p_ges_evt->evt_len)) {
-				pr_err("%s: copy_from_user failed",
-					__func__);
-				rc = -EFAULT;
+			if (NULL == p_gesture_ctrl->event.evt_data) {
+				pr_err("%s: cannot allocate event", __func__);
+				rc = -ENOMEM;
 			} else {
-				D("%s: copied the event", __func__);
-				p_gesture_ctrl->event.evt_len =
-					p_ges_evt->evt_len;
+				if (copy_from_user(
+					(void *)p_gesture_ctrl->event.evt_data,
+					(void __user *)p_ges_evt->evt_data,
+					p_ges_evt->evt_len)) {
+					pr_err("%s: copy_from_user failed",
+							__func__);
+					rc = -EFAULT;
+				} else {
+					D("%s: copied the event", __func__);
+					p_gesture_ctrl->event.evt_len =
+						p_ges_evt->evt_len;
+				}
 			}
 		}
 	}
 
 	if (rc == 0) {
 		ktime_get_ts(&evt->timestamp);
-		v4l2_event_queue(sd->devnode, evt);
+		v4l2_event_queue(&sd->devnode, evt);
 	}
 	D("%s: exit rc %d ", __func__, rc);
 	return rc;
@@ -461,8 +456,6 @@ static int msm_gesture_node_register(void)
 	struct msm_gesture_ctrl *p_gesture_ctrl = &g_gesture_ctrl;
 	struct v4l2_subdev *gesture_subdev =
 		kzalloc(sizeof(struct v4l2_subdev), GFP_KERNEL);
-	struct msm_cam_subdev_info sd_info;
-
 	D("%s\n", __func__);
 	if (!gesture_subdev) {
 		pr_err("%s: no enough memory\n", __func__);
@@ -475,21 +468,22 @@ static int msm_gesture_node_register(void)
 	snprintf(gesture_subdev->name,
 			 sizeof(gesture_subdev->name), "gesture");
 
+#if defined(CONFIG_MEDIA_CONTROLLER)
+
 	media_entity_init(&gesture_subdev->entity, 0, NULL, 0);
 	gesture_subdev->entity.type = MEDIA_ENT_T_DEVNODE_V4L;
 	gesture_subdev->entity.group_id = GESTURE_DEV;
 	gesture_subdev->entity.name = gesture_subdev->name;
-
-	/* events */
+#endif
+	
 	gesture_subdev->flags |= V4L2_SUBDEV_FL_HAS_EVENTS;
+	gesture_subdev->nevents = MAX_GES_EVENTS;
 
-	sd_info.sdev_type = GESTURE_DEV;
-	sd_info.sd_index = 0;
-	sd_info.irq_num = 0;
-	msm_cam_register_subdev_node(gesture_subdev, &sd_info);
+	msm_cam_register_subdev_node(gesture_subdev, GESTURE_DEV, 0);
+#if defined(CONFIG_MEDIA_CONTROLLER)
 
-	gesture_subdev->entity.revision = gesture_subdev->devnode->num;
-
+	gesture_subdev->entity.revision = gesture_subdev->devnode.num;
+#endif
 	atomic_set(&p_gesture_ctrl->active, 0);
 	p_gesture_ctrl->queue_id = -1;
 	p_gesture_ctrl->event.evt_data = NULL;
@@ -505,3 +499,4 @@ static int __init msm_gesture_init_module(void)
 module_init(msm_gesture_init_module);
 MODULE_DESCRIPTION("MSM Gesture driver");
 MODULE_LICENSE("GPL v2");
+
