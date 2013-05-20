@@ -22,26 +22,27 @@
  * 02110-1301 USA
  */
 
+#include <linux/module.h>
 #include <linux/bitops.h>
 #include <linux/slab.h>
-#include <linux/export.h>
 #include <media/v4l2-dev.h>
 #include <media/v4l2-fh.h>
 #include <media/v4l2-event.h>
 #include <media/v4l2-ioctl.h>
 
-void v4l2_fh_init(struct v4l2_fh *fh, struct video_device *vdev)
+int v4l2_fh_init(struct v4l2_fh *fh, struct video_device *vdev)
 {
 	fh->vdev = vdev;
-	/* Inherit from video_device. May be overridden by the driver. */
-	fh->ctrl_handler = vdev->ctrl_handler;
 	INIT_LIST_HEAD(&fh->list);
 	set_bit(V4L2_FL_USES_V4L2_FH, &fh->vdev->flags);
 	fh->prio = V4L2_PRIORITY_UNSET;
-	init_waitqueue_head(&fh->wait);
-	INIT_LIST_HEAD(&fh->available);
-	INIT_LIST_HEAD(&fh->subscribed);
-	fh->sequence = -1;
+
+	if (vdev->ioctl_ops && vdev->ioctl_ops->vidioc_subscribe_event)
+		return v4l2_event_init(fh);
+
+	fh->events = NULL;
+
+	return 0;
 }
 EXPORT_SYMBOL_GPL(v4l2_fh_init);
 
@@ -75,11 +76,6 @@ void v4l2_fh_del(struct v4l2_fh *fh)
 {
 	unsigned long flags;
 
-	if (!fh->vdev) {
-		pr_err("%s: fd->vdev is NULL\n", __func__);
-		return;
-	}
-
 	spin_lock_irqsave(&fh->vdev->fh_lock, flags);
 	list_del_init(&fh->list);
 	spin_unlock_irqrestore(&fh->vdev->fh_lock, flags);
@@ -92,8 +88,10 @@ void v4l2_fh_exit(struct v4l2_fh *fh)
 {
 	if (fh->vdev == NULL)
 		return;
-	v4l2_event_unsubscribe_all(fh);
+
 	fh->vdev = NULL;
+
+	v4l2_event_free(fh);
 }
 EXPORT_SYMBOL_GPL(v4l2_fh_exit);
 

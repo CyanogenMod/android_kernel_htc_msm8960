@@ -28,9 +28,6 @@
 
 #include <media/v4l2-dev.h>
 
-/* Common printk constucts for v4l-i2c drivers. These macros create a unique
-   prefix consisting of the driver name, the adapter number and the i2c
-   address. */
 #define v4l_printk(level, name, adapter, addr, fmt, arg...) \
 	printk(level "%s %d-%04x: " fmt, name, i2c_adapter_id(adapter), addr , ## arg)
 
@@ -47,17 +44,13 @@
 #define v4l_info(client, fmt, arg...) \
 	v4l_client_printk(KERN_INFO, client, fmt , ## arg)
 
-/* These three macros assume that the debug level is set with a module
-   parameter called 'debug'. */
 #define v4l_dbg(level, debug, client, fmt, arg...)			     \
 	do { 								     \
 		if (debug >= (level))					     \
 			v4l_client_printk(KERN_DEBUG, client, fmt , ## arg); \
 	} while (0)
 
-/* ------------------------------------------------------------------------- */
 
-/* These printk constructs can be used with v4l2_device and v4l2_subdev */
 #define v4l2_printk(level, dev, fmt, arg...) \
 	printk(level "%s: " fmt, (dev)->name , ## arg)
 
@@ -70,17 +63,13 @@
 #define v4l2_info(dev, fmt, arg...) \
 	v4l2_printk(KERN_INFO, dev, fmt , ## arg)
 
-/* These three macros assume that the debug level is set with a module
-   parameter called 'debug'. */
 #define v4l2_dbg(level, debug, dev, fmt, arg...)			\
 	do { 								\
 		if (debug >= (level))					\
 			v4l2_printk(KERN_DEBUG, dev, fmt , ## arg); 	\
 	} while (0)
 
-/* ------------------------------------------------------------------------- */
 
-/* Control helper functions */
 
 int v4l2_ctrl_check(struct v4l2_ext_control *ctrl, struct v4l2_queryctrl *qctrl,
 		const char * const *menu_items);
@@ -92,25 +81,17 @@ int v4l2_ctrl_query_menu(struct v4l2_querymenu *qmenu,
 #define V4L2_CTRL_MENU_IDS_END (0xffffffff)
 int v4l2_ctrl_query_menu_valid_items(struct v4l2_querymenu *qmenu, const u32 *ids);
 
-/* Note: ctrl_classes points to an array of u32 pointers. Each u32 array is a
-   0-terminated array of control IDs. Each array must be sorted low to high
-   and belong to the same control class. The array of u32 pointers must also
-   be sorted, from low class IDs to high class IDs. */
 u32 v4l2_ctrl_next(const u32 * const *ctrl_classes, u32 id);
 
-/* ------------------------------------------------------------------------- */
 
-/* Register/chip ident helper function */
 
-struct i2c_client; /* forward reference */
+struct i2c_client; 
 int v4l2_chip_match_i2c_client(struct i2c_client *c, const struct v4l2_dbg_match *match);
 int v4l2_chip_ident_i2c_client(struct i2c_client *c, struct v4l2_dbg_chip_ident *chip,
 		u32 ident, u32 revision);
 int v4l2_chip_match_host(const struct v4l2_dbg_match *match);
 
-/* ------------------------------------------------------------------------- */
 
-/* I2C Helper functions */
 
 struct i2c_driver;
 struct i2c_adapter;
@@ -121,8 +102,6 @@ struct v4l2_subdev;
 struct v4l2_subdev_ops;
 
 
-/* Load an i2c module and return an initialized v4l2_subdev struct.
-   The client_type argument is the name of the chip that's on the adapter. */
 struct v4l2_subdev *v4l2_i2c_new_subdev(struct v4l2_device *v4l2_dev,
 		struct i2c_adapter *adapter, const char *client_type,
 		u8 addr, const unsigned short *probe_addrs);
@@ -133,52 +112,34 @@ struct v4l2_subdev *v4l2_i2c_new_subdev_board(struct v4l2_device *v4l2_dev,
 		struct i2c_adapter *adapter, struct i2c_board_info *info,
 		const unsigned short *probe_addrs);
 
-/* Initialize an v4l2_subdev with data from an i2c_client struct */
 void v4l2_i2c_subdev_init(struct v4l2_subdev *sd, struct i2c_client *client,
 		const struct v4l2_subdev_ops *ops);
-/* Return i2c client address of v4l2_subdev. */
 unsigned short v4l2_i2c_subdev_addr(struct v4l2_subdev *sd);
 
 enum v4l2_i2c_tuner_type {
-	ADDRS_RADIO,	/* Radio tuner addresses */
-	ADDRS_DEMOD,	/* Demod tuner addresses */
-	ADDRS_TV,	/* TV tuner addresses */
-	/* TV tuner addresses if demod is present, this excludes
-	   addresses used by the demodulator from the list of
-	   candidates. */
+	ADDRS_RADIO,	
+	ADDRS_DEMOD,	
+	ADDRS_TV,	
 	ADDRS_TV_WITH_DEMOD,
 };
-/* Return a list of I2C tuner addresses to probe. Use only if the tuner
-   addresses are unknown. */
 const unsigned short *v4l2_i2c_tuner_addrs(enum v4l2_i2c_tuner_type type);
 
-/* ------------------------------------------------------------------------- */
 
-/* SPI Helper functions */
 #if defined(CONFIG_SPI)
 
 #include <linux/spi/spi.h>
 
 struct spi_device;
 
-/* Load an spi module and return an initialized v4l2_subdev struct.
-   The client_type argument is the name of the chip that's on the adapter. */
 struct v4l2_subdev *v4l2_spi_new_subdev(struct v4l2_device *v4l2_dev,
 		struct spi_master *master, struct spi_board_info *info);
 
-/* Initialize an v4l2_subdev with data from an spi_device struct */
 void v4l2_spi_subdev_init(struct v4l2_subdev *sd, struct spi_device *spi,
 		const struct v4l2_subdev_ops *ops);
 #endif
 
-/* ------------------------------------------------------------------------- */
 
-/* Note: these remaining ioctls/structs should be removed as well, but they are
-   still used in tuner-simple.c (TUNER_SET_CONFIG), cx18/ivtv (RESET) and
-   v4l2-int-device.h (v4l2_routing). To remove these ioctls some more cleanup
-   is needed in those modules. */
 
-/* s_config */
 struct v4l2_priv_tun_config {
 	int tuner;
 	void *priv;
@@ -192,9 +153,7 @@ struct v4l2_routing {
 	u32 output;
 };
 
-/* ------------------------------------------------------------------------- */
 
-/* Miscellaneous helper functions */
 
 void v4l_bound_align_image(unsigned int *w, unsigned int wmin,
 			   unsigned int wmax, unsigned int walign,
@@ -212,4 +171,4 @@ const struct v4l2_frmsize_discrete *v4l2_find_nearest_format(
 		const struct v4l2_discrete_probe *probe,
 		s32 width, s32 height);
 
-#endif /* V4L2_COMMON_H_ */
+#endif 

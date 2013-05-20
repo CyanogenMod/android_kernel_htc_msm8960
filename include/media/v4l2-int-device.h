@@ -25,22 +25,16 @@
 #ifndef V4L2_INT_DEVICE_H
 #define V4L2_INT_DEVICE_H
 
+#include <linux/module.h>
 #include <media/v4l2-common.h>
 
 #define V4L2NAMESIZE 32
 
-/*
- *
- * The internal V4L2 device interface core.
- *
- */
 
 enum v4l2_int_type {
 	v4l2_int_type_master = 1,
 	v4l2_int_type_slave
 };
-
-struct module;
 
 struct v4l2_int_device;
 
@@ -59,7 +53,7 @@ struct v4l2_int_ioctl_desc {
 };
 
 struct v4l2_int_slave {
-	/* Don't touch master. */
+	
 	struct v4l2_int_device *master;
 
 	char attach_to[V4L2NAMESIZE];
@@ -69,7 +63,7 @@ struct v4l2_int_slave {
 };
 
 struct v4l2_int_device {
-	/* Don't touch head. */
+	
 	struct list_head head;
 
 	struct module *module;
@@ -93,11 +87,6 @@ void v4l2_int_device_unregister(struct v4l2_int_device *d);
 int v4l2_int_ioctl_0(struct v4l2_int_device *d, int cmd);
 int v4l2_int_ioctl_1(struct v4l2_int_device *d, int cmd, void *arg);
 
-/*
- *
- * Types and definitions for IOCTL commands.
- *
- */
 
 enum v4l2_power {
 	V4L2_POWER_OFF = 0,
@@ -105,56 +94,35 @@ enum v4l2_power {
 	V4L2_POWER_STANDBY,
 };
 
-/* Slave interface type. */
 enum v4l2_if_type {
-	/*
-	 * Parallel 8-, 10- or 12-bit interface, used by for example
-	 * on certain image sensors.
-	 */
 	V4L2_IF_TYPE_BT656,
 };
 
 enum v4l2_if_type_bt656_mode {
-	/*
-	 * Modes without Bt synchronisation codes. Separate
-	 * synchronisation signal lines are used.
-	 */
 	V4L2_IF_TYPE_BT656_MODE_NOBT_8BIT,
 	V4L2_IF_TYPE_BT656_MODE_NOBT_10BIT,
 	V4L2_IF_TYPE_BT656_MODE_NOBT_12BIT,
-	/*
-	 * Use Bt synchronisation codes. The vertical and horizontal
-	 * synchronisation is done based on synchronisation codes.
-	 */
 	V4L2_IF_TYPE_BT656_MODE_BT_8BIT,
 	V4L2_IF_TYPE_BT656_MODE_BT_10BIT,
 };
 
 struct v4l2_if_type_bt656 {
-	/*
-	 * 0: Frame begins when vsync is high.
-	 * 1: Frame begins when vsync changes from low to high.
-	 */
 	unsigned frame_start_on_rising_vs:1;
-	/* Use Bt synchronisation codes for sync correction. */
+	
 	unsigned bt_sync_correct:1;
-	/* Swap every two adjacent image data elements. */
+	
 	unsigned swap:1;
-	/* Inverted latch clock polarity from slave. */
+	
 	unsigned latch_clk_inv:1;
-	/* Hs polarity. 0 is active high, 1 active low. */
+	
 	unsigned nobt_hs_inv:1;
-	/* Vs polarity. 0 is active high, 1 active low. */
+	
 	unsigned nobt_vs_inv:1;
 	enum v4l2_if_type_bt656_mode mode;
-	/* Minimum accepted bus clock for slave (in Hz). */
+	
 	u32 clock_min;
-	/* Maximum accepted bus clock for slave. */
+	
 	u32 clock_max;
-	/*
-	 * Current wish of the slave. May only change in response to
-	 * ioctls that affect image capture.
-	 */
 	u32 clock_curr;
 };
 
@@ -165,13 +133,7 @@ struct v4l2_ifparm {
 	} u;
 };
 
-/* IOCTL command numbers. */
 enum v4l2_int_ioctl_num {
-	/*
-	 *
-	 * "Proper" V4L ioctls, as in struct video_device.
-	 *
-	 */
 	vidioc_int_enum_fmt_cap_num = 1,
 	vidioc_int_g_fmt_cap_num,
 	vidioc_int_s_fmt_cap_num,
@@ -188,54 +150,30 @@ enum v4l2_int_ioctl_num {
 	vidioc_int_s_std_num,
 	vidioc_int_s_video_routing_num,
 
-	/*
-	 *
-	 * Strictly internal ioctls.
-	 *
-	 */
-	/* Initialise the device when slave attaches to the master. */
+	
 	vidioc_int_dev_init_num = 1000,
-	/* Delinitialise the device at slave detach. */
+	
 	vidioc_int_dev_exit_num,
-	/* Set device power state. */
+	
 	vidioc_int_s_power_num,
-	/*
-	* Get slave private data, e.g. platform-specific slave
-	* configuration used by the master.
-	*/
 	vidioc_int_g_priv_num,
-	/* Get slave interface parameters. */
+	
 	vidioc_int_g_ifparm_num,
-	/* Does the slave need to be reset after VIDIOC_DQBUF? */
+	
 	vidioc_int_g_needs_reset_num,
 	vidioc_int_enum_framesizes_num,
 	vidioc_int_enum_frameintervals_num,
 
-	/*
-	 *
-	 * VIDIOC_INT_* ioctls.
-	 *
-	 */
-	/* VIDIOC_INT_RESET */
+	
 	vidioc_int_reset_num,
-	/* VIDIOC_INT_INIT */
+	
 	vidioc_int_init_num,
-	/* VIDIOC_DBG_G_CHIP_IDENT */
+	
 	vidioc_int_g_chip_ident_num,
 
-	/*
-	 *
-	 * Start of private ioctls.
-	 *
-	 */
 	vidioc_int_priv_start_num = 2000,
 };
 
-/*
- *
- * IOCTL wrapper functions for better type checking.
- *
- */
 
 #define V4L2_INT_WRAPPER_0(name)					\
 	static inline int vidioc_int_##name(struct v4l2_int_device *d)	\
