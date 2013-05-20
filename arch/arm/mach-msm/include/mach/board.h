@@ -64,8 +64,18 @@ struct msm_camera_device_platform_data {
 	struct msm_camera_io_ext ioext;
 	struct msm_camera_io_clk ioclk;
 	uint8_t csid_core;
+#ifdef CONFIG_MACH_HTC
+	uint8_t is_csiphy;
+	uint8_t is_csic;
+	uint8_t is_csid;
+	uint8_t is_ispif;
+#endif
 	uint8_t is_vpe;
 	struct msm_bus_scale_pdata *cam_bus_scale_table;
+#ifdef CONFIG_MACH_HTC
+	int (*camera_csi_on) (void);
+	int (*camera_csi_off)(void);
+#endif
 };
 
 #ifdef CONFIG_SENSORS_MT9T013
@@ -131,6 +141,9 @@ struct msm_camera_sensor_flash_led {
 
 struct msm_camera_sensor_flash_src {
 	int flash_sr_type;
+#ifdef CONFIG_MACH_HTC
+	int (*camera_flash)(int level);
+#endif
 
 	union {
 		struct msm_camera_sensor_flash_pmic pmic_src;
@@ -197,6 +210,10 @@ struct msm_camera_gpio_conf {
 	uint8_t camera_off_table_size;
 	uint32_t *camera_on_table;
 	uint8_t camera_on_table_size;
+#ifdef CONFIG_MACH_HTC
+	uint16_t *cam_gpio_tbl;
+	uint8_t cam_gpio_tbl_size;
+#endif
 };
 
 enum msm_camera_i2c_mux_mode {
@@ -227,6 +244,15 @@ struct msm_camera_sensor_platform_info {
 	struct msm_camera_gpio_conf *gpio_conf;
 	struct msm_camera_i2c_conf *i2c_conf;
 	struct msm_camera_csi_lane_params *csi_lane_params;
+#ifdef CONFIG_MACH_HTC
+	int sensor_reset_enable;
+	int sensor_pwd;
+	int vcm_pwd;
+	int vcm_enable;
+	int privacy_light;
+	enum sensor_flip_mirror_info mirror_flip;
+	void *privacy_light_info;
+#endif
 };
 
 enum msm_camera_actuator_name {
@@ -247,14 +273,19 @@ struct msm_actuator_info {
 	int bus_id;
 	int vcm_pwd;
 	int vcm_enable;
+#ifdef CONFIG_MACH_HTC
+	int use_rawchip_af;
+#endif
 };
 
 struct msm_eeprom_info {
 	struct i2c_board_info const *board_info;
 	int bus_id;
+#ifndef CONFIG_MACH_HTC
 	int eeprom_reg_addr;
 	int eeprom_read_length;
 	int eeprom_i2c_slave_addr;
+#endif
 };
 
 struct msm_camera_sensor_info {
@@ -279,6 +310,15 @@ struct msm_camera_sensor_info {
 	struct msm_actuator_info *actuator_info;
 	int pmic_gpio_enable;
 	struct msm_eeprom_info *eeprom_info;
+#ifdef CONFIG_MACH_HTC
+	struct msm_camera_gpio_conf *gpio_conf;
+	int (*camera_power_on)(void);
+	int (*camera_power_off)(void);
+	int use_rawchip;
+	int power_down_disable;
+	int mirror_mode;
+	struct camera_flash_cfg* flash_cfg;
+#endif
 };
 
 struct msm_camera_board_info {
