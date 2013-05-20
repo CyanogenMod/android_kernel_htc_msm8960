@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * Based on videobuf-dma-contig.c,
  * (c) 2008 Magnus Damm
@@ -29,8 +29,9 @@
 #include <media/videobuf2-msm-mem.h>
 #include <media/msm_camera.h>
 #include <mach/memory.h>
+#include <mach/msm_subsystem_map.h>
+
 #include <media/videobuf2-core.h>
-#include <mach/iommu_domains.h>
 
 #define MAGIC_PMEM 0x0733ac64
 #define MAGIC_CHECK(is, should)               \
@@ -56,15 +57,15 @@ static unsigned long msm_mem_allocate(struct videobuf2_contig_pmem *mem)
 		goto client_failed;
 	}
 	mem->ion_handle = ion_alloc(mem->client, mem->size, SZ_4K,
-		(0x1 << ION_CP_MM_HEAP_ID | 0x1 << ION_IOMMU_HEAP_ID), 0);
+		(0x1 << ION_CP_MM_HEAP_ID | 0x1 << ION_IOMMU_HEAP_ID));
 	if (IS_ERR((void *)mem->ion_handle)) {
 		pr_err("%s Could not allocate\n", __func__);
 		goto alloc_failed;
 	}
 	rc = ion_map_iommu(mem->client, mem->ion_handle,
-			-1, 0, SZ_4K, 0,
+			CAMERA_DOMAIN, GEN_POOL, SZ_4K, 0,
 			(unsigned long *)&phyaddr,
-			(unsigned long *)&len, 0, 0);
+			(unsigned long *)&len, UNCACHED, 0);
 	if (rc < 0) {
 		pr_err("%s Could not get physical address\n", __func__);
 		goto phys_failed;
@@ -87,7 +88,7 @@ static int32_t msm_mem_free(struct videobuf2_contig_pmem *mem)
 {
 	int32_t rc = 0;
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-	ion_unmap_iommu(mem->client, mem->ion_handle, -1, 0);
+	ion_unmap_iommu(mem->client, mem->ion_handle, CAMERA_DOMAIN, GEN_POOL);
 	ion_free(mem->client, mem->ion_handle);
 	ion_client_destroy(mem->client);
 #else
@@ -160,22 +161,11 @@ int videobuf2_pmem_contig_mmap_get(struct videobuf2_contig_pmem *mem,
 }
 EXPORT_SYMBOL_GPL(videobuf2_pmem_contig_mmap_get);
 
-/**
- * videobuf_pmem_contig_user_get() - setup user space memory pointer
- * @mem: per-buffer private videobuf-contig-pmem data
- * @vb: video buffer to map
- *
- * This function validates and sets up a pointer to user space memory.
- * Only physically contiguous pfn-mapped memory is accepted.
- *
- * Returns 0 if successful.
- */
 int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
 					struct videobuf2_msm_offset *offset,
 					enum videobuf2_buffer_type buffer_type,
 					uint32_t addr_offset, int path,
-					struct ion_client *client,
-					int domain_num)
+					struct ion_client *client)
 {
 	unsigned long len;
 	int rc = 0;
@@ -191,8 +181,8 @@ int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
 		pr_err("%s ION import failed\n", __func__);
 		return PTR_ERR(mem->ion_handle);
 	}
-	rc = ion_map_iommu(client, mem->ion_handle, domain_num, 0,
-		SZ_4K, 0, (unsigned long *)&mem->phyaddr, &len, 0, 0);
+	rc = ion_map_iommu(client, mem->ion_handle, CAMERA_DOMAIN, GEN_POOL,
+		SZ_4K, 0, (unsigned long *)&mem->phyaddr, &len, UNCACHED, 0);
 	if (rc < 0)
 		ion_free(client, mem->ion_handle);
 #elif CONFIG_ANDROID_PMEM
@@ -221,7 +211,7 @@ int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
 EXPORT_SYMBOL_GPL(videobuf2_pmem_contig_user_get);
 
 void videobuf2_pmem_contig_user_put(struct videobuf2_contig_pmem *mem,
-				struct ion_client *client, int domain_num)
+					struct ion_client *client)
 {
 	if (mem->is_userptr) {
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
@@ -230,7 +220,7 @@ void videobuf2_pmem_contig_user_put(struct videobuf2_contig_pmem *mem,
 		return;
 	}
 		ion_unmap_iommu(client, mem->ion_handle,
-				domain_num, 0);
+				CAMERA_DOMAIN, GEN_POOL);
 		ion_free(client, mem->ion_handle);
 #elif CONFIG_ANDROID_PMEM
 		put_pmem_file(mem->file);
@@ -287,7 +277,7 @@ static int msm_vb2_mem_ops_mmap(void *buf_priv, struct vm_area_struct *vma)
 	D("mem = 0x%x\n", (u32)mem);
 	BUG_ON(!mem);
 	MAGIC_CHECK(mem->magic, MAGIC_PMEM);
-	/* Try to remap memory */
+	
 	size = vma->vm_end - vma->vm_start;
 	size = (size < mem->size) ? size : mem->size;
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
@@ -304,8 +294,8 @@ static int msm_vb2_mem_ops_mmap(void *buf_priv, struct vm_area_struct *vma)
 	vma->vm_private_data = mem;
 
 	D("mmap %p: %08lx-%08lx (%lx) pgoff %08lx\n",
-		vma, vma->vm_start, vma->vm_end,
-		(long int)mem->size, vma->vm_pgoff);
+		map, vma->vm_start, vma->vm_end,
+		(long int)mem->bsize, vma->vm_pgoff);
 	videobuf2_vm_open(vma);
 	return 0;
 error:

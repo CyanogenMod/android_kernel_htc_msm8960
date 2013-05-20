@@ -16,12 +16,6 @@
 
 #include <media/videobuf2-core.h>
 
-/**
- * vb2_vmarea_handler - common vma refcount tracking handler
- * @refcount:	pointer to refcount entry in the buffer
- * @put:	callback to function that decreases buffer refcount
- * @arg:	argument for @put callback
- */
 struct vb2_vmarea_handler {
 	atomic_t		*refcount;
 	void			(*put)(void *arg);
