@@ -585,4 +585,11 @@ config LEDS_TRIGGER_SLEEP
 comment "iptables trigger is under Netfilter config (LED target)"
 	depends on LEDS_TRIGGERS
 
+comment "LED Flashlights"
+
+config FLASHLIGHT_TPS61310
+	tristate "TI TPS61310 flashlight"
+	help
+	  Say Y here to enable the TI TPS61310 flashlight.
+
 endif # NEW_LEDS
