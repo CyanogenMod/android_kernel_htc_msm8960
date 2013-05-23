@@ -69,3 +69,4 @@ obj-$(CONFIG_SENSORS_PANASONIC_GYRO)	+= ewtzmu2.o
 obj-$(CONFIG_SENSORS_BMA250)		+= bma250.o
 obj-$(CONFIG_INPUT_CAPELLA_CM3629)	+= cm3629.o
 obj-$(CONFIG_SENSORS_R3GD20)		+= r3gd20.o
+obj-y 					+= mpu3050/

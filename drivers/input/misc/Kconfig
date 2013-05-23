@@ -717,3 +717,5 @@ config SENSORS_R3GD20
 	  gyroscope will be called r3gd20.
 
 	  Say Y here if you have a device containing the r3gd20 chip.
+
+source "drivers/input/misc/mpu3050/Kconfig"
