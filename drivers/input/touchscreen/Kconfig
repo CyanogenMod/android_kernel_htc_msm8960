@@ -1021,3 +1021,9 @@ config TOUCHSCREEN_CYPRESS_CS
 	depends on I2C
 	help
 	  Enables support for Cypress CY8C_CS touchkeys.
+
+config TOUCHSCREEN_SYNAPTICS_3K
+	tristate "Synaptics 3K i2c touchscreen"
+	depends on I2C
+	help
+	  This enables support for Synaptics RMI4 over I2C based touchscreens.

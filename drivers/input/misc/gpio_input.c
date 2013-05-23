@@ -22,6 +22,78 @@
 #include <linux/slab.h>
 #include <linux/wakelock.h>
 
+#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_3K
+static uint8_t power_key_state;
+static spinlock_t power_key_state_lock;
+
+#define PWRKEY_PRESS_DUE 1*HZ
+#include <linux/module.h>
+static void init_power_key_api(void)
+{
+	spin_lock_init(&power_key_state_lock);
+	power_key_state = 0;
+}
+
+static void setPowerKeyState(uint8_t flag)
+{
+	spin_lock(&power_key_state_lock);
+	power_key_state = flag;
+	spin_unlock(&power_key_state_lock);
+}
+
+uint8_t getPowerKeyState(void)
+{
+	uint8_t value;
+
+	spin_lock(&power_key_state_lock);
+	value = power_key_state;
+	spin_unlock(&power_key_state_lock);
+
+	return value;
+}
+EXPORT_SYMBOL(getPowerKeyState);
+
+static void power_key_state_disable_work_func(struct work_struct *dummy)
+{
+	setPowerKeyState(0);
+	printk(KERN_INFO "[KEY][PWR][STATE]power key pressed outdated\n");
+}
+static DECLARE_DELAYED_WORK(power_key_state_disable_work, power_key_state_disable_work_func);
+
+static void handle_power_key_state(unsigned int code, int value)
+{
+	int ret = 0;
+	if (code == KEY_POWER && value == 1) {
+		printk(KERN_INFO "[PWR][STATE]try to schedule power key pressed due\n");
+		ret = schedule_delayed_work(&power_key_state_disable_work, PWRKEY_PRESS_DUE);
+		if (!ret) {
+			printk(KERN_INFO "[PWR][STATE]Schedule power key pressed due failed, seems already have one, try to cancel...\n");
+			ret = cancel_delayed_work(&power_key_state_disable_work);
+			if (!ret) {
+				setPowerKeyState(1);
+				if (schedule_delayed_work(&power_key_state_disable_work, PWRKEY_PRESS_DUE)) {
+					printk(KERN_INFO "[PWR][STATE]Re-schedule power key pressed due SCCUESS.\n");
+					printk(KERN_INFO "[PWR][STATE] start count for power key pressed due\n");
+					setPowerKeyState(1);
+				} else
+					printk(KERN_INFO "[PWR][STATE]Re-schedule power key pressed due FAILED, reason unknown, give up.\n");
+			} else {
+				printk(KERN_INFO "[PWR][STATE]Cancel scheduled power key due success, now re-schedule.\n");
+				if (schedule_delayed_work(&power_key_state_disable_work, PWRKEY_PRESS_DUE)) {
+					printk(KERN_INFO "[PWR][STATE]Re-schedule power key pressed due SCCUESS.\n");
+					printk(KERN_INFO "[PWR][STATE] start count for power key pressed due\n");
+					setPowerKeyState(1);
+				} else
+					printk(KERN_INFO "[PWR][STATE]Re-schedule power key pressed due FAILED, reason unknown, give up.\n");
+			}
+		} else {
+			printk(KERN_INFO "[PWR][STATE] start count for power key pressed due\n");
+			setPowerKeyState(1);
+		}
+	}
+}
+#endif /* CONFIG_TOUCHSCREEN_SYNAPTICS_3K */
+
 enum {
 	DEBOUNCE_UNSTABLE     = BIT(0),	/* Got irq, while debouncing */
 	DEBOUNCE_PRESSED      = BIT(1),
@@ -130,6 +202,9 @@ static enum hrtimer_restart gpio_event_input_timer_func(struct hrtimer *timer)
 			pr_info("gpio_keys_scan_keys: key %x-%x, %d (%d) "
 				"changed to %d\n", ds->info->type,
 				key_entry->code, i, key_entry->gpio, pressed);
+#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_3K
+		handle_power_key_state(key_entry->code, pressed);
+#endif
 		input_event(ds->input_devs->dev[key_entry->dev], ds->info->type,
 			    key_entry->code, pressed);
 		sync_needed = true;
@@ -239,6 +314,9 @@ static int gpio_event_input_request_irqs(struct gpio_input_state *ds)
 			}
 		}
 	}
+#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_3K
+	init_power_key_api();
+#endif
 	return 0;
 
 	for (i = ds->info->keymap_size - 1; i >= 0; i--) {
