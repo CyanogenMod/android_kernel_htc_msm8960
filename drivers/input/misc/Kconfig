@@ -705,3 +705,15 @@ config INPUT_CAPELLA_CM3629
 	help
 	  Say Y here to enable the CM3629 short distance proximity
 	  sensor with ambient light sensor.
+
+config SENSORS_R3GD20
+	tristate "ST R3GD20 3-axis gyroscope"
+	depends on I2C
+	help
+	  This driver provides support for the R3GD20 chip which is a 3-axis
+	  gyroscope.
+
+	  This driver can also be built as a module. If so the module for the
+	  gyroscope will be called r3gd20.
+
+	  Say Y here if you have a device containing the r3gd20 chip.
