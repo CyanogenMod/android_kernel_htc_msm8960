@@ -701,6 +701,12 @@ config VP_A1028
 	help
 	  A1028 Voice Processor driver implemented by HTC.
 
+config SENSORS_NFC_PN544
+	tristate "PN544 NFC Sensor driver"
+	depends on I2C
+	help
+	  PN544 NFC driver.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
