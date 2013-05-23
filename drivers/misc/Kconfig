@@ -695,6 +695,12 @@ config CABLE_DETECT_ACCESSORY_BY_ADC
 	boolean "Cable detect accessory by PMIC ADC"
 	default n
 
+config VP_A1028
+	tristate "A1028 Voice Processor driver"
+	depends on I2C
+	help
+	  A1028 Voice Processor driver implemented by HTC.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"

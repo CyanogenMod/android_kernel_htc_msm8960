@@ -76,3 +76,4 @@ obj-y += tspdrv/
 obj-$(CONFIG_BU52031NVX) += pm8xxx-cradle.o
 obj-$(CONFIG_SLIMPORT_ANX7808)	+= slimport_anx7808/
 obj-$(CONFIG_CABLE_DETECT_8XXX)	+= cable_detect_8xxx.o
+obj-$(CONFIG_VP_A1028)		+= a1028.o
