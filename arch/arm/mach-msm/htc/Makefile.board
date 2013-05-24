@@ -5,5 +5,8 @@
 # ELITE
 obj-$(CONFIG_MACH_ELITE) += elite/
 
+# JET
+obj-$(CONFIG_MACH_JET) += jet/
+
 # VILLE
 obj-$(CONFIG_MACH_VILLE) += ville/

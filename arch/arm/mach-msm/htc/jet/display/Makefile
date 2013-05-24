@@ -1,0 +1,1 @@
+obj-$(CONFIG_MACH_JET) += mipi_jet.o mipi_jet_720p_pt.o board-jet-panel.o

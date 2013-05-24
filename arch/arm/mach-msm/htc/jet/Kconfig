@@ -1,0 +1,10 @@
+config BOARD_HEADER_FILE
+	string "HTC board specific header file name"
+	default ""
+
+config MACH_JET
+	depends on ARCH_MSM8960
+	select MACH_HTC
+	bool "HTC JET"
+	help
+	  Support for the HTC JET device.
