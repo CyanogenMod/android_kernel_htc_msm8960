@@ -62,6 +62,8 @@ static LIST_HEAD(g_lh_calbe_detect_notifier_list);
 
 int board_mfg_mode(void);
 
+int board_build_flag(void);
+
 extern struct flash_platform_data msm_nand_data;
 
 extern int emmc_partition_read_proc(char *page, char **start, off_t off,
