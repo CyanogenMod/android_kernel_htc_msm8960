@@ -1,0 +1,10 @@
+config BOARD_HEADER_FILE
+	string "HTC board specific header file name"
+	default ""
+
+config MACH_ELITE
+	depends on ARCH_MSM8960
+	select MACH_HTC
+	bool "HTC Elite"
+	help
+	  Support for the HTC ELITE device.

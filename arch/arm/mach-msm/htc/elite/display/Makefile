@@ -1,0 +1,1 @@
+obj-$(CONFIG_MACH_ELITE) += mipi_elite.o mipi_elite_720p_pt.o board-elite-panel.o

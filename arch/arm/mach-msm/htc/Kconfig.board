@@ -2,6 +2,9 @@
 # Include the specific Kconfig file for HTC board
 #
 
+# ELITE
+source "arch/arm/mach-msm/htc/elite/Kconfig"
+
 # VILLE
 source "arch/arm/mach-msm/htc/ville/Kconfig"
 

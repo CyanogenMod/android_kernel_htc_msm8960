@@ -2,5 +2,8 @@
 # Makefile for the HTC board
 #
 
+# ELITE
+obj-$(CONFIG_MACH_ELITE) += elite/
+
 # VILLE
 obj-$(CONFIG_MACH_VILLE) += ville/
