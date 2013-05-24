@@ -504,6 +504,20 @@ int board_get_usb_ats(void)
 }
 EXPORT_SYMBOL(board_get_usb_ats);
 
+static int tamper_sf;
+int __init check_tamper_sf(char *s)
+{
+	tamper_sf = simple_strtoul(s, 0, 10);
+	return 1;
+}
+__setup("td.sf=", check_tamper_sf);
+
+unsigned int get_tamper_sf(void)
+{
+	return tamper_sf;
+}
+EXPORT_SYMBOL(get_tamper_sf);
+
 #define MSM_RAM_CONSOLE_BASE   0x88900000
 #define MSM_RAM_CONSOLE_SIZE   (SZ_1M - SZ_128K) /* 128K for debug info */
 
