@@ -88,6 +88,7 @@ static void _msm_iommu_remote_spin_lock_init(void)
 
 void msm_iommu_remote_p0_spin_lock(void)
 {
+#ifndef CONFIG_MACH_HTC
 	msm_iommu_remote_lock.lock->flag[PROC_APPS] = 1;
 	msm_iommu_remote_lock.lock->turn = 1;
 
@@ -96,13 +97,16 @@ void msm_iommu_remote_p0_spin_lock(void)
 	while (msm_iommu_remote_lock.lock->flag[PROC_GPU] == 1 &&
 	       msm_iommu_remote_lock.lock->turn == 1)
 		cpu_relax();
+#endif
 }
 
 void msm_iommu_remote_p0_spin_unlock(void)
 {
+#ifndef CONFIG_MACH_HTC
 	smp_mb();
 
 	msm_iommu_remote_lock.lock->flag[PROC_APPS] = 0;
+#endif
 }
 #endif
 
