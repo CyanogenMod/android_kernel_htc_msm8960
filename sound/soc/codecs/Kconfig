@@ -454,3 +454,9 @@ config SND_SOC_TPA2028D
 	default n
 	help
 	  Texas Instruments 3W Mono Class-D Audio Amplifier
+
+config SND_SOC_TPA2051D3
+	tristate "TI TPA2051D3 Speaker AMP Driver"
+	depends on I2C=y
+	help
+	  TI TPA2051D3 Speaker AMP Driver implemented by HTC.
