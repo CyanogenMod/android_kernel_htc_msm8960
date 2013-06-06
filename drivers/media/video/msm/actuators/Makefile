@@ -3,6 +3,7 @@ EXTRA_CFLAGS += -Idrivers/media/video/msm
 EXTRA_CFLAGS += -Idrivers/media/video/msm/io
 obj-$(CONFIG_MSM_ACTUATOR) += msm_actuator.o
 obj-$(CONFIG_IMX074_ACT) += imx074_act.o
+obj-$(CONFIG_IMX105_ACT) += imx105_act.o
 obj-$(CONFIG_AD5823_ACT) += ad5823_act.o
 obj-$(CONFIG_AD5816_ACT) += ad5816_act.o
 obj-$(CONFIG_TI201_ACT) += ti201_act.o

@@ -168,6 +168,13 @@ config IMX074_ACT
 	---help---
 	Actuator for SONY 13.5 MP Bayer Sensor
 
+config IMX105_ACT
+	bool "Actuator IMX105 (BAYER 8M)"
+	depends on MSM_CAMERA && ARCH_MSM8960
+	default n
+	---help---
+	Actuator for SONY 8 MP Bayer Sensor
+
 config S5K3H2YX_ACT
 	bool "Sensor s5k3h2yx actuator"
 	depends on MSM_CAMERA
@@ -296,6 +303,13 @@ config IMX091
 	depends on MSM_CAMERA
 	---help---
 	SONY 13 MP Bayer Sensor
+
+config IMX105
+	bool "Sensor IMX105 (BAYER 8M)"
+	depends on MSM_CAMERA && (ARCH_MSM8X60 || ARCH_MSM8960)
+	default n
+	---help---
+	SONY 8 MP Bayer Sensor
 
 config IMX175
 	bool "Sensor IMX175 (BAYER 8M)"
