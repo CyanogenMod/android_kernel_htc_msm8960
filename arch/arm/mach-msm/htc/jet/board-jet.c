@@ -2984,6 +2984,7 @@ static struct platform_device *common_devices[] __initdata = {
 #ifdef CONFIG_MSM_ROTATOR
 	&msm_rotator_device,
 #endif
+	&msm8960_cpu_slp_status,
 	&msm_device_sps,
 #ifdef CONFIG_MSM_FAKE_BATTERY
 	&fish_battery_device,
