@@ -39,11 +39,6 @@
 #include "acpuclock-krait.h"
 #include "avs.h"
 
-#ifdef CONFIG_MACH_HTC
-extern bool msm_pm_verify_cpu_pc(unsigned int);
-#define SCALABLE_TO_CPU(sc) ((sc) - (drv.scalable))
-#endif
-
 /* MUX source selects. */
 #define PRI_SRC_SEL_SEC_SRC	0
 #define PRI_SRC_SEL_HFPLL	1
@@ -225,11 +220,7 @@ static void set_bus_bw(unsigned int bw)
 
 /* Set the CPU or L2 clock speed. */
 static void set_speed(struct scalable *sc, const struct core_speed *tgt_s,
-#ifdef CONFIG_MACH_HTC
-	enum setrate_reason reason)
-#else
 	bool skip_regulators)
-#endif
 {
 	const struct core_speed *strt_s = sc->cur_speed;
 
@@ -251,35 +242,12 @@ static void set_speed(struct scalable *sc, const struct core_speed *tgt_s,
 		/* Move to HFPLL. */
 		set_pri_clk_src(sc, tgt_s->pri_src_sel);
 	} else if (strt_s->src == HFPLL && tgt_s->src != HFPLL) {
-#ifdef CONFIG_MACH_HTC
-		if (reason != SETRATE_HOTPLUG || sc == &drv.scalable[L2]) {
-			set_pri_clk_src(sc, tgt_s->pri_src_sel);
-			hfpll_disable(sc, false);
-		} else if (reason == SETRATE_HOTPLUG &&
-				msm_pm_verify_cpu_pc(SCALABLE_TO_CPU(sc))) {
-			hfpll_disable(sc, false);
-		}
-#else
 		set_pri_clk_src(sc, tgt_s->pri_src_sel);
 		hfpll_disable(sc, skip_regulators);
-#endif
 	} else if (strt_s->src != HFPLL && tgt_s->src == HFPLL) {
-#ifdef CONFIG_MACH_HTC
-		if (reason != SETRATE_HOTPLUG || sc == &drv.scalable[L2]) {
-			hfpll_set_rate(sc, tgt_s);
-			hfpll_enable(sc, false);
-			set_pri_clk_src(sc, tgt_s->pri_src_sel);
-		} else if (reason == SETRATE_HOTPLUG &&
-				msm_pm_verify_cpu_pc(SCALABLE_TO_CPU(sc))) {
-			/* PLL was disabled during hot-plug. Re-enable it. */
-			hfpll_set_rate(sc, tgt_s);
-			hfpll_enable(sc, false);
-		}
-#else
 		hfpll_set_rate(sc, tgt_s);
 		hfpll_enable(sc, skip_regulators);
 		set_pri_clk_src(sc, tgt_s->pri_src_sel);
-#endif
 	}
 
 	sc->cur_speed = tgt_s;
@@ -587,11 +555,7 @@ static int acpuclk_krait_set_rate(int cpu, unsigned long rate,
 	skip_regulators = (reason == SETRATE_PC);
 
 	/* Set the new CPU speed. */
-#ifdef CONFIG_MACH_HTC
-	set_speed(&drv.scalable[cpu], tgt_acpu_s, reason);
-#else
 	set_speed(&drv.scalable[cpu], tgt_acpu_s, skip_regulators);
-#endif
 
 	/*
 	 * Update the L2 vote and apply the rate change. A spinlock is
@@ -602,13 +566,8 @@ static int acpuclk_krait_set_rate(int cpu, unsigned long rate,
 	 */
 	spin_lock(&l2_lock);
 	tgt_l2_l = compute_l2_level(&drv.scalable[cpu], tgt->l2_level);
-#ifdef CONFIG_MACH_HTC
-	set_speed(&drv.scalable[L2],
-			&drv.l2_freq_tbl[tgt_l2_l].speed, reason);
-#else
 	set_speed(&drv.scalable[L2],
 			&drv.l2_freq_tbl[tgt_l2_l].speed, true);
-#endif
 	spin_unlock(&l2_lock);
 
 	/* Nothing else to do for power collapse or SWFI. */
