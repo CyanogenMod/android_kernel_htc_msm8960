@@ -45,11 +45,7 @@ static struct scalable scalable[] __initdata = {
 		.aux_clk_sel_phys = 0x02088014,
 		.aux_clk_sel = 3,
 		.sec_clk_sel = 2,
-#ifdef CONFIG_MACH_HTC
-		.l2cpmr_iaddr = 0x501,
-#else
 		.l2cpmr_iaddr = 0x4501,
-#endif
 		.vreg[VREG_CORE] = { "krait0", 1300000 },
 		.vreg[VREG_MEM]  = { "krait0_mem", 1150000 },
 		.vreg[VREG_DIG]  = { "krait0_dig", 1150000 },
@@ -61,11 +57,7 @@ static struct scalable scalable[] __initdata = {
 		.aux_clk_sel_phys = 0x02098014,
 		.aux_clk_sel = 3,
 		.sec_clk_sel = 2,
-#ifdef CONFIG_MACH_HTC
-		.l2cpmr_iaddr = 0x501,
-#else
 		.l2cpmr_iaddr = 0x5501,
-#endif
 		.vreg[VREG_CORE] = { "krait1", 1300000 },
 		.vreg[VREG_MEM]  = { "krait1_mem", 1150000 },
 		.vreg[VREG_DIG]  = { "krait1_dig", 1150000 },
