@@ -5,6 +5,9 @@
 # ELITE
 source "arch/arm/mach-msm/htc/elite/Kconfig"
 
+# FIGHTER
+source "arch/arm/mach-msm/htc/fighter/Kconfig"
+
 # JET
 source "arch/arm/mach-msm/htc/jet/Kconfig"
 

@@ -5,6 +5,9 @@
 # ELITE
 obj-$(CONFIG_MACH_ELITE) += elite/
 
+# FIGHTER
+obj-$(CONFIG_MACH_FIGHTER) += fighter/
+
 # JET
 obj-$(CONFIG_MACH_JET) += jet/
 

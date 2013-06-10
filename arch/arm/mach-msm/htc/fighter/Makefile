@@ -1,0 +1,10 @@
+obj-$(CONFIG_MACH_FIGHTER) += board-fighter.o
+obj-$(CONFIG_MACH_FIGHTER) += board-fighter-regulator.o
+obj-$(CONFIG_MACH_FIGHTER) += board-fighter-gpiomux.o
+obj-$(CONFIG_MACH_FIGHTER) += board-fighter-storage.o
+obj-$(CONFIG_MACH_FIGHTER) += board-fighter-audio.o
+obj-$(CONFIG_MACH_FIGHTER) += board-fighter-pmic.o
+obj-$(CONFIG_MACH_FIGHTER) += board-fighter-keypad.o
+obj-$(CONFIG_MACH_FIGHTER) += board-fighter-camera.o
+obj-$(CONFIG_MACH_FIGHTER) += display/
+CFLAGS_board-fighter-display.o += -Idrivers/video
