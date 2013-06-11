@@ -495,6 +495,7 @@ void mdp4_dtv_vsync_ctrl(struct fb_info *info, int enable);
 void mdp4_dtv_base_swap(int cndx, struct mdp4_overlay_pipe *pipe);
 void mdp4_dtv_pipe_queue(int cndx, struct mdp4_overlay_pipe *pipe);
 int mdp4_dtv_pipe_commit(int cndx, int wait);
+void mdp4_dtv_free_base_pipe(struct msm_fb_data_type *mfd);
 #else
 static inline void mdp4_overlay_dtv_start(void)
 {
@@ -552,6 +553,10 @@ static inline void mdp4_dtv_pipe_queue(int cndx, struct mdp4_overlay_pipe *pipe)
 static inline int mdp4_dtv_pipe_commit(int cndx, int wait)
 {
 	return 0;
+}
+static inline void mdp4_dtv_free_base_pipe(struct msm_fb_data_type *mfd)
+{
+	/* empty */
 }
 #endif /* CONFIG_FB_MSM_DTV */
 
@@ -710,7 +715,6 @@ void mdp4_dsi_video_base_swap(int cndx, struct mdp4_overlay_pipe *pipe);
 void mdp4_dsi_video_free_base_pipe(struct msm_fb_data_type *mfd);
 void mdp4_dsi_cmd_free_base_pipe(struct msm_fb_data_type *mfd);
 void mdp4_lcdc_free_base_pipe(struct msm_fb_data_type *mfd);
-void mdp4_dtv_free_base_pipe(struct msm_fb_data_type *mfd);
 
 #ifdef CONFIG_FB_MSM_MDP40
 static inline void mdp3_dsi_cmd_dma_busy_wait(struct msm_fb_data_type *mfd)
