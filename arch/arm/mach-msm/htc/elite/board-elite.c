@@ -3820,15 +3820,6 @@ static void __init register_i2c_devices(void)
 	u8 mach_mask = 0;
 	int i, rc;
 
-#ifdef CONFIG_MSM_CAMERA
-	struct i2c_registry elite_camera_i2c_devices = {
-		I2C_SURF | I2C_FFA | I2C_FLUID | I2C_RUMI,
-		MSM_8960_GSBI4_QUP_I2C_BUS_ID,
-		elite_camera_board_info.board_info,
-		elite_camera_board_info.num_i2c_board_info,
-	};
-#endif
-
 	mach_mask = I2C_SURF;
 
 	/* Run the array and install devices as appropriate */
@@ -3851,13 +3842,7 @@ static void __init register_i2c_devices(void)
 				msm_i2c_gsbi3_info[rc].platform_data = &syn_ts_3k_2p5D_3030_data;
 		}
 	}
-#ifdef CONFIG_MSM_CAMERA
-	/* HTC_START_Simon.Ti_Liu_20120711_IMPLEMENT_MCLK_SWITCH */
-	if (elite_camera_i2c_devices.machs & mach_mask)
-		i2c_register_board_info(elite_camera_i2c_devices.bus,
-				elite_camera_i2c_devices.info,
-				elite_camera_i2c_devices.len);
-#endif
+
 	printk(KERN_DEBUG "%s: gy_type = %d\n", __func__, gy_type);
 
 	if (gy_type == 2) {
