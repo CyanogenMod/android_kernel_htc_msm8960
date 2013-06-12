@@ -3587,15 +3587,6 @@ static void __init register_i2c_devices(void)
 	u8 mach_mask = 0;
 	int i, rc;
 
-#ifdef CONFIG_MSM_CAMERA
-	struct i2c_registry jet_camera_i2c_devices = {
-		I2C_SURF | I2C_FFA | I2C_FLUID | I2C_RUMI,
-		MSM_8960_GSBI4_QUP_I2C_BUS_ID,
-		jet_camera_board_info.board_info,
-		jet_camera_board_info.num_i2c_board_info,
-	};
-#endif
-
 	mach_mask = I2C_SURF;
 
 	/* Run the array and install devices as appropriate */
@@ -3622,13 +3613,7 @@ static void __init register_i2c_devices(void)
 				syn_ts_3k_data[i].mfg_flag = 1;
 		}
 	}
-#ifdef CONFIG_MSM_CAMERA
-	/* HTC_START_Simon.Ti_Liu_20120711_IMPLEMENT_MCLK_SWITCH */
-	if (jet_camera_i2c_devices.machs & mach_mask)
-		i2c_register_board_info(jet_camera_i2c_devices.bus,
-				jet_camera_i2c_devices.info,
-				jet_camera_i2c_devices.len);
-#endif
+
 	printk(KERN_DEBUG "%s: gy_type = %d\n", __func__, gy_type);
 
 	if (gy_type == 2) {
