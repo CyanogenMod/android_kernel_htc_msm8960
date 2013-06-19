@@ -159,7 +159,7 @@ static struct gpiomux_setting wcnss_5wire_active_cfg = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
-struct msm_gpiomux_config wcnss_5wire_interface[] = {
+static struct msm_gpiomux_config wcnss_5wire_interface[] = {
 	{
 		.gpio = FIGHTER_WCN_CMD_DATA2,
 		.settings = {
