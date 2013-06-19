@@ -449,23 +449,32 @@ end:
 
 static int kgsl_resume_device(struct kgsl_device *device)
 {
-	int status = -EINVAL;
-
 	if (!device)
 		return -EINVAL;
 
 	KGSL_PWR_WARN(device, "resume start\n");
 	mutex_lock(&device->mutex);
 	if (device->state == KGSL_STATE_SUSPEND) {
-		kgsl_pwrctrl_set_state(device, KGSL_STATE_SLUMBER);
-		status = 0;
 		complete_all(&device->hwaccess_gate);
+	} else {
+		/*
+		 * This is an error situation,so wait for the device
+		 * to idle and then put the device to SLUMBER state.
+		 * This will put the device to the right state when
+		 * we resume.
+		 */
+		device->ftbl->idle(device);
+		kgsl_pwrctrl_request_state(device, KGSL_STATE_SLUMBER);
+		kgsl_pwrctrl_sleep(device);
+		KGSL_PWR_ERR(device,
+			"resume invoked without a suspend\n");
 	}
+	kgsl_pwrctrl_set_state(device, KGSL_STATE_SLUMBER);
 	kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
 
 	mutex_unlock(&device->mutex);
 	KGSL_PWR_WARN(device, "resume end\n");
-	return status;
+	return 0;
 }
 
 static int kgsl_suspend(struct device *dev)
@@ -615,11 +624,17 @@ kgsl_put_process_private(struct kgsl_device *device,
 
 	list_del(&private->list);
 
-	for (node = rb_first(&private->mem_rb); node; ) {
+	while (1) {
+		spin_lock(&private->mem_lock);
+		node = rb_first(&private->mem_rb);
+		if (!node) {
+			spin_unlock(&private->mem_lock);
+			break;
+		}
 		entry = rb_entry(node, struct kgsl_mem_entry, node);
-		node = rb_next(&entry->node);
 
 		rb_erase(&entry->node, &private->mem_rb);
+		spin_unlock(&private->mem_lock);
 		kgsl_mem_entry_detach_process(entry);
 	}
 	kgsl_mmu_putpagetable(private->pagetable);
