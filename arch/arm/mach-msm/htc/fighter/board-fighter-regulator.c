@@ -251,7 +251,6 @@ VREG_CONSUMERS(EXT_3P3V) = {
 	REGULATOR_SUPPLY("ext_3p3v",		NULL),
 	REGULATOR_SUPPLY("vdd_ana",		"3-005b"),
 	REGULATOR_SUPPLY("vdd_lvds_3p3v",	"mipi_dsi.1"),
-	REGULATOR_SUPPLY("mhl_usb_hs_switch",	"msm_otg"),
 };
 
 #define PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, _modes, _ops, \
@@ -594,6 +593,14 @@ struct platform_device msm8960_device_ext_l2_vreg __devinitdata = {
 	.id	= 91,
 	.dev	= {
 		.platform_data = &msm_gpio_regulator_pdata[GPIO_VREG_ID_EXT_L2],
+	},
+};
+
+struct platform_device msm8960_device_ext_3p3v_vreg __devinitdata = {
+	.name	= GPIO_REGULATOR_DEV_NAME,
+	.id	= PM8921_GPIO_PM_TO_SYS(17),
+	.dev	= {
+		.platform_data = &msm_gpio_regulator_pdata[GPIO_VREG_ID_EXT_3P3V],
 	},
 };
 

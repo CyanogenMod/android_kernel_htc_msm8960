@@ -13,6 +13,7 @@
 #ifndef __ARCH_ARM_MACH_MSM_BOARD_FIGHTER_H
 #define __ARCH_ARM_MACH_MSM_BOARD_FIGHTER_H
 
+#include <linux/regulator/msm-gpio-regulator.h>
 #include <mach/irqs.h>
 #include <mach/rpm-regulator.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
@@ -24,7 +25,6 @@
 #ifdef CONFIG_MSM_CACHE_DUMP
 #include <mach/msm_cache_dump.h>
 #endif
-
 
 /* Macros assume PMIC GPIOs and MPPs start at 1 */
 #define PM8921_GPIO_BASE		NR_GPIO_IRQS
@@ -40,6 +40,9 @@
 		{ {-1,  0, 0}, { 0,  0, -1}, {0, 1,  0} }  \
 					}
 
+extern struct gpio_regulator_platform_data
+	msm_gpio_regulator_pdata[] __devinitdata;
+
 extern struct regulator_init_data msm_saw_regulator_pdata_s5;
 extern struct regulator_init_data msm_saw_regulator_pdata_s6;
 
@@ -47,6 +50,7 @@ extern struct rpm_regulator_platform_data fighter_rpm_regulator_pdata __devinitd
 
 extern struct platform_device msm8960_device_ext_5v_vreg __devinitdata;
 extern struct platform_device msm8960_device_ext_l2_vreg __devinitdata;
+extern struct platform_device msm8960_device_ext_3p3v_vreg __devinitdata;
 extern struct pm8xxx_regulator_platform_data
 	msm_pm8921_regulator_pdata[] __devinitdata;
 
