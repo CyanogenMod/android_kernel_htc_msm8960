@@ -135,6 +135,7 @@ config ARCH_MSM8X60
 	select MSM_PM8X60 if PM
 	select MSM_RUN_QUEUE_STATS
 	select ARM_HAS_SG_CHAIN
+	select ARM_ERRATA_720789
 
 config ARCH_MSM8960
 	bool "MSM8960"
