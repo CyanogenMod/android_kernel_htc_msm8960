@@ -3058,182 +3058,166 @@ static struct dsi_cmd_desc auo_panel_video_mode_cmds_c3_1[] = {
 
 static int jet_send_display_cmds(struct dsi_cmd_desc *cmd, int cnt)
 {
-  int ret = 0;
+	int ret = 0;
 #ifdef JET_USE_CMDLISTS
-  struct dcs_cmd_req cmdreq;
+	struct dcs_cmd_req cmdreq;
 
-  cmdreq.cmds = cmd;
-  cmdreq.cmds_cnt = cnt;
-  cmdreq.flags = CMD_REQ_COMMIT;
-  cmdreq.rlen = 0;
-  cmdreq.cb = NULL;
-  
-  ret = mipi_dsi_cmdlist_put(&cmdreq);
+	cmdreq.cmds = cmd;
+	cmdreq.cmds_cnt = cnt;
+	cmdreq.flags = CMD_REQ_COMMIT;
+	cmdreq.rlen = 0;
+	cmdreq.cb = NULL;
+
+	ret = mipi_dsi_cmdlist_put(&cmdreq);
 #else
 
-  MIPI_OUTP(MIPI_DSI_BASE + 0x38, 0x10000000);
-  ret = mipi_dsi_cmds_tx(&jet_tx_buf, cmd, cnt);
-  MIPI_OUTP(MIPI_DSI_BASE + 0x38, 0x14000000);
+	MIPI_OUTP(MIPI_DSI_BASE + 0x38, 0x10000000);
+	ret = mipi_dsi_cmds_tx(&jet_tx_buf, cmd, cnt);
+	MIPI_OUTP(MIPI_DSI_BASE + 0x38, 0x14000000);
 #endif
-  if (ret < 0)
-    printk(KERN_ERR "[DISP] %s failed (%d)\n", __func__, ret);
-  return ret;
+	if (ret < 0)
+		printk(KERN_ERR "[DISP] %s failed (%d)\n", __func__, ret);
+	return ret;
 }
 
 static void mipi_jet_per_panel_fcts_init(void)
 {
-  /* Common parts */
-  jet_display_on_cmds = display_on_cmds;
-  jet_display_on_cmds_count = ARRAY_SIZE(display_on_cmds);
+	/* Common parts */
+	jet_display_on_cmds = display_on_cmds;
+	jet_display_on_cmds_count = ARRAY_SIZE(display_on_cmds);
 
-  jet_cmd_backlight_cmds = cmd_bkl_cmds;
-  jet_cmd_backlight_cmds_count = ARRAY_SIZE(cmd_bkl_cmds);
+	jet_cmd_backlight_cmds = cmd_bkl_cmds;
+	jet_cmd_backlight_cmds_count = ARRAY_SIZE(cmd_bkl_cmds);
 
-  jet_display_off_cmds	= sony_display_off_cmds;
-  jet_display_off_cmds_count = ARRAY_SIZE(sony_display_off_cmds);
+	jet_display_off_cmds	= sony_display_off_cmds;
+	jet_display_off_cmds_count = ARRAY_SIZE(sony_display_off_cmds);
 
-  if (panel_type == PANEL_ID_FIGHTER_LG_NT)
-    {
-      jet_display_off_cmds = novatek_display_off_cmds;
-      jet_display_off_cmds_count = ARRAY_SIZE(novatek_display_off_cmds);
+	if (panel_type == PANEL_ID_FIGHTER_LG_NT) {
+		jet_display_off_cmds = novatek_display_off_cmds;
+		jet_display_off_cmds_count = ARRAY_SIZE(novatek_display_off_cmds);
 
-      jet_command_on_cmds = lg_novatek_cmd_on_cmds;
-      jet_command_on_cmds_count = ARRAY_SIZE(lg_novatek_cmd_on_cmds);
-    }
-  if (panel_type == PANEL_ID_JET_SONY_NT)
-    {
-      jet_video_on_cmds = sony_c1_video_on_cmds;
-      jet_video_on_cmds_count = ARRAY_SIZE(sony_c1_video_on_cmds);
+		jet_command_on_cmds = lg_novatek_cmd_on_cmds;
+		jet_command_on_cmds_count = ARRAY_SIZE(lg_novatek_cmd_on_cmds);
+	}
+	if (panel_type == PANEL_ID_JET_SONY_NT) {
+		jet_video_on_cmds = sony_c1_video_on_cmds;
+		jet_video_on_cmds_count = ARRAY_SIZE(sony_c1_video_on_cmds);
 
-      jet_command_on_cmds = sony_c1_video_on_cmds;
-      jet_command_on_cmds_count = ARRAY_SIZE(sony_c1_video_on_cmds);
-    }
-  else if (panel_type == PANEL_ID_JET_SONY_NT_C1) 
-    {
-      jet_video_on_cmds = sony_c1_video_on_cmds;
-      jet_video_on_cmds_count = ARRAY_SIZE(sony_c1_video_on_cmds);
+		jet_command_on_cmds = sony_c1_video_on_cmds;
+		jet_command_on_cmds_count = ARRAY_SIZE(sony_c1_video_on_cmds);
+	}
+	else if (panel_type == PANEL_ID_JET_SONY_NT_C1) {
+		jet_video_on_cmds = sony_c1_video_on_cmds;
+		jet_video_on_cmds_count = ARRAY_SIZE(sony_c1_video_on_cmds);
 
-      jet_command_on_cmds = sony_c1_video_on_cmds;
-      jet_command_on_cmds_count = ARRAY_SIZE(sony_c1_video_on_cmds);
-    }
-  else if (panel_type == PANEL_ID_JET_SONY_NT_C2) 
-    {
-      jet_video_on_cmds = sony_panel_video_mode_cmds_c2;
-      jet_video_on_cmds_count = ARRAY_SIZE(sony_panel_video_mode_cmds_c2);
+		jet_command_on_cmds = sony_c1_video_on_cmds;
+		jet_command_on_cmds_count = ARRAY_SIZE(sony_c1_video_on_cmds);
+	}
+	else if (panel_type == PANEL_ID_JET_SONY_NT_C2) {
+		jet_video_on_cmds = sony_panel_video_mode_cmds_c2;
+		jet_video_on_cmds_count = ARRAY_SIZE(sony_panel_video_mode_cmds_c2);
 
-      jet_command_on_cmds = sony_panel_video_mode_cmds_c2;
-      jet_command_on_cmds_count = ARRAY_SIZE(sony_panel_video_mode_cmds_c2);
-    }
-  else if (panel_type == PANEL_ID_JET_AUO_NT) 
-    {
-      jet_video_on_cmds = auo_panel_video_mode_cmds;
-      jet_video_on_cmds_count = ARRAY_SIZE(auo_panel_video_mode_cmds);
-      
-      jet_command_on_cmds = auo_panel_video_mode_cmds;
-      jet_command_on_cmds_count = ARRAY_SIZE(auo_panel_video_mode_cmds);
-    }
-  else if (panel_type == PANEL_ID_JET_AUO_NT_C2) 
-    {
-      jet_video_on_cmds = auo_panel_video_mode_cmds_c2;
-      jet_video_on_cmds_count = ARRAY_SIZE(auo_panel_video_mode_cmds_c2);
-      
-      jet_command_on_cmds = auo_panel_video_mode_cmds_c2;
-      jet_command_on_cmds_count = ARRAY_SIZE(auo_panel_video_mode_cmds_c2);
-    }
-  else if (panel_type == PANEL_ID_JET_AUO_NT_C3) 
-    {
-      jet_video_on_cmds = auo_panel_video_mode_cmds_c3;
-      jet_video_on_cmds_count = ARRAY_SIZE(auo_panel_video_mode_cmds_c3);
+		jet_command_on_cmds = sony_panel_video_mode_cmds_c2;
+		jet_command_on_cmds_count = ARRAY_SIZE(sony_panel_video_mode_cmds_c2);
+	}
+	else if (panel_type == PANEL_ID_JET_AUO_NT) {
+		jet_video_on_cmds = auo_panel_video_mode_cmds;
+		jet_video_on_cmds_count = ARRAY_SIZE(auo_panel_video_mode_cmds);
 
-      jet_command_on_cmds = auo_panel_video_mode_cmds_c3;
-      jet_command_on_cmds_count = ARRAY_SIZE(auo_panel_video_mode_cmds_c3);
-    }
-  else if (panel_type == PANEL_ID_JET_AUO_NT_C3_1) 
-    {
-      jet_video_on_cmds = auo_panel_video_mode_cmds_c3_1;
-      jet_video_on_cmds_count = ARRAY_SIZE(auo_panel_video_mode_cmds_c3_1);
-      
-      jet_command_on_cmds = auo_panel_video_mode_cmds_c3_1;
-      jet_command_on_cmds_count = ARRAY_SIZE(auo_panel_video_mode_cmds_c3_1);
-  }
+		jet_command_on_cmds = auo_panel_video_mode_cmds;
+		jet_command_on_cmds_count = ARRAY_SIZE(auo_panel_video_mode_cmds);
+	}
+	else if (panel_type == PANEL_ID_JET_AUO_NT_C2) {
+		jet_video_on_cmds = auo_panel_video_mode_cmds_c2;
+		jet_video_on_cmds_count = ARRAY_SIZE(auo_panel_video_mode_cmds_c2);
+
+		jet_command_on_cmds = auo_panel_video_mode_cmds_c2;
+		jet_command_on_cmds_count = ARRAY_SIZE(auo_panel_video_mode_cmds_c2);
+	}
+	else if (panel_type == PANEL_ID_JET_AUO_NT_C3) {
+		jet_video_on_cmds = auo_panel_video_mode_cmds_c3;
+		jet_video_on_cmds_count = ARRAY_SIZE(auo_panel_video_mode_cmds_c3);
+
+		jet_command_on_cmds = auo_panel_video_mode_cmds_c3;
+		jet_command_on_cmds_count = ARRAY_SIZE(auo_panel_video_mode_cmds_c3);
+	}
+	else if (panel_type == PANEL_ID_JET_AUO_NT_C3_1) {
+		jet_video_on_cmds = auo_panel_video_mode_cmds_c3_1;
+		jet_video_on_cmds_count = ARRAY_SIZE(auo_panel_video_mode_cmds_c3_1);
+
+		jet_command_on_cmds = auo_panel_video_mode_cmds_c3_1;
+		jet_command_on_cmds_count = ARRAY_SIZE(auo_panel_video_mode_cmds_c3_1);
+	}
 }
 
 static int mipi_jet_lcd_on(struct platform_device *pdev)
 {
-  struct msm_fb_data_type *mfd;
-  struct mipi_panel_info *mipi;
-  
-  mfd = platform_get_drvdata(pdev);
-  if (!mfd)
-    return -ENODEV;
-  if (mfd->key != MFD_KEY)
-    return -EINVAL;
+	struct msm_fb_data_type *mfd;
+	struct mipi_panel_info *mipi;
 
-  mipi  = &mfd->panel_info.mipi;
+	mfd = platform_get_drvdata(pdev);
+	if (!mfd)
+		return -ENODEV;
+	if (mfd->key != MFD_KEY)
+		return -EINVAL;
 
-  if (!mipi_lcd_on)
-    {
-      jet_send_display_cmds(nvt_LowTemp_wrkr_enter,
-                       ARRAY_SIZE(nvt_LowTemp_wrkr_enter));
-      
-      jet_send_display_cmds(nvt_LowTemp_wrkr_exit,
-                       ARRAY_SIZE(nvt_LowTemp_wrkr_exit));
-      
-      gpio_set_value(JET_GPIO_LCD_RSTz, 0);
-      msleep(1);
-      gpio_set_value(JET_GPIO_LCD_RSTz, 1);
-      msleep(20);
-    }
-  
-  if (!mipi_lcd_on)
-    {
-      if (panel_type != PANEL_ID_NONE) 
-        {
-          if (mipi->mode == DSI_VIDEO_MODE) 
-            {
-              jet_send_display_cmds(jet_video_on_cmds, jet_video_on_cmds_count);
-              printk(KERN_INFO "%s: panel_type video mode (%d)", __func__, panel_type);
-            } 
-          else
-            {
-              jet_send_display_cmds(jet_command_on_cmds, jet_command_on_cmds_count);
-              printk(KERN_INFO "%s: panel_type command mode (%d)", __func__, panel_type);
-            }
-          jet_send_display_cmds(jet_display_on_cmds, jet_display_on_cmds_count);
-        }
-      else
-        printk(KERN_INFO "%s: panel_type not supported!(%d)", __func__, panel_type);
-    }
-  mipi_lcd_on = 1;
+	mipi  = &mfd->panel_info.mipi;
 
-  return 0;
+	if (!mipi_lcd_on) {
+		jet_send_display_cmds(nvt_LowTemp_wrkr_enter,
+				ARRAY_SIZE(nvt_LowTemp_wrkr_enter));
+
+		jet_send_display_cmds(nvt_LowTemp_wrkr_exit,
+				ARRAY_SIZE(nvt_LowTemp_wrkr_exit));
+
+		gpio_set_value(JET_GPIO_LCD_RSTz, 0);
+		msleep(1);
+		gpio_set_value(JET_GPIO_LCD_RSTz, 1);
+		msleep(20);
+	}
+
+	if (!mipi_lcd_on) {
+		if (panel_type != PANEL_ID_NONE) {
+			if (mipi->mode == DSI_VIDEO_MODE) {
+				jet_send_display_cmds(jet_video_on_cmds, jet_video_on_cmds_count);
+				printk(KERN_INFO "%s: panel_type video mode (%d)", __func__, panel_type);
+			} else {
+				jet_send_display_cmds(jet_command_on_cmds, jet_command_on_cmds_count);
+				printk(KERN_INFO "%s: panel_type command mode (%d)", __func__, panel_type);
+			}
+			jet_send_display_cmds(jet_display_on_cmds, jet_display_on_cmds_count);
+		} else
+			printk(KERN_INFO "%s: panel_type not supported!(%d)", __func__, panel_type);
+	}
+	mipi_lcd_on = 1;
+
+	return 0;
 }
 
 static int mipi_jet_lcd_off(struct platform_device *pdev)
 {
-  struct msm_fb_data_type *mfd;
+	struct msm_fb_data_type *mfd;
 
-  mfd = platform_get_drvdata(pdev);
+	mfd = platform_get_drvdata(pdev);
 
-  if (!mfd)
-    return -ENODEV;
-  if (mfd->key != MFD_KEY)
-    return -EINVAL;
+	if (!mfd)
+		return -ENODEV;
+	if (mfd->key != MFD_KEY)
+		return -EINVAL;
 
-  if (!mipi_lcd_on)
-    return 0;
+	if (!mipi_lcd_on)
+		return 0;
 
-  if (panel_type != PANEL_ID_NONE) 
-    {
-      printk(KERN_INFO "%s\n", __func__);
-      jet_send_display_cmds(jet_display_off_cmds,
-                            jet_display_off_cmds_count);
-    }
+	if (panel_type != PANEL_ID_NONE) {
+		printk(KERN_INFO "%s\n", __func__);
+		jet_send_display_cmds(jet_display_off_cmds,
+				jet_display_off_cmds_count);
+	}
 
-  bl_level_prevset = 0;
-  mipi_lcd_on = 0;
+	bl_level_prevset = 0;
+	mipi_lcd_on = 0;
 
-  return 0;
+	return 0;
 }
 
 static unsigned char jet_shrink_pwm(int val)
@@ -3243,15 +3227,15 @@ static unsigned char jet_shrink_pwm(int val)
 	if (val <= 0) {
 		shrink_br = 0;
 	} else if (val > 0 && (val < BRI_SETTING_MIN)) {
-			shrink_br = PWM_MIN;
+		shrink_br = PWM_MIN;
 	} else if ((val >= BRI_SETTING_MIN) && (val <= BRI_SETTING_DEF)) {
-			shrink_br = (val - BRI_SETTING_MIN) * (PWM_DEFAULT - PWM_MIN) /
-		(BRI_SETTING_DEF - BRI_SETTING_MIN) + PWM_MIN;
+		shrink_br = (val - BRI_SETTING_MIN) * (PWM_DEFAULT - PWM_MIN) /
+			(BRI_SETTING_DEF - BRI_SETTING_MIN) + PWM_MIN;
 	} else if (val > BRI_SETTING_DEF && val <= BRI_SETTING_MAX) {
-			shrink_br = (val - BRI_SETTING_DEF) * (PWM_MAX - PWM_DEFAULT) /
-		(BRI_SETTING_MAX - BRI_SETTING_DEF) + PWM_DEFAULT;
+		shrink_br = (val - BRI_SETTING_DEF) * (PWM_MAX - PWM_DEFAULT) /
+			(BRI_SETTING_MAX - BRI_SETTING_DEF) + PWM_DEFAULT;
 	} else if (val > BRI_SETTING_MAX)
-			shrink_br = PWM_MAX;
+		shrink_br = PWM_MAX;
 
 	printk(KERN_INFO "brightness orig=%d, transformed=%d\n", val, shrink_br);
 
@@ -3260,128 +3244,127 @@ static unsigned char jet_shrink_pwm(int val)
 
 inline void mipi_dsi_set_backlight(struct msm_fb_data_type *mfd, int level)
 {
-  printk(KERN_ERR "[DISP] %s level=%d\n", __func__, level);
+	printk(KERN_ERR "[DISP] %s level=%d\n", __func__, level);
 
-  led_pwm1[1] = jet_shrink_pwm(mfd->bl_level);
+	led_pwm1[1] = jet_shrink_pwm(mfd->bl_level);
 
-  if (mfd->bl_level == 0)
-    jet_send_display_cmds(disable_dim, ARRAY_SIZE(disable_dim));
+	if (mfd->bl_level == 0)
+		jet_send_display_cmds(disable_dim, ARRAY_SIZE(disable_dim));
 
-  jet_send_display_cmds(jet_cmd_backlight_cmds, jet_cmd_backlight_cmds_count);
+	jet_send_display_cmds(jet_cmd_backlight_cmds, jet_cmd_backlight_cmds_count);
 
-  bl_level_prevset = mfd->bl_level;
+	bl_level_prevset = mfd->bl_level;
 
-  printk(KERN_DEBUG "%s+ bl_level=%d\n", __func__, mfd->bl_level);
-  return;
+	printk(KERN_DEBUG "%s+ bl_level=%d\n", __func__, mfd->bl_level);
+	return;
 }
 
 static void mipi_jet_set_backlight(struct msm_fb_data_type *mfd)
 {
-  mipi_dsi_set_backlight(mfd, mfd->bl_level);
+	mipi_dsi_set_backlight(mfd, mfd->bl_level);
 }
 
 static int __devinit mipi_jet_lcd_probe(struct platform_device *pdev)
 {
-  mipi_jet_per_panel_fcts_init();
+	mipi_jet_per_panel_fcts_init();
 
-  if (pdev->id == 0) {
-    mipi_jet_pdata = pdev->dev.platform_data;
-    return 0;
-  }
+	if (pdev->id == 0) {
+		mipi_jet_pdata = pdev->dev.platform_data;
+		return 0;
+	}
 
-  msm_fb_add_device(pdev);
-  return 0;
+	msm_fb_add_device(pdev);
+	return 0;
 }
 
-// Specific crappy functions here
+/* HTC specific functions */
 #ifdef CONFIG_FB_MSM_CABC
 void mipi_jet_enable_ic_cabc(int cabc, bool dim_on, struct msm_fb_data_type *mfd)
 {
-  if (dim_on)
-    dim_cmds = enable_dim;
-  if (cabc == 1)
-    cabc_cmds = cabc_on_ui;
-  else if (cabc == 2)
-    cabc_cmds = cabc_on_still;
-  else if (cabc == 3)
-    cabc_cmds = cabc_on_moving;
+	if (dim_on)
+		dim_cmds = enable_dim;
+	if (cabc == 1)
+		cabc_cmds = cabc_on_ui;
+	else if (cabc == 2)
+		cabc_cmds = cabc_on_still;
+	else if (cabc == 3)
+		cabc_cmds = cabc_on_moving;
 
-  jet_send_display_cmds(dim_cmds, ARRAY_SIZE(dim_cmds));
+	jet_send_display_cmds(dim_cmds, ARRAY_SIZE(dim_cmds));
 
-  printk(KERN_INFO "%s: enable dimming and cabc\n", __func__);
+	printk(KERN_INFO "%s: enable dimming and cabc\n", __func__);
 }
 #endif
-// !Specifc crappy functions
 
 static struct platform_driver this_driver = {
-  .probe  = mipi_jet_lcd_probe,
-  .driver = {
-    .name   = "mipi_jet",
-  },
+	.probe  = mipi_jet_lcd_probe,
+	.driver = {
+		.name   = "mipi_jet",
+	},
 };
 
 static struct msm_fb_panel_data jet_panel_data = {
-  .on           = mipi_jet_lcd_on,
-  .off          = mipi_jet_lcd_off,
-  .set_backlight = mipi_jet_set_backlight,
+	.on           = mipi_jet_lcd_on,
+	.off          = mipi_jet_lcd_off,
+	.set_backlight = mipi_jet_set_backlight,
 #ifdef CONFIG_FB_MSM_CABC
-  .enable_cabc = mipi_jet_enable_ic_cabc,
+	.enable_cabc = mipi_jet_enable_ic_cabc,
 #endif
 };
 
 static int ch_used[3];
 
 int mipi_jet_device_register(struct msm_panel_info *pinfo,
-                               u32 channel, u32 panel)
+		u32 channel, u32 panel)
 {
-  struct platform_device *pdev = NULL;
-  int ret;
+	struct platform_device *pdev = NULL;
+	int ret;
 
-  if ((channel >= 3) || ch_used[channel])
-    return -ENODEV;
+	if ((channel >= 3) || ch_used[channel])
+		return -ENODEV;
 
-  ch_used[channel] = TRUE;
+	ch_used[channel] = TRUE;
 
-  ret = mipi_jet_lcd_init();
-  if (ret) {
-    pr_err("mipi_jet_lcd_init() failed with ret %u\n", ret);
-    return ret;
-  }
+	ret = mipi_jet_lcd_init();
+	if (ret) {
+		pr_err("mipi_jet_lcd_init() failed with ret %u\n", ret);
+		return ret;
+	}
 
-  pdev = platform_device_alloc("mipi_jet", (panel << 8)|channel);
-  if (!pdev)
-    return -ENOMEM;
+	pdev = platform_device_alloc("mipi_jet", (panel << 8)|channel);
+	if (!pdev)
+		return -ENOMEM;
 
-  jet_panel_data.panel_info = *pinfo;
+	jet_panel_data.panel_info = *pinfo;
 
-  ret = platform_device_add_data(pdev, &jet_panel_data,
-                                 sizeof(jet_panel_data));
-  if (ret) {
-    printk(KERN_ERR "%s: platform_device_add_data failed!\n", __func__);
-    goto err_device_put;
-  }
+	ret = platform_device_add_data(pdev, &jet_panel_data,
+			sizeof(jet_panel_data));
+	if (ret) {
+		printk(KERN_ERR "%s: platform_device_add_data failed!\n", __func__);
+		goto err_device_put;
+	}
 
-  ret = platform_device_add(pdev);
-  if (ret) {
-    printk(KERN_ERR "%s: platform_device_register failed!\n", __func__);
-    goto err_device_put;
-  }
+	ret = platform_device_add(pdev);
+	if (ret) {
+		printk(KERN_ERR "%s: platform_device_register failed!\n", __func__);
+		goto err_device_put;
+	}
 
-  return 0;
+	return 0;
 
- err_device_put:
-  platform_device_put(pdev);
-  return ret;
+err_device_put:
+	platform_device_put(pdev);
+	return ret;
 }
 
 static int mipi_jet_lcd_init(void)
 {
-  printk(KERN_ERR  "[DISP] %s +++\n", __func__);
+	printk(KERN_ERR  "[DISP] %s +++\n", __func__);
 #ifndef JET_USE_CMDLISTS
-  mipi_dsi_buf_alloc(&jet_tx_buf, DSI_BUF_SIZE);
-  mipi_dsi_buf_alloc(&jet_rx_buf, DSI_BUF_SIZE);
+	mipi_dsi_buf_alloc(&jet_tx_buf, DSI_BUF_SIZE);
+	mipi_dsi_buf_alloc(&jet_rx_buf, DSI_BUF_SIZE);
 #endif
 
-  printk(KERN_ERR  "[DISP] %s ---\n", __func__);
-  return platform_driver_register(&this_driver);
+	printk(KERN_ERR  "[DISP] %s ---\n", __func__);
+	return platform_driver_register(&this_driver);
 }
