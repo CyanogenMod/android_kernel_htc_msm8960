@@ -37,23 +37,6 @@ static struct mipi_dsi_phy_ctrl mipi_dsi_sharp_panel_idA1B100_phy_ctrl_720p = {
 		0x00, 0x1A, 0x00, 0x00, 0x02, 0x00, 0x20, 0x00, 0x02 },
 };
 
-static struct mipi_dsi_phy_ctrl phy_ctrl_720p_id311100 = {
-	/* DSI_BIT_CLK at 548MHz, 3 lane, RGB888 */
-	/* regulator *//* off=0x0500 */
-	{0x03, 0x0A, 0x04, 0x00, 0x20},
-	/* timing *//* off=0x0440 */
-	{0x96, 0x36, 0x17, 0x00, 0x4A, 0x54, 0x1B,
-		0x39, 0x27, 0x03, 0x04, 0xA0},
-	/* phy ctrl *//* off=0x0470 */
-	{0x5f, 0x00, 0x00, 0x10},
-	/* strength *//* off=0x0480 */
-	{0xFF, 0x00, 0x06, 0x00},
-	/* pll control *//* off=0x0204 */
-	{0x0, 0x11, 0xB1, 0xDA, 0x00, 0x50, 0x48, 0x63,
-		0x40, 0x07, 0x00,
-		0x00, 0x14, 0x03, 0x00, 0x02, 0x00, 0x20, 0x00, 0x01 },
-};
-
 static struct msm_panel_info pinfo;
 
 static int __init mipi_video_sony_hd720p_init(void)
@@ -153,69 +136,6 @@ static int __init mipi_video_sony_hd720p_init(void)
 
 	return ret;
 }
-
-static int __init mipi_video_himax_720p_pt_init(void)
-{
-	int ret;
-
-	printk(KERN_ERR "%s ++\n", __func__);
-	pinfo.xres = 720;
-	pinfo.yres = 1280;
-	pinfo.type = MIPI_VIDEO_PANEL;
-	pinfo.pdest = DISPLAY_1;
-	pinfo.wait_cycle = 0;
-	pinfo.bpp = 24;
-
-	pinfo.lcdc.h_back_porch = 116;
-	pinfo.lcdc.h_front_porch = 62;
-	pinfo.lcdc.h_pulse_width = 24;
-	pinfo.lcdc.v_back_porch = 4;
-	pinfo.lcdc.v_front_porch = 14;
-	pinfo.lcdc.v_pulse_width = 2;
-
-	pinfo.lcdc.border_clr = 0;    /* blk */
-	pinfo.lcdc.underflow_clr = 0xff;      /* blue */
-	pinfo.lcdc.hsync_skew = 0;
-	pinfo.bl_max = 255;
-	pinfo.bl_min = 1;
-	pinfo.fb_num = 2;
-
-	pinfo.clk_rate = 548000000;
-
-	pinfo.mipi.mode = DSI_VIDEO_MODE;
-	pinfo.mipi.pulse_mode_hsa_he = TRUE;
-	pinfo.mipi.hfp_power_stop = TRUE;
-	pinfo.mipi.hbp_power_stop = TRUE;
-	pinfo.mipi.hsa_power_stop = TRUE;
-	pinfo.mipi.eof_bllp_power_stop = TRUE;
-	pinfo.mipi.bllp_power_stop = TRUE;
-	pinfo.mipi.traffic_mode = DSI_NON_BURST_SYNCH_PULSE;
-	pinfo.mipi.dst_format = DSI_VIDEO_DST_FORMAT_RGB888;
-	pinfo.mipi.vc = 0;
-	pinfo.mipi.rgb_swap = DSI_RGB_SWAP_RGB;
-	pinfo.mipi.data_lane0 = TRUE;
-	pinfo.mipi.data_lane1 = TRUE;
-	pinfo.mipi.data_lane2 = TRUE;
-	pinfo.mipi.tx_eot_append = TRUE;
-	pinfo.mipi.t_clk_post = 10;
-	pinfo.mipi.t_clk_pre = 164;
-	pinfo.mipi.stream = 0; /* dma_p */
-	pinfo.mipi.mdp_trigger = DSI_CMD_TRIGGER_SW;
-	pinfo.mipi.dma_trigger = DSI_CMD_TRIGGER_SW;
-	pinfo.mipi.frame_rate = 57;
-	pinfo.mipi.dsi_phy_db = &phy_ctrl_720p_id311100;
-#ifdef CONFIG_FB_MSM_SELF_REFRESH
-	elite_panel_data.self_refresh_switch = NULL; /* CMD or VIDEO mode only */
-#endif
-
-	ret = mipi_elite_device_register(&pinfo, MIPI_DSI_PRIM,
-			MIPI_DSI_PANEL_720P_PT);
-	if (ret)
-		printk(KERN_ERR "%s: failed to register device!\n", __func__);
-
-	return ret;
-}
-
 
 static int __init mipi_video_sharp_nt_720p_pt_init(void)
 {
@@ -323,10 +243,6 @@ static int __init mipi_elite_panel_init(void)
 			|| panel_type == PANEL_ID_ELITE_SONY_NT_C2) {
 		rc = mipi_video_sony_hd720p_init();
 		printk(KERN_INFO "match PANEL_ID_ELITE_SONY_NT panel_type\n");
-		return rc;
-	} else if (panel_type == PANEL_ID_ELITE_SHARP_HX) {
-		rc = mipi_video_himax_720p_pt_init();
-		printk(KERN_INFO "match PANEL_ID_ELITE_SHARP_HX panel_type\n");
 		return rc;
 	} else if (panel_type == PANEL_ID_ELITE_SHARP_NT
 			|| panel_type == PANEL_ID_ELITE_SHARP_NT_C1
