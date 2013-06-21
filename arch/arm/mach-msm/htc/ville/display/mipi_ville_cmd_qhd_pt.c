@@ -41,9 +41,16 @@ static int __init mipi_cmd_ville_qhd_pt_init(void)
 	pinfo.lcdc.v_back_porch = 16;
 	pinfo.lcdc.v_front_porch = 16;
 	pinfo.lcdc.v_pulse_width = 4;
+
 	pinfo.lcd.v_back_porch = 16;
 	pinfo.lcd.v_front_porch = 16;
 	pinfo.lcd.v_pulse_width = 4;
+
+	pinfo.lcd.primary_vsync_init = pinfo.yres;
+	pinfo.lcd.primary_rdptr_irq = 0;
+	pinfo.lcd.primary_start_pos = pinfo.yres +
+		pinfo.lcd.v_back_porch + pinfo.lcd.v_front_porch - 1;
+
 	pinfo.lcdc.border_clr = 0;	/* blk */
 	pinfo.lcdc.underflow_clr = 0xff;	/* blue */
 	pinfo.lcdc.hsync_skew = 0;
