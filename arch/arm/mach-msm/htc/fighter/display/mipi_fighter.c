@@ -1629,13 +1629,13 @@ static int __devinit mipi_fighter_lcd_probe(struct platform_device *pdev)
 			panel_type == PANEL_ID_FIGHTER_SONY_OTM_MP) {
 		display_on_cmds = sony_orise9608a_panel_display_on;
 		display_on_cmds_count = ARRAY_SIZE(sony_orise9608a_panel_display_on);
-		display_off_cmds = novatek_display_off_lg_cmds;
-		display_off_cmds_count = ARRAY_SIZE(novatek_display_off_lg_cmds);
+		display_off_cmds = novatek_display_off_cmds;
+		display_off_cmds_count = ARRAY_SIZE(novatek_display_off_cmds);
 	} else {
 		display_on_cmds = novatek_panel_display_on;
 		display_on_cmds_count = ARRAY_SIZE(novatek_panel_display_on);
-		display_off_cmds = novatek_display_off_cmds;
-		display_off_cmds_count = ARRAY_SIZE(novatek_display_off_cmds);
+		display_off_cmds = novatek_display_off_lg_cmds;
+		display_off_cmds_count = ARRAY_SIZE(novatek_display_off_lg_cmds);
 	}
 
 	if (pdev->id == 0) {
