@@ -229,14 +229,6 @@ VREG_CONSUMERS(LVS6) = {
 VREG_CONSUMERS(LVS7) = {
 	REGULATOR_SUPPLY("8921_lvs7",		NULL),
 };
-VREG_CONSUMERS(USB_OTG) = {
-	REGULATOR_SUPPLY("8921_usb_otg",	NULL),
-	REGULATOR_SUPPLY("vbus_otg",		"msm_otg"),
-};
-VREG_CONSUMERS(HDMI_MVS) = {
-	REGULATOR_SUPPLY("8921_hdmi_mvs",	NULL),
-	REGULATOR_SUPPLY("hdmi_mvs",		"hdmi_msm.0"),
-};
 VREG_CONSUMERS(NCP) = {
 	REGULATOR_SUPPLY("8921_ncp",		NULL),
 };
@@ -311,12 +303,6 @@ VREG_CONSUMERS(EXT_3P3V) = {
 		_supply_regulator, _system_uA, _enable_time, _reg_id)
 
 #define PM8XXX_VS(_id, _name, _always_on, _pull_down, _enable_time, \
-		_supply_regulator, _reg_id) \
-	PM8XXX_VREG_INIT(_id, _name, 0, 0, 0, REGULATOR_CHANGE_STATUS, 0, \
-		_pull_down, _always_on, _supply_regulator, 0, _enable_time, \
-		_reg_id)
-
-#define PM8XXX_VS300(_id, _name, _always_on, _pull_down, _enable_time, \
 		_supply_regulator, _reg_id) \
 	PM8XXX_VREG_INIT(_id, _name, 0, 0, 0, REGULATOR_CHANGE_STATUS, 0, \
 		_pull_down, _always_on, _supply_regulator, 0, _enable_time, \
@@ -503,10 +489,6 @@ msm_pm8921_regulator_pdata[] __devinitdata = {
 		0, 3),
 	PM8XXX_LDO(L29,      "8921_l29", 0, 1, 1800000, 1800000, 200, "8921_s8",
 		0, 4),
-
-	/*	     ID        name      always_on pd en_t supply    reg_ID */
-	PM8XXX_VS300(USB_OTG,  "8921_usb_otg",  0, 0, 0,   "ext_5v", 5),
-	PM8XXX_VS300(HDMI_MVS, "8921_hdmi_mvs", 0, 1, 0,   "ext_5v", 6),
 };
 
 static struct rpm_regulator_init_data

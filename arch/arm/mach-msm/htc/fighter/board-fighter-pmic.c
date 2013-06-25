@@ -109,11 +109,7 @@ static struct pm8xxx_gpio_init pm8921_gpios[] __initdata = {
 
 /* Initial PM8921 MPP configurations */
 static struct pm8xxx_mpp_init pm8921_mpps[] __initdata = {
-	/* External 5V regulator enable; shared by HDMI and USB_OTG switches. */
-	PM8XXX_MPP_INIT(PM8XXX_AMUX_MPP_8, A_INPUT, PM8XXX_MPP_AIN_AMUX_CH8,
-								DOUT_CTRL_LOW),
 };
-
 
 void __init fighter_pm8921_gpio_mpp_init(void)
 {
