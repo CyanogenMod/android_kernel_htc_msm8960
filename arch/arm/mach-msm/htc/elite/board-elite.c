@@ -1432,7 +1432,7 @@ static void headset_device_register(void)
 	platform_device_register(&htc_headset_mgr);
 }
 
-static struct synaptics_i2c_rmi_platform_data syn_ts_3k_2p5D_3030_data[] = { 
+static struct synaptics_i2c_rmi_platform_data syn_ts_3k_2p5D_3030_data[] = { /* Synaptics 2.5D 3030 sensor */
 	{
 		.version = 0x3332,
 		.packrat_number = 1293981,
@@ -1738,7 +1738,7 @@ static struct synaptics_i2c_rmi_platform_data syn_ts_3k_2p5D_3030_data[] = {
 	},
 };
 
-static struct synaptics_i2c_rmi_platform_data syn_ts_3k_2p5D_7070_data[] = { 
+static struct synaptics_i2c_rmi_platform_data syn_ts_3k_2p5D_7070_data[] = { /* Synaptics 2.5D 7070 sensor */
 	{
 		.version = 0x3332,
 		.packrat_number = 1293981,
@@ -1755,7 +1755,7 @@ static struct synaptics_i2c_rmi_platform_data syn_ts_3k_2p5D_7070_data[] = {
 		.psensor_detection = 1,
 		.reduce_report_level = {60, 60, 50, 0, 0},
 		.config = {
-			0x70, 0x70, 0x00, 0x05, 0x00, 0x7F, 0x03, 0x1E,
+			0x30, 0x30, 0x30, 0x33, 0x00, 0x7F, 0x03, 0x1E,
 			0x05, 0x89, 0x00, 0x01, 0x01, 0x00, 0x10, 0x4C,
 			0x04, 0x75, 0x07, 0x02, 0x14, 0x41, 0x05, 0x50,
 			0xAE, 0x27, 0x04, 0x03, 0x01, 0x3C, 0x19, 0x01,
@@ -2044,7 +2044,7 @@ static struct synaptics_i2c_rmi_platform_data syn_ts_3k_2p5D_7070_data[] = {
 	},
 };
 
-static struct synaptics_i2c_rmi_platform_data syn_ts_3k_data[] = { 
+static struct synaptics_i2c_rmi_platform_data syn_ts_3k_data[] = { /* Synaptics sensor */
 	{
 		.version = 0x3332,
 		.packrat_number = 1293981,
