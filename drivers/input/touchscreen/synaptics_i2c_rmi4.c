@@ -103,20 +103,25 @@ static int synaptics_rmi4_i2c_write(struct synaptics_rmi4_data *rmi4_data,
 
 static int synaptics_rmi4_reset_device(struct synaptics_rmi4_data *rmi4_data);
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
+#ifdef CONFIG_PM
+static int synaptics_rmi4_suspend(struct device *dev);
+
+static int synaptics_rmi4_resume(struct device *dev);
+
 static ssize_t synaptics_rmi4_full_pm_cycle_show(struct device *dev,
 		struct device_attribute *attr, char *buf);
 
 static ssize_t synaptics_rmi4_full_pm_cycle_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count);
 
+#if defined(CONFIG_FB)
+static int fb_notifier_callback(struct notifier_block *self,
+				unsigned long event, void *data);
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
 static void synaptics_rmi4_early_suspend(struct early_suspend *h);
 
 static void synaptics_rmi4_late_resume(struct early_suspend *h);
-
-static int synaptics_rmi4_suspend(struct device *dev);
-
-static int synaptics_rmi4_resume(struct device *dev);
+#endif
 #endif
 
 static ssize_t synaptics_rmi4_f01_reset_store(struct device *dev,
@@ -228,8 +233,8 @@ struct synaptics_rmi4_exp_fn {
 };
 
 static struct device_attribute attrs[] = {
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	__ATTR(full_pm_cycle, S_IRUGO | S_IWUSR | S_IWGRP,
+#ifdef CONFIG_PM
+	__ATTR(full_pm_cycle, (S_IRUGO | S_IWUGO),
 			synaptics_rmi4_full_pm_cycle_show,
 			synaptics_rmi4_full_pm_cycle_store),
 #endif
@@ -259,8 +264,7 @@ static struct device_attribute attrs[] = {
 static bool exp_fn_inited;
 static struct mutex exp_fn_list_mutex;
 static struct list_head exp_fn_list;
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
+#ifdef CONFIG_PM
 static ssize_t synaptics_rmi4_full_pm_cycle_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -283,6 +287,36 @@ static ssize_t synaptics_rmi4_full_pm_cycle_store(struct device *dev,
 
 	return count;
 }
+
+#ifdef CONFIG_FB
+static void configure_sleep(struct synaptics_rmi4_data *rmi4_data)
+{
+	int retval = 0;
+
+	rmi4_data->fb_notif.notifier_call = fb_notifier_callback;
+
+	retval = fb_register_client(&rmi4_data->fb_notif);
+	if (retval)
+		dev_err(&rmi4_data->i2c_client->dev,
+			"Unable to register fb_notifier: %d\n", retval);
+	return;
+}
+#elif defined CONFIG_HAS_EARLYSUSPEND
+static void configure_sleep(struct synaptics_rmi4_data *rmi4_data)
+{
+	rmi4_data->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
+	rmi4_data->early_suspend.suspend = synaptics_rmi4_early_suspend;
+	rmi4_data->early_suspend.resume = synaptics_rmi4_late_resume;
+	register_early_suspend(&rmi4_data->early_suspend);
+
+	return;
+}
+#else
+static void configure_sleep(struct synaptics_rmi4_data *rmi4_data)
+{
+	return;
+}
+#endif
 #endif
 
 static ssize_t synaptics_rmi4_f01_reset_store(struct device *dev,
@@ -1081,17 +1115,25 @@ static int synaptics_rmi4_irq_enable(struct synaptics_rmi4_data *rmi4_data,
 		bool enable)
 {
 	int retval = 0;
-	unsigned char intr_status;
+	unsigned char *intr_status;
 
 	if (enable) {
 		if (rmi4_data->irq_enabled)
 			return retval;
 
+		intr_status = kzalloc(rmi4_data->num_of_intr_regs, GFP_KERNEL);
+		if (!intr_status) {
+			dev_err(&rmi4_data->i2c_client->dev,
+					"%s: Failed to alloc memory\n",
+					__func__);
+			return -ENOMEM;
+		}
 		/* Clear interrupts first */
 		retval = synaptics_rmi4_i2c_read(rmi4_data,
 				rmi4_data->f01_data_base_addr + 1,
-				&intr_status,
+				intr_status,
 				rmi4_data->num_of_intr_regs);
+		kfree(intr_status);
 		if (retval < 0)
 			return retval;
 
@@ -1862,7 +1904,7 @@ static int synaptics_rmi4_regulator_configure(struct synaptics_rmi4_data
 				RMI4_VTG_MIN_UV, RMI4_VTG_MAX_UV);
 			if (retval) {
 				dev_err(&rmi4_data->i2c_client->dev,
-					"regulator set_vtg failed retval=%d\n",
+					"regulator set_vtg failed retval =%d\n",
 					retval);
 				goto err_set_vtg_vdd;
 			}
@@ -1885,7 +1927,7 @@ static int synaptics_rmi4_regulator_configure(struct synaptics_rmi4_data
 				RMI4_I2C_VTG_MIN_UV, RMI4_I2C_VTG_MAX_UV);
 			if (retval) {
 				dev_err(&rmi4_data->i2c_client->dev,
-					"reg set i2c vtg failed retval=%d\n",
+					"reg set i2c vtg failed retval =%d\n",
 					retval);
 			goto err_set_vtg_i2c;
 			}
@@ -2218,12 +2260,7 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 		goto err_register_input;
 	}
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	rmi4_data->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
-	rmi4_data->early_suspend.suspend = synaptics_rmi4_early_suspend;
-	rmi4_data->early_suspend.resume = synaptics_rmi4_late_resume;
-	register_early_suspend(&rmi4_data->early_suspend);
-#endif
+	configure_sleep(rmi4_data);
 
 	if (!exp_fn_inited) {
 		mutex_init(&exp_fn_list_mutex);
@@ -2461,7 +2498,27 @@ static void synaptics_rmi4_sensor_wake(struct synaptics_rmi4_data *rmi4_data)
 	return;
 }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
+#if defined(CONFIG_FB)
+static int fb_notifier_callback(struct notifier_block *self,
+				unsigned long event, void *data)
+{
+	struct fb_event *evdata = data;
+	int *blank;
+	struct synaptics_rmi4_data *rmi4_data =
+		container_of(self, struct synaptics_rmi4_data, fb_notif);
+
+	if (evdata && evdata->data && event == FB_EVENT_BLANK &&
+		rmi4_data && rmi4_data->i2c_client) {
+		blank = evdata->data;
+		if (*blank == FB_BLANK_UNBLANK)
+			synaptics_rmi4_resume(&(rmi4_data->input_dev->dev));
+		else if (*blank == FB_BLANK_POWERDOWN)
+			synaptics_rmi4_suspend(&(rmi4_data->input_dev->dev));
+	}
+
+	return 0;
+}
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
  /**
  * synaptics_rmi4_early_suspend()
  *
@@ -2516,6 +2573,75 @@ static void synaptics_rmi4_late_resume(struct early_suspend *h)
 }
 #endif
 
+static int synaptics_rmi4_regulator_lpm(struct synaptics_rmi4_data *rmi4_data,
+						bool on)
+{
+	int retval;
+
+	if (on == false)
+		goto regulator_hpm;
+
+	retval = reg_set_optimum_mode_check(rmi4_data->vdd, RMI4_LPM_LOAD_UA);
+	if (retval < 0) {
+		dev_err(&rmi4_data->i2c_client->dev,
+			"Regulator vcc_ana set_opt failed rc=%d\n",
+			retval);
+		goto fail_regulator_lpm;
+	}
+
+	if (rmi4_data->board->i2c_pull_up) {
+		retval = reg_set_optimum_mode_check(rmi4_data->vcc_i2c,
+			RMI4_I2C_LOAD_UA);
+		if (retval < 0) {
+			dev_err(&rmi4_data->i2c_client->dev,
+				"Regulator vcc_i2c set_opt failed rc=%d\n",
+				retval);
+			goto fail_regulator_lpm;
+		}
+	}
+
+	return 0;
+
+regulator_hpm:
+
+	retval = reg_set_optimum_mode_check(rmi4_data->vdd,
+				RMI4_ACTIVE_LOAD_UA);
+	if (retval < 0) {
+		dev_err(&rmi4_data->i2c_client->dev,
+			"Regulator vcc_ana set_opt failed rc=%d\n",
+			retval);
+		goto fail_regulator_hpm;
+	}
+
+	if (rmi4_data->board->i2c_pull_up) {
+		retval = reg_set_optimum_mode_check(rmi4_data->vcc_i2c,
+			RMI4_I2C_LPM_LOAD_UA);
+		if (retval < 0) {
+			dev_err(&rmi4_data->i2c_client->dev,
+				"Regulator vcc_i2c set_opt failed rc=%d\n",
+				retval);
+			goto fail_regulator_hpm;
+		}
+	}
+
+	return 0;
+
+fail_regulator_lpm:
+	reg_set_optimum_mode_check(rmi4_data->vdd, RMI4_ACTIVE_LOAD_UA);
+	if (rmi4_data->board->i2c_pull_up)
+		reg_set_optimum_mode_check(rmi4_data->vcc_i2c,
+						RMI4_I2C_LOAD_UA);
+
+	return retval;
+
+fail_regulator_hpm:
+	reg_set_optimum_mode_check(rmi4_data->vdd, RMI4_LPM_LOAD_UA);
+	if (rmi4_data->board->i2c_pull_up)
+		reg_set_optimum_mode_check(rmi4_data->vcc_i2c,
+						RMI4_I2C_LPM_LOAD_UA);
+	return retval;
+}
+
  /**
  * synaptics_rmi4_suspend()
  *
@@ -2529,12 +2655,19 @@ static void synaptics_rmi4_late_resume(struct early_suspend *h)
 static int synaptics_rmi4_suspend(struct device *dev)
 {
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
+	int retval;
 
 	if (!rmi4_data->sensor_sleep) {
 		rmi4_data->touch_stopped = true;
 		wake_up(&rmi4_data->wait);
 		synaptics_rmi4_irq_enable(rmi4_data, false);
 		synaptics_rmi4_sensor_sleep(rmi4_data);
+	}
+
+	retval = synaptics_rmi4_regulator_lpm(rmi4_data, true);
+	if (retval < 0) {
+		dev_err(dev, "failed to enter low power mode\n");
+		return retval;
 	}
 
 	return 0;
@@ -2553,6 +2686,13 @@ static int synaptics_rmi4_suspend(struct device *dev)
 static int synaptics_rmi4_resume(struct device *dev)
 {
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
+	int retval;
+
+	retval = synaptics_rmi4_regulator_lpm(rmi4_data, false);
+	if (retval < 0) {
+		dev_err(dev, "failed to enter active power mode\n");
+		return retval;
+	}
 
 	synaptics_rmi4_sensor_wake(rmi4_data);
 	rmi4_data->touch_stopped = false;
@@ -2561,10 +2701,15 @@ static int synaptics_rmi4_resume(struct device *dev)
 	return 0;
 }
 
+#if (!defined(CONFIG_FB) && !defined(CONFIG_HAS_EARLYSUSPEND))
 static const struct dev_pm_ops synaptics_rmi4_dev_pm_ops = {
 	.suspend = synaptics_rmi4_suspend,
 	.resume  = synaptics_rmi4_resume,
 };
+#else
+static const struct dev_pm_ops synaptics_rmi4_dev_pm_ops = {
+};
+#endif
 #endif
 
 static const struct i2c_device_id synaptics_rmi4_id_table[] = {

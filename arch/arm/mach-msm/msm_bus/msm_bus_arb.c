@@ -562,7 +562,7 @@ int msm_bus_scale_client_update_request(uint32_t cl, unsigned index)
 	int pnode, src, curr, ctx;
 	uint64_t req_clk, req_bw, curr_clk, curr_bw;
 	struct msm_bus_client *client = (struct msm_bus_client *)cl;
-	if (IS_ERR(client)) {
+	if (IS_ERR_OR_NULL(client)) {
 		MSM_BUS_ERR("msm_bus_scale_client update req error %d\n",
 				(uint32_t)client);
 		return -ENXIO;
@@ -616,6 +616,15 @@ int msm_bus_scale_client_update_request(uint32_t cl, unsigned index)
 			curr_clk = client->pdata->usecase[curr].vectors[i].ib;
 			curr_bw = client->pdata->usecase[curr].vectors[i].ab;
 			MSM_BUS_DBG("ab: %llu ib: %llu\n", curr_bw, curr_clk);
+		}
+
+		if (index == 0) {
+			/* This check protects the bus driver from clients
+			 * that can leave non-zero requests after
+			 * unregistering.
+			 * */
+			req_clk = 0;
+			req_bw = 0;
 		}
 
 		if (!pdata->active_only) {
