@@ -3220,7 +3220,7 @@ static struct msm_i2c_platform_data msm8960_i2c_qup_gsbi8_pdata = {
 	.clk_freq = 400000,
 	.src_clk_rate = 24000000,
 	.msm_i2c_config_gpio = gsbi_qup_i2c_gpio_config,
-//	.share_uart_flag = 1,	/* check if QUP-I2C and Uart share the gisb */
+	.share_uart_flag = 1,	/* check if QUP-I2C and Uart share the gisb */
 };
 
 static struct msm_i2c_platform_data msm8960_i2c_qup_gsbi12_pdata = {
