@@ -170,6 +170,9 @@ struct qup_i2c_dev {
 	struct mutex                 mlock;
 	void                         *complete;
 	int                          i2c_gpios[ARRAY_SIZE(i2c_rsrcs)];
+#ifdef CONFIG_MACH_HTC
+	int                          share_uart;
+#endif
 };
 
 #ifdef DEBUG
@@ -788,6 +791,11 @@ qup_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 		uint32_t fifo_reg;
 
 		if (dev->gsbi) {
+#ifdef CONFIG_MACH_HTC
+			if (dev->share_uart)
+				writel_relaxed(0x6 << 4, dev->gsbi);
+			else
+#endif
 			writel_relaxed(0x2 << 4, dev->gsbi);
 			/* GSBI memory is not in the same 1K region as other
 			 * QUP registers. mb() here ensures that the GSBI
@@ -1258,6 +1266,9 @@ blsp_core_init:
 	dev->pdata = pdata;
 	dev->clk_ctl = 0;
 	dev->pos = 0;
+#ifdef CONFIG_MACH_HTC
+	dev->share_uart = pdata->share_uart_flag;
+#endif
 
 	/*
 	 * If bootloaders leave a pending interrupt on certain GSBI's,

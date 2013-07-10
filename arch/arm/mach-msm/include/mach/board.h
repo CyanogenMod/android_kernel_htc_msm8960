@@ -573,6 +573,9 @@ struct msm_i2c_platform_data {
 	int use_gsbi_shared_mode;
 	int keep_ahb_clk_on;
 	void (*msm_i2c_config_gpio)(int iface, int config_type);
+#ifdef CONFIG_MACH_HTC
+	int share_uart_flag;
+#endif
 };
 
 struct msm_i2c_ssbi_platform_data {
