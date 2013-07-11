@@ -55,6 +55,7 @@ extern int msm_pm8921_regulator_pdata_len __devinitdata;
 #define GPIO_VREG_ID_EXT_5V		0
 #define GPIO_VREG_ID_EXT_L2		1
 #define GPIO_VREG_ID_EXT_3P3V           2
+#define GPIO_VREG_ID_EXT_OTG_SW		3
 
 #define PMGPIO(x) (x)
 
@@ -319,7 +320,7 @@ extern struct msm_cache_dump_platform_data msm8960_cache_dump_pdata;
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
 int hdmi_enable_5v(int on);
-void hdmi_hpd_feature(int on);
+extern void hdmi_hpd_feature(int enable);
 #endif
 
 #endif

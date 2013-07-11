@@ -230,7 +230,6 @@ VREG_CONSUMERS(LVS7) = {
 };
 VREG_CONSUMERS(USB_OTG) = {
 	REGULATOR_SUPPLY("8921_usb_otg",	NULL),
-	REGULATOR_SUPPLY("vbus_otg",		"msm_otg"),
 };
 VREG_CONSUMERS(HDMI_MVS) = {
 	REGULATOR_SUPPLY("8921_hdmi_mvs",	NULL),
@@ -251,14 +250,13 @@ VREG_CONSUMERS(EXT_3P3V) = {
 	REGULATOR_SUPPLY("ext_3p3v",		NULL),
 	REGULATOR_SUPPLY("vdd_ana",		"3-005b"),
 	REGULATOR_SUPPLY("vdd_lvds_3p3v",	"mipi_dsi.1"),
-	REGULATOR_SUPPLY("mhl_usb_hs_switch",	"msm_otg"),
+	REGULATOR_SUPPLY("mhl_ext_3p3v",	"msm_otg"),
 };
-#if 0
 VREG_CONSUMERS(EXT_OTG_SW) = {
 	REGULATOR_SUPPLY("ext_otg_sw",		NULL),
 	REGULATOR_SUPPLY("vbus_otg",		"msm_otg"),
 };
-#endif
+
 #define PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, _modes, _ops, \
 			 _apply_uV, _pull_down, _always_on, _supply_regulator, \
 			 _system_uA, _enable_time, _reg_id) \
@@ -484,7 +482,26 @@ struct gpio_regulator_platform_data msm_gpio_regulator_pdata[] __devinitdata = {
 	/*        ID      vreg_name gpio_label   gpio                  supply */
 	GPIO_VREG(EXT_5V, "ext_5v", "ext_5v_en", PM8921_MPP_PM_TO_SYS(7), NULL),
 	GPIO_VREG(EXT_L2, "ext_l2", "ext_l2_en", 91, NULL),
-	GPIO_VREG(EXT_3P3V, "ext_3p3v", "ext_3p3v_en", PM8921_GPIO_PM_TO_SYS(17), NULL),
+	GPIO_VREG(EXT_3P3V, "ext_3p3v", "ext_3p3v_en",
+		PM8921_GPIO_PM_TO_SYS(17), NULL),
+	GPIO_VREG(EXT_OTG_SW, "ext_otg_sw", "ext_otg_sw_en",
+		PM8921_GPIO_PM_TO_SYS(42), "8921_usb_otg"),
+};
+
+struct platform_device msm8960_device_ext_5v_vreg __devinitdata = {
+	.name   = GPIO_REGULATOR_DEV_NAME,
+	.id     = PM8921_MPP_PM_TO_SYS(7),
+	.dev    = {
+		.platform_data = &msm_gpio_regulator_pdata[GPIO_VREG_ID_EXT_5V],
+	},
+};
+
+struct platform_device msm8960_device_ext_l2_vreg __devinitdata = {
+	.name   = GPIO_REGULATOR_DEV_NAME,
+	.id     = 91,
+	.dev    = {
+		.platform_data = &msm_gpio_regulator_pdata[GPIO_VREG_ID_EXT_L2],
+	},
 };
 
 /* SAW regulator constraints */
@@ -585,22 +602,6 @@ static struct rpm_regulator_consumer_mapping
 	RPM_REG_MAP(S8,  0, 1, "krait0_s8",  "acpuclk-8960"),
 	RPM_REG_MAP(S8,  0, 2, "krait1_s8",  "acpuclk-8960"),
 	RPM_REG_MAP(S8,  0, 6, "l2_s8",      "acpuclk-8960"),
-};
-
-struct platform_device msm8960_device_ext_5v_vreg __devinitdata = {
-	.name	= GPIO_REGULATOR_DEV_NAME,
-	.id	= PM8921_MPP_PM_TO_SYS(7),
-	.dev	= {
-		.platform_data = &msm_gpio_regulator_pdata[GPIO_VREG_ID_EXT_5V],
-	},
-};
-
-struct platform_device msm8960_device_ext_l2_vreg __devinitdata = {
-	.name	= GPIO_REGULATOR_DEV_NAME,
-	.id	= 91,
-	.dev	= {
-		.platform_data = &msm_gpio_regulator_pdata[GPIO_VREG_ID_EXT_L2],
-	},
 };
 
 struct rpm_regulator_platform_data elite_rpm_regulator_pdata __devinitdata = {

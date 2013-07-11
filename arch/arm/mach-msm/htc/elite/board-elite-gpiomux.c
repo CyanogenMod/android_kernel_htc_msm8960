@@ -263,6 +263,35 @@ static struct msm_gpiomux_config msm8960_mdp_vsync_configs[] __initdata = {
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
 
+static struct gpiomux_setting mhl_i2c_suspend_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting mhl_i2c_active_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct msm_gpiomux_config elite_mhl_i2c_configs[] __initdata = {
+	{
+		.gpio = 36,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &mhl_i2c_active_cfg,
+			[GPIOMUX_SUSPENDED] = &mhl_i2c_suspend_cfg,
+		},
+	},
+	{
+		.gpio = 37,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &mhl_i2c_active_cfg,
+			[GPIOMUX_SUSPENDED] = &mhl_i2c_suspend_cfg,
+		},
+	},
+};
+
 static struct gpiomux_setting mhl_suspend_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
@@ -384,6 +413,9 @@ int __init elite_gpiomux_init(void)
 			ARRAY_SIZE(elite_audio_codec_configs));
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
+	msm_gpiomux_install(elite_mhl_i2c_configs,
+			ARRAY_SIZE(elite_mhl_i2c_configs));
+
 	msm_gpiomux_install(elite_hdmi_configs,
 			ARRAY_SIZE(elite_hdmi_configs));
 
