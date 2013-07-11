@@ -1,4 +1,4 @@
-
+source "drivers/video/msm/sii9234/Kconfig"
 source "drivers/video/msm/vidc/Kconfig"
 
 config FB_MSM

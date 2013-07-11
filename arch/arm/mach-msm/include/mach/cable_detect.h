@@ -83,6 +83,7 @@ struct cable_detect_platform_data {
 	bool dock_detect;
 	int dock_pin_gpio;
 #endif
+	int enable_vbus_usb_switch;
 };
 
 #ifdef CONFIG_FB_MSM_HDMI_MHL_SII9234

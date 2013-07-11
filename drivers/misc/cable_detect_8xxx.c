@@ -21,6 +21,7 @@
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
 #include <mach/board.h>
+#include <mach/board-ext-htc.h>
 
 #ifdef CONFIG_RESET_BY_CABLE_IN
 #include <mach/board_htc.h>
@@ -89,6 +90,7 @@ struct cable_detect_info {
 
 	int  audio_dock_lock;
 	int notify_init;
+	int enable_vbus_usb_switch;
 } the_cable_info;
 
 
@@ -106,9 +108,6 @@ static void send_cable_connect_notify(int cable_type)
 
 	mutex_lock(&cable_notify_sem);
 	CABLE_DEBUG("%s: cable_type = %d\n", __func__, cable_type);
-
-	if (cable_type == CONNECT_TYPE_UNKNOWN)
-		cable_type = CONNECT_TYPE_USB;
 
 	if (pInfo->ac_9v_gpio && (cable_type == CONNECT_TYPE_USB
 				|| cable_type == CONNECT_TYPE_AC
@@ -132,7 +131,7 @@ static void send_cable_connect_notify(int cable_type)
 	}
 
 	list_for_each_entry(notifier,
-		&g_lh_calbe_detect_notifier_list,
+		&g_lh_cable_detect_notifier_list,
 		cable_notifier_link) {
 			if (notifier->func != NULL) {
 				CABLE_INFO("Send to: %s, type %d\n",
@@ -152,7 +151,7 @@ int cable_detect_register_notifier(struct t_cable_status_notifier *notifier)
 
 	mutex_lock(&cable_notify_sem);
 	list_add(&notifier->cable_notifier_link,
-		&g_lh_calbe_detect_notifier_list);
+		&g_lh_cable_detect_notifier_list);
 	if(the_cable_info.notify_init == 1)
 		notifier->func(cable_get_connect_type());
 	mutex_unlock(&cable_notify_sem);
@@ -227,7 +226,7 @@ static void check_vbus_in(struct work_struct *w)
 	if (vbus != vbus_in) {
 		vbus = vbus_in;
 
-		if(pInfo->accessory_type == DOCK_STATE_MHL) {
+		if(pInfo->accessory_type == DOCK_STATE_MHL && pInfo->enable_vbus_usb_switch == 0) {
 			CABLE_INFO("%s: usb_uart switch, MHL cable , Do nothing\n", __func__);
 		} else {
 			if (pInfo->usb_uart_switch)
@@ -684,6 +683,7 @@ static void mhl_status_notifier_func(bool isMHL, int charging_type)
 #endif
 		mhl_connected = 0;
 
+		switch_set_state(&dock_switch, DOCK_STATE_UNDOCKED);
 		pInfo->accessory_type = DOCK_STATE_UNDOCKED;
 		sii9234_disableIRQ();
 		enable_irq(pInfo->idpin_irq);
@@ -889,7 +889,7 @@ static int cable_detect_probe(struct platform_device *pdev)
 		pInfo->mhl_version_ctrl_flag = pdata->mhl_version_ctrl_flag;
 		pInfo->mhl_1v2_power = pdata->mhl_1v2_power;
 		pInfo->get_adc_cb = pdata->get_adc_cb;
-
+		pInfo->enable_vbus_usb_switch = pdata->enable_vbus_usb_switch;
 #endif
 
 		if (pdata->is_wireless_charger)
@@ -958,53 +958,21 @@ static int cable_detect_probe(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_KDDI_ADAPTER
-#define VBUS_DEBOUNCE_TIME	500
-#define MSPERIOD(end, start)  ktime_to_ms(ktime_sub(end, start))
-#endif
 irqreturn_t cable_detection_vbus_irq_handler(void)
 {
 	unsigned long flags;
-#ifdef CONFIG_KDDI_ADAPTER
-	static int previous_vbus = -1,current_vbus = -1;
-	static int firstdrop = 0;
-	static ktime_t end_ktime;
-	static ktime_t cable_remove_ktime;
-	s64 diff = 0;
-#endif
 	struct cable_detect_info *pInfo = &the_cable_info;
 
 	CABLE_INFO("%s\n", __func__);
 #ifdef CONFIG_KDDI_ADAPTER
-	if (previous_vbus  == -1)
-		previous_vbus = current_vbus = pm8921_is_pwr_src_plugged_in();
-	else {
-		current_vbus = pm8921_is_pwr_src_plugged_in();
-		if(previous_vbus == 1 && current_vbus  == 0) { 
-			cable_remove_ktime = ktime_get();
-			firstdrop  = 1;
-		} else if (previous_vbus == 0 && current_vbus  == 1 && firstdrop == 1) { 
-			end_ktime = ktime_get();
-			diff = MSPERIOD(end_ktime, cable_remove_ktime);
-			printk("=============diff %lld\n",diff);
-			if (diff < VBUS_DEBOUNCE_TIME) {
-				spin_lock_irqsave(&pInfo->lock, flags);
-				__cancel_delayed_work(&pInfo->vbus_detect_work); 
-				spin_unlock_irqrestore(&pInfo->lock, flags);
-				previous_vbus = current_vbus;
-				printk("==========cancel pending\n");
-				return IRQ_HANDLED;
-			}
-		}
-		previous_vbus = current_vbus;
-	}
+	__cancel_delayed_work(&pInfo->vbus_detect_work);
+	queue_delayed_work(pInfo->cable_detect_wq,
+			&pInfo->vbus_detect_work, HZ / 2);
 	CABLE_INFO("%s go\n", __func__);
 #endif
 
 	spin_lock_irqsave(&pInfo->lock, flags);
 #ifdef CONFIG_KDDI_ADAPTER
-	queue_delayed_work(pInfo->cable_detect_wq,
-			&pInfo->vbus_detect_work, HZ / 2);
 #else
 	queue_delayed_work(pInfo->cable_detect_wq,
 			&pInfo->vbus_detect_work, HZ/10);
@@ -1051,7 +1019,8 @@ static void usb_status_notifier_func(int cable_type)
 #endif
 		}
 
-	if (cable_type > CONNECT_TYPE_NONE) {
+	if (cable_type > CONNECT_TYPE_NONE ||
+			cable_type == CONNECT_TYPE_UNKNOWN) {
 		if (pInfo->ad_en_gpio) {
 			if (gpio_get_value(pInfo->ad_en_gpio) ==
 							pInfo->ad_en_active_state)

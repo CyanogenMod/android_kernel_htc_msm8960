@@ -58,7 +58,33 @@ struct t_cable_status_notifier{
 	void (*func)(int cable_type);
 };
 int cable_detect_register_notifier(struct t_cable_status_notifier *);
-static LIST_HEAD(g_lh_calbe_detect_notifier_list);
+static LIST_HEAD(g_lh_cable_detect_notifier_list);
+
+struct t_owe_charging_notifier{
+	struct list_head owe_charging_notifier_link;
+	const char *name;
+	void (*func)(int charging_type);
+};
+int owe_charging_register_notifier(struct t_owe_charging_notifier *);
+static LIST_HEAD(g_lh_owe_charging_notifier_list);
+
+struct t_mhl_status_notifier{
+	struct list_head mhl_notifier_link;
+	const char *name;
+	void (*func)(bool isMHL, int charging_type);
+};
+int mhl_detect_register_notifier(struct t_mhl_status_notifier *);
+static LIST_HEAD(g_lh_mhl_detect_notifier_list);
+
+#if (defined(CONFIG_USB_OTG) && defined(CONFIG_USB_OTG_HOST))
+struct t_usb_host_status_notifier{
+	struct list_head usb_host_notifier_link;
+	const char *name;
+	void (*func)(bool cable_in);
+};
+int usb_host_detect_register_notifier(struct t_usb_host_status_notifier *);
+static LIST_HEAD(g_lh_usb_host_detect_notifier_list);
+#endif
 
 int board_mfg_mode(void);
 
@@ -72,7 +98,7 @@ extern int emmc_partition_read_proc(char *page, char **start, off_t off,
 extern int dying_processors_read_proc(char *page, char **start, off_t off,
 		int count, int *eof, void *data);
 
-#ifdef CONFIG_FB_MSM_HDMI_MHL_SII9234
+#ifdef CONFIG_FB_MSM_HDMI_MHL
 typedef struct {
 	uint8_t format;
 	uint8_t reg_a3;
