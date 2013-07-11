@@ -263,6 +263,35 @@ static struct msm_gpiomux_config msm8960_mdp_vsync_configs[] __initdata = {
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
 
+static struct gpiomux_setting mhl_i2c_suspend_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting mhl_i2c_active_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct msm_gpiomux_config ville_mhl_i2c_configs[] __initdata = {
+	{
+		.gpio = 36,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &mhl_i2c_active_cfg,
+			[GPIOMUX_SUSPENDED] = &mhl_i2c_suspend_cfg,
+		},
+	},
+	{
+		.gpio = 37,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &mhl_i2c_active_cfg,
+			[GPIOMUX_SUSPENDED] = &mhl_i2c_suspend_cfg,
+		},
+	},
+};
+
 static struct gpiomux_setting mhl_suspend_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
@@ -304,12 +333,6 @@ static struct gpiomux_setting hdmi_suspend_pd_cfg = {
 	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_DOWN,
 };
-static struct gpiomux_setting hdmi_suspend_np_cfg = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_NONE,
-};
-
 
 static struct gpiomux_setting hdmi_active_1_cfg = {
 	.func = GPIOMUX_FUNC_1,
@@ -328,14 +351,14 @@ static struct msm_gpiomux_config ville_hdmi_configs[] __initdata = {
 		.gpio = VILLE_GPIO_HDMI_DDC_CLK,
 		.settings = {
 			[GPIOMUX_ACTIVE]    = &hdmi_active_1_cfg,
-			[GPIOMUX_SUSPENDED] = &hdmi_suspend_np_cfg,
+			[GPIOMUX_SUSPENDED] = &hdmi_suspend_pd_cfg,
 		},
 	},
 	{
 		.gpio = VILLE_GPIO_HDMI_DDC_DATA,
 		.settings = {
 			[GPIOMUX_ACTIVE]    = &hdmi_active_1_cfg,
-			[GPIOMUX_SUSPENDED] = &hdmi_suspend_np_cfg,
+			[GPIOMUX_SUSPENDED] = &hdmi_suspend_pd_cfg,
 		},
 	},
 	{
@@ -384,6 +407,9 @@ int __init ville_gpiomux_init(void)
 			ARRAY_SIZE(ville_audio_codec_configs));
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
+	msm_gpiomux_install(ville_mhl_i2c_configs,
+			ARRAY_SIZE(ville_mhl_i2c_configs));
+
 	msm_gpiomux_install(ville_hdmi_configs,
 			ARRAY_SIZE(ville_hdmi_configs));
 

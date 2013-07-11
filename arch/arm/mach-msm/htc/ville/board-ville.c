@@ -1594,6 +1594,7 @@ static void config_gpio_table(uint32_t *table, int len)
 		}
 	}
 }
+
 static uint32_t gyro_DIAG_PIN_pull_down[] = {
 	GPIO_CFG(VILLE_GPIO_GYRO_DIAG, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
 };
@@ -1795,15 +1796,10 @@ static struct i2c_board_info i2c_CM36282_devices[] = {
 	}							\
 } while (0)
 
-static uint32_t mhl_usb_switch_ouput_table[] = {
+#ifdef CONFIG_FB_MSM_HDMI_MHL
+static uint32_t mhl_usb_switch_output_table[] = {
 	GPIO_CFG(VILLE_GPIO_MHL_USB_SELz, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA),
 };
-
-void config_ville_mhl_gpios(void)
-{
-	config_gpio_table(mhl_usb_switch_ouput_table, ARRAY_SIZE(mhl_usb_switch_ouput_table));
-}
-#ifdef CONFIG_FB_MSM_HDMI_MHL
 
 static void ville_usb_dpdn_switch(int path)
 {
@@ -1814,29 +1810,22 @@ static void ville_usb_dpdn_switch(int path)
 		int polarity = 1; /* high = mhl */
 		int mhl = (path == PATH_MHL);
 
-		config_gpio_table(mhl_usb_switch_ouput_table,
-				ARRAY_SIZE(mhl_usb_switch_ouput_table));
+		config_gpio_table(mhl_usb_switch_output_table,
+				ARRAY_SIZE(mhl_usb_switch_output_table));
 
 		pr_info("[CABLE] %s: Set %s path\n", __func__, mhl ? "MHL" : "USB");
 		gpio_set_value(VILLE_GPIO_MHL_USB_SELz, (mhl ^ !polarity) ? 1 : 0);
 		break;
 	}
 	}
-	#ifdef CONFIG_FB_MSM_HDMI_MHL
+#ifdef CONFIG_FB_MSM_HDMI_MHL_SII9234
 	sii9234_change_usb_owner((path == PATH_MHL) ? 1 : 0);
-	#endif /*CONFIG_FB_MSM_HDMI_MHL*/
-}
 #endif
+}
 
-#ifdef CONFIG_FB_MSM_HDMI_MHL
-static struct regulator *reg_8921_l12;
-static struct regulator *reg_8921_s4;
-static struct regulator *reg_8921_l16;
-static struct regulator *reg_8921_l10;
-static struct regulator *reg_8921_s2;
 uint32_t msm_hdmi_off_gpio[] = {
-	GPIO_CFG(VILLE_GPIO_HDMI_DDC_CLK,  0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-	GPIO_CFG(VILLE_GPIO_HDMI_DDC_DATA,  0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+	GPIO_CFG(VILLE_GPIO_HDMI_DDC_CLK,  0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
+	GPIO_CFG(VILLE_GPIO_HDMI_DDC_DATA,  0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
 	GPIO_CFG(VILLE_GPIO_HDMI_HPD,  0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
 };
 
@@ -1845,6 +1834,30 @@ uint32_t msm_hdmi_on_gpio[] = {
 	GPIO_CFG(VILLE_GPIO_HDMI_DDC_DATA,  1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
 	GPIO_CFG(VILLE_GPIO_HDMI_HPD,  1, GPIO_CFG_INPUT, GPIO_CFG_PULL_UP, GPIO_CFG_2MA),
 };
+
+static void mhl_sii9234_1v2_power(bool enable)
+{
+	static bool prev_on;
+
+	if (enable == prev_on)
+		return;
+
+	if (enable) {
+		config_gpio_table(msm_hdmi_on_gpio, ARRAY_SIZE(msm_hdmi_on_gpio));
+		hdmi_hpd_feature(1);
+		pr_info("%s(on): success\n", __func__);
+	} else {
+		config_gpio_table(msm_hdmi_off_gpio, ARRAY_SIZE(msm_hdmi_off_gpio));
+		hdmi_hpd_feature(0);
+		pr_info("%s(off): success\n", __func__);
+	}
+
+	prev_on = enable;
+}
+
+#ifdef CONFIG_FB_MSM_HDMI_MHL_SII9234
+static struct regulator *reg_8921_l10;
+static struct regulator *reg_8921_s2;
 
 static int mhl_sii9234_power_vote(bool enable)
 {
@@ -1901,25 +1914,9 @@ static int mhl_sii9234_power_vote(bool enable)
 	return 0;
 }
 
-static void mhl_sii9234_1v2_power(bool enable)
-{
-	static bool prev_on;
-
-	if (enable == prev_on)
-		return;
-
-	if (enable) {
-		config_gpio_table(msm_hdmi_on_gpio, ARRAY_SIZE(msm_hdmi_on_gpio));
-		hdmi_hpd_feature(1);
-		pr_info("%s(on): success\n", __func__);
-	} else {
-		config_gpio_table(msm_hdmi_off_gpio, ARRAY_SIZE(msm_hdmi_off_gpio));
-		hdmi_hpd_feature(0);
-		pr_info("%s(off): success\n", __func__);
-	}
-
-	prev_on = enable;
-}
+static struct regulator *reg_8921_l12;
+static struct regulator *reg_8921_s4;
+static struct regulator *reg_8921_l16;
 
 static int mhl_sii9234_all_power(bool enable)
 {
@@ -1997,12 +1994,10 @@ static int mhl_sii9234_all_power(bool enable)
 	return 0;
 }
 
-#ifdef CONFIG_FB_MSM_HDMI_MHL_SII9234
 static uint32_t mhl_gpio_table[] = {
 	GPIO_CFG(VILLE_GPIO_MHL_RSTz, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
 	GPIO_CFG(VILLE_GPIO_MHL_INT, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_UP, GPIO_CFG_2MA),
 };
-
 
 static int mhl_sii9234_power(int on)
 {
@@ -2027,7 +2022,6 @@ static T_MHL_PLATFORM_DATA mhl_sii9234_device_data = {
 	.gpio_intr = VILLE_GPIO_MHL_INT,
 	.gpio_reset = VILLE_GPIO_MHL_RSTz,
 	.ci2ca = 0,
-#ifdef CONFIG_FB_MSM_HDMI_MHL
 	.mhl_usb_switch = ville_usb_dpdn_switch,
 	.mhl_1v2_power = mhl_sii9234_1v2_power,
 	.enable_5v = hdmi_enable_5v,
@@ -2042,7 +2036,6 @@ static T_MHL_PLATFORM_DATA mhl_sii9234_device_data = {
 	.abs_width_min = 0,
 	.abs_width_max = 20,
 #endif
-#endif
 	.power = mhl_sii9234_power,
 };
 
@@ -2054,9 +2047,8 @@ static struct i2c_board_info msm_i2c_gsbi8_mhl_sii9234_info[] =
 		.irq = VILLE_GPIO_MHL_INT
 	},
 };
-
-#endif
-#endif
+#endif /* CONFIG_FB_MSM_HDMI_MHL_SII9234 */
+#endif /* CONFIG_FB_MSM_HDMI_MHL */
 
 static uint32_t usb_ID_PIN_input_table[] = {
 	GPIO_CFG(VILLE_GPIO_USB_ID1, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
@@ -2184,6 +2176,7 @@ static struct msm_otg_platform_data msm_otg_pdata;
 #define USB_5V_EN		42
 static int msm_hsusb_vbus_power(bool on)
 {
+#if 0
 	int rc;
 	static bool vbus_is_on;
 	static struct regulator *mvs_otg_switch;
@@ -2197,18 +2190,15 @@ static int msm_hsusb_vbus_power(bool on)
 		.function	= PM_GPIO_FUNC_NORMAL,
 	};
 
-	printk(KERN_ERR "%s: vbus_is_on=%d\n", __func__, on);
 	if (vbus_is_on == on)
-		return 0;
-
-	printk(KERN_INFO "%s: %d\n", __func__, on);
+		return;
 
 	if (on) {
 		mvs_otg_switch = regulator_get(&msm8960_device_otg.dev,
 					       "vbus_otg");
 		if (IS_ERR(mvs_otg_switch)) {
 			pr_err("Unable to get mvs_otg_switch\n");
-			return -1;
+			return;
 		}
 
 		rc = gpio_request(PM8921_GPIO_PM_TO_SYS(USB_5V_EN),
@@ -2230,7 +2220,7 @@ static int msm_hsusb_vbus_power(bool on)
 			goto disable_mvs_otg;
 		}
 		vbus_is_on = true;
-		return 0;
+		return;
 	}
 disable_mvs_otg:
 		regulator_disable(mvs_otg_switch);
@@ -2239,8 +2229,68 @@ free_usb_5v_en:
 put_mvs_otg:
 		regulator_put(mvs_otg_switch);
 		vbus_is_on = false;
-		return -1;
+#else
+	static int prev_on;
+	int rc;
+
+	if (on == prev_on)
+		return 0;
+
+	if (on) {
+		rc = gpio_request(VILLE_GPIO_V_BOOST_5V_EN, "USB_BOOST_5V");
+		if (rc) {
+			pr_err("'%s'(%d) gpio_request failed, rc=%d\n",
+				"HDMI_BOOST_5V", VILLE_GPIO_V_BOOST_5V_EN, rc);
+			return rc;
+		}
+		gpio_set_value(VILLE_GPIO_V_BOOST_5V_EN, 1);
+		pr_info("%s(on): success\n", __func__);
+	} else {
+		gpio_set_value(VILLE_GPIO_V_BOOST_5V_EN, 0);
+		gpio_free(VILLE_GPIO_V_BOOST_5V_EN);
+		pr_info("%s(off): success\n", __func__);
+	}
+
+	prev_on = on;
+
+	return 0;
+#endif
 }
+
+static struct msm_bus_vectors usb_init_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_SPS,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = 0,
+	},
+};
+
+static struct msm_bus_vectors usb_max_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_SPS,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 60000000,
+		.ib = 960000000,
+	},
+};
+
+static struct msm_bus_paths usb_bus_scale_usecases[] = {
+	{
+		ARRAY_SIZE(usb_init_vectors),
+		usb_init_vectors,
+	},
+	{
+		ARRAY_SIZE(usb_max_vectors),
+		usb_max_vectors,
+	},
+};
+
+static struct msm_bus_scale_pdata usb_bus_scale_pdata = {
+	usb_bus_scale_usecases,
+	ARRAY_SIZE(usb_bus_scale_usecases),
+	.name = "usb",
+};
 
 static int phy_init_seq_v3[] = { 0x7f, 0x81, 0x3c, 0x82, -1};
 static int phy_init_seq_v3_2_1[] = { 0x5f, 0x81, 0x3c, 0x82, -1};
@@ -2253,7 +2303,8 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 //	.pmic_id_irq		= PM8921_USB_ID_IN_IRQ(PM8921_IRQ_BASE),
 	.vbus_power		= msm_hsusb_vbus_power,
 	.power_budget		= 750,
-//	.ldo_power_collapse	= true,
+	.bus_scale_table	= &usb_bus_scale_pdata,
+	.ldo_power_collapse	= POWER_COLLAPSE_LDO3V3,
 };
 #endif
 
