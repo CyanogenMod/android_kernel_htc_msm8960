@@ -236,14 +236,14 @@ static mhl_driving_params ville_driving_params[] = {
 static int hdmi_core_power(int on, int show);
 static int hdmi_cec_power(int on);
 static int hdmi_gpio_config(int on);
-static int hdmi_panel_power(int on);
+//static int hdmi_panel_power(int on);
 
 static struct msm_hdmi_platform_data hdmi_msm_data = {
 	.irq = HDMI_IRQ,
 	.enable_5v = hdmi_enable_5v,
 	.core_power = hdmi_core_power,
 	.cec_power = hdmi_cec_power,
-	.panel_power = hdmi_panel_power,
+//	.panel_power = hdmi_panel_power,
 	.gpio_config = hdmi_gpio_config,
 #ifdef CONFIG_FB_MSM_HDMI_MHL
 	.driving_params =  ville_driving_params,
@@ -475,11 +475,12 @@ static struct lcdc_platform_data dtv_pdata = {
 	.bus_scale_table = &dtv_bus_scale_pdata,
 #endif
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
-	.lcdc_power_save = hdmi_panel_power,
+//	.lcdc_power_save = hdmi_panel_power,
 #endif
 };
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
+#if 0
 static int hdmi_panel_power(int on)
 {
 	int rc;
@@ -490,6 +491,7 @@ static int hdmi_panel_power(int on)
 	pr_debug("%s: HDMI Core: %s: Success\n", __func__, (on ? "ON" : "OFF"));
 	return rc;
 }
+#endif
 
 int hdmi_enable_5v(int on)
 {
