@@ -34,7 +34,6 @@
 #define MSM_FB_PRIM_BUF_SIZE (960 * 544 * 4 * 2) /* 4 bpp x 2 pages */
 #endif
 
-
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
 #define MSM_FB_EXT_BUF_SIZE (1920 * 1088 * 2 * 1) /* 2 bpp x 1 page */
 #elif defined(CONFIG_FB_MSM_TVOUT)
@@ -67,16 +66,18 @@ static struct resource msm_fb_resources[] = {
 static struct msm_fb_platform_data msm_fb_pdata;
 
 static struct platform_device msm_fb_device = {
-	.name   = "msm_fb",
-	.id     = 0,
-	.num_resources     = ARRAY_SIZE(msm_fb_resources),
-	.resource          = msm_fb_resources,
+	.name = "msm_fb",
+	.id = 0,
+	.num_resources = ARRAY_SIZE(msm_fb_resources),
+	.resource = msm_fb_resources,
 	.dev.platform_data = &msm_fb_pdata,
 };
 
 static int isOrise(void)
 {
-  return (panel_type == PANEL_ID_FIGHTER_SONY_OTM || panel_type == PANEL_ID_FIGHTER_SONY_OTM_C1_1 || panel_type == PANEL_ID_FIGHTER_SONY_OTM_MP);
+	return (panel_type == PANEL_ID_FIGHTER_SONY_OTM ||
+		panel_type == PANEL_ID_FIGHTER_SONY_OTM_C1_1 ||
+		panel_type == PANEL_ID_FIGHTER_SONY_OTM_MP);
 }
 
 static void __init msm8960_set_display_params(char *prim_panel, char *ext_panel)
@@ -107,8 +108,8 @@ static int mipi_dsi_panel_power(int on)
 	char *lcm_str = "8921_l11";
 	char *lcmio_str = "8921_lvs5";
 	char *dsivdd_str = "8921_l2";
-        
-        printk(KERN_ERR  "[DISP] %s +++\n", __func__);
+
+	printk(KERN_ERR "[DISP] %s +++\n", __func__);
 	/* To avoid system crash in shutdown for non-panel case */
 	if (panel_type == PANEL_ID_NONE)
 		return -ENODEV;
@@ -155,7 +156,7 @@ static int mipi_dsi_panel_power(int on)
 
 		rc = gpio_request(FIGHTER_LCD_RSTz, "LCM_RST_N");
 		if (rc) {
-			printk(KERN_ERR "%s:LCM gpio %d request failed, rc=%d\n", __func__,  FIGHTER_LCD_RSTz, rc);
+			printk(KERN_ERR "%s:LCM gpio %d request failed, rc=%d\n", __func__, FIGHTER_LCD_RSTz, rc);
 			return -EINVAL;
 		}
 
@@ -164,57 +165,51 @@ static int mipi_dsi_panel_power(int on)
 
 	if (on) {
 		printk(KERN_INFO "%s: on\n", __func__);
+
 		rc = regulator_set_optimum_mode(v_lcm, 100000);
 		if (rc < 0) {
 			printk(KERN_ERR "set_optimum_mode %s failed, rc=%d\n", lcm_str, rc);
 			return -EINVAL;
 		}
-
 		rc = regulator_set_optimum_mode(v_dsivdd, 100000);
 		if (rc < 0) {
 			printk(KERN_ERR "set_optimum_mode %s failed, rc=%d\n", dsivdd_str, rc);
 			return -EINVAL;
 		}
 
-                    rc = regulator_enable(v_dsivdd);
-                    if (rc) {
-                      printk(KERN_ERR "enable regulator %s failed, rc=%d\n", dsivdd_str, rc);
-                      return -ENODEV;
-                    }
-                if (isOrise())
-                  {
-                    msleep(1);
-                    rc = regulator_enable(v_lcmio);
-                    if (rc) {
-                      printk(KERN_ERR "enable regulator %s failed, rc=%d\n", lcmio_str, rc);
-                      return -ENODEV;
-                    }
-                  }
-                else
-                  {
-                    rc = regulator_enable(v_lcm);
-                    if (rc) {
-                      printk(KERN_ERR "enable regulator %s failed, rc=%d\n", lcm_str, rc);
-                      return -ENODEV;
-                    }
-                  }
-
-		if (!fighter_panel_first_init)
-                  {
-                    msleep(10);
-                    gpio_set_value(FIGHTER_LCD_RSTz, 1);
-                    msleep(1);
-                    gpio_set_value(FIGHTER_LCD_RSTz, 0);
-                    msleep(35);
-                    gpio_set_value(FIGHTER_LCD_RSTz, 1);
+		rc = regulator_enable(v_dsivdd);
+		if (rc) {
+			printk(KERN_ERR "enable regulator %s failed, rc=%d\n", dsivdd_str, rc);
+			return -ENODEV;
+		}
+		if (isOrise()) {
+			msleep(1);
+			rc = regulator_enable(v_lcmio);
+			if (rc) {
+				printk(KERN_ERR "enable regulator %s failed, rc=%d\n", lcmio_str, rc);
+				return -ENODEV;
+			}
+		} else {
+			rc = regulator_enable(v_lcm);
+			if (rc) {
+				printk(KERN_ERR "enable regulator %s failed, rc=%d\n", lcm_str, rc);
+				return -ENODEV;
+			}
+		}
+		if (!fighter_panel_first_init) {
+			msleep(10);
+			gpio_set_value(FIGHTER_LCD_RSTz, 1);
+			msleep(1);
+			gpio_set_value(FIGHTER_LCD_RSTz, 0);
+			msleep(35);
+			gpio_set_value(FIGHTER_LCD_RSTz, 1);
 		}
 		msleep(60);
 
 		bPanelPowerOn = true;
-	} 
-        else
-          {
+	} else {
 		printk(KERN_INFO "%s: off\n", __func__);
+
 		if (!bPanelPowerOn) return 0;
 		msleep(100);
 		gpio_set_value(FIGHTER_LCD_RSTz, 0);
@@ -224,22 +219,18 @@ static int mipi_dsi_panel_power(int on)
 			printk(KERN_ERR "%s: Unable to enable the regulator: %s\n", __func__, dsivdd_str);
 			return -EINVAL;
 		}
-
-                if (isOrise())
-                  {
-                    msleep(5);
-                    if (regulator_disable(v_lcmio)) {
-                      printk(KERN_ERR "%s: Unable to enable the regulator: %s\n", __func__, lcmio_str);
-                      return -EINVAL;
-                    }
-                  }
-                else
-                  {
-                    if (regulator_disable(v_lcm)) {
-                      printk(KERN_ERR "%s: Unable to enable the regulator: %s\n", __func__, lcm_str);
-                      return -EINVAL;
-                    }
-                  }
+		if (isOrise()) {
+			msleep(5);
+			if (regulator_disable(v_lcmio)) {
+				printk(KERN_ERR "%s: Unable to enable the regulator: %s\n", __func__, lcmio_str);
+				return -EINVAL;
+			}
+		} else {
+			if (regulator_disable(v_lcm)) {
+				printk(KERN_ERR "%s: Unable to enable the regulator: %s\n", __func__, lcm_str);
+				return -EINVAL;
+			}
+		}
 
 		rc = regulator_set_optimum_mode(v_dsivdd, 100);
 		if (rc < 0) {
@@ -249,8 +240,7 @@ static int mipi_dsi_panel_power(int on)
 
 		bPanelPowerOn = false;
 	}
-        //        if (bPanelPowerOn)
-        //          fighter_display_on(mfd);
+
 	return 0;
 }
 
@@ -384,18 +374,9 @@ static struct lcdc_platform_data dtv_pdata = {
 };
 #endif
 
-int mdp_core_clk_rate_table[] = {
-	85330000,
-	85330000,
-	160000000,
-	200000000,
-};
-
 static struct msm_panel_common_pdata mdp_pdata = {
 	.gpio = FIGHTER_LCD_TE,
-	//	.mdp_core_clk_rate = 85330000,
-	//	.mdp_core_clk_table = mdp_core_clk_rate_table,
-	//	.num_mdp_clk = ARRAY_SIZE(mdp_core_clk_rate_table),
+	.mdp_max_clk = 200000000,
 #ifdef CONFIG_MSM_BUS_SCALING
 	.mdp_bus_scale_table = &mdp_bus_scale_pdata,
 #endif
@@ -405,7 +386,6 @@ static struct msm_panel_common_pdata mdp_pdata = {
 #else
 	.mem_hid = MEMTYPE_EBI1,
 #endif
-	.mdp_max_clk = 200000000,
 };
 
 void __init msm8960_allocate_fb_region(void)
@@ -451,8 +431,8 @@ static struct platform_device wfd_panel_device = {
 };
 
 static struct platform_device wfd_device = {
-	.name          = "msm_wfd",
-	.id            = -1,
+	.name = "msm_wfd",
+	.id = -1,
 	.dev.platform_data = &wfd_pdata,
 };
 #endif
