@@ -290,7 +290,7 @@ static struct platform_device wfd_device = {
 };
 #endif
 
-int ville_panel_first_init = 1;
+extern int mipi_lcd_on;
 static bool dsi_power_on;
 
 static int mipi_dsi_panel_power(int on)
@@ -389,7 +389,7 @@ static int mipi_dsi_panel_power(int on)
 			return -ENODEV;
 		}
 
-		if (!ville_panel_first_init) {
+		if (!mipi_lcd_on) {
 			msleep(10);
 			gpio_set_value(VILLE_GPIO_LCD_RSTz, 1);
 			msleep(1);

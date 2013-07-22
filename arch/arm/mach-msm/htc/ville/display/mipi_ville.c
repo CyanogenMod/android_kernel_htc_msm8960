@@ -3,15 +3,9 @@
 #include "../../../drivers/video/msm/mipi_dsi.h"
 #include "mipi_ville.h"
 
-#ifndef VILLE_USE_CMDLISTS
-static struct dsi_buf ville_tx_buf;
-static struct dsi_buf ville_rx_buf;
-#endif
 static struct mipi_dsi_panel_platform_data *mipi_ville_pdata;
-static struct dsi_cmd_desc *display_on_cmds = NULL;
 static struct dsi_cmd_desc *display_off_cmds = NULL;
 static struct dsi_cmd_desc *cmd_on_cmds = NULL;
-static int display_on_cmds_count = 0;
 static int display_off_cmds_count = 0;
 static int cmd_on_cmds_count = 0;
 static int mipi_ville_lcd_init(void);
@@ -89,6 +83,7 @@ static struct dsi_cmd_desc ville_cmd_on_cmds[] = {
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,  sizeof(ville_panel_width), ville_panel_width},
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,  sizeof(ville_panel_height), ville_panel_height},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,  sizeof(ville_panel_vinit), ville_panel_vinit},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
 };
 
 static struct dsi_cmd_desc ville_cmd_on_cmds_c2[] = {
@@ -119,6 +114,7 @@ static struct dsi_cmd_desc ville_cmd_on_cmds_c2[] = {
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,  sizeof(ville_panel_width), ville_panel_width},
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,  sizeof(ville_panel_height), ville_panel_height},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,  sizeof(ville_panel_vinit), ville_panel_vinit},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
 };
 
 
@@ -127,10 +123,6 @@ static struct dsi_cmd_desc ville_display_off_cmds[] = {
 		sizeof(display_off), display_off},
 	{DTYPE_DCS_WRITE, 1, 0, 0, 120,
 		sizeof(enter_sleep), enter_sleep}
-};
-
-static struct dsi_cmd_desc ville_display_on_cmds[] = {
-	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
 };
 
 /* AUO initial setting command */
@@ -153,10 +145,6 @@ static char vrefn_cmd[4] = {0xBE, 0x22, 0x75, 0x70};
 static char hori_flip_cmd[] = {0x36, 0x02};
 static char turn_on_peri_cmd[2] = {0x32, 0x00};
 static char sleep_out_cmd[2] = {0x11, 0x00};
-static char auo_display_on_cmd[2] = {0x29, 0x00};
-
-static char display_off_cmd[2] = {0x28, 00};
-static char slpin_cmd[2] = {0x10, 00};
 
 static struct dsi_cmd_desc auo_cmd_on_cmds[] = {
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,  sizeof(enable_page_cmd), enable_page_cmd},
@@ -178,17 +166,14 @@ static struct dsi_cmd_desc auo_cmd_on_cmds[] = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,  sizeof(hori_flip_cmd), hori_flip_cmd},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,  sizeof(turn_on_peri_cmd), turn_on_peri_cmd},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 300,  sizeof(sleep_out_cmd), sleep_out_cmd},
-};
-
-static struct dsi_cmd_desc auo_display_on_cmds[] = {
-	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(auo_display_on_cmd), auo_display_on_cmd},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
 };
 
 static struct dsi_cmd_desc auo_display_off_cmds[] = {
 	{DTYPE_DCS_WRITE, 1, 0, 0, 0,
-		sizeof(display_off_cmd), display_off_cmd},
+		sizeof(display_off), display_off},
 	{DTYPE_DCS_WRITE, 1, 0, 0, 120,
-		sizeof(slpin_cmd), slpin_cmd}
+		sizeof(enter_sleep), enter_sleep}
 };
 
 #define AMOLED_NUM_LEVELS 	ARRAY_SIZE(ville_amoled_gamma_table)
@@ -333,11 +318,9 @@ static struct gamma_curvy smd_gamma_tbl = {
 };
 #endif
 
-extern int ville_panel_first_init;
 static int ville_send_display_cmds(struct dsi_cmd_desc *cmd, int cnt)
 {
 	int ret = 0;
-#ifdef VILLE_USE_CMDLISTS
 	struct dcs_cmd_req cmdreq;
 
 	cmdreq.cmds = cmd;
@@ -347,44 +330,48 @@ static int ville_send_display_cmds(struct dsi_cmd_desc *cmd, int cnt)
 	cmdreq.cb = NULL;
 
 	ret = mipi_dsi_cmdlist_put(&cmdreq);
-#else
-	ret = mipi_dsi_cmds_tx(&ville_tx_buf, cmd, cnt);
-#endif
 	if (ret < 0)
 		printk(KERN_ERR "[DISP] %s failed (%d)\n", __func__, ret);
 	return ret;
 }
 
+int mipi_lcd_on = 1;
 static int mipi_ville_lcd_on(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
 	struct mipi_panel_info *mipi;
 
 	printk(KERN_ERR  "[DISP] %s +++\n", __func__);
+
 	mfd = platform_get_drvdata(pdev);
 	if (!mfd)
 		return -ENODEV;
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
 
-	mipi  = &mfd->panel_info.mipi;
+	if (mipi_lcd_on)
+		return 0;
 
-	ville_send_display_cmds(display_on_cmds, display_on_cmds_count);
-
-	if (!ville_panel_first_init) {
-		if (panel_type == PANEL_ID_VILLE_SAMSUNG_SG ||
-				panel_type == PANEL_ID_VILLE_SAMSUNG_SG_C2 ||
-				panel_type == PANEL_ID_VILLE_AUO) {
-			if (mipi->mode == DSI_CMD_MODE)
-				ville_send_display_cmds(cmd_on_cmds, cmd_on_cmds_count);
-		} else {
-			printk(KERN_ERR "%s: panel_type is not supported!(%d)\n",
-				__func__, panel_type);
-			return -EINVAL;
-		}
+	mipi = &mfd->panel_info.mipi;
+	if (mipi->mode == DSI_VIDEO_MODE) {
+		printk(KERN_ERR "[DISP] %s: does not support video mode\n",
+				__func__);
+		return -EINVAL;
 	}
+
+	if (panel_type == PANEL_ID_VILLE_SAMSUNG_SG ||
+			panel_type == PANEL_ID_VILLE_SAMSUNG_SG_C2 ||
+			panel_type == PANEL_ID_VILLE_AUO) {
+		ville_send_display_cmds(cmd_on_cmds, cmd_on_cmds_count);
+	} else {
+		printk(KERN_ERR "%s: panel_type is not supported!(%d)\n",
+			__func__, panel_type);
+		return -EINVAL;
+	}
+	mipi_lcd_on = 1;
+
 	printk(KERN_ERR  "[DISP] %s ---\n", __func__);
-	ville_panel_first_init = 0;
+
 	return 0;
 }
 
@@ -399,8 +386,13 @@ static int mipi_ville_lcd_off(struct platform_device *pdev)
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
 
+	if (!mipi_lcd_on)
+		return 0;
+
 	if (panel_type != PANEL_ID_NONE)
 		ville_send_display_cmds(display_off_cmds, display_off_cmds_count);
+
+	mipi_lcd_on = 0;
 
 	return 0;
 }
@@ -538,8 +530,6 @@ static int __devinit mipi_ville_lcd_probe(struct platform_device *pdev)
 	printk(KERN_ERR "%s: probe ++ %d\n", __func__, panel_type);
 	if (panel_type == PANEL_ID_VILLE_SAMSUNG_SG ||
 			panel_type == PANEL_ID_VILLE_SAMSUNG_SG_C2) {
-		display_on_cmds = ville_display_on_cmds;
-		display_on_cmds_count = ARRAY_SIZE(ville_display_on_cmds);
 		display_off_cmds = ville_display_off_cmds;
 		display_off_cmds_count = ARRAY_SIZE(ville_display_off_cmds);
 		if (panel_type == PANEL_ID_VILLE_SAMSUNG_SG) {
@@ -550,8 +540,6 @@ static int __devinit mipi_ville_lcd_probe(struct platform_device *pdev)
 			cmd_on_cmds_count = ARRAY_SIZE(ville_cmd_on_cmds_c2);
 		}
 	} else if (panel_type == PANEL_ID_VILLE_AUO) {
-		display_on_cmds = auo_display_on_cmds;
-		display_on_cmds_count = ARRAY_SIZE(auo_display_on_cmds);
 		display_off_cmds = auo_display_off_cmds;
 		display_off_cmds_count = ARRAY_SIZE(auo_display_off_cmds);
 		cmd_on_cmds = auo_cmd_on_cmds;
@@ -562,7 +550,6 @@ static int __devinit mipi_ville_lcd_probe(struct platform_device *pdev)
 		mipi_ville_pdata = pdev->dev.platform_data;
 		return 0;
 	}
-	ville_panel_first_init = 1;
 	msm_fb_add_device(pdev);
 	return 0;
 }
@@ -628,10 +615,6 @@ err_device_put:
 static int mipi_ville_lcd_init(void)
 {
 	printk(KERN_ERR  "[DISP] %s +++\n", __func__);
-#ifndef VILLE_USE_CMDLISTS
-	mipi_dsi_buf_alloc(&ville_tx_buf, DSI_BUF_SIZE);
-	mipi_dsi_buf_alloc(&ville_rx_buf, DSI_BUF_SIZE);
-#endif
 	printk(KERN_ERR  "[DISP] %s ---\n", __func__);
 	return platform_driver_register(&this_driver);
 }
