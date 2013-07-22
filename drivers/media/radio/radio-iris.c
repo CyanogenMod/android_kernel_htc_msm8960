@@ -2385,7 +2385,7 @@ static inline void hci_ev_radio_text(struct radio_hci_dev *hdev,
 
 	iris_q_event(radio, IRIS_EVT_NEW_RT_RDS);
 
-	while ((skb->data[len+RDS_OFFSET] != 0x0d) && (len < RX_RT_DATA_LENGTH))
+	while ((skb->data[len+RDS_OFFSET] != 0x0d) && (len < MAX_RT_LENGTH))
 		len++;
 	data = kmalloc(len+RDS_OFFSET, GFP_ATOMIC);
 	if (!data) {
@@ -2397,7 +2397,7 @@ static inline void hci_ev_radio_text(struct radio_hci_dev *hdev,
 	data[1] = skb->data[RDS_PTYPE];
 	data[2] = skb->data[RDS_PID_LOWER];
 	data[3] = skb->data[RDS_PID_HIGHER];
-	data[4] = 0;
+	data[4] = skb->data[RT_A_B_FLAG_OFFSET];
 
 	memcpy(data+RDS_OFFSET, &skb->data[RDS_OFFSET], len);
 	data[len+RDS_OFFSET] = 0x00;
@@ -2416,6 +2416,10 @@ static void hci_ev_af_list(struct radio_hci_dev *hdev,
 	ev.tune_freq = *((int *) &skb->data[0]);
 	ev.pi_code = *((__le16 *) &skb->data[PI_CODE_OFFSET]);
 	ev.af_size = skb->data[AF_SIZE_OFFSET];
+	if (ev.af_size > AF_LIST_MAX) {
+		FMDERR("AF list size received more than available size");
+		return;
+	}
 	memcpy(&ev.af_list[0], &skb->data[AF_LIST_OFFSET], ev.af_size);
 	iris_q_event(radio, IRIS_EVT_NEW_AF_LIST);
 	iris_q_evt_data(radio, (char *)&ev, sizeof(ev), IRIS_BUF_AF_LIST);

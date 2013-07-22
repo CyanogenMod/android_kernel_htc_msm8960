@@ -797,6 +797,7 @@ static int msm_rotator_get_plane_sizes(uint32_t format,	uint32_t w, uint32_t h,
 	case MDP_Y_CRCB_H2V1:
 	case MDP_Y_CBCR_H2V1:
 	case MDP_Y_CRCB_H1V2:
+	case MDP_Y_CBCR_H1V2:
 		p->num_planes = 2;
 		p->plane_size[0] = w * h;
 		p->plane_size[1] = w * h;
@@ -953,8 +954,24 @@ static int msm_rotator_ycxcx_h2v1(struct msm_rotator_img_info *info,
 				  unsigned int out_chroma_paddr)
 {
 	int bpp;
-
-	if (info->src.format != info->dst.format)
+	uint32_t dst_format;
+	switch (info->src.format) {
+	case MDP_Y_CRCB_H2V1:
+		if (info->rotations & MDP_ROT_90)
+			dst_format = MDP_Y_CRCB_H1V2;
+		else
+			dst_format = info->src.format;
+		break;
+	case MDP_Y_CBCR_H2V1:
+		if (info->rotations & MDP_ROT_90)
+			dst_format = MDP_Y_CBCR_H1V2;
+		else
+			dst_format = info->src.format;
+		break;
+	default:
+		return -EINVAL;
+	}
+	if (info->dst.format != dst_format)
 		return -EINVAL;
 
 	bpp = get_bpp(info->src.format);
@@ -2400,14 +2417,42 @@ static int msm_rotator_start(unsigned long arg,
 	case MDP_Y_CRCB_H2V2_TILE:
 	case MDP_Y_CBCR_H2V2_TILE:
 		if (rotator_hw_revision >= ROTATOR_REVISION_V2) {
-			fast_yuv_en = !fast_yuv_invalid_size_checker(
-						info.rotations,
+			if (info.downscale_ratio &&
+					(info.rotations & MDP_ROT_90)) {
+				fast_yuv_en = !fast_yuv_invalid_size_checker(
+						0,
 						info.src.width,
+						info.src_rect.w >>
+							info.downscale_ratio,
 						info.src.height,
+						info.src_rect.h >>
+							info.downscale_ratio,
+						info.src_rect.w >>
+							info.downscale_ratio,
+						is_planar420);
+
+				fast_yuv_en = fast_yuv_en &&
+						!fast_yuv_invalid_size_checker(
+						info.rotations,
+						info.src_rect.w >>
+							info.downscale_ratio,
 						dst_w,
+						info.src_rect.h >>
+							info.downscale_ratio,
 						dst_h,
 						dst_w,
 						is_planar420);
+			} else {
+				fast_yuv_en = !fast_yuv_invalid_size_checker(
+						info.rotations,
+						info.src.width,
+						dst_w,
+						info.src.height,
+						dst_h,
+						dst_w,
+						is_planar420);
+			}
+
 			if (fast_yuv_en && info.downscale_ratio &&
 				(info.rotations & MDP_ROT_90))
 					enable_2pass = 1;
@@ -2429,10 +2474,18 @@ static int msm_rotator_start(unsigned long arg,
 		is_rgb = 1;
 		info.dst.format = info.src.format;
 		break;
+	case MDP_Y_CBCR_H2V1:
+	if (info.rotations & MDP_ROT_90) {
+		info.dst.format = MDP_Y_CBCR_H1V2;
+		break;
+	}
+	case MDP_Y_CRCB_H2V1:
+	if (info.rotations & MDP_ROT_90) {
+		info.dst.format = MDP_Y_CRCB_H1V2;
+		break;
+	}
 	case MDP_Y_CBCR_H2V2:
 	case MDP_Y_CRCB_H2V2:
-	case MDP_Y_CBCR_H2V1:
-	case MDP_Y_CRCB_H2V1:
 	case MDP_YCBCR_H1V1:
 	case MDP_YCRCB_H1V1:
 		info.dst.format = info.src.format;

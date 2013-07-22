@@ -269,6 +269,7 @@ static int diagchar_close(struct inode *inode, struct file *file)
 		 DCI_CLIENT_INDEX_INVALID)
 		diagchar_ioctl(NULL, DIAG_IOCTL_DCI_DEINIT, 0);
 	/* If the exiting process is the socket process */
+	mutex_lock(&driver->diagchar_mutex);
 	if (driver->socket_process &&
 		(driver->socket_process->tgid == current->tgid)) {
 		driver->socket_process = NULL;
@@ -277,6 +278,7 @@ static int diagchar_close(struct inode *inode, struct file *file)
 		(driver->callback_process->tgid == current->tgid)) {
 		driver->callback_process = NULL;
 	}
+	mutex_unlock(&driver->diagchar_mutex);
 
 #ifdef CONFIG_DIAG_OVER_USB
 	/* If the SD logging process exits, change logging to USB mode */
@@ -1406,6 +1408,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 				&& (!driver->usb_connected)) ||
 				(driver->logging_mode == NO_LOGGING_MODE)) {
 		/*Drop the diag payload */
+		pr_err_ratelimited("diag: Dropping packet, usb is not connected in usb mode and non-dci data type\n");
 		return -EIO;
 	}
 #endif /* DIAG over USB */
@@ -1414,11 +1417,12 @@ static int diagchar_write(struct file *file, const char __user *buf,
 								POOL_TYPE_USER);
 		if (!user_space_data) {
 			driver->dropped_count++;
+			pr_err("diag: Memory allocation failed for DCI data\n");
 			return -ENOMEM;
 		}
 		err = copy_from_user(user_space_data, buf + 4, payload_size);
 		if (err) {
-			pr_alert("diag: copy failed for DCI data\n");
+			pr_alert("diag: copy from user failed for DCI data\n");
 			return DIAG_DCI_SEND_DATA_FAIL;
 		}
 		err = diag_process_dci_transaction(user_space_data,
@@ -1437,12 +1441,13 @@ static int diagchar_write(struct file *file, const char __user *buf,
 		buf_copy = diagmem_alloc(driver, payload_size, POOL_TYPE_COPY);
 		if (!buf_copy) {
 			driver->dropped_count++;
+			pr_err("diag: Memory allocation failed for callback data\n");
 			return -ENOMEM;
 		}
 
 		err = copy_from_user(buf_copy, buf + 4, payload_size);
 		if (err) {
-			pr_err("diag: copy failed for user space data\n");
+			pr_err("diag: copy from user failed for callback data\n");
 			return -EIO;
 		}
 		/* Check for proc_type */
@@ -1471,6 +1476,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 			buf_hdlc = diagmem_alloc(driver, HDLC_OUT_BUF_SIZE,
 							POOL_TYPE_HDLC);
 		if (!buf_hdlc) {
+			pr_err("diag: Memory allocation failed while performing HDLC encoding on incoming data\n");
 			ret = -ENOMEM;
 			goto fail_free_hdlc;
 		}
@@ -1557,12 +1563,13 @@ static int diagchar_write(struct file *file, const char __user *buf,
 								POOL_TYPE_USER);
 		if (!user_space_data) {
 			driver->dropped_count++;
+			pr_err("diag: Memory allocation failed for user space data type\n");
 			return -ENOMEM;
 		}
 		err = copy_from_user(user_space_data, buf + 4,
 							 payload_size);
 		if (err) {
-			pr_err("diag: copy failed for user space data\n");
+			pr_err("diag: copy from user failed for user space data type\n");
 			diagmem_free(driver, user_space_data, POOL_TYPE_USER);
 			return -EIO;
 		}
@@ -1734,6 +1741,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 			if (driver->logging_mode == USB_MODE)
 				diagmem_free(driver, (unsigned char *)driver->
 					write_ptr_svc, POOL_TYPE_WRITE_STRUCT);
+			pr_err_ratelimited("diag: device write failed in response data type\n");
 			ret = -EIO;
 			goto fail_free_hdlc;
 		}
@@ -1763,6 +1771,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 			if (driver->logging_mode == USB_MODE)
 				diagmem_free(driver, (unsigned char *)driver->
 					write_ptr_svc, POOL_TYPE_WRITE_STRUCT);
+			pr_err_ratelimited("diag: device write failed during hdlc encoding\n");
 			ret = -EIO;
 			goto fail_free_hdlc;
 		}
@@ -1789,6 +1798,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 			if (driver->logging_mode == USB_MODE)
 				diagmem_free(driver, (unsigned char *)driver->
 					write_ptr_svc, POOL_TYPE_WRITE_STRUCT);
+			pr_err_ratelimited("diag: device write failed while aggregating in a newly allocated buffer\n");
 			ret = -EIO;
 			goto fail_free_hdlc;
 		}
