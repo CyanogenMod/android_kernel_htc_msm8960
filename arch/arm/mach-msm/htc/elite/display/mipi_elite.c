@@ -7,21 +7,13 @@
 #include "../board-elite.h"
 #include "mipi_elite.h"
 
-
-#ifndef ELITE_USE_CMDLISTS
-static struct dsi_buf elite_tx_buf;
-static struct dsi_buf elite_rx_buf;
-#endif
 static struct msm_panel_common_pdata *mipi_elite_pdata;
 static int mipi_elite_lcd_init(void);
 static struct dcs_cmd_req cmdreq;
-static int mipi_lcd_on = 1;
 static int bl_level_prevset = 1;
 // Selected codes
 static struct dsi_cmd_desc *elite_video_on_cmds = NULL;
 int elite_video_on_cmds_count = 0;
-static struct dsi_cmd_desc *elite_display_on_cmds = NULL;
-int elite_display_on_cmds_count = 0;
 static struct dsi_cmd_desc *elite_display_off_cmds = NULL;
 int elite_display_off_cmds_count = 0;
 static struct dsi_cmd_desc *elite_cmd_backlight_cmds = NULL;
@@ -29,11 +21,6 @@ int elite_cmd_backlight_cmds_count = 0;
 
 /* All MIPI codes .. */
 static char display_on[2] = {0x29, 0x00}; /* DTYPE_DCS_WRITE */
-
-static struct dsi_cmd_desc display_on_cmds[] = {
-	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
-};
-
 static char display_off[2] = {0x28, 0x00}; /* DTYPE_DCS_WRITE */
 static char enter_sleep[2] = {0x10, 0x00}; /* DTYPE_DCS_WRITE */
 
@@ -540,6 +527,8 @@ static struct dsi_cmd_desc sony_panel_video_mode_cmds[] = {
 
 	/* {DTYPE_DCS_WRITE, 1, 0, 0, 150, sizeof(exit_sleep), exit_sleep},*/
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, 2, (char[]){0x53, 0x24}},
+
+	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
 };
 
 static struct dsi_cmd_desc sony_panel_video_mode_cmds_id28103[] = {
@@ -1023,6 +1012,8 @@ static struct dsi_cmd_desc sony_panel_video_mode_cmds_id28103[] = {
 
 	/*    {DTYPE_DCS_WRITE, 1, 0, 0, 150, sizeof(exit_sleep), exit_sleep},*/
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, 2, (char[]){0x53, 0x24} },
+
+	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
 };
 
 /* himax command begin */
@@ -1159,6 +1150,8 @@ struct dsi_cmd_desc sharp_nt_video_on_cmds_idA1B100[] = {
 
 	/* {DTYPE_DCS_WRITE, 1, 0, 0, 150, sizeof(exit_sleep), exit_sleep}, */
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, 2, (char[]){0x53, 0x24}},
+
+	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
 };
 
 struct dsi_cmd_desc sharp_nt_video_on_cmds_nv3[] = {
@@ -1271,6 +1264,8 @@ struct dsi_cmd_desc sharp_nt_video_on_cmds_nv3[] = {
 
 	/* {DTYPE_DCS_WRITE, 1, 0, 0, 150, sizeof(exit_sleep), exit_sleep}, */
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, 2, (char[]){0x53, 0x24}},
+
+	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
 };
 
 struct dsi_cmd_desc sharp_nt_video_on_cmds_nv4[] = {
@@ -1377,6 +1372,8 @@ struct dsi_cmd_desc sharp_nt_video_on_cmds_nv4[] = {
 
 	/* {DTYPE_DCS_WRITE, 1, 0, 0, 150, sizeof(exit_sleep), exit_sleep}, */
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, 2, (char[]){0x53, 0x24}},
+
+	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
 };
 
 struct dsi_cmd_desc himax_video_on_cmds_id311100[] = {
@@ -1392,6 +1389,7 @@ struct dsi_cmd_desc himax_video_on_cmds_id311100[] = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 10, sizeof(led_pwm2), led_pwm2},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 10, sizeof(led_pwm3), led_pwm3},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(enable_te), enable_te},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
 };
 
 static struct dsi_cmd_desc nvt_LowTemp_wrkr_enter[] = {
@@ -1430,7 +1428,6 @@ static struct dsi_cmd_desc *cabc_cmds = cabc_off; /* default disable cabc */
 static int elite_send_display_cmds(struct dsi_cmd_desc *cmd, int cnt)
 {
 	int ret = 0;
-#ifdef ELITE_USE_CMDLISTS
 	struct dcs_cmd_req cmdreq;
 
 	cmdreq.cmds = cmd;
@@ -1440,65 +1437,12 @@ static int elite_send_display_cmds(struct dsi_cmd_desc *cmd, int cnt)
 	cmdreq.cb = NULL;
 
 	ret = mipi_dsi_cmdlist_put(&cmdreq);
-#else
-
-	MIPI_OUTP(MIPI_DSI_BASE + 0x38, 0x10000000);
-	ret = mipi_dsi_cmds_tx(&elite_tx_buf, cmd, cnt);
-	MIPI_OUTP(MIPI_DSI_BASE + 0x38, 0x14000000);
-#endif
 	if (ret < 0)
 		printk(KERN_ERR "[DISP] %s failed (%d)\n", __func__, ret);
 	return ret;
 }
 
-static void mipi_elite_per_panel_fcts_init(void)
-{
-	/* Common parts */
-
-	elite_display_on_cmds = display_on_cmds;
-	elite_display_on_cmds_count = ARRAY_SIZE(display_on_cmds);
-
-	elite_display_off_cmds = display_off_cmds;
-	elite_display_off_cmds_count = ARRAY_SIZE(display_off_cmds);
-
-	elite_cmd_backlight_cmds = cmd_backlight_cmds;
-	elite_cmd_backlight_cmds_count = ARRAY_SIZE(cmd_backlight_cmds);
-
-	if (panel_type == PANEL_ID_ELITE_SONY_NT
-			|| panel_type == PANEL_ID_ELITE_SONY_NT_C2) {
-		printk(KERN_INFO "%s: assign initial setting for SONY_NT*\n",
-				__func__);
-		elite_video_on_cmds = sony_panel_video_mode_cmds;
-		elite_video_on_cmds_count = ARRAY_SIZE(sony_panel_video_mode_cmds);
-	} else if (panel_type == PANEL_ID_ELITE_SONY_NT_C1) {
-		printk(KERN_INFO "%s: assign initial setting for SONY_NT id 0x28103 Cut1, %s\n",
-				__func__, "PANEL_ID_ELITE_SONY_NT_C1");
-		elite_video_on_cmds = sony_panel_video_mode_cmds_id28103;
-		elite_video_on_cmds_count = ARRAY_SIZE(sony_panel_video_mode_cmds_id28103);
-	} else if (panel_type == PANEL_ID_ELITE_SHARP_HX) {
-		printk(KERN_INFO "%s: assign initial setting for SHARP_HX, %s\n",
-				__func__, "PANEL_ID_ELITE_SHARP_HX");
-
-		elite_video_on_cmds = himax_video_on_cmds_id311100;
-		elite_video_on_cmds_count = ARRAY_SIZE(himax_video_on_cmds_id311100);
-	} else if (panel_type == PANEL_ID_ELITE_SHARP_NT) {
-		printk(KERN_INFO "%s: assign initial setting(NV1-3) for SHARP_NT id 0xA1B100, %s\n",
-				__func__, "PANEL_ID_ELITE_SHARP_NT");
-		elite_video_on_cmds = sharp_nt_video_on_cmds_idA1B100;
-		elite_video_on_cmds_count = ARRAY_SIZE(sharp_nt_video_on_cmds_idA1B100);
-	} else if (panel_type == PANEL_ID_ELITE_SHARP_NT_C1) {
-		printk(KERN_INFO "%s: assign initial setting(NV3) for SHARP_NT, %s\n",
-				__func__, "PANEL_ID_ELITE_SHARP_NT_C1");
-		elite_video_on_cmds = sharp_nt_video_on_cmds_nv3;
-		elite_video_on_cmds_count = ARRAY_SIZE(sharp_nt_video_on_cmds_nv3);
-	} else if (panel_type == PANEL_ID_ELITE_SHARP_NT_C2) {
-		printk(KERN_INFO "%s: assign initial setting(NV4) for SHARP_NT Cut2, %s\n",
-				__func__, "PANEL_ID_ELITE_SHARP_NT_C2");
-		elite_video_on_cmds = sharp_nt_video_on_cmds_nv4;
-		elite_video_on_cmds_count = ARRAY_SIZE(sharp_nt_video_on_cmds_nv4);
-	}
-}
-
+int mipi_lcd_on = 1;
 static int mipi_elite_lcd_on(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
@@ -1510,28 +1454,39 @@ static int mipi_elite_lcd_on(struct platform_device *pdev)
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
 
-	mipi  = &mfd->panel_info.mipi;
+	if (mipi_lcd_on)
+		return 0;
+
+	mipi = &mfd->panel_info.mipi;
+
+	if (mipi->mode == DSI_VIDEO_MODE) {
+		printk(KERN_ERR "[DISP] %s: does not support video mode\n",
+				__func__);
+		return -EINVAL;
+	}
 
 	if (panel_type != PANEL_ID_ELITE_SHARP_HX) {
-		if (!mipi_lcd_on) {
-			elite_send_display_cmds(nvt_LowTemp_wrkr_enter, ARRAY_SIZE(nvt_LowTemp_wrkr_enter));
+		elite_send_display_cmds(nvt_LowTemp_wrkr_enter, ARRAY_SIZE(nvt_LowTemp_wrkr_enter));
 
-			elite_send_display_cmds(nvt_LowTemp_wrkr_exit, ARRAY_SIZE(nvt_LowTemp_wrkr_exit));
+		elite_send_display_cmds(nvt_LowTemp_wrkr_exit, ARRAY_SIZE(nvt_LowTemp_wrkr_exit));
 
-			gpio_set_value(ELITE_GPIO_LCD_RSTz, 0);
-			msleep(1);
-			gpio_set_value(ELITE_GPIO_LCD_RSTz, 1);
-			msleep(20);
-		}
+		gpio_set_value(ELITE_GPIO_LCD_RSTz, 0);
+		msleep(1);
+		gpio_set_value(ELITE_GPIO_LCD_RSTz, 1);
+		msleep(20);
 	}
-	if (!mipi_lcd_on) {
-		if (panel_type != PANEL_ID_NONE) {
-			elite_send_display_cmds(elite_video_on_cmds, elite_video_on_cmds_count);
-			elite_send_display_cmds(elite_display_on_cmds, elite_display_on_cmds_count);
-			printk(KERN_INFO "%s: panel_type (%d)", __func__, panel_type);
-		} else
-			printk(KERN_INFO "%s: panel_type is not supported!(%d)", __func__, panel_type);
-	}
+
+	if (panel_type == PANEL_ID_ELITE_SONY_NT ||
+			panel_type == PANEL_ID_ELITE_SONY_NT_C1 ||
+			panel_type == PANEL_ID_ELITE_SONY_NT_C2 ||
+			panel_type == PANEL_ID_ELITE_SHARP_NT ||
+			panel_type == PANEL_ID_ELITE_SHARP_NT_C1 ||
+			panel_type == PANEL_ID_ELITE_SHARP_NT_C2 ||
+			panel_type == PANEL_ID_ELITE_SHARP_HX) {
+		elite_send_display_cmds(elite_video_on_cmds, elite_video_on_cmds_count);
+		printk(KERN_INFO "%s: panel_type (%d)", __func__, panel_type);
+	} else
+		printk(KERN_INFO "%s: panel_type is not supported!(%d)", __func__, panel_type);
 
 	mipi_lcd_on = 1;
 	return 0;
@@ -1623,6 +1578,50 @@ static void mipi_elite_set_backlight(struct msm_fb_data_type *mfd)
 	mipi_dsi_set_backlight(mfd, mfd->bl_level);
 }
 
+static void mipi_elite_per_panel_fcts_init(void)
+{
+	/* Common parts */
+
+	elite_display_off_cmds = display_off_cmds;
+	elite_display_off_cmds_count = ARRAY_SIZE(display_off_cmds);
+
+	elite_cmd_backlight_cmds = cmd_backlight_cmds;
+	elite_cmd_backlight_cmds_count = ARRAY_SIZE(cmd_backlight_cmds);
+
+	if (panel_type == PANEL_ID_ELITE_SONY_NT
+			|| panel_type == PANEL_ID_ELITE_SONY_NT_C2) {
+		printk(KERN_INFO "%s: assign initial setting for SONY_NT*\n",
+				__func__);
+		elite_video_on_cmds = sony_panel_video_mode_cmds;
+		elite_video_on_cmds_count = ARRAY_SIZE(sony_panel_video_mode_cmds);
+	} else if (panel_type == PANEL_ID_ELITE_SONY_NT_C1) {
+		printk(KERN_INFO "%s: assign initial setting for SONY_NT id 0x28103 Cut1, %s\n",
+				__func__, "PANEL_ID_ELITE_SONY_NT_C1");
+		elite_video_on_cmds = sony_panel_video_mode_cmds_id28103;
+		elite_video_on_cmds_count = ARRAY_SIZE(sony_panel_video_mode_cmds_id28103);
+	} else if (panel_type == PANEL_ID_ELITE_SHARP_HX) {
+		printk(KERN_INFO "%s: assign initial setting for SHARP_HX, %s\n",
+				__func__, "PANEL_ID_ELITE_SHARP_HX");
+		elite_video_on_cmds = himax_video_on_cmds_id311100;
+		elite_video_on_cmds_count = ARRAY_SIZE(himax_video_on_cmds_id311100);
+	} else if (panel_type == PANEL_ID_ELITE_SHARP_NT) {
+		printk(KERN_INFO "%s: assign initial setting(NV1-3) for SHARP_NT id 0xA1B100, %s\n",
+				__func__, "PANEL_ID_ELITE_SHARP_NT");
+		elite_video_on_cmds = sharp_nt_video_on_cmds_idA1B100;
+		elite_video_on_cmds_count = ARRAY_SIZE(sharp_nt_video_on_cmds_idA1B100);
+	} else if (panel_type == PANEL_ID_ELITE_SHARP_NT_C1) {
+		printk(KERN_INFO "%s: assign initial setting(NV3) for SHARP_NT, %s\n",
+				__func__, "PANEL_ID_ELITE_SHARP_NT_C1");
+		elite_video_on_cmds = sharp_nt_video_on_cmds_nv3;
+		elite_video_on_cmds_count = ARRAY_SIZE(sharp_nt_video_on_cmds_nv3);
+	} else if (panel_type == PANEL_ID_ELITE_SHARP_NT_C2) {
+		printk(KERN_INFO "%s: assign initial setting(NV4) for SHARP_NT Cut2, %s\n",
+				__func__, "PANEL_ID_ELITE_SHARP_NT_C2");
+		elite_video_on_cmds = sharp_nt_video_on_cmds_nv4;
+		elite_video_on_cmds_count = ARRAY_SIZE(sharp_nt_video_on_cmds_nv4);
+	}
+}
+
 static int __devinit mipi_elite_lcd_probe(struct platform_device *pdev)
 {
 	mipi_elite_per_panel_fcts_init();
@@ -1672,8 +1671,6 @@ static struct msm_fb_panel_data elite_panel_data = {
 	.on = mipi_elite_lcd_on,
 	.off = mipi_elite_lcd_off,
 	.set_backlight = mipi_elite_set_backlight,
-	//  .display_on = mipi_elite_display_on,
-	//  .display_off = mipi_elite_display_off,
 #ifdef CONFIG_FB_MSM_CABC
 	.enable_cabc = mipi_elite_enable_ic_cabc,
 #endif
@@ -1727,11 +1724,6 @@ err_device_put:
 static int mipi_elite_lcd_init(void)
 {
 	printk(KERN_ERR  "[DISP] %s +++\n", __func__);
-#ifndef ELITE_USE_CMDLISTS
-	mipi_dsi_buf_alloc(&elite_tx_buf, DSI_BUF_SIZE);
-	mipi_dsi_buf_alloc(&elite_rx_buf, DSI_BUF_SIZE);
-#endif
-
 	printk(KERN_ERR  "[DISP] %s ---\n", __func__);
 	return platform_driver_register(&this_driver);
 }

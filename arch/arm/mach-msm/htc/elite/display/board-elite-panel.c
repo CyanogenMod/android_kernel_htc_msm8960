@@ -294,7 +294,7 @@ uint32_t cfg_panel_te_sleep[] = {
 	GPIO_CFG(ELITE_GPIO_LCD_TE, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
 };
 
-int elite_panel_first_init = 1;
+extern int mipi_lcd_on;
 static bool dsi_power_on;
 
 static int mipi_dsi_panel_power(int on)
@@ -416,13 +416,13 @@ static int mipi_dsi_panel_power(int on)
 		}
 
 		if (panel_type != PANEL_ID_ELITE_SHARP_HX) {
-			if (!elite_panel_first_init) {
+			if (!mipi_lcd_on) {
 				msleep(20);
 				gpio_set_value(ELITE_GPIO_LCD_RSTz, 1);
 				msleep(1);
 			}
 		} else {
-			if (!elite_panel_first_init) {
+			if (!mipi_lcd_on) {
 				msleep(20);
 				gpio_set_value(ELITE_GPIO_LCD_RSTz, 1);
 				msleep(1);
