@@ -288,7 +288,7 @@ static struct platform_device wfd_device = {
 
 /* Select panel operate mode : CMD, VIDEO or SWITCH mode */
 
-int jet_panel_first_init = 1;
+extern int mipi_lcd_on;
 static bool dsi_power_on;
 
 static int mipi_dsi_panel_power(int on)
@@ -385,8 +385,8 @@ static int mipi_dsi_panel_power(int on)
 
 		jet_lcd_id_power(PM_GPIO_PULL_NO);
 
-		if (!jet_panel_first_init) {
-                        msleep(20);
+		if (!mipi_lcd_on) {
+			msleep(20);
 			gpio_set_value(JET_GPIO_LCD_RSTz, 1);
 			msleep(1);
 		}
