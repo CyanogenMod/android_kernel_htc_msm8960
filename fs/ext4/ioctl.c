@@ -402,6 +402,7 @@ resizefs_out:
 
 	case FITRIM:
 	{
+#ifdef CONFIG_ENABLE_FITRIM
 		struct request_queue *q = bdev_get_queue(sb->s_bdev);
 		struct fstrim_range range;
 		int ret = 0;
@@ -432,6 +433,7 @@ resizefs_out:
 		if (copy_to_user((struct fstrim_range __user *)arg, &range,
 		    sizeof(range)))
 			return -EFAULT;
+#endif
 
 		return 0;
 	}
