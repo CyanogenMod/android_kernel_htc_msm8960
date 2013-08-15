@@ -12,6 +12,7 @@ obj-y += htc_wifi_nvs.o
 obj-y += htc_sysinfo.o
 obj-y += emmc_partitions.o
 obj-y += htc_acoustic_8960.o
+obj-y += htc_lpm.o
 
 obj-$(CONFIG_HTC_BATT_CORE) += htc_battery_core.o
 obj-$(CONFIG_HTC_BATT_8960) += htc_battery_8960.o htc_battery_cell.o
