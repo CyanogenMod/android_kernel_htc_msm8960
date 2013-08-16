@@ -433,9 +433,11 @@ resizefs_out:
 		if (copy_to_user((struct fstrim_range __user *)arg, &range,
 		    sizeof(range)))
 			return -EFAULT;
-#endif
 
 		return 0;
+#else
+		return -EOPNOTSUPP;
+#endif
 	}
 
 	default:
