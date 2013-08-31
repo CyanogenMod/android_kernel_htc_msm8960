@@ -59,7 +59,10 @@
 #define MSG_ID_OUTPUT_SECONDARY         41
 #define MSG_ID_STATS_COMPOSITE          42
 #define MSG_ID_HDR_SOF_ACK              43 
-#define MSG_ID_STOP_LS_ACK              44
+#define MSG_ID_STATS_BG                 44
+#define MSG_ID_STATS_BF                 45
+#define MSG_ID_STATS_BHIST              46
+#define MSG_ID_STOP_LS_ACK              47
 
 #define VFE_CMD_DUMMY_0                                 0
 #define VFE_CMD_SET_CLK                                 1
@@ -200,6 +203,15 @@
 #define VFE_CMD_CAPTURE_RAW                             136
 #define VFE_CMD_STOP_LIVESHOT                           137
 #define VFE_CMD_RECONFIG_VFE                            138
+#define VFE_CMD_STATS_BG_START                          139
+#define VFE_CMD_STATS_BG_STOP                           140
+#define VFE_CMD_STATS_BF_START                          141
+#define VFE_CMD_STATS_BF_STOP                           142
+#define VFE_CMD_STATS_BHIST_START                       143
+#define VFE_CMD_STATS_BHIST_STOP                        144
+#define VFE_CMD_SET_BAYER_ENABLE                        145
+#define VFE_CMD_SET_CAMERA_MODE                         146 
+#define VFE_CMD_SET_SW_SHARPNESS_CMD                    147
 
 struct msm_isp_cmd {
 	int32_t  id;

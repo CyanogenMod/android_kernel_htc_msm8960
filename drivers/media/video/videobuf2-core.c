@@ -404,8 +404,9 @@ int vb2_reqbufs(struct vb2_queue *q, struct v4l2_requestbuffers *req)
 	memset(q->alloc_ctx, 0, sizeof(q->alloc_ctx));
 	q->memory = req->memory;
 
-	ret = call_qop(q, queue_setup, q, &num_buffers, &num_planes,
-		       plane_sizes, q->alloc_ctx);
+	ret = call_qop(q, queue_setup, q, NULL, &num_buffers,
+				&num_planes, q->plane_sizes, q->alloc_ctx);
+
 	if (ret)
 		return ret;
 
@@ -421,8 +422,8 @@ int vb2_reqbufs(struct vb2_queue *q, struct v4l2_requestbuffers *req)
 		unsigned int orig_num_buffers;
 
 		orig_num_buffers = num_buffers = ret;
-		ret = call_qop(q, queue_setup, q, &num_buffers, &num_planes,
-			       plane_sizes, q->alloc_ctx);
+		ret = call_qop(q, queue_setup, q, NULL, &num_buffers,
+			       &num_planes, q->plane_sizes, q->alloc_ctx);
 		if (ret)
 			goto free_mem;
 
@@ -598,10 +599,13 @@ static int __qbuf_userptr(struct vb2_buffer *vb, struct v4l2_buffer *b)
 	return 0;
 err:
 	
-	for (; plane > 0; --plane) {
-		call_memop(q, plane, put_userptr,
-				vb->planes[plane - 1].mem_priv);
-		vb->planes[plane - 1].mem_priv = NULL;
+	for (plane = 0; plane < vb->num_planes; ++plane) {
+		if (vb->planes[plane].mem_priv)
+			call_memop(q, plane, put_userptr,
+				   vb->planes[plane].mem_priv);
+		vb->planes[plane].mem_priv = NULL;
+		vb->v4l2_planes[plane].m.userptr = 0;
+		vb->v4l2_planes[plane].length = 0;
 	}
 
 	return ret;
@@ -802,6 +806,23 @@ int vb2_dqbuf(struct vb2_queue *q, struct v4l2_buffer *b, bool nonblocking)
 }
 EXPORT_SYMBOL_GPL(vb2_dqbuf);
 
+static void __vb2_queue_cancel(struct vb2_queue *q)
+{
+	unsigned int i;
+
+	if (q->streaming)
+		call_qop(q, stop_streaming, q);
+	q->streaming = 0;
+
+	INIT_LIST_HEAD(&q->queued_list);
+	INIT_LIST_HEAD(&q->done_list);
+	atomic_set(&q->queued_count, 0);
+	wake_up_all(&q->done_wq);
+
+	for (i = 0; i < q->num_buffers; ++i)
+		q->bufs[i]->state = VB2_BUF_STATE_DEQUEUED;
+}
+
 int vb2_streamon(struct vb2_queue *q, enum v4l2_buf_type type)
 {
 	struct vb2_buffer *vb;
@@ -822,45 +843,23 @@ int vb2_streamon(struct vb2_queue *q, enum v4l2_buf_type type)
 		return -EBUSY;
 	}
 
-	if (V4L2_TYPE_IS_OUTPUT(q->type)) {
-		if (list_empty(&q->queued_list)) {
-			dprintk(1, "streamon: no output buffers queued\n");
-			return -EINVAL;
-		}
-	}
+	list_for_each_entry(vb, &q->queued_list, queued_entry)
+		__enqueue_in_driver(vb);
 
-	ret = call_qop(q, start_streaming, q);
+	ret = call_qop(q, start_streaming, q, atomic_read(&q->queued_count));
 	if (ret) {
 		dprintk(1, "streamon: driver refused to start streaming\n");
+		__vb2_queue_cancel(q);
 		return ret;
 	}
 
 	q->streaming = 1;
-
-	list_for_each_entry(vb, &q->queued_list, queued_entry)
-		__enqueue_in_driver(vb);
 
 	dprintk(3, "Streamon successful\n");
 	return 0;
 }
 EXPORT_SYMBOL_GPL(vb2_streamon);
 
-static void __vb2_queue_cancel(struct vb2_queue *q)
-{
-	unsigned int i;
-
-	if (q->streaming)
-		call_qop(q, stop_streaming, q);
-	q->streaming = 0;
-
-	INIT_LIST_HEAD(&q->queued_list);
-	INIT_LIST_HEAD(&q->done_list);
-	atomic_set(&q->queued_count, 0);
-	wake_up_all(&q->done_wq);
-
-	for (i = 0; i < q->num_buffers; ++i)
-		q->bufs[i]->state = VB2_BUF_STATE_DEQUEUED;
-}
 
 int vb2_streamoff(struct vb2_queue *q, enum v4l2_buf_type type)
 {

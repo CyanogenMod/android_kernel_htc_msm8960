@@ -25,8 +25,8 @@ struct csiphy_device {
 	struct resource *io;
 	void __iomem *base;
 	struct mutex mutex;
-
-	struct clk *csiphy_clk[2];
+	struct clk *csiphy_clk[6];
+	struct regulator *csi_vdd;
 };
 
 struct csiphy_cfg_params {

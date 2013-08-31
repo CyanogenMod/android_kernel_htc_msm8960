@@ -15,11 +15,8 @@
 #include "msm_camera_i2c.h"
 #include <mach/gpio.h>
 
-#ifdef USE_RAWCHIP_AF
-#define	S5K3H2YX_TOTAL_STEPS_NEAR_TO_FAR			256
-#else
 #define	S5K3H2YX_TOTAL_STEPS_NEAR_TO_FAR			52
-#endif
+#define S5K3H2YX_TOTAL_STEPS_NEAR_TO_FAR_RAWCHIP_AF                        256 
 
 #define REG_VCM_NEW_CODE			0x30F2
 #define REG_VCM_I2C_ADDR			0x18
@@ -108,11 +105,17 @@ int32_t s5k3h2yx_msm_actuator_init_table(
 
 	if (a_ctrl->func_tbl.actuator_set_params)
 		a_ctrl->func_tbl.actuator_set_params(a_ctrl);
-
+#if 0
 	if (s5k3h2yx_act_t.step_position_table) {
 		LINFO("%s table inited\n", __func__);
 		return rc;
 	}
+#endif
+
+	if (s5k3h2yx_msm_actuator_info->use_rawchip_af && a_ctrl->af_algo == AF_ALGO_RAWCHIP)
+		a_ctrl->set_info.total_steps = S5K3H2YX_TOTAL_STEPS_NEAR_TO_FAR_RAWCHIP_AF;
+	else
+		a_ctrl->set_info.total_steps = S5K3H2YX_TOTAL_STEPS_NEAR_TO_FAR;
 
 	
 	if (a_ctrl->step_position_table != NULL) {
@@ -132,12 +135,10 @@ int32_t s5k3h2yx_msm_actuator_init_table(
 
 		a_ctrl->step_position_table[0] = a_ctrl->initial_code;
 		for (i = 1; i <= a_ctrl->set_info.total_steps; i++) {
-#ifdef USE_RAWCHIP_AF
-			if (s5k3h2yx_msm_actuator_info->use_rawchip_af)
+			if (s5k3h2yx_msm_actuator_info->use_rawchip_af && a_ctrl->af_algo == AF_ALGO_RAWCHIP) 
 				a_ctrl->step_position_table[i] =
 					a_ctrl->step_position_table[i-1] + 4;
 			else
-#endif
 			{
 			if (i <= s5k3h2yx_nl_region_boundary1) {
 				a_ctrl->step_position_table[i] =
@@ -387,7 +388,7 @@ static struct msm_actuator_ctrl_t s5k3h2yx_act_t = {
 	},
 
 	.set_info = {
-		.total_steps = S5K3H2YX_TOTAL_STEPS_NEAR_TO_FAR,
+		.total_steps = S5K3H2YX_TOTAL_STEPS_NEAR_TO_FAR_RAWCHIP_AF, 
 		.gross_steps = 3,	
 		.fine_steps = 1,	
 	},
@@ -396,6 +397,7 @@ static struct msm_actuator_ctrl_t s5k3h2yx_act_t = {
 	.curr_region_index = 0,
 	.initial_code = 0,	
 	.actuator_mutex = &s5k3h2yx_act_mutex,
+	.af_algo = AF_ALGO_RAWCHIP, 
 
 	.func_tbl = {
 		.actuator_init_table = s5k3h2yx_msm_actuator_init_table,

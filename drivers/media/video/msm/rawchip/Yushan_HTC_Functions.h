@@ -113,7 +113,8 @@ extern struct yushan_reg_clib_t yushan_regs_clib_imx175;
 extern struct yushan_reg_clib_t yushan_regs_clib_ov8838;
 extern struct yushan_reg_clib_t yushan_regs_clib_ar0260;
 extern struct yushan_reg_clib_t yushan_regs_clib_ov2722;
-
+extern struct yushan_reg_clib_t yushan_regs_clib_ov5693;
+extern struct yushan_reg_clib_t yushan_regs_clib_s5k6a2ya;
 
 struct rawchip_sensor_init_data {
 	const char *sensor_name;

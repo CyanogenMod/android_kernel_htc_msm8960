@@ -164,6 +164,9 @@ int msm_camera_flash(
 		case MSM_CAMERA_LED_LOW:
 			flash_level = FL_MODE_PRE_FLASH;
 			break;
+                case MSM_CAMERA_LED_VIDEO:
+			flash_level = FL_MODE_VIDEO_TORCH;
+			break;
 		case MSM_CAMERA_LED_OFF:
 		case MSM_CAMERA_LED_INIT:
 		case MSM_CAMERA_LED_RELEASE:

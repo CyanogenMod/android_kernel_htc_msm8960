@@ -27,6 +27,9 @@ struct csid_device {
 	struct mutex mutex;
 	uint32_t hw_version;
 
+	struct regulator *csi_vdd;
+	struct completion reset_complete;
+
 	struct clk *csid_clk[5];
 };
 

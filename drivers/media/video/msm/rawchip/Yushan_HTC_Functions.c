@@ -366,6 +366,10 @@ int Yushan_sensor_open_init(struct rawchip_sensor_init_data data)
 	uint32_t		udwIntrMask[] = {0x3DE38E3B, 0xFC3C3C3C, 0x001B7FFB};	
 	uint16_t		uwAssignITRGrpToPad1 = 0x008; 
 
+#ifdef CONFIG_DISABLE_MCLK_RAWCHIP_TO_MAINCAM
+	uint8_t bSpiData = 0;
+#endif
+
 #if 0
 	Yushan_AF_ROI_t					sYushanAfRoi[5];
 	Yushan_DXO_ROI_Active_Number_t	sYushanDxoRoiActiveNumber;
@@ -501,6 +505,28 @@ int Yushan_sensor_open_init(struct rawchip_sensor_init_data data)
 		p_yushan_regs->pdpclib_first_addr = yushan_regs_clib_ov2722.pdpclib_first_addr;
 		p_yushan_regs->dppclib_first_addr = yushan_regs_clib_ov2722.dppclib_first_addr;
 		p_yushan_regs->dopclib_first_addr = yushan_regs_clib_ov2722.dopclib_first_addr;
+	}
+	else if (strcmp(data.sensor_name, "ov5693") == 0) {
+		p_yushan_regs->pdpclib = yushan_regs_clib_ov5693.pdpclib;
+		p_yushan_regs->dppclib = yushan_regs_clib_ov5693.dppclib;
+		p_yushan_regs->dopclib = yushan_regs_clib_ov5693.dopclib;
+		p_yushan_regs->pdpclib_size = yushan_regs_clib_ov5693.pdpclib_size;
+		p_yushan_regs->dppclib_size = yushan_regs_clib_ov5693.dppclib_size;
+		p_yushan_regs->dopclib_size = yushan_regs_clib_ov5693.dopclib_size;
+		p_yushan_regs->pdpclib_first_addr = yushan_regs_clib_ov5693.pdpclib_first_addr;
+		p_yushan_regs->dppclib_first_addr = yushan_regs_clib_ov5693.dppclib_first_addr;
+		p_yushan_regs->dopclib_first_addr = yushan_regs_clib_ov5693.dopclib_first_addr;
+	}
+	else if (strcmp(data.sensor_name, "s5k6a2ya") == 0) {
+		p_yushan_regs->pdpclib = yushan_regs_clib_s5k6a2ya.pdpclib;
+		p_yushan_regs->dppclib = yushan_regs_clib_s5k6a2ya.dppclib;
+		p_yushan_regs->dopclib = yushan_regs_clib_s5k6a2ya.dopclib;
+		p_yushan_regs->pdpclib_size = yushan_regs_clib_s5k6a2ya.pdpclib_size;
+		p_yushan_regs->dppclib_size = yushan_regs_clib_s5k6a2ya.dppclib_size;
+		p_yushan_regs->dopclib_size = yushan_regs_clib_s5k6a2ya.dopclib_size;
+		p_yushan_regs->pdpclib_first_addr = yushan_regs_clib_s5k6a2ya.pdpclib_first_addr;
+		p_yushan_regs->dppclib_first_addr = yushan_regs_clib_s5k6a2ya.dppclib_first_addr;
+		p_yushan_regs->dopclib_first_addr = yushan_regs_clib_s5k6a2ya.dopclib_first_addr;
 	}
 
 	sDxoStruct.pDxoPdpRamImage[0] = (uint8_t *)p_yushan_regs->pdpcode;
@@ -645,6 +671,7 @@ int Yushan_sensor_open_init(struct rawchip_sensor_init_data data)
 	sDxoDopTuning.bNoiseVsDetailsMedGain = 0x80;
 	sDxoDopTuning.bNoiseVsDetailsHiGain = 0x80;
 	bDppMode = DPP_enable ? 0x03 : 0;
+	bDopMode = DOP_enable ? (0x01|(((~denoise_enable)&0x01)<<4)) : 0;
 
 	if (strcmp(data.sensor_name, "s5k3h2yx") == 0)
 	{
@@ -656,22 +683,48 @@ int Yushan_sensor_open_init(struct rawchip_sensor_init_data data)
 	    sDxoDopTuning.bSharpness = 0x01;
 	    sDxoDopTuning.bDenoisingLowGain = 0x30;
 	    sDxoDopTuning.bDenoisingMedGain = 0x80;
-	    sDxoDopTuning.bDenoisingHiGain =  0x60;
+	    sDxoDopTuning.bDenoisingHiGain =  0x56;
  
 	    sDxoDopTuning.bNoiseVsDetailsLowGain = 0xD0;
 	    sDxoDopTuning.bNoiseVsDetailsMedGain = 0xB0;
-	    sDxoDopTuning.bNoiseVsDetailsHiGain = 0xB0;
+	    sDxoDopTuning.bNoiseVsDetailsHiGain =  0xA0;
 	}
 	else if (strcmp(data.sensor_name, "ar0260") == 0)
 	{
-		sDxoDopTuning.bDenoisingLowGain = 0x60;
-		sDxoDopTuning.bDenoisingMedGain = 0x60;
-		sDxoDopTuning.bDenoisingHiGain =  0x60;
+		sDxoDopTuning.bDenoisingLowGain = 0x30;
+		sDxoDopTuning.bDenoisingMedGain = 0x30;
+		sDxoDopTuning.bDenoisingHiGain =  0x20;
 	    sDxoDopTuning.bNoiseVsDetailsLowGain = 0x80;
 	    sDxoDopTuning.bNoiseVsDetailsMedGain = 0x80;
-	    sDxoDopTuning.bNoiseVsDetailsHiGain = 0x80;
+	    sDxoDopTuning.bNoiseVsDetailsHiGain = 0xB0;
 	    sDxoDopTuning.bSharpness = 0;
 		bDppMode =0;
+		bDopMode =0xd;
+	}
+	else if (strcmp(data.sensor_name, "ov2722") == 0)   
+	{
+		sDxoDopTuning.bDenoisingLowGain = 0x10;
+		sDxoDopTuning.bDenoisingMedGain = 0x10;
+		sDxoDopTuning.bDenoisingHiGain =  0x45;
+	    sDxoDopTuning.bNoiseVsDetailsLowGain = 0x80;
+	    sDxoDopTuning.bNoiseVsDetailsMedGain = 0x80;
+	    sDxoDopTuning.bNoiseVsDetailsHiGain = 0xA8;
+	    sDxoDopTuning.bSharpness = 0;
+#if defined(CONFIG_MACH_MONARUDO) ||\
+    defined(CONFIG_MACH_DELUXE_J) ||\
+    defined(CONFIG_MACH_DELUXE_R) ||\
+    defined(CONFIG_MACH_IMPRESSION_J) ||\
+    defined(CONFIG_MACH_DUMMY) ||\
+    defined(CONFIG_MACH_DUMMY) ||\
+    defined(CONFIG_MACH_DUMMY)
+		bDppMode =0; 
+#endif
+		bDopMode =0xd;
+	}
+	else if (strcmp(data.sensor_name, "ov5693") == 0)
+	{
+		sDxoDopTuning.bDenoisingMedGain = 0x30;
+		sDxoDopTuning.bDenoisingHiGain = 0x30;
 	}
 	else
 	{
@@ -804,6 +857,15 @@ int Yushan_sensor_open_init(struct rawchip_sensor_init_data data)
 	
 	bSpiData = 0;
 	SPI_Write(YUSHAN_SMIA_FM_EOF_INT_EN, 1,  &bSpiData);
+#endif
+
+#ifdef CONFIG_DISABLE_MCLK_RAWCHIP_TO_MAINCAM
+	if (strcmp(data.sensor_name, "s5k6a2ya") == 0) {
+		SPI_Read(YUSHAN_CLK_CTRL, 1, (uint8_t*)(&bSpiData)); 
+		bSpiData &= 0xEF; 
+		SPI_Write(YUSHAN_CLK_CTRL, 1, (uint8_t*)(&bSpiData));
+		pr_info("[CAM] Disable MCLK of main cam");
+	}
 #endif
 
 	return (bStatus == SUCCESS) ? 0 : -1;

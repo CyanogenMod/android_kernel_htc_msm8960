@@ -28,6 +28,8 @@
 #include "msm.h"
 #include "msm_ispif.h"
 
+#include "swfv/swfa_k.h"
+
 #ifdef CONFIG_MSM_CAMERA_DEBUG
 #define D(fmt, args...) pr_debug("msm_mctl_buf: " fmt, ##args)
 #else
@@ -35,9 +37,10 @@
 #endif
 
 static int msm_vb2_ops_queue_setup(struct vb2_queue *vq,
+					const struct v4l2_format *fmt,
 					unsigned int *num_buffers,
 					unsigned int *num_planes,
-					unsigned long sizes[],
+					unsigned int sizes[],
 					void *alloc_ctxs[])
 {
 	
@@ -53,9 +56,9 @@ static int msm_vb2_ops_queue_setup(struct vb2_queue *vq,
 
 	*num_planes = pcam_inst->plane_info.num_planes;
 	for (i = 0; i < pcam_inst->vid_fmt.fmt.pix_mp.num_planes; i++) {
-		sizes[i] = PAGE_ALIGN(pcam_inst->plane_info.plane[i].size);
-		D("%s Inst %p : Plane %d Offset = %d Size = %ld"
-			"Aligned Size = %ld", __func__, pcam_inst, i,
+		sizes[i] = pcam_inst->plane_info.plane[i].size;
+		D("%s Inst %p : Plane %d Offset = %d Size = %ld" \
+			"Aligned Size = %d\n", __func__, pcam_inst, i,
 			pcam_inst->plane_info.plane[i].offset,
 			pcam_inst->plane_info.plane[i].size, sizes[i]);
 	}
@@ -117,6 +120,10 @@ static int msm_vb2_ops_buf_init(struct vb2_buffer *vb)
 	if(!pmctl) return -EINVAL;
 	for (i = 0; i < vb->num_planes; i++) {
 		mem = vb2_plane_cookie(vb, i);
+		if (!mem) { 
+			pr_err("%s: null pointer check, line(%d)", __func__, __LINE__);
+			return -EINVAL;
+		} 
 		if (buf_type == VIDEOBUF2_MULTIPLE_PLANES)
 			offset.data_offset =
 				pcam_inst->plane_info.plane[i].offset;
@@ -146,7 +153,7 @@ static int msm_vb2_ops_buf_prepare(struct vb2_buffer *vb)
 	struct msm_cam_v4l2_dev_inst *pcam_inst;
 	struct msm_cam_v4l2_device *pcam;
 	struct msm_frame_buffer *buf;
-	struct vb2_queue	*vq = NULL;
+	struct vb2_queue *vq;
 
 	D("%s\n", __func__);
 	if (!vb) {
@@ -246,7 +253,8 @@ static void msm_vb2_ops_buf_cleanup(struct vb2_buffer *vb)
 				&pcam_inst->free_vq, list) {
 			buf_phyaddr = (unsigned long)
 				videobuf2_to_pmem_contig(&buf->vidbuf, 0);
-			D("%s vb_idx=%d,vb_paddr=0x%x,phyaddr=0x%x\n",
+			if (!buf_phyaddr || !vb_phyaddr)
+			pr_info("%s vb_idx=%d,vb_paddr=0x%x,phyaddr=0x%x\n",
 				__func__, buf->vidbuf.v4l2_buf.index,
 				buf_phyaddr, vb_phyaddr);
 			if (vb_phyaddr == buf_phyaddr) {
@@ -261,13 +269,17 @@ static void msm_vb2_ops_buf_cleanup(struct vb2_buffer *vb)
 	if(pmctl)  {
 		for (i = 0; i < vb->num_planes; i++) {
 			mem = vb2_plane_cookie(vb, i);
+			if (!mem) { 
+				pr_err("%s: null pointer check, line(%d)", __func__, __LINE__);
+				return;
+			} 
 			videobuf2_pmem_contig_user_put(mem, pmctl->client);
 		}
 	}
 	buf->state = MSM_BUFFER_STATE_UNUSED;
 }
 
-static int msm_vb2_ops_start_streaming(struct vb2_queue *q)
+static int msm_vb2_ops_start_streaming(struct vb2_queue *q, unsigned int count)
 {
 	return 0;
 }
@@ -379,6 +391,10 @@ struct msm_frame_buffer *msm_mctl_buf_find(
 			&pcam_inst->free_vq, list) {
 		buf_idx = buf->vidbuf.v4l2_buf.index;
 		mem = vb2_plane_cookie(&buf->vidbuf, 0);
+		if (!mem) { 
+			pr_err("%s: null pointer check, line(%d)", __func__, __LINE__);
+			return NULL;
+		} 
 		if (mem->buffer_type ==	VIDEOBUF2_MULTIPLE_PLANES)
 			offset = mem->offset.data_offset +
 				pcam_inst->buf_offset[buf_idx][0].data_offset;
@@ -387,7 +403,8 @@ struct msm_frame_buffer *msm_mctl_buf_find(
 		buf_phyaddr = (unsigned long)
 				videobuf2_to_pmem_contig(&buf->vidbuf, 0) +
 				offset;
-		D("%s vb_idx=%d,vb_paddr=0x%x ch0=0x%x\n",
+		if (!buf_phyaddr)
+		pr_info("%s vb_idx=%d,vb_paddr=0x%x ch0=0x%x\n",
 			__func__, buf->vidbuf.v4l2_buf.index,
 			buf_phyaddr, fbuf->ch_paddr[0]);
 		if (fbuf->ch_paddr[0] == buf_phyaddr) {
@@ -409,8 +426,10 @@ int msm_mctl_buf_done_proc(
 		int image_mode, struct msm_free_buf *fbuf,
 		uint32_t *frame_id, int gen_timestamp)
 {
+	int rc = 0;
 	struct msm_frame_buffer *buf = NULL;
 	int del_buf = 1;
+	struct videobuf2_contig_pmem *mem;
 
 	buf = msm_mctl_buf_find(pmctl, pcam_inst, del_buf,
 					image_mode, fbuf);
@@ -419,6 +438,26 @@ int msm_mctl_buf_done_proc(
 			__func__, fbuf->ch_paddr[0]);
 		return -EINVAL;
 	}
+
+	mem = vb2_plane_cookie(&buf->vidbuf, 0);
+
+	if(pmctl->htc_af_info.af_input.preview_width*pmctl->htc_af_info.af_input.preview_height > mem->size)
+	    pmctl->htc_af_info.af_input.af_use_sw_sharpness = false;
+
+	if (pmctl->htc_af_info.af_input.af_use_sw_sharpness && image_mode == MSM_V4L2_EXT_CAPTURE_MODE_PREVIEW)
+	{
+	    rc = swfa_FeatureAnalysis((uint8_t* )mem->arm_vaddr,
+			                          pmctl->htc_af_info.af_input.preview_width,
+			                          pmctl->htc_af_info.af_input.preview_height,
+			                          pmctl->htc_af_info.af_input.roi_x,
+			                          pmctl->htc_af_info.af_input.roi_y,
+			                          pmctl->htc_af_info.af_input.roi_width,
+			                          pmctl->htc_af_info.af_input.roi_height,
+			                          1);
+	    if(!rc)
+	        pmctl->htc_af_info.af_input.af_use_sw_sharpness = false;
+	}
+
 	if (gen_timestamp) {
 		if (frame_id)
 			buf->vidbuf.v4l2_buf.sequence = *frame_id;
@@ -603,6 +642,10 @@ int msm_mctl_reserve_free_buf(
 				pcam_inst->plane_info.num_planes;
 			for (i = 0; i < free_buf->num_planes; i++) {
 				mem = vb2_plane_cookie(&buf->vidbuf, i);
+				if (!mem) { 
+					pr_err("%s: null pointer check, line(%d)", __func__, __LINE__);
+					return -EINVAL;
+				} 
 				if (mem->buffer_type ==
 						VIDEOBUF2_MULTIPLE_PLANES)
 					plane_offset =
@@ -623,6 +666,10 @@ int msm_mctl_reserve_free_buf(
 			}
 		} else {
 			mem = vb2_plane_cookie(&buf->vidbuf, 0);
+			if (!mem) { 
+				pr_err("%s: null pointer check, line(%d)", __func__, __LINE__);
+				return -EINVAL;
+			} 
 			free_buf->ch_paddr[0] = (uint32_t)
 				videobuf2_to_pmem_contig(&buf->vidbuf, 0) +
 				mem->offset.sp_off.y_off;
@@ -645,8 +692,8 @@ int msm_mctl_reserve_free_buf(
 		++pcam_inst->no_free_buf_cnt;
 		if (pcam_inst->no_free_buf_cnt < 50 ||
 			pcam_inst->no_free_buf_cnt % 5 == 0)
-			pr_info("%s: No free buffer available: inst = 0x%p, cnt %d\n",
-				__func__, pcam_inst, pcam_inst->no_free_buf_cnt);
+			pr_info("%s: No free buffer available: image_mode=%d inst = 0x%p, cnt %d\n",
+				__func__, image_mode, pcam_inst, pcam_inst->no_free_buf_cnt);
 	}
 	spin_unlock_irqrestore(&pcam_inst->vq_irqlock, flags);
 	return rc;
@@ -720,6 +767,8 @@ int msm_mctl_release_free_buf(struct msm_cam_media_controller *pmctl,
 	list_for_each_entry(buf, &pcam_inst->free_vq, list) {
 		buf_phyaddr =
 			(uint32_t) videobuf2_to_pmem_contig(&buf->vidbuf, 0);
+		if (!buf_phyaddr)
+			pr_info("%s buf_phyaddr is null", __func__);
 		if (free_buf->ch_paddr[0] == buf_phyaddr) {
 			D("%s buf = 0x%x ", __func__, free_buf->ch_paddr[0]);
 			buf->state = MSM_BUFFER_STATE_UNUSED;

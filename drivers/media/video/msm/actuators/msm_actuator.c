@@ -193,7 +193,7 @@ int32_t msm_actuator_init_table(
 
 	a_ctrl->curr_step_pos = 0;
 	a_ctrl->curr_region_index = 0;
-
+	a_ctrl->af_OTP_info.VCM_OTP_Read = false;
 	return rc;
 }
 
@@ -225,6 +225,7 @@ int32_t msm_actuator_af_power_down(struct msm_actuator_ctrl_t *a_ctrl)
 		LINFO("%s after msm_actuator_set_default_focus\n", __func__);
 	}
 	kfree(a_ctrl->step_position_table);
+	a_ctrl->step_position_table=NULL; 
 	return rc;
 }
 
@@ -244,6 +245,7 @@ int32_t msm_actuator_config(
 	switch (cdata.cfgtype) {
 	case CFG_GET_ACTUATOR_INFO:
 		cdata.is_af_supported = 1;
+		cdata.is_ois_supported = a_ctrl->actuator_ext_ctrl.is_ois_supported;
 		cdata.cfg.get_info = a_ctrl->get_info;
 		if (copy_to_user((void *)argp,
 				 &cdata,
@@ -251,9 +253,6 @@ int32_t msm_actuator_config(
 			rc = -EFAULT;
 		break;
 	case CFG_SET_ACTUATOR_INFO:
-#ifdef USE_RAWCHIP_AF
-		if (board_info && !board_info->use_rawchip_af)
-#endif
 		a_ctrl->set_info = cdata.cfg.set_info;
 		rc = a_ctrl->func_tbl.actuator_init_table(a_ctrl);
 		if (rc < 0)
@@ -282,7 +281,114 @@ int32_t msm_actuator_config(
 				 sizeof(struct msm_actuator_cfg_data)))
 			rc = -EFAULT;
 		break;
+	case CFG_SET_ACTUATOR_AF_ALGO:
+		a_ctrl->af_algo = cdata.cfg.af_algo;
+		rc = a_ctrl->func_tbl.actuator_init_table(a_ctrl);
+		if (rc < 0)
+			LERROR("%s init table failed %d\n", __func__, rc);
+		break;
 
+	case CFG_SET_OIS_MODE:
+		if (a_ctrl->actuator_ext_ctrl.is_ois_supported) {
+			if (a_ctrl->func_tbl.actuator_set_ois_mode != NULL) {
+				rc = a_ctrl->func_tbl.actuator_set_ois_mode(a_ctrl, cdata.cfg.ois_mode);
+				if (rc < 0)
+					LERROR("%s set ois mode failed %d\n", __func__, rc);
+			} else {
+				LERROR("%s a_ctrl->func_tbl.actuator_set_ois_mode is NULL\n", __func__);
+			}
+		} else {
+			LINFO("%s ois is not supported\n", __func__);
+		}
+		break;
+	case CFG_UPDATE_OIS_TBL:
+		if (a_ctrl->actuator_ext_ctrl.is_ois_supported) {
+			if (a_ctrl->func_tbl.actuator_update_ois_tbl != NULL) {
+				rc = a_ctrl->func_tbl.actuator_update_ois_tbl(a_ctrl, &(cdata.cfg.sensor_actuator_info));
+				if (rc < 0)
+					LERROR("%s update ois table failed %d\n", __func__, rc);
+			} else {
+				LERROR("%s a_ctrl->func_tbl.actuator_update_ois_tbl is NULL\n", __func__);
+			}
+		} else {
+			LINFO("%s ois is not supported\n", __func__);
+		}
+		break;
+	case CFG_GET_OIS_DEBUG_INFO:
+		if (a_ctrl->actuator_ext_ctrl.is_ois_supported) {
+			cdata.cfg.get_ois_info = a_ctrl->get_ois_info;
+			if (copy_to_user((void *)argp,
+				&cdata,
+				sizeof(struct msm_actuator_cfg_data)))
+			rc = -EFAULT;
+		} else {
+			LINFO("%s ois is not supported\n", __func__);
+		}
+		break;
+	case CFG_GET_OIS_DEBUG_TBL:
+		if (a_ctrl->actuator_ext_ctrl.is_ois_supported) {
+			cdata.cfg.get_ois_tbl = a_ctrl->get_ois_tbl;
+			if (copy_to_user((void *)argp,
+				&cdata,
+				sizeof(struct msm_actuator_cfg_data)))
+			rc = -EFAULT;
+		} else {
+			LINFO("%s ois is not supported\n", __func__);
+		}
+		break;
+	case CFG_SET_ACTUATOR_AF_VALUE:
+		if (a_ctrl->func_tbl.actuator_set_af_value != NULL) {
+			rc = a_ctrl->func_tbl.actuator_set_af_value(a_ctrl, cdata.cfg.af_value);
+			if (rc < 0)
+				LERROR("%s set af value failed %d\n", __func__, rc);
+		} else {
+			LERROR("%s a_ctrl->func_tbl.actuator_set_af_value is NULL\n", __func__);
+		}
+		break;
+	case CFG_SET_OIS_CALIBRATION:
+		if (a_ctrl->actuator_ext_ctrl.is_ois_supported) {
+			if (a_ctrl->func_tbl.actuator_set_ois_calibration != NULL) {
+				rc = a_ctrl->func_tbl.actuator_set_ois_calibration(a_ctrl, &cdata.cfg.get_osi_cal_info);
+				if (rc < 0) {
+					LERROR("%s set ois calibration failed %d\n", __func__, rc);
+				} else {
+					if (copy_to_user((void *)argp,
+						&cdata,
+						sizeof(struct msm_actuator_cfg_data)))
+						rc = -EFAULT;
+				}
+			} else {
+				LERROR("%s a_ctrl->func_tbl.actuator_set_ois_calibration is NULL\n", __func__);
+				rc = -EFAULT;
+			}
+		} else {
+			LINFO("%s ois is not supported\n", __func__);
+		}
+		break;
+	
+    case CFG_SET_VCM_CALIBRATION:
+        if (a_ctrl->actuator_ext_ctrl.is_cal_supported) {
+            if (a_ctrl->func_tbl.actuator_do_cal) {
+                rc = a_ctrl->func_tbl.actuator_do_cal (a_ctrl, &cdata.cfg.get_vcm_cal_info);
+                if (rc < 0) {
+                    LERROR("%s calibration failed %d\n", __func__, rc);
+                } else {
+                    if (copy_to_user((void *)argp,
+                        &cdata,
+                        sizeof(struct msm_actuator_cfg_data)))
+                        rc = -EFAULT;
+                }
+            }
+            else {
+                LERROR("%s a_ctrl->func_tbl.acturator_do_cal is NULL\n", __func__);
+                rc = -EFAULT;
+            }
+        }
+        else {
+            LINFO("%s cal is not supported\n", __func__);
+        }
+        break;
+	
 	default:
 		break;
 	}

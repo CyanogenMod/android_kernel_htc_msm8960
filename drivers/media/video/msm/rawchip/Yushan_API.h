@@ -400,7 +400,7 @@ typedef	struct {
 	uint16_t	uwDxoPdpStartAddr;
 	
 	uint16_t	uwDxoPdpBootAddr;
-	
+	// IP Boot address, where first add of Microcode has to be written
 	uint16_t 	uwDxoPdpRamImageSize[2];
 	
 	uint16_t	uwBaseAddrPdpMicroCode[2];
@@ -410,7 +410,7 @@ typedef	struct {
 	uint16_t	uwDxoDppStartAddr;
 	
 	uint16_t	uwDxoDppBootAddr;
-	
+	// IP Boot address, where first add of Microcode has to be written
 	uint16_t 	uwDxoDppRamImageSize[2];
 	
 	uint16_t	uwBaseAddrDppMicroCode[2];
@@ -420,7 +420,7 @@ typedef	struct {
 	uint16_t	uwDxoDopStartAddr;
 	
 	uint16_t	uwDxoDopBootAddr;
-	
+	// IP Boot address, where first add of Microcode has to be written
 	uint16_t 	uwDxoDopRamImageSize[2];
 	
 	uint16_t	uwBaseAddrDopMicroCode[2];

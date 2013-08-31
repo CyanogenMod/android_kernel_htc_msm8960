@@ -115,7 +115,7 @@ config WEBCAM_OV9726
 config VX6953
 	bool "Sensor VX6953 (BAYER 5M)"
 	depends on MSM_CAMERA && (ARCH_MSM7X30 || ARCH_MSM8X60)
-	default y
+	default n
 	---help---
 	STM 5M Bayer Sensor with EDOF
 config SN12M0PZ
@@ -278,6 +278,20 @@ config RAWCHIP
 	---help---
 	  ST Yushan rawchip
 
+config RAWCHIPII
+        bool "RawchipII"
+        depends on MSM_CAMERA
+        default n
+        ---help---
+          ST Yushan rawchipII
+
+config CAMERA_IMAGE_NONE_BOARD
+	bool "CameraImageNoneBoard"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  camera image none board
+
 config QUP_EXCLUSIVE_TO_CAMERA
 	bool "QUP exclusive to camera"
 	depends on MSM_CAMERA
@@ -339,6 +353,13 @@ config IMX175_ACT
 	---help---
 	  Autofocus of imx175 actuator
 
+config RUMBAS_ACT
+	bool "RUMBA-S actuator"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  Autofocus of RUMBA-S actuator
+
 config AD5823_ACT
        bool "Lens actuator ad5823"
        depends on MSM_CAMERA
@@ -355,7 +376,21 @@ config TI201_ACT
        bool "Lens actuator ti201"
        depends on MSM_CAMERA
        ---help---
-         ti201 lens actuator driver for SONY IMX175 and IMX091.
+         ti201 lens actuator driver for SONY IMX175, IMX091 and VD6869.
+
+config ACT_OIS_BINDER
+       bool "Act_Ois_Binder"
+       depends on MSM_CAMERA
+       default n
+       ---help---
+         Act_Ois_Binder for OIS function through ti201 lens actuator driver.
+
+config LC898212_ACT
+       bool "Lens actuator lc898212"
+       depends on MSM_CAMERA
+       default n
+       ---help---
+         lc898212 lens actuator driver for VD6869.
 
 config MT9V113
 	bool "Sensor mt9v113 (VGA YUV)"
@@ -392,6 +427,13 @@ config RAWCHIP_MCLK
 	---help---
 	  ST Yushan rawchip MCLK
 
+config DISABLE_MCLK_RAWCHIP_TO_MAINCAM
+	bool "DISABLE MCLK FROM RAWCHIP TO MAINCAM"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  For the design for K2 two MCLK control of rawchip
+
 config S5K6A2YA
 	bool "Sensor s5k6a2ya (Samsung 1.6M)"
 	depends on MSM_CAMERA
@@ -399,3 +441,25 @@ config S5K6A2YA
 	---help---
 	  Support for S5K6A2YA samsung sensor driver.
 	  It is a Bayer 1.6MP sensor it supports one mipi lanes.
+
+config S5K6AAFX
+	bool "Sensor s5k6aafx (Samsung 1.3M)"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  Samsung 1.3M without Autofocus
+
+config VD6869
+	bool "Sensor VD6869 (BAYER 4M)"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	ST 4MP Bayer Sensor
+
+config OV4688
+	bool "Sensor ov4688 (BAYER 4M)"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	ov 4MP Bayer Sensor
+

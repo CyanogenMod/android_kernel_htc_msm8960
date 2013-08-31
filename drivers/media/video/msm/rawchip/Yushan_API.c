@@ -933,7 +933,7 @@ bool_t Yushan_Update_DxoPdp_TuningParameters(Yushan_DXO_PDP_Tuning_t *sDxoPdpTun
 	bData[1]=sDxoPdpTuning->bDeadPixelCorrectionMedGain;
 	bData[2]=sDxoPdpTuning->bDeadPixelCorrectionHiGain;
 
-	
+	/* Only three bytes need to be written. Fourth byte write will overwrite the */
 	
 	fStatus = SPI_Write(DXO_PDP_BASE_ADDR+DxOPDP_dead_pixels_correction_lowGain_7_0, 3, pData);
 
@@ -987,7 +987,7 @@ bool_t Yushan_Update_DxoDop_TuningParameters(Yushan_DXO_DOP_Tuning_t *sDxoDopTun
 	pData = (uint8_t *) bData;
 
 	bData[0]=sDxoDopTuning->bEstimationMode ;
-	
+	/* First five consecutive registers written. */
 	fStatus = SPI_Write(DXO_DOP_BASE_ADDR+DxODOP_estimation_mode_7_0, 1, pData);
 
 	bData[0]=sDxoDopTuning->bSharpness;
@@ -1730,10 +1730,10 @@ bool_t	Yushan_Context_Config_Update(Yushan_New_Context_Config_t	*sYushanNewConte
 		
 		sYushanNewContextConfig->bSelectStillVfMode = YUSHAN_FRAME_FORMAT_VF_MODE;
 	} else {
-		if (bCurrentStreamingMode == YUSHAN_FRAME_FORMAT_VF_MODE) {
+		
 		
 		sYushanNewContextConfig->bSelectStillVfMode = YUSHAN_FRAME_FORMAT_STILL_MODE;
-		}
+		
 	}
 
 	
@@ -1973,7 +1973,7 @@ bool_t Yushan_Enter_Standby_Mode(void)
 	fStatus &= SPI_Write(YUSHAN_CLK_CTRL+1, 1, (uint8_t*)(&bSpiData));
 
 	
-	
+	// SPI_Read(YUSHAN_CLK_CTRL+1, 1, (uint8_t*)(&bSpiData));	/* No need of read, as the data written is saved in bSpiData */
 	bSpiData |= ((bSpiData>>1)|0x01)<<1;						
 	fStatus &= SPI_Write(YUSHAN_CLK_CTRL+1, 1, (uint8_t*)(&bSpiData));
 

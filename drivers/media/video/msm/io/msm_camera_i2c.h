@@ -128,4 +128,8 @@ int32_t msm_sensor_write_enum_conf_array(struct msm_camera_i2c_client *client,
 
 int32_t msm_sensor_write_all_conf_array(struct msm_camera_i2c_client *client,
 	struct msm_camera_i2c_conf_array *array, uint16_t size);
+int32_t msm_camera_i2c_read_seq_rumbas(struct msm_camera_i2c_client *client,
+	uint16_t addr, uint8_t *data, uint16_t num_byte);
+int32_t msm_camera_i2c_txdata_rumbas(struct msm_camera_i2c_client *client,
+	unsigned char *txdata, int length);
 #endif

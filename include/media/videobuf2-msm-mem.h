@@ -59,6 +59,7 @@ struct videobuf2_contig_pmem {
 	unsigned long mapped_phyaddr;
 	struct ion_handle *ion_handle;
 	struct ion_client *client;
+	void *arm_vaddr;
 };
 void videobuf2_queue_pmem_contig_init(struct vb2_queue *q,
 					enum v4l2_buf_type type,

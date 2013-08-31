@@ -147,6 +147,7 @@ struct camera_flash_cfg {
 	int (*camera_flash)(int level);
 	uint16_t low_temp_limit;
 	uint16_t low_cap_limit;
+	uint16_t low_cap_limit_dual;
 	uint8_t postpone_led_mode;
 	struct camera_flash_info *flash_info;
 };
@@ -188,6 +189,17 @@ struct camera_vreg_t {
 	int min_voltage;
 	int max_voltage;
 	int op_mode;
+};
+
+enum htc_camera_image_type_board {
+	HTC_CAMERA_IMAGE_NONE_BOARD,
+	HTC_CAMERA_IMAGE_YUSHANII_BOARD,
+	HTC_CAMERA_IMAGE_MAX_BOARD,
+};
+
+enum cam_vcm_onoff_type {
+	STATUS_OFF,
+	STATUS_ON,
 };
 #endif /* CONFIG_MSM_CAMERA */
 

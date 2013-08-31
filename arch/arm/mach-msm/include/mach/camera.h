@@ -212,12 +212,14 @@ struct msm_camera_csi2_params {
 	struct msm_camera_csiphy_params csiphy_params;
 };
 
+#ifndef CONFIG_MSM_CAMERA_V4L2
 #define VFE31_OUTPUT_MODE_PT (0x1 << 0)
 #define VFE31_OUTPUT_MODE_S (0x1 << 1)
 #define VFE31_OUTPUT_MODE_V (0x1 << 2)
 #define VFE31_OUTPUT_MODE_P (0x1 << 3)
 #define VFE31_OUTPUT_MODE_T (0x1 << 4)
 #define VFE31_OUTPUT_MODE_P_ALL_CHNLS (0x1 << 5)
+#endif
 
 #define CSI_EMBED_DATA 0x12
 #define CSI_RESERVED_DATA_0 0x13
@@ -359,6 +361,15 @@ struct msm_actuator_ctrl {
 	int (*a_power_down)(void *);
 	int (*a_create_subdevice)(void *, void *);
 	int (*a_config)(void __user *);
+	int is_ois_supported;
+    int is_cal_supported; 
+	
+	void (*do_vcm_on_cb)(void);
+	void (*do_vcm_off_cb)(void);
+	void (*actuator_poweroff_af)(void);
+	struct mutex *actrl_vcm_on_mut; 
+	enum cam_vcm_onoff_type *actrl_vcm_wa_camera_on;
+	
 };
 
 struct msm_strobe_flash_ctrl {
@@ -493,6 +504,7 @@ struct msm_pmem_region {
 	struct file *file;
 	struct msm_pmem_info info;
 	struct ion_handle *handle;
+	unsigned long vaddr;
 };
 
 struct axidata {
@@ -673,6 +685,7 @@ void msm_io_w_mb(u32 data, void __iomem *addr);
 u32 msm_io_r(void __iomem *addr);
 u32 msm_io_r_mb(void __iomem *addr);
 void msm_io_dump(void __iomem *addr, int size);
+void msm_csi_io_dump(void __iomem *addr, int size);
 void msm_io_memcpy(void __iomem *dest_addr, void __iomem *src_addr, u32 len);
 void msm_camio_set_perf_lvl(enum msm_bus_perf_setting);
 void msm_camio_bus_scale_cfg(

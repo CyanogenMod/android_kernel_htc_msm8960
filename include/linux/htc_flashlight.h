@@ -47,7 +47,11 @@ enum flashlight_mode_flags {
 	FL_MODE_FLASH_LEVEL5,
 	FL_MODE_FLASH_LEVEL6,
 	FL_MODE_FLASH_LEVEL7,
-
+	FL_MODE_VIDEO_TORCH = 30,
+	FL_MODE_VIDEO_TORCH_1,
+	FL_MODE_VIDEO_TORCH_2,
+	FL_MODE_VIDEO_TORCH_3,
+	FL_MODE_VIDEO_TORCH_4,
 };
 
 #ifdef CONFIG_FLASHLIGHT_AAT
@@ -77,7 +81,12 @@ struct TPS61310_flashlight_platform_data {
 	uint8_t led_count; 
 	uint32_t tps61310_strb0;
 	uint32_t tps61310_strb1;
+	uint32_t tps61310_reset;
 	uint8_t mode_pin_suspend_state_low;
+	uint8_t enable_FLT_1500mA;
+	uint8_t disable_tx_mask;
+	uint32_t power_save; 
+	uint32_t power_save_2;
 };
 
 int aat1271_flashlight_control(int mode);

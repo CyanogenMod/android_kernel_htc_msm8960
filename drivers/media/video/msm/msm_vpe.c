@@ -509,7 +509,7 @@ int vpe_disable(void)
 	}
 	spin_unlock_irqrestore(&vpe_ctrl->lock, flags);
 
-	rc = wait_event_interruptible_timeout(vpe_ctrl->vpe_event_queue,
+	rc = wait_event_timeout(vpe_ctrl->vpe_event_queue,
 		vpe_ctrl->vpe_event_done, msecs_to_jiffies(500));
 
 	if (rc < 0)

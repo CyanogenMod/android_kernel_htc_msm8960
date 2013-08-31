@@ -65,7 +65,7 @@
 #include <linux/ioctl.h>
 #include <linux/types.h>
 
-#define VIDEO_MAX_FRAME               32
+#define VIDEO_MAX_FRAME               64 
 #define VIDEO_MAX_PLANES               8
 
 #ifndef __KERNEL__
@@ -460,7 +460,8 @@ struct v4l2_timecode {
 struct v4l2_jpegcompression {
 	int quality;
 
-	int  APPn;              
+	int  APPn;              /* Number of APP segment to be written,
+				 * must be 0..15 */
 	int  APP_len;           
 	char APP_data[60];      
 
@@ -1310,6 +1311,10 @@ enum v4l2_mpeg_cx2341x_video_median_filter_type {
 #define V4L2_CID_MPEG_QCOM_BASE	(V4L2_CTRL_CLASS_MPEG | 0x2100)
 
 #define V4L2_CID_MPEG_QCOM_SET_PERF_LEVEL (V4L2_CID_MPEG_QCOM_BASE + 0)
+enum v3l2_mpeg_qcom_perf_level {
+	V4L2_CID_MPEG_QCOM_PERF_LEVEL_PERFORMANCE		= 0,
+	V4L2_CID_MPEG_QCOM_PERF_LEVEL_TURBO			= 1,
+};
 
 #define V4L2_CID_MPEG_MFC51_VIDEO_DECODER_H264_DISPLAY_DELAY		(V4L2_CID_MPEG_MFC51_BASE+0)
 #define V4L2_CID_MPEG_MFC51_VIDEO_DECODER_H264_DISPLAY_DELAY_ENABLE	(V4L2_CID_MPEG_MFC51_BASE+1)
@@ -1335,6 +1340,23 @@ enum v4l2_mpeg_mfc51_video_force_frame_type {
 #define V4L2_CID_MPEG_MFC51_VIDEO_H264_ADAPTIVE_RC_STATIC		(V4L2_CID_MPEG_MFC51_BASE+53)
 #define V4L2_CID_MPEG_MFC51_VIDEO_H264_NUM_REF_PIC_FOR_P		(V4L2_CID_MPEG_MFC51_BASE+54)
 
+#define V4L2_QCOM_BUF_FLAG_CODECCONFIG	0x4000 
+
+#define V4L2_CID_MPEG_MSM_VIDC_BASE		(V4L2_CTRL_CLASS_MPEG | 0x2000)
+
+#define V4L2_CID_MPEG_VIDC_VIDEO_H264_AU_DELIMITER \
+		(V4L2_CID_MPEG_MSM_VIDC_BASE + 22)
+enum v4l2_mpeg_vidc_video_h264_au_delimiter {
+	V4L2_MPEG_VIDC_VIDEO_H264_AU_DELIMITER_DISABLED = 0,
+	V4L2_MPEG_VIDC_VIDEO_H264_AU_DELIMITER_ENABLED = 1
+};
+
+#define V4L2_CID_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO \
+		(V4L2_CID_MPEG_MSM_VIDC_BASE + 23)
+enum v4l2_mpeg_vidc_video_h264_vui_timing_info {
+	V4L2_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO_DISABLED = 0,
+	V4L2_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO_ENABLED = 1
+};
 #define V4L2_CID_CAMERA_CLASS_BASE 	(V4L2_CTRL_CLASS_CAMERA | 0x900)
 #define V4L2_CID_CAMERA_CLASS 		(V4L2_CTRL_CLASS_CAMERA | 1)
 

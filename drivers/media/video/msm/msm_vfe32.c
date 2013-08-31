@@ -222,6 +222,26 @@ static struct vfe32_cmd_type vfe32_cmd[] = {
 		{VFE_CMD_GET_RGB_G_TABLE},
 		{VFE_CMD_GET_LA_TABLE},
 		{VFE_CMD_DEMOSAICV3_UPDATE},
+		{VFE_CMD_ACTIVE_REGION_CFG},
+ {VFE_CMD_COLOR_PROCESSING_CONFIG},
+		{VFE_CMD_STATS_WB_AEC_CONFIG},
+		{VFE_CMD_STATS_WB_AEC_UPDATE},
+		{VFE_CMD_Y_GAMMA_CONFIG},
+		{VFE_CMD_SCALE_OUTPUT1_CONFIG},
+ {VFE_CMD_SCALE_OUTPUT2_CONFIG},
+		{VFE_CMD_CAPTURE_RAW},
+		{VFE_CMD_STOP_LIVESHOT},
+		{VFE_CMD_RECONFIG_VFE},
+		{VFE_CMD_STATS_BG_START, V32_STATS_BG_LEN, V32_STATS_BG_OFF},
+ {VFE_CMD_STATS_BG_STOP},
+		{VFE_CMD_STATS_BF_START, V32_STATS_BF_LEN, V32_STATS_BF_OFF},
+		{VFE_CMD_STATS_BF_STOP},
+		{VFE_CMD_STATS_BHIST_START, V32_STATS_BHIST_LEN,
+			V32_STATS_BHIST_OFF},
+		{VFE_CMD_STATS_BHIST_STOP},
+	{VFE_CMD_SET_BAYER_ENABLE},
+		{VFE_CMD_SET_CAMERA_MODE}, 
+		{VFE_CMD_SET_SW_SHARPNESS_CMD},
 };
 
 uint32_t vfe32_AXI_WM_CFG[] = {
@@ -364,7 +384,24 @@ static const char * const vfe32_general_cmd[] = {
 	"GET_RGB_G_TABLE",
 	"GET_LA_TABLE",
 	"DEMOSAICV3_UPDATE",
+	"STATS_BG_START",
+	"STATS_BG_STOP",
+	"STATS_BF_START",
+	"STATS_BF_STOP",
+	"STATS_BHIST_START",
+	"STATS_BHIST_STOP",
 };
+
+uint8_t vfe32_use_bayer_stats(void)
+{
+    
+	if (vfe32_ctrl->ver_num.main >= 4) {
+		
+		return TRUE;
+	} else {
+		return FALSE;
+	}
+}
 
 static void vfe32_stop(void)
 {
@@ -411,6 +448,8 @@ static void vfe32_stop(void)
 		vfe32_ctrl->vfebase + VFE_IRQ_MASK_0);
 	msm_io_w(VFE_IMASK_WHILE_STOPPING_1,
 		vfe32_ctrl->vfebase + VFE_IRQ_MASK_1);
+
+        msm_io_dump(vfe32_ctrl->vfebase, vfe32_ctrl->register_total * 4);
 
 	msm_io_w_mb(VFE_RESET_UPON_STOP_CMD,
 		vfe32_ctrl->vfebase + VFE_GLOBAL_RESET);
@@ -517,15 +556,17 @@ static void vfe32_reset_internal_variables(void)
 	
 	vfe32_ctrl->vfeFrameId = 0;
 	
-	memset(&(vfe32_ctrl->afStatsControl), 0,
+	memset(&(vfe32_ctrl->afbfStatsControl), 0,
 		sizeof(struct vfe_stats_control));
 
 	memset(&(vfe32_ctrl->awbStatsControl), 0,
 		sizeof(struct vfe_stats_control));
 
-	memset(&(vfe32_ctrl->aecStatsControl), 0,
+	memset(&(vfe32_ctrl->aecbgStatsControl), 0,
 		sizeof(struct vfe_stats_control));
 
+	memset(&(vfe32_ctrl->bhistStatsControl), 0,
+		sizeof(struct vfe_stats_control));
 	memset(&(vfe32_ctrl->ihistStatsControl), 0,
 		sizeof(struct vfe_stats_control));
 
@@ -538,6 +579,51 @@ static void vfe32_reset_internal_variables(void)
 	vfe32_ctrl->frame_skip_cnt = 31;
 	vfe32_ctrl->frame_skip_pattern = 0xffffffff;
 	vfe32_ctrl->snapshot_frame_cnt = 0;
+}
+
+static void vfe32_program_dmi_cfg(enum VFE32_DMI_RAM_SEL bankSel)
+{
+	
+	uint32_t value = VFE_DMI_CFG_DEFAULT;
+	value += (uint32_t)bankSel;
+	CDBG("%s: banksel = %d\n", __func__, bankSel);
+
+	msm_io_w(value, vfe32_ctrl->vfebase + VFE_DMI_CFG);
+	
+	msm_io_w(0, vfe32_ctrl->vfebase + VFE_DMI_ADDR);
+}
+
+static void vfe32_reset_dmi_tables(void)
+{
+	int i = 0;
+
+	
+	CDBG("Reset Bayer histogram LUT : 0\n");
+	vfe32_program_dmi_cfg(STATS_BHIST_RAM0);
+	
+	for (i = 0; i < 256; i++) {
+		msm_io_w(0, vfe32_ctrl->vfebase + VFE_DMI_DATA_HI);
+		msm_io_w(0, vfe32_ctrl->vfebase + VFE_DMI_DATA_LO);
+	}
+	vfe32_program_dmi_cfg(NO_MEM_SELECTED);
+
+	CDBG("Reset Bayer Histogram LUT: 1\n");
+	vfe32_program_dmi_cfg(STATS_BHIST_RAM1);
+	
+	for (i = 0; i < 256; i++) {
+		msm_io_w(0, vfe32_ctrl->vfebase + VFE_DMI_DATA_HI);
+		msm_io_w(0, vfe32_ctrl->vfebase + VFE_DMI_DATA_LO);
+	}
+	vfe32_program_dmi_cfg(NO_MEM_SELECTED);
+
+	CDBG("Reset IHistogram LUT\n");
+	vfe32_program_dmi_cfg(STATS_IHIST_RAM);
+	
+	for (i = 0; i < 256; i++) {
+		msm_io_w(0, vfe32_ctrl->vfebase + VFE_DMI_DATA_HI);
+		msm_io_w(0, vfe32_ctrl->vfebase + VFE_DMI_DATA_LO);
+	}
+	vfe32_program_dmi_cfg(NO_MEM_SELECTED);
 }
 
 static void vfe32_reset(void)
@@ -602,31 +688,45 @@ static uint32_t vfe_stats_awb_buf_init(struct vfe_cmd_stats_buf *in)
 	return 0;
 }
 
-static uint32_t vfe_stats_aec_buf_init(struct vfe_cmd_stats_buf *in)
+static uint32_t vfe_stats_aec_bg_buf_init(struct vfe_cmd_stats_buf *in)
 {
 	uint32_t *ptr = in->statsBuf;
 	uint32_t addr;
 
 	addr = ptr[0];
-	msm_io_w(addr, vfe32_ctrl->vfebase + VFE_BUS_STATS_AEC_WR_PING_ADDR);
+	msm_io_w(addr, vfe32_ctrl->vfebase + VFE_BUS_STATS_AEC_BG_WR_PING_ADDR);
 	addr = ptr[1];
-	msm_io_w(addr, vfe32_ctrl->vfebase + VFE_BUS_STATS_AEC_WR_PONG_ADDR);
+	msm_io_w(addr, vfe32_ctrl->vfebase + VFE_BUS_STATS_AEC_BG_WR_PONG_ADDR);
 
-	vfe32_ctrl->aecStatsControl.nextFrameAddrBuf = in->statsBuf[2];
+	vfe32_ctrl->aecbgStatsControl.nextFrameAddrBuf = in->statsBuf[2];
 	return 0;
 }
 
-static uint32_t vfe_stats_af_buf_init(struct vfe_cmd_stats_buf *in)
+static uint32_t vfe_stats_af_bf_buf_init(struct vfe_cmd_stats_buf *in)
 {
 	uint32_t *ptr = in->statsBuf;
 	uint32_t addr;
 
 	addr = ptr[0];
-	msm_io_w(addr, vfe32_ctrl->vfebase + VFE_BUS_STATS_AF_WR_PING_ADDR);
+	msm_io_w(addr, vfe32_ctrl->vfebase + VFE_BUS_STATS_AF_BF_WR_PING_ADDR);
 	addr = ptr[1];
-	msm_io_w(addr, vfe32_ctrl->vfebase + VFE_BUS_STATS_AF_WR_PONG_ADDR);
+	msm_io_w(addr, vfe32_ctrl->vfebase + VFE_BUS_STATS_AF_BF_WR_PONG_ADDR);
 
-	vfe32_ctrl->afStatsControl.nextFrameAddrBuf = in->statsBuf[2];
+	vfe32_ctrl->afbfStatsControl.nextFrameAddrBuf = in->statsBuf[2];
+	return 0;
+}
+
+static uint32_t vfe_stats_bhist_buf_init(struct vfe_cmd_stats_buf *in)
+{
+	uint32_t *ptr = in->statsBuf;
+	uint32_t addr;
+	addr = ptr[0];
+	msm_io_w(addr,
+		vfe32_ctrl->vfebase + VFE_BUS_STATS_SKIN_BHIST_WR_PING_ADDR);
+	addr = ptr[1];
+	msm_io_w(addr,
+		vfe32_ctrl->vfebase + VFE_BUS_STATS_SKIN_BHIST_WR_PONG_ADDR);
+	vfe32_ctrl->bhistStatsControl.nextFrameAddrBuf = in->statsBuf[2];
 	return 0;
 }
 
@@ -1066,17 +1166,6 @@ static void vfe32_sync_timer_start(const uint32_t *tbl)
 	msm_io_w(value, vfe32_ctrl->vfebase + V32_TIMER_SELECT_OFF);
 }
 
-static void vfe32_program_dmi_cfg(enum VFE32_DMI_RAM_SEL bankSel)
-{
-	
-	uint32_t value = VFE_DMI_CFG_DEFAULT;
-	value += (uint32_t)bankSel;
-	CDBG("%s: banksel = %d\n", __func__, bankSel);
-
-	msm_io_w(value, vfe32_ctrl->vfebase + VFE_DMI_CFG);
-	
-	msm_io_w(0, vfe32_ctrl->vfebase + VFE_DMI_ADDR);
-}
 static void vfe32_write_gamma_cfg(enum VFE32_DMI_RAM_SEL channel_sel,
 						const uint32_t *tbl)
 {
@@ -1226,11 +1315,12 @@ static int vfe32_proc_general(
 	struct msm_isp_cmd *cmd)
 {
 	int i , rc = 0;
-	uint32_t old_val = 0 , new_val = 0;
+	uint32_t old_val = 0 , new_val = 0, module_val = 0;
 	uint32_t *cmdp = NULL;
 	uint32_t *cmdp_local = NULL;
 	uint32_t snapshot_cnt = 0;
 	uint32_t temp1 = 0, temp2 = 0;
+	vfe_camera_mode_type vfe_cam_mode = VFE_CAMERA_MODE_DEFAULT; 
 
 	CDBG("vfe32_proc_general: cmdID = %s, length = %d\n",
 		vfe32_general_cmd[cmd->id], cmd->length);
@@ -1366,8 +1456,18 @@ static int vfe32_proc_general(
 		rc = vfe32_operation_config(cmdp);
 		}
 		break;
-
+	case VFE_CMD_SET_BAYER_ENABLE:
+		if (*(int *)cmd->value)
+			vfe32_ctrl->ver_num.main = 4;
+		else
+			vfe32_ctrl->ver_num.main = 0;
+		break;
 	case VFE_CMD_STATS_AE_START: {
+		if (vfe32_use_bayer_stats()) {
+			
+			rc = -EFAULT;
+			goto proc_general_done;
+		}
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		if (!cmdp) {
 			rc = -ENOMEM;
@@ -1388,6 +1488,11 @@ static int vfe32_proc_general(
 		}
 		break;
 	case VFE_CMD_STATS_AF_START: {
+		if (vfe32_use_bayer_stats()) {
+			
+			rc = -EFAULT;
+			goto proc_general_done;
+		}
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		if (!cmdp) {
 			rc = -ENOMEM;
@@ -1408,6 +1513,11 @@ static int vfe32_proc_general(
 		}
 		break;
 	case VFE_CMD_STATS_AWB_START: {
+		if (vfe32_use_bayer_stats()) {
+			
+			rc = -EFAULT;
+			goto proc_general_done;
+		}
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		if (!cmdp) {
 			rc = -ENOMEM;
@@ -1427,7 +1537,6 @@ static int vfe32_proc_general(
 				cmdp, (vfe32_cmd[cmd->id].length));
 		}
 		break;
-
 	case VFE_CMD_STATS_IHIST_START: {
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		if (!cmdp) {
@@ -1448,8 +1557,6 @@ static int vfe32_proc_general(
 				cmdp, (vfe32_cmd[cmd->id].length));
 		}
 		break;
-
-
 	case VFE_CMD_STATS_RS_START: {
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
 		if (!cmdp) {
@@ -1483,7 +1590,47 @@ static int vfe32_proc_general(
 				cmdp, (vfe32_cmd[cmd->id].length));
 		}
 		break;
-
+	case VFE_CMD_STATS_BG_START:
+	case VFE_CMD_STATS_BF_START:
+	case VFE_CMD_STATS_BHIST_START: {
+		if (!vfe32_use_bayer_stats()) {
+			
+			rc = -EFAULT;
+			goto proc_general_done;
+		}
+		old_val = msm_io_r(
+					vfe32_ctrl->vfebase + VFE_STATS_CFG);
+		module_val = msm_io_r(
+					vfe32_ctrl->vfebase + VFE_MODULE_CFG);
+		if (VFE_CMD_STATS_BG_START == cmd->id) {
+			module_val |= AE_BG_ENABLE_MASK;
+			old_val |= STATS_BG_ENABLE_MASK;
+		} else if (VFE_CMD_STATS_BF_START == cmd->id) {
+			module_val |= AF_BF_ENABLE_MASK;
+			old_val |= STATS_BF_ENABLE_MASK;
+		} else {
+			module_val |= SKIN_BHIST_ENABLE_MASK;
+			old_val |= STATS_BHIST_ENABLE_MASK;
+		}
+		msm_io_w(old_val, vfe32_ctrl->vfebase + VFE_STATS_CFG);
+		msm_io_w(module_val,
+			vfe32_ctrl->vfebase + VFE_MODULE_CFG);
+		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
+		if (!cmdp) {
+			rc = -ENOMEM;
+			goto proc_general_done;
+		}
+		if (copy_from_user(cmdp,
+				(void __user *)(cmd->value),
+				cmd->length)) {
+			rc = -EFAULT;
+			goto proc_general_done;
+		}
+		msm_io_memcpy(
+			vfe32_ctrl->vfebase + vfe32_cmd[cmd->id].offset,
+			cmdp, (vfe32_cmd[cmd->id].length));
+		}
+		break;
 	case VFE_CMD_MCE_UPDATE:
 	case VFE_CMD_MCE_CFG:{
 		cmdp = kmalloc(cmd->length, GFP_ATOMIC);
@@ -2074,8 +2221,12 @@ static int vfe32_proc_general(
 			goto proc_general_done;
 		}
 		break;
-
 	case VFE_CMD_STATS_AWB_STOP: {
+		if (vfe32_use_bayer_stats()) {
+			
+			rc = -EFAULT;
+			goto proc_general_done;
+		}
 		old_val = msm_io_r(vfe32_ctrl->vfebase + VFE_MODULE_CFG);
 		old_val &= ~AWB_ENABLE_MASK;
 		msm_io_w(old_val,
@@ -2083,6 +2234,11 @@ static int vfe32_proc_general(
 		}
 		break;
 	case VFE_CMD_STATS_AE_STOP: {
+		if (vfe32_use_bayer_stats()) {
+			
+			rc = -EFAULT;
+			goto proc_general_done;
+		}
 		old_val = msm_io_r(vfe32_ctrl->vfebase + VFE_MODULE_CFG);
 		old_val &= ~AE_BG_ENABLE_MASK;
 		msm_io_w(old_val,
@@ -2090,6 +2246,11 @@ static int vfe32_proc_general(
 		}
 		break;
 	case VFE_CMD_STATS_AF_STOP: {
+		if (vfe32_use_bayer_stats()) {
+			
+			rc = -EFAULT;
+			goto proc_general_done;
+		}
 		old_val = msm_io_r(vfe32_ctrl->vfebase + VFE_MODULE_CFG);
 		old_val &= ~AF_BF_ENABLE_MASK;
 		msm_io_w(old_val,
@@ -2118,6 +2279,24 @@ static int vfe32_proc_general(
 		old_val &= ~CS_ENABLE_MASK;
 		msm_io_w(old_val,
 			vfe32_ctrl->vfebase + VFE_MODULE_CFG);
+		}
+		break;
+	case VFE_CMD_STATS_BG_STOP:
+	case VFE_CMD_STATS_BF_STOP:
+	case VFE_CMD_STATS_BHIST_STOP: {
+		if (!vfe32_use_bayer_stats()) {
+			
+			rc = -EFAULT;
+			goto proc_general_done;
+		}
+		old_val = msm_io_r(vfe32_ctrl->vfebase + VFE_STATS_CFG);
+		if (VFE_CMD_STATS_BG_STOP == cmd->id)
+			old_val &= ~STATS_BG_ENABLE_MASK;
+		else if (VFE_CMD_STATS_BF_STOP == cmd->id)
+			old_val &= ~STATS_BF_ENABLE_MASK;
+		else
+			old_val &= ~STATS_BHIST_ENABLE_MASK;
+		msm_io_w(old_val, vfe32_ctrl->vfebase + VFE_STATS_CFG);
 		}
 		break;
 	case VFE_CMD_STOP:
@@ -2402,6 +2581,25 @@ static int vfe32_proc_general(
 		CDBG("%s Stopping liveshot ", __func__);
 		vfe32_stop_liveshot(pmctl);
 		break;
+	
+	case VFE_CMD_SET_CAMERA_MODE:
+		if (copy_from_user(&vfe_cam_mode, (void __user *)(cmd->value),
+				sizeof(vfe_camera_mode_type))) {
+			rc = -EFAULT;
+			goto proc_general_done;
+		}
+		pr_info("%s: cmdID = VFE_CMD_SET_CAMERA_MODE: %d\n", __func__, vfe_cam_mode);
+		vfe32_ctrl->vfe_camera_mode = vfe_cam_mode;
+		break;
+	
+	case VFE_CMD_SET_SW_SHARPNESS_CMD:
+		if (copy_from_user(&temp1, (void __user *)(cmd->value),
+				sizeof(struct stats_htc_af_input))) {
+			rc = -EFAULT;
+			goto proc_general_done;
+		}
+		memcpy(&pmctl->htc_af_info.af_input, &temp1, sizeof(struct stats_htc_af_input));
+		break;
 	default:
 		if (cmd->length != vfe32_cmd[cmd->id].length)
 			return -EINVAL;
@@ -2425,16 +2623,25 @@ proc_general_done:
 	return rc;
 }
 
-static void vfe32_stats_af_ack(struct vfe_cmd_stats_ack *pAck)
+static void vfe32_stats_af_bf_ack(struct vfe_cmd_stats_ack *pAck)
 {
 	unsigned long flags;
 	spinlock_t *lock = (vfe32_ctrl->stats_comp ?
 		&vfe32_ctrl->comp_stats_ack_lock :
-		&vfe32_ctrl->af_ack_lock);
+		&vfe32_ctrl->af_bf_ack_lock);
 	spin_lock_irqsave(lock, flags);
-	vfe32_ctrl->afStatsControl.nextFrameAddrBuf = pAck->nextStatsBuf;
-	vfe32_ctrl->afStatsControl.ackPending = FALSE;
+	vfe32_ctrl->afbfStatsControl.nextFrameAddrBuf = pAck->nextStatsBuf;
+	vfe32_ctrl->afbfStatsControl.ackPending = FALSE;
 	spin_unlock_irqrestore(lock, flags);
+}
+
+static void vfe32_stats_bhist_ack(struct vfe_cmd_stats_ack *pAck)
+{
+	unsigned long flags;
+	spin_lock_irqsave(&vfe32_ctrl->bhist_ack_lock, flags);
+	vfe32_ctrl->bhistStatsControl.nextFrameAddrBuf = pAck->nextStatsBuf;
+	vfe32_ctrl->bhistStatsControl.ackPending = FALSE;
+	spin_unlock_irqrestore(&vfe32_ctrl->bhist_ack_lock, flags);
 }
 
 static void vfe32_stats_awb_ack(struct vfe_cmd_stats_ack *pAck)
@@ -2449,15 +2656,15 @@ static void vfe32_stats_awb_ack(struct vfe_cmd_stats_ack *pAck)
 	spin_unlock_irqrestore(lock, flags);
 }
 
-static void vfe32_stats_aec_ack(struct vfe_cmd_stats_ack *pAck)
+static void vfe32_stats_aec_bg_ack(struct vfe_cmd_stats_ack *pAck)
 {
 	unsigned long flags;
 	spinlock_t *lock = (vfe32_ctrl->stats_comp ?
 		&vfe32_ctrl->comp_stats_ack_lock :
-		&vfe32_ctrl->aec_ack_lock);
+		&vfe32_ctrl->aec_bg_ack_lock);
 	spin_lock_irqsave(lock, flags);
-	vfe32_ctrl->aecStatsControl.nextFrameAddrBuf = pAck->nextStatsBuf;
-	vfe32_ctrl->aecStatsControl.ackPending = FALSE;
+	vfe32_ctrl->aecbgStatsControl.nextFrameAddrBuf = pAck->nextStatsBuf;
+	vfe32_ctrl->aecbgStatsControl.ackPending = FALSE;
 	spin_unlock_irqrestore(lock, flags);
 }
 
@@ -2509,6 +2716,10 @@ static inline void vfe32_read_irq_status(struct vfe32_irq_status *out)
 	out->camifStatus = msm_io_r(temp);
 	CDBG("camifStatus  = 0x%x\n", out->camifStatus);
 
+    if ((!(out->vfeIrqStatus0 & 0x01000000)) && vfe32_ctrl->stats_comp) {
+        out->vfeIrqStatus0 = (out->vfeIrqStatus0 & 0xFFF01FFF);
+    }
+    
 	
 	msm_io_w(out->vfeIrqStatus0, vfe32_ctrl->vfebase + VFE_IRQ_CLEAR_0);
 	msm_io_w(out->vfeIrqStatus1, vfe32_ctrl->vfebase + VFE_IRQ_CLEAR_1);
@@ -2696,13 +2907,38 @@ static void vfe32_set_default_reg_values(void)
 	msm_io_w(0, vfe32_ctrl->vfebase + VFE_CLAMP_MIN);
 	msm_io_w(0xFFFFFF, vfe32_ctrl->vfebase + VFE_CLAMP_MAX);
 
-	
-	msm_io_w(0x3980007, vfe32_ctrl->vfebase + VFE_BUS_STATS_AEC_UB_CFG);
-	msm_io_w(0x3A00007, vfe32_ctrl->vfebase + VFE_BUS_STATS_AF_UB_CFG);
-	msm_io_w(0x3A8000F, vfe32_ctrl->vfebase + VFE_BUS_STATS_AWB_UB_CFG);
-	msm_io_w(0x3B80007, vfe32_ctrl->vfebase + VFE_BUS_STATS_RS_UB_CFG);
-	msm_io_w(0x3C0001F, vfe32_ctrl->vfebase + VFE_BUS_STATS_CS_UB_CFG);
-	msm_io_w(0x3E0001F, vfe32_ctrl->vfebase + VFE_BUS_STATS_HIST_UB_CFG);
+	CDBG("%s: Use bayer stats = %d\n", __func__, vfe32_use_bayer_stats());
+	pr_info("%s vfe_camera_mode=%d\n", __func__, vfe32_ctrl->vfe_camera_mode);
+	if (!vfe32_use_bayer_stats()) {
+		msm_io_w(0x3980007, vfe32_ctrl->vfebase + VFE_BUS_STATS_AEC_BG_UB_CFG);
+		msm_io_w(0x3A00007, vfe32_ctrl->vfebase + VFE_BUS_STATS_AF_BF_UB_CFG);
+		msm_io_w(0x3A8000F, vfe32_ctrl->vfebase + VFE_BUS_STATS_AWB_UB_CFG);
+		msm_io_w(0x3B80007, vfe32_ctrl->vfebase + VFE_BUS_STATS_RS_UB_CFG);
+		msm_io_w(0x3C0001F, vfe32_ctrl->vfebase + VFE_BUS_STATS_CS_UB_CFG);
+		msm_io_w(0x3E0001F, vfe32_ctrl->vfebase + VFE_BUS_STATS_HIST_UB_CFG);
+	} else {
+		
+		if (vfe32_ctrl->vfe_camera_mode == VFE_CAMERA_MODE_ZOE || vfe32_ctrl->vfe_camera_mode == VFE_CAMERA_MODE_ZSL) {
+			pr_info("disable RSCS for UB config\n");
+			msm_io_w(0x0, vfe32_ctrl->vfebase + VFE_BUS_STATS_RS_UB_CFG);
+			msm_io_w(0x0, vfe32_ctrl->vfebase + VFE_BUS_STATS_CS_UB_CFG);
+			msm_io_w(0x310001F, vfe32_ctrl->vfebase + VFE_BUS_STATS_HIST_UB_CFG);
+			msm_io_w(0x330007F, vfe32_ctrl->vfebase + VFE_BUS_STATS_AEC_BG_UB_CFG);
+			msm_io_w(0x3B0003F, vfe32_ctrl->vfebase + VFE_BUS_STATS_AF_BF_UB_CFG);
+			msm_io_w(0x3F0000F, vfe32_ctrl->vfebase + VFE_BUS_STATS_SKIN_BHIST_UB_CFG);
+		}
+		else {
+			pr_info("enable RSCS for UB config\n");
+			msm_io_w(0x2E80007, vfe32_ctrl->vfebase + VFE_BUS_STATS_RS_UB_CFG);
+			msm_io_w(0x2F0001F, vfe32_ctrl->vfebase + VFE_BUS_STATS_CS_UB_CFG);
+			msm_io_w(0x310001F, vfe32_ctrl->vfebase + VFE_BUS_STATS_HIST_UB_CFG);
+			msm_io_w(0x330007F, vfe32_ctrl->vfebase + VFE_BUS_STATS_AEC_BG_UB_CFG);
+			msm_io_w(0x3B0003F, vfe32_ctrl->vfebase + VFE_BUS_STATS_AF_BF_UB_CFG);
+			msm_io_w(0x3F0000F, vfe32_ctrl->vfebase + VFE_BUS_STATS_SKIN_BHIST_UB_CFG);
+		}
+		
+	}
+	vfe32_reset_dmi_tables();
 }
 
 static void vfe32_process_reset_irq(void)
@@ -3042,17 +3278,19 @@ vfe_send_stats_msg(uint32_t bufAddress, uint32_t statsNum)
 
 	switch (statsNum) {
 	case statsAeNum:{
-		msgStats.id = MSG_ID_STATS_AEC;
-		spin_lock_irqsave(&vfe32_ctrl->aec_ack_lock, flags);
-		vfe32_ctrl->aecStatsControl.ackPending = TRUE;
-		spin_unlock_irqrestore(&vfe32_ctrl->aec_ack_lock, flags);
+		msgStats.id = (!vfe32_use_bayer_stats()) ? MSG_ID_STATS_AEC
+				: MSG_ID_STATS_BG;
+		spin_lock_irqsave(&vfe32_ctrl->aec_bg_ack_lock, flags);
+		vfe32_ctrl->aecbgStatsControl.ackPending = TRUE;
+		spin_unlock_irqrestore(&vfe32_ctrl->aec_bg_ack_lock, flags);
 		}
 		break;
 	case statsAfNum:{
-		msgStats.id = MSG_ID_STATS_AF;
-		spin_lock_irqsave(&vfe32_ctrl->af_ack_lock, flags);
-		vfe32_ctrl->afStatsControl.ackPending = TRUE;
-		spin_unlock_irqrestore(&vfe32_ctrl->af_ack_lock, flags);
+		msgStats.id = (!vfe32_use_bayer_stats()) ? MSG_ID_STATS_AF
+				: MSG_ID_STATS_BF;
+		spin_lock_irqsave(&vfe32_ctrl->af_bf_ack_lock, flags);
+		vfe32_ctrl->afbfStatsControl.ackPending = TRUE;
+		spin_unlock_irqrestore(&vfe32_ctrl->af_bf_ack_lock, flags);
 		}
 		break;
 	case statsAwbNum: {
@@ -3084,7 +3322,13 @@ vfe_send_stats_msg(uint32_t bufAddress, uint32_t statsNum)
 		spin_unlock_irqrestore(&vfe32_ctrl->cs_ack_lock, flags);
 		}
 		break;
-
+	case statsSkinNum: {
+		msgStats.id = MSG_ID_STATS_BHIST;
+		spin_lock_irqsave(&vfe32_ctrl->bhist_ack_lock, flags);
+		vfe32_ctrl->bhistStatsControl.ackPending = TRUE;
+		spin_unlock_irqrestore(&vfe32_ctrl->bhist_ack_lock, flags);
+		}
+		break;
 	default:
 		goto stats_done;
 	}
@@ -3105,13 +3349,14 @@ static void vfe_send_comp_stats_msg(uint32_t status_bits)
 	msgStats.frame_id = vfe32_ctrl->vfeFrameId;
 	msgStats.status_bits = status_bits;
 
-	msgStats.aec.buff = vfe32_ctrl->aecStatsControl.bufToRender;
+	msgStats.aec.buff = vfe32_ctrl->aecbgStatsControl.bufToRender;  
 	msgStats.awb.buff = vfe32_ctrl->awbStatsControl.bufToRender;
-	msgStats.af.buff = vfe32_ctrl->afStatsControl.bufToRender;
+	msgStats.af.buff = vfe32_ctrl->afbfStatsControl.bufToRender;  
 
 	msgStats.ihist.buff = vfe32_ctrl->ihistStatsControl.bufToRender;
 	msgStats.rs.buff = vfe32_ctrl->rsStatsControl.bufToRender;
 	msgStats.cs.buff = vfe32_ctrl->csStatsControl.bufToRender;
+	msgStats.skin.buff = vfe32_ctrl->bhistStatsControl.bufToRender; 
 
 	temp = msm_io_r(vfe32_ctrl->vfebase + VFE_STATS_AWB_SGW_CFG);
 	msgStats.awb_ymin = (0xFF00 & temp) >> 8;
@@ -3121,23 +3366,23 @@ static void vfe_send_comp_stats_msg(uint32_t status_bits)
 				&msgStats);
 }
 
-static void vfe32_process_stats_ae_irq(void)
+static void vfe32_process_stats_ae_bg_irq(void)
 {
 	unsigned long flags;
-	spin_lock_irqsave(&vfe32_ctrl->aec_ack_lock, flags);
-	if (!(vfe32_ctrl->aecStatsControl.ackPending)) {
-		spin_unlock_irqrestore(&vfe32_ctrl->aec_ack_lock, flags);
-		vfe32_ctrl->aecStatsControl.bufToRender =
+	spin_lock_irqsave(&vfe32_ctrl->aec_bg_ack_lock, flags);
+	if (!(vfe32_ctrl->aecbgStatsControl.ackPending)) {
+		spin_unlock_irqrestore(&vfe32_ctrl->aec_bg_ack_lock, flags);
+		vfe32_ctrl->aecbgStatsControl.bufToRender =
 			vfe32_process_stats_irq_common(statsAeNum,
-			vfe32_ctrl->aecStatsControl.nextFrameAddrBuf);
+			vfe32_ctrl->aecbgStatsControl.nextFrameAddrBuf);
 
-		vfe_send_stats_msg(vfe32_ctrl->aecStatsControl.bufToRender,
+		vfe_send_stats_msg(vfe32_ctrl->aecbgStatsControl.bufToRender,
 						statsAeNum);
 	} else{
-		spin_unlock_irqrestore(&vfe32_ctrl->aec_ack_lock, flags);
-		vfe32_ctrl->aecStatsControl.droppedStatsFrameCount++;
+		spin_unlock_irqrestore(&vfe32_ctrl->aec_bg_ack_lock, flags);
+		vfe32_ctrl->aecbgStatsControl.droppedStatsFrameCount++;
 		CDBG("%s: droppedStatsFrameCount = %d", __func__,
-			vfe32_ctrl->aecStatsControl.droppedStatsFrameCount);
+			vfe32_ctrl->aecbgStatsControl.droppedStatsFrameCount);
 	}
 }
 
@@ -3161,23 +3406,39 @@ static void vfe32_process_stats_awb_irq(void)
 	}
 }
 
-static void vfe32_process_stats_af_irq(void)
+static void vfe32_process_stats_af_bf_irq(void)
 {
 	unsigned long flags;
-	spin_lock_irqsave(&vfe32_ctrl->af_ack_lock, flags);
-	if (!(vfe32_ctrl->afStatsControl.ackPending)) {
-		spin_unlock_irqrestore(&vfe32_ctrl->af_ack_lock, flags);
-		vfe32_ctrl->afStatsControl.bufToRender =
+	spin_lock_irqsave(&vfe32_ctrl->af_bf_ack_lock, flags);
+	if (!(vfe32_ctrl->afbfStatsControl.ackPending)) {
+		spin_unlock_irqrestore(&vfe32_ctrl->af_bf_ack_lock, flags);
+		vfe32_ctrl->afbfStatsControl.bufToRender =
 			vfe32_process_stats_irq_common(statsAfNum,
-			vfe32_ctrl->afStatsControl.nextFrameAddrBuf);
+			vfe32_ctrl->afbfStatsControl.nextFrameAddrBuf);
 
-		vfe_send_stats_msg(vfe32_ctrl->afStatsControl.bufToRender,
+		vfe_send_stats_msg(vfe32_ctrl->afbfStatsControl.bufToRender,
 						statsAfNum);
 	} else{
-		spin_unlock_irqrestore(&vfe32_ctrl->af_ack_lock, flags);
-		vfe32_ctrl->afStatsControl.droppedStatsFrameCount++;
-		CDBG("%s: droppedStatsFrameCount = %d", __func__,
-			vfe32_ctrl->afStatsControl.droppedStatsFrameCount);
+		spin_unlock_irqrestore(&vfe32_ctrl->af_bf_ack_lock, flags);
+		vfe32_ctrl->afbfStatsControl.droppedStatsFrameCount++;
+	}
+}
+
+static void vfe32_process_stats_bhist_irq(void)
+{
+	unsigned long flags;
+	spin_lock_irqsave(&vfe32_ctrl->bhist_ack_lock, flags);
+	if (!(vfe32_ctrl->bhistStatsControl.ackPending)) {
+		spin_unlock_irqrestore(&vfe32_ctrl->bhist_ack_lock, flags);
+		vfe32_ctrl->bhistStatsControl.bufToRender =
+			vfe32_process_stats_irq_common(statsSkinNum,
+			vfe32_ctrl->bhistStatsControl.nextFrameAddrBuf);
+
+		vfe_send_stats_msg(vfe32_ctrl->bhistStatsControl.bufToRender,
+						statsSkinNum);
+	} else{
+		spin_unlock_irqrestore(&vfe32_ctrl->bhist_ack_lock, flags);
+		vfe32_ctrl->bhistStatsControl.droppedStatsFrameCount++;
 	}
 }
 
@@ -3236,21 +3497,24 @@ static void vfe32_process_stats(uint32_t status_bits)
 	CDBG("%s, stats = 0x%x\n", __func__, status_bits);
 
 	spin_lock_irqsave(&vfe32_ctrl->comp_stats_ack_lock, flags);
-	if (status_bits & VFE_IRQ_STATUS0_STATS_AEC) {
-		if (!vfe32_ctrl->aecStatsControl.ackPending) {
-			vfe32_ctrl->aecStatsControl.ackPending = TRUE;
-			vfe32_ctrl->aecStatsControl.bufToRender =
+	
+	if (status_bits & VFE_IRQ_STATUS0_STATS_AEC_BG) {
+		if (!vfe32_ctrl->aecbgStatsControl.ackPending) {
+			vfe32_ctrl->aecbgStatsControl.ackPending = TRUE;
+			vfe32_ctrl->aecbgStatsControl.bufToRender =
 				vfe32_process_stats_irq_common(statsAeNum,
-				vfe32_ctrl->aecStatsControl.nextFrameAddrBuf);
+				vfe32_ctrl->aecbgStatsControl.nextFrameAddrBuf);
+            CDBG("%s: buftorender : 0x%X, nextframe : 0x%X\n", __func__, vfe32_ctrl->aecbgStatsControl.bufToRender,
+                vfe32_ctrl->aecbgStatsControl.nextFrameAddrBuf);
 			process_stats = true;
 		} else{
-			vfe32_ctrl->aecStatsControl.bufToRender = 0;
-			vfe32_ctrl->aecStatsControl.droppedStatsFrameCount++;
+			vfe32_ctrl->aecbgStatsControl.bufToRender = 0;
+			vfe32_ctrl->aecbgStatsControl.droppedStatsFrameCount++;
 		}
 	} else {
-		vfe32_ctrl->aecStatsControl.bufToRender = 0;
+		vfe32_ctrl->aecbgStatsControl.bufToRender = 0;
 	}
-
+	
 	if (status_bits & VFE_IRQ_STATUS0_STATS_AWB) {
 		if (!vfe32_ctrl->awbStatsControl.ackPending) {
 			vfe32_ctrl->awbStatsControl.ackPending = TRUE;
@@ -3266,21 +3530,22 @@ static void vfe32_process_stats(uint32_t status_bits)
 		vfe32_ctrl->awbStatsControl.bufToRender = 0;
 	}
 
-
-	if (status_bits & VFE_IRQ_STATUS0_STATS_AF) {
-		if (!vfe32_ctrl->afStatsControl.ackPending) {
-			vfe32_ctrl->afStatsControl.ackPending = TRUE;
-			vfe32_ctrl->afStatsControl.bufToRender =
+	
+	if (status_bits & VFE_IRQ_STATUS0_STATS_AF_BF) {
+		if (!vfe32_ctrl->afbfStatsControl.ackPending) {
+			vfe32_ctrl->afbfStatsControl.ackPending = TRUE;
+			vfe32_ctrl->afbfStatsControl.bufToRender =
 				vfe32_process_stats_irq_common(statsAfNum,
-				vfe32_ctrl->afStatsControl.nextFrameAddrBuf);
+				vfe32_ctrl->afbfStatsControl.nextFrameAddrBuf);
 			process_stats = true;
 		} else {
-			vfe32_ctrl->afStatsControl.bufToRender = 0;
-			vfe32_ctrl->afStatsControl.droppedStatsFrameCount++;
+			vfe32_ctrl->afbfStatsControl.bufToRender = 0;
+			vfe32_ctrl->afbfStatsControl.droppedStatsFrameCount++;
 		}
 	} else {
-		vfe32_ctrl->afStatsControl.bufToRender = 0;
+		vfe32_ctrl->afbfStatsControl.bufToRender = 0;
 	}
+	
 
 	if (status_bits & VFE_IRQ_STATUS0_STATS_IHIST) {
 		if (!vfe32_ctrl->ihistStatsControl.ackPending) {
@@ -3327,6 +3592,18 @@ static void vfe32_process_stats(uint32_t status_bits)
 	} else {
 		vfe32_ctrl->csStatsControl.bufToRender = 0;
 	}
+    if (status_bits & VFE_IRQ_STATUS0_STATS_SK_BHIST) {
+	if (!(vfe32_ctrl->bhistStatsControl.ackPending)) {
+        vfe32_ctrl->bhistStatsControl.ackPending = TRUE;
+		vfe32_ctrl->bhistStatsControl.bufToRender =
+			vfe32_process_stats_irq_common(statsSkinNum,
+			vfe32_ctrl->bhistStatsControl.nextFrameAddrBuf);
+        process_stats = true;
+	} else{
+		vfe32_ctrl->bhistStatsControl.droppedStatsFrameCount++;
+        vfe32_ctrl->bhistStatsControl.bufToRender = 0;
+	}
+    }
 
 	spin_unlock_irqrestore(&vfe32_ctrl->comp_stats_ack_lock, flags);
 	if (process_stats)
@@ -3356,7 +3633,8 @@ static void vfe32_process_irq(uint32_t irqstatus)
 		vfe32_process_stats_irq(irqstatus);
 		return;
 	}
-
+	
+    
 	switch (irqstatus) {
 	case VFE_IRQ_STATUS0_CAMIF_SOF_MASK:
 		CDBG("irq	camifSofIrq\n");
@@ -3370,17 +3648,21 @@ static void vfe32_process_irq(uint32_t irqstatus)
 		CDBG("irq	resetAckIrq\n");
 		vfe32_process_reset_irq();
 		break;
-	case VFE_IRQ_STATUS0_STATS_AEC:
-		CDBG("Stats AEC irq occured.\n");
-		vfe32_process_stats_ae_irq();
-		break;
+	case VFE_IRQ_STATUS0_STATS_AEC_BG:
+	    CDBG("Stats AEC irq occured.\n");
+	    vfe32_process_stats_ae_bg_irq();
+	    break;
 	case VFE_IRQ_STATUS0_STATS_AWB:
-		CDBG("Stats AWB irq occured.\n");
+	    CDBG("Stats AWB irq occured.\n");
 		vfe32_process_stats_awb_irq();
 		break;
-	case VFE_IRQ_STATUS0_STATS_AF:
+	case VFE_IRQ_STATUS0_STATS_AF_BF:
 		CDBG("Stats AF irq occured.\n");
-		vfe32_process_stats_af_irq();
+		vfe32_process_stats_af_bf_irq();
+		break;
+	case VFE_IRQ_STATUS0_STATS_SK_BHIST:
+		CDBG("Stats BHIST irq occured.\n");
+		vfe32_process_stats_bhist_irq();
 		break;
 	case VFE_IRQ_STATUS0_STATS_IHIST:
 		CDBG("Stats IHIST irq occured.\n");
@@ -3484,10 +3766,10 @@ static void axi32_do_tasklet(unsigned long data)
 			} else {
 				
 				if (qcmd->vfeInterruptStatus0 &
-						VFE_IRQ_STATUS0_STATS_AEC)
+						VFE_IRQ_STATUS0_STATS_AEC_BG)
 					v4l2_subdev_notify(&axi_ctrl->subdev,
 					NOTIFY_VFE_IRQ,
-					(void *)VFE_IRQ_STATUS0_STATS_AEC);
+					(void *)VFE_IRQ_STATUS0_STATS_AEC_BG);
 
 				if (qcmd->vfeInterruptStatus0 &
 						VFE_IRQ_STATUS0_STATS_AWB)
@@ -3496,10 +3778,17 @@ static void axi32_do_tasklet(unsigned long data)
 					(void *)VFE_IRQ_STATUS0_STATS_AWB);
 
 				if (qcmd->vfeInterruptStatus0 &
-						VFE_IRQ_STATUS0_STATS_AF)
+						VFE_IRQ_STATUS0_STATS_AF_BF)
 					v4l2_subdev_notify(&axi_ctrl->subdev,
 					NOTIFY_VFE_IRQ,
-					(void *)VFE_IRQ_STATUS0_STATS_AF);
+					(void *)VFE_IRQ_STATUS0_STATS_AF_BF);
+
+				if (qcmd->vfeInterruptStatus0 &
+						VFE_IRQ_STATUS0_STATS_SK_BHIST)
+					v4l2_subdev_notify(&axi_ctrl->subdev,
+					NOTIFY_VFE_IRQ,
+					(void *)VFE_IRQ_STATUS0_STATS_SK_BHIST);
+
 				if (qcmd->vfeInterruptStatus0 &
 						VFE_IRQ_STATUS0_STATS_IHIST)
 					v4l2_subdev_notify(&axi_ctrl->subdev,
@@ -3614,7 +3903,10 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 		cmd->cmd_type != CMD_STATS_IHIST_BUF_RELEASE &&
 		cmd->cmd_type != CMD_STATS_RS_BUF_RELEASE &&
 		cmd->cmd_type != CMD_STATS_CS_BUF_RELEASE &&
-		cmd->cmd_type != CMD_STATS_AF_BUF_RELEASE) {
+		cmd->cmd_type != CMD_STATS_AF_BUF_RELEASE &&
+		cmd->cmd_type != CMD_STATS_BG_BUF_RELEASE &&
+		cmd->cmd_type != CMD_STATS_BF_BUF_RELEASE &&
+		cmd->cmd_type != CMD_STATS_BHIST_BUF_RELEASE) {
 		if (copy_from_user(&vfecmd,
 				(void __user *)(cmd->value),
 				sizeof(vfecmd))) {
@@ -3646,7 +3938,10 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 		(cmd->cmd_type == CMD_STATS_IHIST_ENABLE) ||
 		(cmd->cmd_type == CMD_STATS_RS_ENABLE)    ||
 		(cmd->cmd_type == CMD_STATS_CS_ENABLE)    ||
-		(cmd->cmd_type == CMD_STATS_AEC_ENABLE)) {
+		(cmd->cmd_type == CMD_STATS_AEC_ENABLE)   ||
+		(cmd->cmd_type == CMD_STATS_BG_ENABLE)    ||
+		(cmd->cmd_type == CMD_STATS_BF_ENABLE)    ||
+		(cmd->cmd_type == CMD_STATS_BHIST_ENABLE)) {
 		struct axidata *axid;
 		axid = data;
 		if (!axid) {
@@ -3672,10 +3967,15 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 		
 		switch (cmd->cmd_type) {
 		case CMD_STATS_AEC_ENABLE:
-			rc = vfe_stats_aec_buf_init(scfg);
+		case CMD_STATS_BG_ENABLE:
+			rc = vfe_stats_aec_bg_buf_init(scfg);
 			break;
 		case CMD_STATS_AF_ENABLE:
-			rc = vfe_stats_af_buf_init(scfg);
+		case CMD_STATS_BF_ENABLE:
+			rc = vfe_stats_af_bf_buf_init(scfg);
+			break;
+		case CMD_STATS_BHIST_ENABLE:
+			rc = vfe_stats_bhist_buf_init(scfg);
 			break;
 		case CMD_STATS_AWB_ENABLE:
 			rc = vfe_stats_awb_buf_init(scfg);
@@ -3700,7 +4000,6 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	case CMD_GENERAL:
 		rc = vfe32_proc_general(pmctl, &vfecmd);
 		break;
-
 	case CMD_CONFIG_PING_ADDR: {
 		int path = *((int *)cmd->value);
 		struct vfe32_output_ch *outch = vfe32_get_ch(path);
@@ -3729,10 +4028,15 @@ static long msm_vfe_subdev_ioctl(struct v4l2_subdev *sd,
 	case CMD_SNAP_BUF_RELEASE:
 		break;
 	case CMD_STATS_AEC_BUF_RELEASE:
-		vfe32_stats_aec_ack(sack);
+	case CMD_STATS_BG_BUF_RELEASE:
+		vfe32_stats_aec_bg_ack(sack);
 		break;
 	case CMD_STATS_AF_BUF_RELEASE:
-		vfe32_stats_af_ack(sack);
+	case CMD_STATS_BF_BUF_RELEASE:
+		vfe32_stats_af_bf_ack(sack);
+		break;
+	case CMD_STATS_BHIST_BUF_RELEASE:
+		vfe32_stats_bhist_ack(sack);
 		break;
 	case CMD_STATS_AWB_BUF_RELEASE:
 		vfe32_stats_awb_ack(sack);
@@ -3868,15 +4172,17 @@ int msm_vfe_subdev_init(struct v4l2_subdev *sd,
 {
 	int rc = 0;
 	v4l2_set_subdev_hostdata(sd, mctl);
+	pr_info("%s\n", __func__);
 
 	spin_lock_init(&vfe32_ctrl->stop_flag_lock);
 	spin_lock_init(&vfe32_ctrl->state_lock);
 	spin_lock_init(&vfe32_ctrl->io_lock);
 	spin_lock_init(&vfe32_ctrl->update_ack_lock);
 
-	spin_lock_init(&vfe32_ctrl->aec_ack_lock);
+	spin_lock_init(&vfe32_ctrl->aec_bg_ack_lock);
 	spin_lock_init(&vfe32_ctrl->awb_ack_lock);
-	spin_lock_init(&vfe32_ctrl->af_ack_lock);
+	spin_lock_init(&vfe32_ctrl->af_bf_ack_lock);
+	spin_lock_init(&vfe32_ctrl->bhist_ack_lock);
 	spin_lock_init(&vfe32_ctrl->ihist_ack_lock);
 	spin_lock_init(&vfe32_ctrl->rs_ack_lock);
 	spin_lock_init(&vfe32_ctrl->cs_ack_lock);
@@ -3888,6 +4194,7 @@ int msm_vfe_subdev_init(struct v4l2_subdev *sd,
 	vfe32_ctrl->update_la = false;
 	vfe32_ctrl->update_gamma = false;
 	vfe32_ctrl->hfr_mode = HFR_MODE_OFF;
+	vfe32_ctrl->vfe_camera_mode = VFE_CAMERA_MODE_DEFAULT;
 
 	return rc;
 }
@@ -4203,6 +4510,7 @@ static int __devinit vfe32_probe(struct platform_device *pdev)
 		axi32_do_tasklet, (unsigned long)axi_ctrl);
 
 	vfe32_ctrl->pdev = pdev;
+	vfe32_ctrl->ver_num.main = 0;
 	msm_cam_register_subdev_node(&vfe32_ctrl->subdev, VFE_DEV, 0);
 	
 	return 0;

@@ -31,6 +31,8 @@
 
 #include "msm.h"
 
+#include "swfv/swfa_k.h"
+
 #ifdef CONFIG_MSM_CAMERA_DEBUG
 #define D(fmt, args...) pr_debug("msm_isp: " fmt, ##args)
 #else
@@ -38,6 +40,8 @@
 #endif
 
 #define MSM_FRAME_AXI_MAX_BUF 32
+#define BAYER_FOCUS_BUF_SIZE 		(18 * 14 * 10 * 4)
+#define SW_FOCUS_BUF_SIZE 			32*1024
 
 
 void *msm_isp_sync_alloc(int size,
@@ -336,6 +340,9 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 	struct msm_cam_media_controller *pmctl =
 		(struct msm_cam_media_controller *)v4l2_get_subdev_hostdata(sd);
 	struct msm_free_buf buf;
+	unsigned long pphy;
+	int newWidth;
+	int newHeight;
 
 	if (!pmctl) {
 		pr_err("%s: no context in dsp callback.\n", __func__);
@@ -366,6 +373,11 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 	switch (notification) {
 	case NOTIFY_ISP_MSG_EVT: {
 		struct isp_msg_event *isp_msg = (struct isp_msg_event *)arg;
+		if (!isp_msg) {
+			pr_err("%s: null pointer check, line(%d)", __func__, __LINE__);
+			rc = -EINVAL;
+			return rc;
+		}
 
 		isp_event->isp_data.isp_msg.msg_id = isp_msg->msg_id;
 		isp_event->isp_data.isp_msg.frame_id = isp_msg->sof_count;
@@ -387,6 +399,11 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 		int image_mode; 
 		struct isp_msg_output *isp_output =
 				(struct isp_msg_output *)arg;
+		if (!isp_output) {
+			pr_err("%s: null pointer check, line(%d)", __func__, __LINE__);
+			rc = -EINVAL;
+			return rc;
+		}
 		switch (isp_output->output_id) {
 		case MSG_ID_OUTPUT_P:
 			msgid = VFE_MSG_OUTPUT_P;
@@ -418,6 +435,7 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
                 msgid = msm_isp_vfe_msg_to_img_mode(pmctl, msgid);
                 
                 msm_mctl_return_free_buf(pmctl, msgid, &(isp_output->buf));
+                kfree(isp_event);
                 return rc;
             } else {
 			isp_event->isp_data.isp_msg.msg_id =
@@ -438,6 +456,11 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 	case NOTIFY_VFE_MSG_COMP_STATS: {
 		struct msm_stats_buf *stats = (struct msm_stats_buf *)arg;
 		struct msm_stats_buf *stats_buf = NULL;
+		if (!stats) {
+			pr_err("%s: null pointer check, line(%d)", __func__, __LINE__);
+			rc = -EINVAL;
+			return rc;
+		}
 
 		isp_event->isp_data.isp_msg.msg_id = MSG_ID_STATS_COMPOSITE;
 		stats->aec.buff = msm_pmem_stats_ptov_lookup(pmctl,
@@ -452,6 +475,8 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 					stats->rs.buff, &(stats->rs.fd));
 		stats->cs.buff = msm_pmem_stats_ptov_lookup(pmctl,
 					stats->cs.buff, &(stats->cs.fd));
+		stats->skin.buff = msm_pmem_stats_ptov_lookup(pmctl,
+					stats->skin.buff, &(stats->skin.fd)); 
 
 		stats_buf = kmalloc(sizeof(struct msm_stats_buf), GFP_ATOMIC);
 		if (!stats_buf) {
@@ -468,21 +493,62 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 	case NOTIFY_VFE_MSG_STATS: {
 		struct msm_stats_buf stats;
 		struct isp_msg_stats *isp_stats = (struct isp_msg_stats *)arg;
-
+		if (!isp_stats) {
+			pr_err("%s: null pointer check, line(%d)", __func__, __LINE__);
+			rc = -EINVAL;
+			return rc;
+		}
 		isp_event->isp_data.isp_msg.msg_id = isp_stats->id;
 		isp_event->isp_data.isp_msg.frame_id =
 			isp_stats->frameCounter;
+#ifdef CONFIG_ARCH_MSM8X60
+		stats.frame_id = isp_stats->frameCounter;
+#endif 
 		stats.buffer = msm_pmem_stats_ptov_lookup(pmctl,
 						isp_stats->buffer,
 						&(stats.fd));
 		switch (isp_stats->id) {
 		case MSG_ID_STATS_AEC:
+		case MSG_ID_STATS_BG:
 			stats.aec.buff = stats.buffer;
 			stats.aec.fd = stats.fd;
 			break;
 		case MSG_ID_STATS_AF:
 			stats.af.buff = stats.buffer;
 			stats.af.fd = stats.fd;
+			break;
+		case MSG_ID_STATS_BF:
+		    newWidth = 0;
+		    newHeight = 0;
+		    stats.htc_af_info.af_input.af_use_sw_sharpness = false;
+		    if (pmctl->htc_af_info.af_input.af_use_sw_sharpness) {
+
+			    pphy = msm_pmem_stats_ptov_lookup_2(pmctl,
+						isp_stats->buffer,
+						&(stats.fd));
+
+			    memset((uint8_t *)(pphy+BAYER_FOCUS_BUF_SIZE), 0x00, SW_FOCUS_BUF_SIZE);
+
+			    rc = swfa_Transform2((uint8_t *)(pphy+BAYER_FOCUS_BUF_SIZE),
+			                          &newWidth,
+			                          &newHeight);
+
+			    if(!rc)
+				    stats.htc_af_info.af_input.af_use_sw_sharpness = false;
+			    else
+				    stats.htc_af_info.af_input.af_use_sw_sharpness = pmctl->htc_af_info.af_input.af_use_sw_sharpness;
+			}
+
+			stats.htc_af_info.af_input.preview_width = pmctl->htc_af_info.af_input.preview_width;
+			stats.htc_af_info.af_input.preview_height = pmctl->htc_af_info.af_input.preview_height;
+			stats.htc_af_info.af_input.roi_x = pmctl->htc_af_info.af_input.roi_x;
+			stats.htc_af_info.af_input.roi_y = pmctl->htc_af_info.af_input.roi_y;
+			stats.htc_af_info.af_input.roi_width = newWidth;
+			stats.htc_af_info.af_input.roi_height = newHeight;
+
+			stats.af.buff = stats.buffer;
+			stats.af.fd = stats.fd;
+
 			break;
 		case MSG_ID_STATS_AWB:
 			stats.awb.buff = stats.buffer;
@@ -499,6 +565,10 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 		case MSG_ID_STATS_CS:
 			stats.cs.buff = stats.buffer;
 			stats.cs.fd = stats.fd;
+			break;
+		case MSG_ID_STATS_BHIST:
+			stats.skin.buff = stats.buffer;
+			stats.skin.fd = stats.fd;
 			break;
 		case MSG_ID_STATS_AWB_AEC:
 			break;
@@ -533,6 +603,12 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 			__func__, notification);
 		rc = -EINVAL;
 		break;
+	}
+
+	if (!pmctl->config_device) {
+		pr_err("%s: null pointer check, line(%d)", __func__, __LINE__);
+		rc = -EINVAL;
+		return rc;
 	}
 
 	v4l2_event_queue(pmctl->config_device->config_stat_event_queue.pvdev,
@@ -626,6 +702,48 @@ static int msm_config_vfe(struct v4l2_subdev *sd,
 	memset(&axi_data, 0, sizeof(axi_data));
 	CDBG("%s: cmd_type %d\n", __func__, cfgcmd.cmd_type);
 	switch (cfgcmd.cmd_type) {
+	case CMD_STATS_BG_ENABLE:
+		axi_data.bufnum1 =
+			msm_pmem_region_lookup(
+				&mctl->stats_info.pmem_stats_list,
+				MSM_PMEM_BAYER_GRID, &region[0],
+				NUM_STAT_OUTPUT_BUFFERS);
+		if (!axi_data.bufnum1) {
+			pr_err("%s %d: pmem region lookup error\n",
+				__func__, __LINE__);
+			return -EINVAL;
+		}
+		axi_data.region = &region[0];
+		return msm_isp_subdev_ioctl(sd, &cfgcmd,
+							&axi_data);
+	case CMD_STATS_BF_ENABLE:
+		axi_data.bufnum1 =
+			msm_pmem_region_lookup(
+				&mctl->stats_info.pmem_stats_list,
+				MSM_PMEM_BAYER_FOCUS, &region[0],
+				NUM_STAT_OUTPUT_BUFFERS);
+		if (!axi_data.bufnum1) {
+			pr_err("%s %d: pmem region lookup error\n",
+				__func__, __LINE__);
+			return -EINVAL;
+		}
+		axi_data.region = &region[0];
+		return msm_isp_subdev_ioctl(sd, &cfgcmd,
+							&axi_data);
+	case CMD_STATS_BHIST_ENABLE:
+		axi_data.bufnum1 =
+			msm_pmem_region_lookup(
+				&mctl->stats_info.pmem_stats_list,
+				MSM_PMEM_BAYER_HIST, &region[0],
+				NUM_STAT_OUTPUT_BUFFERS);
+		if (!axi_data.bufnum1) {
+			pr_err("%s %d: pmem region lookup error\n",
+				__func__, __LINE__);
+			return -EINVAL;
+		}
+		axi_data.region = &region[0];
+		return msm_isp_subdev_ioctl(sd, &cfgcmd,
+							&axi_data);
 	case CMD_STATS_AF_ENABLE:
 		axi_data.bufnum1 =
 			msm_pmem_region_lookup(
@@ -801,7 +919,12 @@ static int msm_put_stats_buffer(struct v4l2_subdev *sd,
 			cfgcmd.cmd_type = CMD_STATS_CS_BUF_RELEASE;
 		else if (buf.type == STAT_AEAW)
 			cfgcmd.cmd_type = CMD_STATS_BUF_RELEASE;
-
+		else if (buf.type == STAT_BG)
+			cfgcmd.cmd_type = CMD_STATS_BG_BUF_RELEASE;
+		else if (buf.type == STAT_BF)
+			cfgcmd.cmd_type = CMD_STATS_BF_BUF_RELEASE;
+		else if (buf.type == STAT_BHIST)
+			cfgcmd.cmd_type = CMD_STATS_BHIST_BUF_RELEASE;
 		else {
 			pr_err("%s: invalid buf type %d\n",
 				__func__,

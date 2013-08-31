@@ -81,9 +81,9 @@ struct vb2_buffer {
 };
 
 struct vb2_ops {
-	int (*queue_setup)(struct vb2_queue *q, unsigned int *num_buffers,
-			   unsigned int *num_planes, unsigned long sizes[],
-			   void *alloc_ctxs[]);
+	int (*queue_setup)(struct vb2_queue *q, const struct v4l2_format *fmt,
+				unsigned int *num_buffers, unsigned int *num_planes,
+				unsigned int sizes[], void *alloc_ctxs[]);
 
 	void (*wait_prepare)(struct vb2_queue *q);
 	void (*wait_finish)(struct vb2_queue *q);
@@ -93,7 +93,7 @@ struct vb2_ops {
 	int (*buf_finish)(struct vb2_buffer *vb);
 	void (*buf_cleanup)(struct vb2_buffer *vb);
 
-	int (*start_streaming)(struct vb2_queue *q);
+	int (*start_streaming)(struct vb2_queue *q, unsigned int count);
 	int (*stop_streaming)(struct vb2_queue *q);
 
 	void (*buf_queue)(struct vb2_buffer *vb);
@@ -121,6 +121,7 @@ struct vb2_queue {
 	wait_queue_head_t		done_wq;
 
 	void				*alloc_ctx[VIDEO_MAX_PLANES];
+	unsigned int            plane_sizes[VIDEO_MAX_PLANES];
 
 	unsigned int			streaming:1;
 

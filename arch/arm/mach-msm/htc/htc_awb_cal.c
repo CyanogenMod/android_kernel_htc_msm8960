@@ -40,6 +40,9 @@ struct qct_awb_lsc_struct{
 	
 	unsigned long int flashcaBuff[8];  
 	
+       
+       unsigned long int ois_data[8];
+       
 
 };
 
@@ -111,7 +114,7 @@ static ssize_t awb_calibration_show(struct device *dev,
 	 int i, *pint;
 	 printk(KERN_INFO "awb_calibration_show():\n");
 	 pint = (int *)buf;
-	 for (i = 0; i < 906; i++)
+	 for (i = 0; i < 914; i++)
 	   printk(KERN_INFO "%d-%x\n", i, pint[i]);
 
    }

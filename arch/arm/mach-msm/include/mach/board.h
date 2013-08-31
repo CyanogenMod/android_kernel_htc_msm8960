@@ -275,6 +275,8 @@ struct msm_actuator_info {
 	int vcm_enable;
 #ifdef CONFIG_MACH_HTC
 	int use_rawchip_af;
+	void (*vcm_wa_vreg_on) (void);
+	void (*vcm_wa_vreg_off) (void);
 #endif
 };
 
@@ -314,7 +316,10 @@ struct msm_camera_sensor_info {
 	struct msm_camera_gpio_conf *gpio_conf;
 	int (*camera_power_on)(void);
 	int (*camera_power_off)(void);
+	enum htc_camera_image_type_board htc_image;
 	int use_rawchip;
+	int hdr_mode;
+	int video_hdr_capability;
 	int power_down_disable;
 	int mirror_mode;
 	struct camera_flash_cfg* flash_cfg;

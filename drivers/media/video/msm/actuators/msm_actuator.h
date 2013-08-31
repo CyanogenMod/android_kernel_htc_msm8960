@@ -38,9 +38,6 @@
 #define LINFO(fmt, args...) CDBG(fmt, ##args)
 #endif
 
-#ifdef CONFIG_RAWCHIP
-#define USE_RAWCHIP_AF
-#endif
 
 struct msm_actuator_ctrl_t;
 
@@ -68,6 +65,12 @@ struct msm_actuator_func_tbl {
 			struct damping_params_t *,
 			int8_t,
 			int16_t);
+	int32_t (*actuator_set_ois_mode) (struct msm_actuator_ctrl_t *, int);
+	int32_t (*actuator_update_ois_tbl) (struct msm_actuator_ctrl_t *, struct sensor_actuator_info_t *);
+	int32_t (*actuator_set_af_value) (struct msm_actuator_ctrl_t *, af_value_t);
+	int32_t (*actuator_set_ois_calibration) (struct msm_actuator_ctrl_t *, struct msm_actuator_get_ois_cal_info_t *);
+    int32_t (*actuator_do_cal)(struct msm_actuator_ctrl_t *, struct msm_actuator_get_vcm_cal_info_t *); 
+
 };
 
 struct msm_actuator_ctrl_t {
@@ -94,6 +97,12 @@ struct msm_actuator_ctrl_t {
 	void *user_data;
 	uint32_t vcm_pwd;
 	uint32_t vcm_enable;
+	af_algo_t af_algo; 
+	int ois_ready_version; 
+	uint8_t ois_mfgtest_in_progress; 
+	struct msm_actuator_get_ois_info_t get_ois_info;
+	struct msm_actuator_get_ois_tbl_t get_ois_tbl;
+	struct msm_actuator_af_OTP_info_t af_OTP_info;
 };
 
 int32_t msm_actuator_i2c_write_b_af(struct msm_actuator_ctrl_t *a_ctrl,
