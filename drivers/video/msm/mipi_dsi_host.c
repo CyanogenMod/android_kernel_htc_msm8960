@@ -1189,7 +1189,7 @@ int mipi_dsi_cmds_tx(struct dsi_buf *tp, struct dsi_cmd_desc *cmds, int cnt)
 		mipi_dsi_cmd_dma_add(tp, cm);
 		mipi_dsi_cmd_dma_tx(tp);
 		if (cm->wait)
-			msleep(cm->wait);
+			hr_msleep(cm->wait);
 		cm++;
 	}
 
