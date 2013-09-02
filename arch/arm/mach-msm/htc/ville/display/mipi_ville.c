@@ -78,7 +78,7 @@ static struct dsi_cmd_desc ville_cmd_on_cmds[] = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,  sizeof(vle_e15), vle_e15},
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,  sizeof(vle_e16), vle_e16},
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,  sizeof(vle_e17), vle_e17},
-	{DTYPE_DCS_WRITE, 1, 0, 0, 120, sizeof(exit_sleep), exit_sleep},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(exit_sleep), exit_sleep},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,  sizeof(enable_te), enable_te},
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,  sizeof(ville_panel_width), ville_panel_width},
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,  sizeof(ville_panel_height), ville_panel_height},
@@ -109,7 +109,7 @@ static struct dsi_cmd_desc ville_cmd_on_cmds_c2[] = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,  sizeof(vle_e15), vle_e15},
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,  sizeof(vle_e16), vle_e16},
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,  sizeof(vle_e17_C2), vle_e17_C2},
-	{DTYPE_DCS_WRITE, 1, 0, 0, 120, sizeof(exit_sleep), exit_sleep},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(exit_sleep), exit_sleep},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,  sizeof(enable_te), enable_te},
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,  sizeof(ville_panel_width), ville_panel_width},
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,  sizeof(ville_panel_height), ville_panel_height},
@@ -165,7 +165,7 @@ static struct dsi_cmd_desc auo_cmd_on_cmds[] = {
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,  sizeof(vrefn_cmd), vrefn_cmd},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,  sizeof(hori_flip_cmd), hori_flip_cmd},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,  sizeof(turn_on_peri_cmd), turn_on_peri_cmd},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 300,  sizeof(sleep_out_cmd), sleep_out_cmd},
+	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,  sizeof(sleep_out_cmd), sleep_out_cmd},
 	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
 };
 

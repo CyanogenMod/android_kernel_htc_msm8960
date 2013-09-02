@@ -1545,7 +1545,7 @@ int cy8c_cs_reset(void)
 	pr_info("[cap]%s Enter\n", __func__);
 
 	gpio_set_value_cansleep(PM8921_GPIO_PM_TO_SYS(VILLE_PMGPIO_CAP_RST), 1);
-	msleep(5);
+	hr_msleep(1);
 	gpio_set_value_cansleep(PM8921_GPIO_PM_TO_SYS(VILLE_PMGPIO_CAP_RST), 0);
 
 	return 0;
