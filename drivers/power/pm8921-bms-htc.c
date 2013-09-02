@@ -970,14 +970,14 @@ static int read_soc_params_raw(struct pm8921_bms_chip *chip,
 		if (!ocv_updated_flag)
 			adjust_pon_ocv_raw(chip, raw);
 		else
-			pr_info("%s: Skip adjust_pon_ocv_raw due to ocv_updated_flag=0x%x\n",
+			pr_debug("%s: Skip adjust_pon_ocv_raw due to ocv_updated_flag=0x%x\n",
 					__func__, ocv_updated_flag);
 		convert_vbatt_raw_to_uv(chip, usb_chg,
 			raw->last_good_ocv_raw, &raw->last_good_ocv_uv);
 		convert_vbatt_raw_to_uv(chip, usb_chg,
 			last_good_ocv_raw_ori, &last_good_ocv_uv_ori_uv);
 		last_ocv_uv = raw->last_good_ocv_uv;
-		pr_info("%s: last_good_ocv_raw/ori=0x%x/0x%x, last_good_ocv_uv/ori=%duV/%duV\n",
+		pr_debug("%s: last_good_ocv_raw/ori=0x%x/0x%x, last_good_ocv_uv/ori=%duV/%duV\n",
 				__func__, raw->last_good_ocv_raw, last_good_ocv_raw_ori,
 				raw->last_good_ocv_uv, last_good_ocv_uv_ori_uv);
 	} else if (chip->prev_last_good_ocv_raw != raw->last_good_ocv_raw) {
@@ -994,7 +994,7 @@ static int read_soc_params_raw(struct pm8921_bms_chip *chip,
 		} else {
 			ocv_updated_flag &= OCV_UPDATE_STORAGE_USE_MASK;
 		}
-		pr_info("%s: last_good_ocv_raw/uv=0x%x/%duV, ocv_updated_flag=0x%x\n",
+		pr_debug("%s: last_good_ocv_raw/uv=0x%x/%duV, ocv_updated_flag=0x%x\n",
 				__func__, raw->last_good_ocv_raw, raw->last_good_ocv_uv,
 				ocv_updated_flag);
 	} else {
@@ -1310,7 +1310,7 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	}
 
 	if (verbol) {
-		pr_info("FCC=%d,UC=%d,RC=%d,CC=%d,RUC=%d,SOC=%d,SOC_R=%d,"
+		pr_debug("FCC=%d,UC=%d,RC=%d,CC=%d,RUC=%d,SOC=%d,SOC_R=%d,"
 			       "start_percent=%d,end_percent=%d,"
 			       "rbatt=%d,rbatt_sf=%d,batt_temp=%d,soc_rbatt=%d,last_rbatt=%d,"
 			       "V_unusable_uv=%d,pc_unusable=%d,rc_pc=%d,scalefactor=%d\n",
@@ -1355,7 +1355,7 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	if (the_chip->start_percent != -EINVAL) {
 		last_soc = soc;
 	} else {
-		pr_info("soc = %d reporting last_soc = %d\n", soc, last_soc);
+		pr_debug("soc = %d reporting last_soc = %d\n", soc, last_soc);
 		soc = last_soc;
 	}
 
@@ -1592,7 +1592,7 @@ int pm8921_bms_get_batt_soc(int *result)
 					batt_temp, last_chargecycles, 1);
 	if (bms_discharge_percent &&
 			((bms_discharge_percent - *result) >= 5)) {
-		pr_info("OCV can be update due to %d - %d >= 5\n",
+		pr_debug("OCV can be update due to %d - %d >= 5\n",
 				bms_discharge_percent, *result);
 		bms_discharge_percent = 0;
 		pm8921_bms_start_ocv_updates();
@@ -1646,7 +1646,7 @@ int pm8921_bms_charging_began(void)
 	calculate_cc_uah(the_chip, raw.cc, &bms_start_cc_uah);
 	pm_bms_masked_write(the_chip, BMS_TOLERANCES,
 			IBAT_TOL_MASK, IBAT_TOL_DEFAULT);
-	pr_info("start_percent = %d%%\n", the_chip->start_percent);
+	pr_debug("start_percent = %d%%\n", the_chip->start_percent);
 	bms_discharge_percent = 0;
 	pm8921_bms_stop_ocv_updates();
 
@@ -1700,7 +1700,7 @@ void pm8921_bms_charging_end(int is_battery_full)
 				new_fcc_uah
 				= (fcc_uah -
 						(DELTA_FCC_PERCENT * fcc_uah) / 100);
-			pr_info("delta_fcc=%d > %d percent of fcc=%d"
+			pr_debug("delta_fcc=%d > %d percent of fcc=%d"
 					"restring it to %d\n",
 					delta_fcc_uah, DELTA_FCC_PERCENT,
 					fcc_uah, new_fcc_uah);
@@ -1708,7 +1708,7 @@ void pm8921_bms_charging_end(int is_battery_full)
 		last_real_fcc_mah = new_fcc_uah/1000;
 		last_real_fcc_batt_temp = batt_temp;
 		readjust_fcc_table();
-		pr_info("learnt fcc = %d batt_temp = %d\n",
+		pr_debug("learnt fcc = %d batt_temp = %d\n",
 					last_real_fcc_mah, last_real_fcc_batt_temp);
 	}
 
@@ -1743,7 +1743,7 @@ void pm8921_bms_charging_end(int is_battery_full)
 			last_charge_increase = last_charge_increase % 100;
 		}
 	}
-	pr_info("end_percent = %d%% last_charge_increase = %d"
+	pr_debug("end_percent = %d%% last_charge_increase = %d"
 			"last_chargecycles = %d\n",
 			the_chip->end_percent,
 			last_charge_increase,
@@ -1762,11 +1762,11 @@ int pm8921_bms_stop_ocv_updates(void)
 		return -EINVAL;
 	}
 	if (!is_ocv_update_start) {
-		pr_info("ocv updates is already stopped");
+		pr_debug("ocv updates is already stopped");
 		return -EINVAL;
 	}
 	is_ocv_update_start = 0;
-	pr_info("stopping ocv updates, is_ocv_update_start=%d", is_ocv_update_start);
+	pr_debug("stopping ocv updates, is_ocv_update_start=%d", is_ocv_update_start);
 	return pm_bms_masked_write(the_chip, BMS_TOLERANCES,
 			OCV_TOL_MASK, OCV_TOL_NO_OCV);
 }
@@ -1779,11 +1779,11 @@ int pm8921_bms_start_ocv_updates(void)
 		return -EINVAL;
 	}
 	if (is_ocv_update_start) {
-		pr_info("ocv updates is already started");
+		pr_debug("ocv updates is already started");
 		return -EINVAL;
 	}
 	is_ocv_update_start = 1;
-	pr_info("starting ocv updates, is_ocv_update_start=%d", is_ocv_update_start);
+	pr_debug("starting ocv updates, is_ocv_update_start=%d", is_ocv_update_start);
 	return pm_bms_masked_write(the_chip, BMS_TOLERANCES,
 			OCV_TOL_MASK, OCV_TOL_DEFAULT);
 }
@@ -2330,34 +2330,34 @@ static void dump_all(void)
 	u64 val;
 	
 	get_reg((void *)BMS_CONTROL, &val);
-	pr_info("BMS_CONTROL = 0x%02llx\n", val);
+	pr_debug("BMS_CONTROL = 0x%02llx\n", val);
 	get_reg((void *)BMS_OUTPUT0, &val);
-	pr_info("BMS_OUTPUT0 = 0x%02llx\n", val);
+	pr_debug("BMS_OUTPUT0 = 0x%02llx\n", val);
 	get_reg((void *)BMS_OUTPUT1, &val);
-	pr_info("BMS_OUTPUT1 = 0x%02llx\n", val);
+	pr_debug("BMS_OUTPUT1 = 0x%02llx\n", val);
 	get_reg((void *)BMS_TOLERANCES, &val);
-	pr_info("BMS_TOLERANCES = 0x%02llx\n", val);
+	pr_debug("BMS_TOLERANCES = 0x%02llx\n", val);
 	get_reg((void *)BMS_TEST1, &val);
-	pr_info("BMS_TEST1 = 0x%02llx\n", val);
+	pr_debug("BMS_TEST1 = 0x%02llx\n", val);
 	get_reg((void *)OCV_UPDATE_STORAGE, &val);
-	pr_info("OCV_UPDATE_STORAGE = 0x%02llx\n", val);
+	pr_debug("OCV_UPDATE_STORAGE = 0x%02llx\n", val);
 
 	
 	get_reading((void *)CC_MSB, &val);
-	pr_info("read_cc = 0x%lld\n", val);
+	pr_debug("read_cc = 0x%lld\n", val);
 	get_reading((void *)LAST_GOOD_OCV_VALUE, &val);
-	pr_info("last_good_ocv = 0x%lld\n", val);
+	pr_debug("last_good_ocv = 0x%lld\n", val);
 	get_reading((void *)VBATT_FOR_RBATT, &val);
-	pr_info("vbatt_for_rbatt = 0x%lld\n", val);
+	pr_debug("vbatt_for_rbatt = 0x%lld\n", val);
 	get_reading((void *)VSENSE_FOR_RBATT, &val);
-	pr_info("vsense_for_rbatt = 0x%lld\n", val);
+	pr_debug("vsense_for_rbatt = 0x%lld\n", val);
 	get_reading((void *)OCV_FOR_RBATT, &val);
-	pr_info("ocv_for_rbatt = 0x%lld\n", val);
+	pr_debug("ocv_for_rbatt = 0x%lld\n", val);
 	get_reading((void *)VSENSE_AVG, &val);
-	pr_info("vsense_avg = 0x%lld\n", val);
+	pr_debug("vsense_avg = 0x%lld\n", val);
 
 	
-	pr_info("BMS irq: %d%d%d%d%d%d%d\n",
+	pr_debug("BMS irq: %d%d%d%d%d%d%d\n",
 		pm_bms_get_rt_status(the_chip, PM8921_BMS_SBI_WRITE_OK),
 		pm_bms_get_rt_status(the_chip, PM8921_BMS_CC_THR),
 		pm_bms_get_rt_status(the_chip, PM8921_BMS_VSENSE_THR),
@@ -2587,7 +2587,7 @@ static int dump_cc_uah(void)
 	spin_lock_irqsave(&the_chip->bms_100_lock, flags);
 	
 	calculate_cc_uah(the_chip, raw.cc, &cc_uah);
-	pr_info("cc_uah = %duAh, raw->cc = %x,"
+	pr_debug("cc_uah = %duAh, raw->cc = %x,"
 			" cc = %lld after subtracting %d\n",
 				cc_uah, raw.cc,
 				(int64_t)raw.cc - the_chip->cc_reading_at_100,
@@ -2638,7 +2638,7 @@ static int pm8921_bms_suspend(struct device *dev)
 
 	dump_cc_uah();
 	get_reg((void *)BMS_TOLERANCES, &val);
-	pr_info("BMS_TOLERANCES = 0x%02llx\n", val);
+	pr_debug("BMS_TOLERANCES = 0x%02llx\n", val);
 	return 0;
 }
 
@@ -2678,7 +2678,7 @@ static int pm8921_bms_resume(struct device *dev)
 
 	dump_cc_uah();
 	get_reg((void *)BMS_TOLERANCES, &val);
-	pr_info("last_rbatt:%d , BMS_TOLERANCES = 0x%02llx\n", last_rbatt, val);
+	pr_debug("last_rbatt:%d , BMS_TOLERANCES = 0x%02llx\n", last_rbatt, val);
 	return 0;
 }
 
@@ -2713,7 +2713,7 @@ static int read_ocv_trim(struct pm8921_bms_chip *chip)
 	if (rc)
 		pr_err("Error %d reading %d addr %d\n",
 			rc, reg, TEST_PROGRAM_REV);
-	pr_info("program rev reg is 0x%x\n", reg);
+	pr_debug("program rev reg is 0x%x\n", reg);
 	reg &= PROGRAM_REV_MASK;
 
 	
@@ -2729,7 +2729,7 @@ static int read_ocv_trim(struct pm8921_bms_chip *chip)
 	}
 
 	chip->amux_2_trim_delta = abs(0x49 - reg);
-	pr_info("trim reg=0x%x, trim delta=%d\n", reg, chip->amux_2_trim_delta);
+	pr_debug("trim reg=0x%x, trim delta=%d\n", reg, chip->amux_2_trim_delta);
 
 restore_sbi_config:
 	rc = pm8xxx_writeb(chip->dev->parent, REG_SBI_CONFIG, sbi_config);
