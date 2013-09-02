@@ -1822,6 +1822,52 @@ unsigned long msleep_interruptible(unsigned int msecs)
 
 EXPORT_SYMBOL(msleep_interruptible);
 
+static void do_nsleep(unsigned int msecs, struct hrtimer_sleeper *sleeper,
+	int sigs)
+{
+	enum hrtimer_mode mode = HRTIMER_MODE_REL;
+	int state = sigs ? TASK_INTERRUPTIBLE : TASK_UNINTERRUPTIBLE;
+
+	hrtimer_init(&sleeper->timer, CLOCK_MONOTONIC, mode);
+	sleeper->timer.node.expires = ktime_set(msecs / 1000,
+						(msecs % 1000) * NSEC_PER_MSEC);
+	hrtimer_init_sleeper(sleeper, current);
+
+	do {
+		set_current_state(state);
+		hrtimer_start(&sleeper->timer, sleeper->timer.node.expires, mode);
+		if (sleeper->task)
+			schedule();
+		hrtimer_cancel(&sleeper->timer);
+		mode = HRTIMER_MODE_ABS;
+	} while (sleeper->task && !(sigs && signal_pending(current)));
+}
+
+void hr_msleep(unsigned int msecs)
+{
+	struct hrtimer_sleeper sleeper;
+
+	do_nsleep(msecs, &sleeper, 0);
+}
+
+EXPORT_SYMBOL(hr_msleep);
+
+unsigned long hr_msleep_interruptible(unsigned int msecs)
+{
+	struct hrtimer_sleeper sleeper;
+	ktime_t left;
+
+	do_nsleep(msecs, &sleeper, 1);
+
+	if (!sleeper.task)
+		return 0;
+	left = ktime_sub(sleeper.timer.node.expires,
+				sleeper.timer.base->get_time());
+	return max(((long) ktime_to_ns(left))/(long)NSEC_PER_MSEC, 1L);
+}
+
+EXPORT_SYMBOL(hr_msleep_interruptible);
+
 static int __sched do_usleep_range(unsigned long min, unsigned long max)
 {
 	ktime_t kmin;
