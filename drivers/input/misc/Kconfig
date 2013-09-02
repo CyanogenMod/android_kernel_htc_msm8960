@@ -682,12 +682,6 @@ config SENSORS_AKM8975
 	help
 	  AKM8975 compass driver for HTC.
 
-config SENSORS_AKM8975_PANA_GYRO
-	tristate "AKM8975 compass driver for Panasonic gyro"
-	depends on I2C
-	help
-	  AKM8975 compass driver for Panasonic gyroscope.
-
 config SENSORS_PANASONIC_GYRO
 	tristate "Panasonic gyroscope sensor support"
 	depends on I2C

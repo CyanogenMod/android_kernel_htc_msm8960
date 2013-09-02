@@ -2367,6 +2367,7 @@ static struct bma250_platform_data gsensor_bma250_platform_data = {
 
 static struct akm8975_platform_data compass_platform_data = {
 	.layouts = ELITE_LAYOUTS,
+	.use_pana_gyro = 0,
 };
 
 static struct r3gd20_gyr_platform_data gyro_platform_data = {

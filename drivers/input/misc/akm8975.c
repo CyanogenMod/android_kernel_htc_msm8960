@@ -40,7 +40,7 @@
 #define DIF_FATAL_ERR(x...) {\
 		if (debug_flag_fatal_err) \
 			printk(KERN_DEBUG "[COMP][AKM8975 DEBUG FATAL ERR] "\
-			 x); }
+					x); }
 
 #define DEVICE_ACCESSORY_ATTR(_name, _mode, _show, _store) \
 struct device_attribute dev_attr_##_name = __ATTR(_name, _mode, _show, _store)
@@ -70,9 +70,9 @@ static atomic_t m_flag;
 static atomic_t a_flag;
 static atomic_t t_flag;
 static atomic_t mv_flag;
-
+static int gsensor_first_enable;
 static int failure_count;
-
+static int m_f_times;
 static short akmd_delay;
 
 static int debug_flag;
@@ -205,6 +205,7 @@ static int AKECS_GetData(void)
 	char buffer[RBUFF_SIZE_8975 + 1];
 	int ret;
 
+	DIF_FATAL_ERR("%s: GET_DATA start\n", __func__);
 	memset(buffer, 0, RBUFF_SIZE_8975);
 	buffer[0] = AK8975_REG_ST1;
 	ret = AKI2C_RxData(buffer, RBUFF_SIZE_8975);
@@ -267,6 +268,10 @@ static int AKECS_TransRBuff(char *rbuf, int size)
 	} else if (err == 0)
 		E("%s data timeout.\n", __func__);
 
+	DIF_FATAL_ERR("%s: data_ready %d, suspend_flag %d\n",
+			__func__, atomic_read(&data_ready),
+			atomic_read(&suspend_flag));
+
 	if (!atomic_read(&data_ready)) {
 		if (!atomic_read(&suspend_flag)) {
 			D("%s: DATA\n", __func__);
@@ -319,56 +324,63 @@ static void AKECS_Report_Value(short *rbuf)
 	DIF("(m, a, t, mv) = (0x%x, 0x%x, 0x%x, 0x%x)\n",
 		atomic_read(&m_flag), atomic_read(&a_flag),
 		atomic_read(&t_flag), atomic_read(&mv_flag));
+	if (pdata->use_pana_gyro == 0) {
+		if (fatal_err_pr_count < 10) {
+			DIF_FATAL_ERR(
+				"AKECS_Report_Value: yaw = %d, pitch = %d,"
+				" roll = %d\n", rbuf[0], rbuf[1], rbuf[2]);
+			DIF_FATAL_ERR(
+			"          G_Sensor:   x = %d LSB, y = %d LSB, z = "
+				"%d LSB\n", rbuf[6], rbuf[7], rbuf[8]);
+			DIF_FATAL_ERR(
+			"          Compass:   x = %d LSB, y = %d LSB, z = %d"
+				" LSB\n", rbuf[9], rbuf[10], rbuf[11]);
 
-	if (fatal_err_pr_count < 10) {
-		DIF_FATAL_ERR(
-			"AKECS_Report_Value: yaw = %d, pitch = %d,"
-			" roll = %d\n", rbuf[0], rbuf[1], rbuf[2]);
-		DIF_FATAL_ERR(
-		"          G_Sensor:   x = %d LSB, y = %d LSB, z = "
-			"%d LSB\n", rbuf[6], rbuf[7], rbuf[8]);
-		DIF_FATAL_ERR(
-		"          Compass:   x = %d LSB, y = %d LSB, z = %d"
-			" LSB\n", rbuf[9], rbuf[10], rbuf[11]);
+			DIF_FATAL_ERR("(m, a, t, mv) = (0x%x, 0x%x, 0x%x,"
+				" 0x%x)\n",
+				atomic_read(&m_flag), atomic_read(&a_flag),
+				atomic_read(&t_flag), atomic_read(&mv_flag));
 
-		DIF_FATAL_ERR("(m, a, t, mv) = (0x%x, 0x%x, 0x%x,"
-			" 0x%x)\n",
-			atomic_read(&m_flag), atomic_read(&a_flag),
-			atomic_read(&t_flag), atomic_read(&mv_flag));
+			fatal_err_pr_count++;
+		} else {
+			fatal_err_pr_count = 0;
+			debug_flag_fatal_err = 0;
+		}
 
-		fatal_err_pr_count++;
-	} else {
-		fatal_err_pr_count = 0;
-		debug_flag_fatal_err = 0;
+		
+		if (atomic_read(&m_flag)) {
+			input_report_abs(data->input_dev, ABS_RX, rbuf[0]);
+			input_report_abs(data->input_dev, ABS_RY, rbuf[1]);
+			input_report_abs(data->input_dev, ABS_RZ, rbuf[2]);
+			input_report_abs(data->input_dev, ABS_RUDDER, rbuf[4]);
+		}
+
+		
+		if (atomic_read(&a_flag)) {
+			input_report_abs(data->input_dev, ABS_X, rbuf[6]);
+			input_report_abs(data->input_dev, ABS_Y, rbuf[7]);
+			input_report_abs(data->input_dev, ABS_Z, rbuf[8]);
+			input_report_abs(data->input_dev, ABS_WHEEL, rbuf[5]);
+		}
+
+		
+		if (atomic_read(&t_flag))
+			input_report_abs(data->input_dev, ABS_THROTTLE, rbuf[3]);
+
+		if (atomic_read(&mv_flag)) {
+			input_report_abs(data->input_dev, ABS_HAT0X, rbuf[9]);
+			input_report_abs(data->input_dev, ABS_HAT0Y, rbuf[10]);
+			input_report_abs(data->input_dev, ABS_BRAKE, rbuf[11]);
+		}
+
+		input_sync(data->input_dev);
+	} else if (atomic_read(&a_flag) ) {
+#ifdef CONFIG_SENSORS_PANASONIC_GYRO
+		EWTZMU2_Report_Value_akm(gsensor_first_enable, rbuf[6], rbuf[7], rbuf[8]);
+		if (gsensor_first_enable == 1)
+			gsensor_first_enable = 0;
+#endif
 	}
-
-	
-	if (atomic_read(&m_flag)) {
-		input_report_abs(data->input_dev, ABS_RX, rbuf[0]);
-		input_report_abs(data->input_dev, ABS_RY, rbuf[1]);
-		input_report_abs(data->input_dev, ABS_RZ, rbuf[2]);
-		input_report_abs(data->input_dev, ABS_RUDDER, rbuf[4]);
-	}
-
-	
-	if (atomic_read(&a_flag)) {
-		input_report_abs(data->input_dev, ABS_X, rbuf[6]);
-		input_report_abs(data->input_dev, ABS_Y, rbuf[7]);
-		input_report_abs(data->input_dev, ABS_Z, rbuf[8]);
-		input_report_abs(data->input_dev, ABS_WHEEL, rbuf[5]);
-	}
-
-	
-	if (atomic_read(&t_flag))
-		input_report_abs(data->input_dev, ABS_THROTTLE, rbuf[3]);
-
-	if (atomic_read(&mv_flag)) {
-		input_report_abs(data->input_dev, ABS_HAT0X, rbuf[9]);
-		input_report_abs(data->input_dev, ABS_HAT0Y, rbuf[10]);
-		input_report_abs(data->input_dev, ABS_BRAKE, rbuf[11]);
-	}
-
-	input_sync(data->input_dev);
 }
 
 static int AKECS_GetOpenStatus(void)
@@ -410,7 +422,8 @@ static int akm_aot_open(struct inode *inode, struct file *file)
 
 	if (atomic_cmpxchg(&open_count, 0, 1) == 0) {
 		atomic_set(&open_flag, 1);
-		input_report_abs(data->input_dev, ABS_RUDDER, -1);
+		if (pdata->use_pana_gyro == 0)
+			input_report_abs(data->input_dev, ABS_RUDDER, -1);
 		atomic_set(&reserve_open_flag, 1);
 		wake_up(&open_wq);
 		ret = 0;
@@ -420,7 +433,7 @@ static int akm_aot_open(struct inode *inode, struct file *file)
 
 static int akm_aot_release(struct inode *inode, struct file *file)
 {
-	printk(KERN_INFO "[COMP] Compass disable\n");
+	I("[COMP] Compass disable\n");
 
 	debug_flag_fatal_err = 0;
 	fatal_err_pr_count = 0;
@@ -466,16 +479,25 @@ akm_aot_ioctl( struct file *file,
 	switch (cmd) {
 	case ECS_IOCTL_APP_SET_MFLAG:
 		atomic_set(&m_flag, flag);
+		if (pdata->use_pana_gyro && flag == 0) {
+			m_f_times = 0;
+			I("ECS_IOCTL_APP_SET_MFLAG,(m, a, t, mv) = (0x%x, 0x%x, 0x%x, 0x%x), m_f_times %d\n",
+				atomic_read(&m_flag), atomic_read(&a_flag),
+				atomic_read(&t_flag), atomic_read(&mv_flag), m_f_times);
+		}
 		break;
 	case ECS_IOCTL_APP_GET_MFLAG:
 		flag = atomic_read(&m_flag);
 		break;
 	case ECS_IOCTL_APP_SET_AFLAG:
 		reserve_a_flag = flag;
-		if (disable_flag != 1)
+		if (disable_flag != 1) {
+			gsensor_first_enable = 1;
 			atomic_set(&a_flag, flag);
-		else
+		} else {
+			gsensor_first_enable = 0;
 			atomic_set(&a_flag, 0);
+		}
 		break;
 	case ECS_IOCTL_APP_GET_AFLAG:
 		flag = atomic_read(&a_flag);
@@ -531,6 +553,23 @@ static int akmd_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
+/* functions for use with Panasonic gyro */
+static short report_to_gyro_value[12] = {0};
+
+void akm_get_akmd_data(short *getdata)
+{
+	int i;
+
+	for (i = 0; i < 12; i++)
+		*(getdata+i) = report_to_gyro_value[i];
+}
+
+int  akm_get_akmd_ready(void)
+{
+	return m_f_times;
+}
+/* end Panasonic gyro functions */
+
 static long
 akmd_ioctl( struct file *file, unsigned int cmd,
 	   unsigned long arg)
@@ -584,6 +623,8 @@ akmd_ioctl( struct file *file, unsigned int cmd,
 		ret = AKECS_SetMode((char)mode);
 		if (ret < 0)
 			return ret;
+		DIF_FATAL_ERR("%s: ECS_IOCTL_SET_MODE(%d) success\n",
+			__func__, mode);
 		break;
 	case ECS_IOCTL_GETDATA:
 		
@@ -593,6 +634,24 @@ akmd_ioctl( struct file *file, unsigned int cmd,
 			return ret;
 		break;
 	case ECS_IOCTL_SET_YPR:
+		if (pdata->use_pana_gyro) {
+			for (i = 0; i < 12; i++)
+				report_to_gyro_value[i] = value[i];
+			if (atomic_read(&m_flag) && m_f_times == 0) {
+				m_f_times = 1;
+				I("(m, a, t, mv) = (0x%x, 0x%x, 0x%x, 0x%x), set m_f_times %d\n",
+						atomic_read(&m_flag), atomic_read(&a_flag),
+						atomic_read(&t_flag), atomic_read(&mv_flag), m_f_times);
+			}
+			if (atomic_read(&m_flag) == 0) {
+				if (m_f_times == 1)
+					I("(m, a, t, mv) = (0x%x, 0x%x, 0x%x, 0x%x),  set 0 to m_f_times %d\n",
+							atomic_read(&m_flag), atomic_read(&a_flag),
+							atomic_read(&t_flag), atomic_read(&mv_flag), m_f_times);
+				m_f_times = 0;
+			}
+		}
+
 		AKECS_Report_Value(value);
 		break;
 	case ECS_IOCTL_GET_COMP_FLAG:
@@ -643,6 +702,13 @@ akmd_ioctl( struct file *file, unsigned int cmd,
 		break;
 	case ECS_IOCTL_GET_MATRIX:
 		if (copy_to_user(argp, layouts, sizeof(layouts)))
+			return -EFAULT;
+		break;
+	case ECS_IOCTL_GET_DATA_FOR_GYRO:
+		if (pdata->use_pana_gyro == 0)
+			return -EINVAL;
+		I("%s: ECS_IOCTL_GET_DATA_FOR_GYRO = 0x%x\n", __func__, ECS_IOCTL_GET_DATA_FOR_GYRO);
+		if (copy_to_user(argp, report_to_gyro_value, sizeof(report_to_gyro_value)))
 			return -EFAULT;
 		break;
 	default:
@@ -753,7 +819,6 @@ static const struct file_operations akm_aot_fops = {
 #if HAVE_UNLOCKED_IOCTL
 	.unlocked_ioctl = akm_aot_ioctl,
 #endif
-
 };
 
 
@@ -775,7 +840,7 @@ static ssize_t akm_show(struct device *dev,
 {
 	char *s = buf;
 	s += sprintf(s, "%d\n", atomic_read(&PhoneOn_flag));
-	return s - buf;
+	return (s - buf);
 }
 
 static ssize_t akm_store(struct device *dev,
@@ -961,53 +1026,53 @@ int akm8975_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		E("%s: set power down mode error\n", __func__);
 		goto exit_set_mode_failed;
 	}
+	if (pdata->use_pana_gyro == 0) {
+		akm->input_dev = input_allocate_device();
 
-	akm->input_dev = input_allocate_device();
+		if (!akm->input_dev) {
+			err = -ENOMEM;
+			E("%s: Failed to allocate input device\n", __func__);
+			goto exit_input_dev_alloc_failed;
+		}
 
-	if (!akm->input_dev) {
-		err = -ENOMEM;
-		E("%s: Failed to allocate input device\n", __func__);
-		goto exit_input_dev_alloc_failed;
+		set_bit(EV_ABS, akm->input_dev->evbit);
+		
+		input_set_abs_params(akm->input_dev, ABS_RX, 0, 360, 0, 0);
+		
+		input_set_abs_params(akm->input_dev, ABS_RY, -180, 180, 0, 0);
+		
+		input_set_abs_params(akm->input_dev, ABS_RZ, -90, 90, 0, 0);
+		
+		input_set_abs_params(akm->input_dev, ABS_X, -1872, 1872, 0, 0);
+		
+		input_set_abs_params(akm->input_dev, ABS_Y, -1872, 1872, 0, 0);
+		
+		input_set_abs_params(akm->input_dev, ABS_Z, -1872, 1872, 0, 0);
+		
+		input_set_abs_params(akm->input_dev, ABS_THROTTLE, -30, 85, 0, 0);
+		
+		input_set_abs_params(akm->input_dev, ABS_RUDDER, -32768, 3, 0, 0);
+		
+		input_set_abs_params(akm->input_dev, ABS_WHEEL, -32768, 3, 0, 0);
+		
+		input_set_abs_params(akm->input_dev, ABS_GAS, 0, 65535, 0, 0);
+		
+		input_set_abs_params(akm->input_dev, ABS_HAT0X, -2048, 2032, 0, 0);
+		
+		input_set_abs_params(akm->input_dev, ABS_HAT0Y, -2048, 2032, 0, 0);
+		
+		input_set_abs_params(akm->input_dev, ABS_BRAKE, -2048, 2032, 0, 0);
+
+		akm->input_dev->name = "compass";
+
+		err = input_register_device(akm->input_dev);
+
+		if (err) {
+			E("%s: Unable to register input device: %s\n", __func__,
+				akm->input_dev->name);
+			goto exit_input_register_device_failed;
+		}
 	}
-
-	set_bit(EV_ABS, akm->input_dev->evbit);
-	
-	input_set_abs_params(akm->input_dev, ABS_RX, 0, 360, 0, 0);
-	
-	input_set_abs_params(akm->input_dev, ABS_RY, -180, 180, 0, 0);
-	
-	input_set_abs_params(akm->input_dev, ABS_RZ, -90, 90, 0, 0);
-	
-	input_set_abs_params(akm->input_dev, ABS_X, -1872, 1872, 0, 0);
-	
-	input_set_abs_params(akm->input_dev, ABS_Y, -1872, 1872, 0, 0);
-	
-	input_set_abs_params(akm->input_dev, ABS_Z, -1872, 1872, 0, 0);
-	
-	input_set_abs_params(akm->input_dev, ABS_THROTTLE, -30, 85, 0, 0);
-	
-	input_set_abs_params(akm->input_dev, ABS_RUDDER, -32768, 3, 0, 0);
-	
-	input_set_abs_params(akm->input_dev, ABS_WHEEL, -32768, 3, 0, 0);
-	
-	input_set_abs_params(akm->input_dev, ABS_GAS, 0, 65535, 0, 0);
-	
-	input_set_abs_params(akm->input_dev, ABS_HAT0X, -2048, 2032, 0, 0);
-	
-	input_set_abs_params(akm->input_dev, ABS_HAT0Y, -2048, 2032, 0, 0);
-	
-	input_set_abs_params(akm->input_dev, ABS_BRAKE, -2048, 2032, 0, 0);
-
-	akm->input_dev->name = "compass";
-
-	err = input_register_device(akm->input_dev);
-
-	if (err) {
-		E("%s: Unable to register input device: %s\n", __func__,
-			akm->input_dev->name);
-		goto exit_input_register_device_failed;
-	}
-
 	err = misc_register(&akmd_device);
 	if (err) {
 		E("%s: akmd_device register failed\n", __func__);
@@ -1055,14 +1120,15 @@ int akm8975_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		E("%s: request irq failed\n", __func__);
 		goto exit_irq_request_failed;
 	}
-
+	I("%s:OK\n", __func__);
 	return 0;
 
 exit_irq_request_failed:
 exit_registerAttr_failed:
 exit_misc_device_register_failed:
 exit_input_register_device_failed:
-	input_free_device(akm->input_dev);
+	if (pdata->use_pana_gyro == 0)
+		input_free_device(akm->input_dev);
 exit_input_dev_alloc_failed:
 	free_irq(client->irq, akm);
 exit_set_mode_failed:
@@ -1078,7 +1144,8 @@ static int akm8975_remove(struct i2c_client *client)
 {
 	struct akm8975_data *akm = i2c_get_clientdata(client);
 	free_irq(client->irq, akm);
-	input_unregister_device(akm->input_dev);
+	if (pdata->use_pana_gyro == 0)
+		input_unregister_device(akm->input_dev);
 	kfree(akm);
 	return 0;
 }
@@ -1103,7 +1170,7 @@ static struct i2c_driver akm8975_driver = {
 
 static int __init akm8975_init(void)
 {
-	I("AKM8975 compass driver: init\n");
+	I("AKM8975 compass driver for pana gyro: init\n");
 	return i2c_add_driver(&akm8975_driver);
 }
 
