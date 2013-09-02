@@ -25,6 +25,118 @@
 
 #include "clock.h"
 
+/**
+ * HTC clock debugging functions
+ */
+static int clock_debug_local_get(void *data, u64 *val);
+static int clock_debug_enable_get(void *data, u64 *val);
+static int clock_debug_rate_get(void *data, u64 *val);
+static struct dentry *debugfs_clock_base;
+static struct clk_lookup *msm_clocks;
+static size_t num_msm_clocks;
+
+static struct clk *clock_debug_parent_get(void *data)
+{
+	struct clk *clock = data;
+
+	if (clock->ops->get_parent)
+		return clock->ops->get_parent(clock);
+
+	return NULL;
+}
+
+static int htc_clock_dump(struct clk *clock, struct seq_file *m)
+{
+	int len = 0;
+	u64 value = 0;
+	struct clk *parent;
+	char nam_buf[20], en_buf[20], hz_buf[20], loc_buf[20], par_buf[20];
+
+	if (!clock)
+		return 0;
+
+	memset(nam_buf,  ' ', sizeof(nam_buf));
+	nam_buf[19] = 0;
+	memset(en_buf, 0, sizeof(en_buf));
+	memset(hz_buf, 0, sizeof(hz_buf));
+	memset(loc_buf, 0, sizeof(loc_buf));
+	memset(par_buf,  ' ', sizeof(par_buf));
+	par_buf[19] = 0;
+
+	len = strlen(clock->dbg_name);
+	if (len > 19)
+		len = 19;
+	memcpy(nam_buf, clock->dbg_name, len);
+
+	clock_debug_enable_get(clock, &value);
+	if (value)
+		sprintf(en_buf, "Y");
+	else
+		sprintf(en_buf, "N");
+
+	clock_debug_rate_get(clock, &value);
+	sprintf(hz_buf, "%llu", value);
+
+	clock_debug_local_get(clock, &value);
+	if (value)
+		sprintf(loc_buf, "Y");
+	else
+		sprintf(loc_buf, "N");
+
+	parent = clock_debug_parent_get(clock);
+	if (parent) {
+		len = strlen(parent->dbg_name);
+		if (len > 19)
+			len = 19;
+		memcpy(par_buf, parent->dbg_name, len);
+	} else
+		memcpy(par_buf, "NULL", 4);
+
+	if (m)
+		seq_printf(m, "%s: [EN]%s, [LOC]%s, [SRC]%s, [FREQ]%s\n", nam_buf, en_buf, loc_buf, par_buf, hz_buf);
+	else
+		pr_info("%s: [EN]%s, [LOC]%s, [SRC]%s, [FREQ]%s\n", nam_buf, en_buf, loc_buf, par_buf, hz_buf);
+
+	return 0;
+}
+
+static int list_clocks_show(struct seq_file *m, void *unused)
+{
+	int index;
+	char *title_msg = "------------ HTC Clock -------------\n";
+
+	seq_printf(m, title_msg);
+	for (index = 0; index < num_msm_clocks; index++)
+		htc_clock_dump(msm_clocks[index].clk, m);
+	return 0;
+}
+
+static int list_clocks_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, list_clocks_show, inode->i_private);
+}
+
+static const struct file_operations list_clocks_fops = {
+	.open		= list_clocks_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
+static int htc_clock_status_debug_init(void)
+{
+	debugfs_clock_base = debugfs_create_dir("htc_clock", NULL);
+	if (!debugfs_clock_base)
+		return -ENOMEM;
+
+	if (!debugfs_create_file("list_clocks", S_IRUGO, debugfs_clock_base,
+				&msm_clocks, &list_clocks_fops))
+		return -ENOMEM;
+
+	return 0;
+}
+/* END HTC clock debugging */
+
 static int clock_debug_rate_set(void *data, u64 val)
 {
 	struct clk *clock = data;
@@ -313,6 +425,10 @@ int clock_debug_register(struct clk_lookup *table, size_t size)
 	for (i = 0; i < size; i++)
 		clock_debug_add(table[i].clk);
 
+	/* HTC clock debugging */
+	msm_clocks = table;
+	num_msm_clocks = size;
+
 	return 0;
 }
 
@@ -333,6 +449,9 @@ int __init clock_debug_init(void)
 	measure = clk_get_sys("debug", "measure");
 	if (IS_ERR(measure))
 		measure = NULL;
+
+	/* HTC clock debugging */
+	htc_clock_status_debug_init();
 
 	return 0;
 }
