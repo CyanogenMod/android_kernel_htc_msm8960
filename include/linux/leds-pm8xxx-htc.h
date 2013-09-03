@@ -68,10 +68,12 @@ struct pm8xxx_led_configure {
 	int 		lut_flag;
 	int 		led_sync;
 	int		out_current;
+	int		blink_duty_per_2sec;
 	int		function_flags;
 	int		duties[64];
 	int		pwm_coefficient;
 	void 		(*gpio_status_switch)(bool);
+	int		(*lpm_power)(int on);
 };
 
 struct pm8xxx_led_platform_data {
@@ -91,6 +93,7 @@ struct pm8xxx_led_data {
 	int 				 duites_size;
 	int 					lut_flag;
 	int					 out_current;
+	int				blink_duty_per_2sec;
 	int 				     *duties;
 	int 					led_sync;
 	int				pwm_coefficient;
@@ -101,6 +104,7 @@ struct pm8xxx_led_data {
 	struct work_struct 		led_work;
 	struct alarm		   led_alarm;
 	void (*gpio_status_switch)(bool);
+	int		(*lpm_power)(int on);
 };
 void pm8xxx_led_current_set_for_key(int brightness_key);
 
