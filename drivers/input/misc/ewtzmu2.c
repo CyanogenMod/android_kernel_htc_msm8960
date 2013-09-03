@@ -782,7 +782,7 @@ static int EWTZMU2_Power_Off(void)
 		res = i2c_master_send(ewtzmu_i2c_client, databuf, 2);
 		if (res <= 0)
 			E("Fail to power off chipset(I2C error): ret value=%d\n", res);
-		msleep(10);
+		hr_msleep(10);
 	}
 	gpio_set_value(ewtzmumid_data.sleep_pin, 1);
 	I("%s\n", __func__);
@@ -801,12 +801,11 @@ static int EWTZMU2_Power_On(void)
 	return -2;
 	}
 	gpio_set_value(ewtzmumid_data.sleep_pin, 0);
-	msleep(50);
 	while (1) {
 		databuf[0] = EWTZMU_REG_PWR_MGM;
 		databuf[1] = EWTZMU_POWERON;
 		res = i2c_master_send(ewtzmu_i2c_client, databuf, 2);
-		msleep(10);
+		usleep(10);
 		if (res > 0 || i > 10) {
 			if (res <= 0)
 				E("Fail to power on chipset(I2C error):ret value=%d\n", res);
@@ -818,7 +817,7 @@ static int EWTZMU2_Power_On(void)
 	I("%s start\n", __func__);
 	while (1) {
 		res = EWTZMU2_Chipset_Init();
-		msleep(10);
+		usleep(10);
 		if (res == 0 || i > 3)
 			break;
 		i++;
@@ -826,7 +825,6 @@ static int EWTZMU2_Power_On(void)
 	i = 0;
 	EWTZMU2_Chip_Set_SampleRate(Gyro_samplerate_status);
 	I("%s end\n", __func__);
-	msleep(50);
 	return 0;
 }
 
