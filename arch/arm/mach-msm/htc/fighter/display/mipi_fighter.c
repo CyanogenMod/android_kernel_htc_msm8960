@@ -175,25 +175,25 @@ static char fir_lg_gamma22_04_eb[] = {
 };
 
 static struct dsi_cmd_desc novatek_video_on_cmds[] = {
-	{DTYPE_DCS_WRITE, 1, 0, 0, 50,
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0,
 		sizeof(sw_reset), sw_reset},
-	{DTYPE_DCS_WRITE, 1, 0, 0, 10,
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0,
 		sizeof(exit_sleep), exit_sleep},
-	{DTYPE_DCS_WRITE, 1, 0, 0, 10,
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0,
 		sizeof(display_on), display_on},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 10,
+	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
 		sizeof(set_num_of_lanes), set_num_of_lanes},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 10,
+	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
 		sizeof(rgb_888), rgb_888},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 10,
+	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
 		sizeof(led_pwm2), led_pwm2},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 10,
+	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
 		sizeof(led_pwm3), led_pwm3},
 };
 
 static struct dsi_cmd_desc novatek_cmd_on_cmds[] = {
 	/* added by our own */
-	{DTYPE_DCS_WRITE, 1, 0, 0, 10,
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0,
 		sizeof(sw_reset), sw_reset},
 
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
@@ -216,12 +216,12 @@ static struct dsi_cmd_desc novatek_cmd_on_cmds[] = {
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
 		6, (char[]){0xF0, 0x55, 0xAA, 0x52, 0x00, 0x00} } ,
 
-	{DTYPE_DCS_WRITE, 1, 0, 0, 120,
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0,
 		sizeof(exit_sleep), exit_sleep},
 
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
 		sizeof(enable_te), enable_te},
-	{DTYPE_DCS_WRITE, 1, 0, 0, 40,
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0,
 		sizeof(display_on), display_on},
 	{DTYPE_MAX_PKTSIZE, 1, 0, 0, 0,
 		sizeof(max_pktsize), max_pktsize},
@@ -237,7 +237,7 @@ static struct dsi_cmd_desc novatek_cmd_on_cmds[] = {
 
 static struct dsi_cmd_desc novatek_c2_cmd_on_cmds[] = {
 	/* added by our own */
-	{DTYPE_DCS_WRITE, 1, 0, 0, 10,
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0,
 		sizeof(sw_reset), sw_reset},
 
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
@@ -339,18 +339,18 @@ static struct dsi_cmd_desc novatek_c2_cmd_on_cmds[] = {
 		17, (char[]){0xEA, 0x03, 0x19, 0x03, 0x46, 0x03, 0x63, 0x03,
 			0x88, 0x03, 0x9C, 0x03, 0xB6, 0x03, 0xC8, 0x03,
 			0xD5} } ,
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 5,
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
 		5, (char[]){0xEB, 0x03, 0xDC, 0x03, 0xFF} } ,
 
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
 		6, (char[]){0xF0, 0x55, 0xAA, 0x52, 0x00, 0x00} } ,
 
-	{DTYPE_DCS_WRITE, 1, 0, 0, 120,
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0,
 		sizeof(exit_sleep), exit_sleep},
 
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
 		sizeof(enable_te), enable_te},
-	{DTYPE_DCS_WRITE, 1, 0, 0, 40,
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0,
 		sizeof(display_on), display_on},
 	{DTYPE_MAX_PKTSIZE, 1, 0, 0, 0,
 		sizeof(max_pktsize), max_pktsize},
@@ -366,7 +366,7 @@ static struct dsi_cmd_desc novatek_c2_cmd_on_cmds[] = {
 
 static struct dsi_cmd_desc novatek_c3_cmd_on_cmds[] = {
 	/* added by our own */
-	{DTYPE_DCS_WRITE, 1, 0, 0, 10,
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0,
 		sizeof(sw_reset), sw_reset},
 
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
@@ -376,12 +376,12 @@ static struct dsi_cmd_desc novatek_c3_cmd_on_cmds[] = {
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
 		6, (char[]){0xF0, 0x55, 0xAA, 0x52, 0x08, 0x01} } ,
 
-	{DTYPE_DCS_WRITE, 1, 0, 0, 120,
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0,
 		sizeof(exit_sleep), exit_sleep},
 
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
 		sizeof(enable_te), enable_te},
-	{DTYPE_DCS_WRITE, 1, 0, 0, 40,
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0,
 		sizeof(display_on), display_on},
 	{DTYPE_MAX_PKTSIZE, 1, 0, 0, 0,
 		sizeof(max_pktsize), max_pktsize},
@@ -397,7 +397,7 @@ static struct dsi_cmd_desc novatek_c3_cmd_on_cmds[] = {
 
 static struct dsi_cmd_desc lg_novatek_cmd_on_cmds[] = {
 	/* added by our own */
-	{DTYPE_DCS_WRITE, 1, 0, 0, 30,
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0,
 		sizeof(sw_reset), sw_reset},
 
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
@@ -417,7 +417,7 @@ static struct dsi_cmd_desc lg_novatek_cmd_on_cmds[] = {
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
 		ARRAY_SIZE(novatek_e0), novatek_e0},/* PWM frequency = 13kHz */
 	/* page 1 */
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 1,
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
 		6, (char[]){0xF0, 0x55, 0xAA, 0x52, 0x08, 0x01} },/* select page 1 */
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
 		4, (char[]){0xB0, 0x05, 0x05, 0x05} },
@@ -499,11 +499,11 @@ static struct dsi_cmd_desc lg_novatek_cmd_on_cmds[] = {
 		sizeof(fir_lg_gamma22_04_eb), fir_lg_gamma22_04_eb },
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
 		6, (char[]){0xF0, 0x55, 0xAA, 0x52, 0x00, 0x00} },/* select page 0 */
-	{DTYPE_DCS_WRITE, 1, 0, 0, 120,
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0,
 		sizeof(exit_sleep), exit_sleep},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
 		sizeof(enable_te), enable_te},
-	{DTYPE_DCS_WRITE, 1, 0, 0, 40,
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0,
 		sizeof(display_on), display_on},
 	{DTYPE_MAX_PKTSIZE, 1, 0, 0, 0,
 		sizeof(max_pktsize), max_pktsize},
@@ -519,7 +519,7 @@ static struct dsi_cmd_desc lg_novatek_cmd_on_cmds[] = {
 
 static struct dsi_cmd_desc lg_novatek_c2_cmd_on_cmds[] = {
 	/* added by our own */
-	{DTYPE_DCS_WRITE, 1, 0, 0, 30,
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0,
 		sizeof(sw_reset), sw_reset},
 
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
@@ -577,11 +577,11 @@ static struct dsi_cmd_desc lg_novatek_c2_cmd_on_cmds[] = {
 		sizeof(fir_lg_gamma22_04_e7), fir_lg_gamma22_04_e7 },
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
 		sizeof(fir_lg_gamma22_04_eb), fir_lg_gamma22_04_eb },
-	{DTYPE_DCS_WRITE, 1, 0, 0, 120,
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0,
 		sizeof(exit_sleep), exit_sleep},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
 		sizeof(enable_te), enable_te},
-	{DTYPE_DCS_WRITE, 1, 0, 0, 40,
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0,
 		sizeof(display_on), display_on},
 	{DTYPE_MAX_PKTSIZE, 1, 0, 0, 0,
 		sizeof(max_pktsize), max_pktsize},
@@ -593,15 +593,15 @@ static struct dsi_cmd_desc lg_novatek_c2_cmd_on_cmds[] = {
 
 static struct dsi_cmd_desc lg_novatek_mp_cmd_on_cmds[] = {
 	/* added by our own */
-	{DTYPE_DCS_WRITE, 1, 0, 0, 30,
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0,
 		sizeof(sw_reset), sw_reset},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
 		sizeof(enable_te), enable_te},
 
 	/* page 1 */
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 1,
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
 		6, (char[]){0xF0, 0x55, 0xAA, 0x52, 0x08, 0x01} },/* select page 1 */
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 1,
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
 		5, (char[]){0xD0, 0x09, 0x10, 0x0C, 0x0F} },/* Grandient Control */
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
 		sizeof(fir_lg_gamma22_01_d1), fir_lg_gamma22_01_d1 },
@@ -652,9 +652,9 @@ static struct dsi_cmd_desc lg_novatek_mp_cmd_on_cmds[] = {
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0,
 		sizeof(fir_lg_gamma22_04_eb), fir_lg_gamma22_04_eb },
 
-	{DTYPE_DCS_WRITE, 1, 0, 0, 120,
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0,
 		sizeof(exit_sleep), exit_sleep},
-	{DTYPE_DCS_WRITE, 1, 0, 0, 40,
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0,
 		sizeof(display_on), display_on},
 	{DTYPE_MAX_PKTSIZE, 1, 0, 0, 0,
 		sizeof(max_pktsize), max_pktsize},
@@ -1199,10 +1199,10 @@ static struct dsi_cmd_desc sony_orise9608a_mp_panel_cmd_mode_cmds[] = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(sony_orise9608a_109), sony_orise9608a_109},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(sony_orise9608a_110), sony_orise9608a_110},
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(sony_orise9608a_111), sony_orise9608a_111},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 10, sizeof(sony_orise9608a_112), sony_orise9608a_112},
-	{DTYPE_DCS_WRITE, 1, 0, 0, 100,
+	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(sony_orise9608a_112), sony_orise9608a_112},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0,
 		sizeof(exit_sleep), exit_sleep},
-	{DTYPE_DCS_WRITE, 1, 0, 0, 40,
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0,
 		sizeof(display_on), display_on},
 	{DTYPE_MAX_PKTSIZE, 1, 0, 0, 0,
 		sizeof(max_pktsize), max_pktsize},
@@ -1237,10 +1237,10 @@ static struct dsi_cmd_desc sony_orise9608a_c1_1_panel_cmd_mode_cmds[] = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(sony_orise9608a_109), sony_orise9608a_109},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(sony_orise9608a_110), sony_orise9608a_110},
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(sony_orise9608a_111), sony_orise9608a_111},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 10, sizeof(sony_orise9608a_112), sony_orise9608a_112},
-	{DTYPE_DCS_WRITE, 1, 0, 0, 100,
+	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(sony_orise9608a_112), sony_orise9608a_112},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0,
 		sizeof(exit_sleep), exit_sleep},
-	{DTYPE_DCS_WRITE, 1, 0, 0, 40,
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0,
 		sizeof(display_on), display_on},
 	{DTYPE_MAX_PKTSIZE, 1, 0, 0, 0,
 		sizeof(max_pktsize), max_pktsize},
@@ -1432,7 +1432,7 @@ static struct dsi_cmd_desc sony_orise9608a_panel_cmd_mode_cmds[] = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(sony_orise9608a_109), sony_orise9608a_109},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(sony_orise9608a_110), sony_orise9608a_110},
 
-	{DTYPE_DCS_WRITE, 1, 0, 0, 100, sizeof(exit_sleep), exit_sleep},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(exit_sleep), exit_sleep},
 	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
 
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(pwm_freq_sel_cmds1), pwm_freq_sel_cmds1},
