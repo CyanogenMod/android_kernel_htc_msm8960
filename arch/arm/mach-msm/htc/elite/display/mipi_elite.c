@@ -528,7 +528,7 @@ static struct dsi_cmd_desc sony_panel_video_mode_cmds[] = {
 	/* {DTYPE_DCS_WRITE, 1, 0, 0, 150, sizeof(exit_sleep), exit_sleep},*/
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, 2, (char[]){0x53, 0x24}},
 
-	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
 };
 
 static struct dsi_cmd_desc sony_panel_video_mode_cmds_id28103[] = {
@@ -1013,7 +1013,7 @@ static struct dsi_cmd_desc sony_panel_video_mode_cmds_id28103[] = {
 	/*    {DTYPE_DCS_WRITE, 1, 0, 0, 150, sizeof(exit_sleep), exit_sleep},*/
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, 2, (char[]){0x53, 0x24} },
 
-	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
 };
 
 /* himax command begin */
@@ -1151,7 +1151,7 @@ struct dsi_cmd_desc sharp_nt_video_on_cmds_idA1B100[] = {
 	/* {DTYPE_DCS_WRITE, 1, 0, 0, 150, sizeof(exit_sleep), exit_sleep}, */
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, 2, (char[]){0x53, 0x24}},
 
-	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
 };
 
 struct dsi_cmd_desc sharp_nt_video_on_cmds_nv3[] = {
@@ -1265,7 +1265,7 @@ struct dsi_cmd_desc sharp_nt_video_on_cmds_nv3[] = {
 	/* {DTYPE_DCS_WRITE, 1, 0, 0, 150, sizeof(exit_sleep), exit_sleep}, */
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, 2, (char[]){0x53, 0x24}},
 
-	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
 };
 
 struct dsi_cmd_desc sharp_nt_video_on_cmds_nv4[] = {
@@ -1373,23 +1373,23 @@ struct dsi_cmd_desc sharp_nt_video_on_cmds_nv4[] = {
 	/* {DTYPE_DCS_WRITE, 1, 0, 0, 150, sizeof(exit_sleep), exit_sleep}, */
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, 2, (char[]){0x53, 0x24}},
 
-	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
 };
 
 struct dsi_cmd_desc himax_video_on_cmds_id311100[] = {
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 10, sizeof(himax_password), himax_password},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(set_threelane), set_threelane},
+	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(set_threelane), set_threelane},
 	{DTYPE_MAX_PKTSIZE, 1, 0, 0, 0, sizeof(himax_max_pkt_size), himax_max_pkt_size},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 10, sizeof(display_mode_video), display_mode_video},
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 1, 13, (char[]){0xB2, 0x0F, 0xC8, 0x04, 0x0C,
+	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(display_mode_video), display_mode_video},
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 0, 13, (char[]){0xB2, 0x0F, 0xC8, 0x04, 0x0C,
 							   0x04, 0xF4, 0x00, 0xFF, 0x04,
 							   0x0C, 0x04, 0x20}},
 	{DTYPE_DCS_WRITE, 1, 0, 0, 15, sizeof(exit_sleep), exit_sleep},
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(pwm_freq), pwm_freq},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 10, sizeof(led_pwm2), led_pwm2},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 10, sizeof(led_pwm3), led_pwm3},
-	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(enable_te), enable_te},
-	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(pwm_freq), pwm_freq},
+	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(led_pwm2), led_pwm2},
+	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(led_pwm3), led_pwm3},
+	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(enable_te), enable_te},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
 };
 
 static struct dsi_cmd_desc nvt_LowTemp_wrkr_enter[] = {
@@ -1471,9 +1471,9 @@ static int mipi_elite_lcd_on(struct platform_device *pdev)
 		elite_send_display_cmds(nvt_LowTemp_wrkr_exit, ARRAY_SIZE(nvt_LowTemp_wrkr_exit));
 
 		gpio_set_value(ELITE_GPIO_LCD_RSTz, 0);
-		msleep(1);
+		hr_msleep(1);
 		gpio_set_value(ELITE_GPIO_LCD_RSTz, 1);
-		msleep(20);
+		hr_msleep(10);
 	}
 
 	if (panel_type == PANEL_ID_ELITE_SONY_NT ||

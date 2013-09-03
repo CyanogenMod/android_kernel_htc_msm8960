@@ -417,20 +417,18 @@ static int mipi_dsi_panel_power(int on)
 
 		if (panel_type != PANEL_ID_ELITE_SHARP_HX) {
 			if (!mipi_lcd_on) {
-				msleep(20);
+				usleep(20);
 				gpio_set_value(ELITE_GPIO_LCD_RSTz, 1);
-				msleep(1);
 			}
 		} else {
 			if (!mipi_lcd_on) {
-				msleep(20);
+				usleep(20);
 				gpio_set_value(ELITE_GPIO_LCD_RSTz, 1);
-				msleep(1);
+				usleep(1);
 				gpio_set_value(ELITE_GPIO_LCD_RSTz, 0);
-				msleep(1);
+				usleep(1);
 				gpio_set_value(ELITE_GPIO_LCD_RSTz, 1);
 			}
-			msleep(20);
 		}
 
 		bPanelPowerOn = true;
@@ -448,7 +446,7 @@ static int mipi_dsi_panel_power(int on)
 		}
 
 		gpio_set_value(ELITE_GPIO_LCD_RSTz, 0);
-		msleep(10);
+		hr_msleep(10);
 
 		if (regulator_disable(v_lcm)) {
 			printk(KERN_ERR "%s: Unable to disable the regulator: %s\n", __func__, lcm_str);
