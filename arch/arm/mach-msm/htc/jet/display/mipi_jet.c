@@ -348,7 +348,7 @@ static struct dsi_cmd_desc lg_novatek_cmd_on_cmds[] = {
 		sizeof(led_pwm2), led_pwm2},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
 		sizeof(led_pwm3), led_pwm3},
-	{DTYPE_DCS_WRITE, 1, 0, 0, 40,
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0,
 		sizeof(display_on), display_on},
 };
 
@@ -833,7 +833,7 @@ static struct dsi_cmd_desc sony_c1_video_on_cmds[] = {
 	/* {DTYPE_DCS_WRITE, 1, 0, 0, 150, sizeof(exit_sleep), exit_sleep}, */
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, 2, (char[]){0x53, 0x24} },
 
-	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
 };
 
 static struct dsi_cmd_desc sony_panel_video_mode_cmds_c2[] = {
@@ -1306,7 +1306,7 @@ static struct dsi_cmd_desc sony_panel_video_mode_cmds_c2[] = {
 	/* {DTYPE_DCS_WRITE, 1, 0, 0, 150, sizeof(exit_sleep), exit_sleep}, */
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, 2, (char[]){0x53, 0x24}},
 
-	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
 };
 
 /* AUO timing fix */
@@ -1975,7 +1975,7 @@ static struct dsi_cmd_desc auo_panel_video_mode_cmds[] = {
 	/* {DTYPE_DCS_WRITE, 1, 0, 0, 150, sizeof(exit_sleep), exit_sleep}, */
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, 2, (char[]){0x53, 0x24} },
 
-	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
 };
 
 static struct dsi_cmd_desc auo_panel_video_mode_cmds_c2[] = {
@@ -2414,7 +2414,7 @@ static struct dsi_cmd_desc auo_panel_video_mode_cmds_c2[] = {
 #endif
 
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, 2, (char[]){0xFF, 0x00} },
-	{DTYPE_DCS_WRITE, 1, 0, 0, 100, sizeof(exit_sleep), exit_sleep},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 10, sizeof(exit_sleep), exit_sleep},
 
 	/* For random dot noise */
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, 2, (char[]){0xFF, 0xEE} },
@@ -2458,7 +2458,7 @@ static struct dsi_cmd_desc auo_panel_video_mode_cmds_c2[] = {
 	/* {DTYPE_DCS_WRITE, 1, 0, 0, 150, sizeof(exit_sleep), exit_sleep}, */
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, 2, (char[]){0x53, 0x24}},
 
-	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
 };
 
 static struct dsi_cmd_desc auo_panel_video_mode_cmds_c3[] = {
@@ -2564,7 +2564,7 @@ static struct dsi_cmd_desc auo_panel_video_mode_cmds_c3[] = {
 	/* {DTYPE_DCS_WRITE, 1, 0, 0, 150, sizeof(exit_sleep), exit_sleep}, */
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, 2, (char[]){0x53, 0x24}},
 
-	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
 };
 
 static struct dsi_cmd_desc auo_panel_video_mode_cmds_c3_1[] = {
@@ -3056,7 +3056,7 @@ static struct dsi_cmd_desc auo_panel_video_mode_cmds_c3_1[] = {
 	/* {DTYPE_DCS_WRITE, 1, 0, 0, 150, sizeof(exit_sleep), exit_sleep}, */
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, 2, (char[]){0x53, 0x24}},
 
-	{DTYPE_DCS_WRITE, 1, 0, 0, 40, sizeof(display_on), display_on},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
 };
 
 static int jet_send_display_cmds(struct dsi_cmd_desc *cmd, int cnt)

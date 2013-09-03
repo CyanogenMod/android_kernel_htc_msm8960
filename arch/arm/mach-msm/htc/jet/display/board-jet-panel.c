@@ -386,9 +386,8 @@ static int mipi_dsi_panel_power(int on)
 		jet_lcd_id_power(PM_GPIO_PULL_NO);
 
 		if (!mipi_lcd_on) {
-			msleep(20);
+			usleep(20);
 			gpio_set_value(JET_GPIO_LCD_RSTz, 1);
-			msleep(1);
 		}
 
 		bPanelPowerOn = true;
@@ -399,7 +398,7 @@ static int mipi_dsi_panel_power(int on)
 		jet_lcd_id_power(PM_GPIO_PULL_DN);
 
 		gpio_set_value(JET_GPIO_LCD_RSTz, 0);
-		msleep(10);
+		hr_msleep(10);
 
 		if (regulator_disable(v_lcmio)) {
 			printk(KERN_ERR "%s: Unable to enable the regulator: %s\n", __func__, lcmio_str);
