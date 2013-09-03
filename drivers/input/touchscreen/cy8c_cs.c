@@ -148,7 +148,7 @@ static ssize_t diff(struct device *dev, struct device_attribute *attr, char *buf
 		pr_err("[cap] i2c Write baseline Err\n");
 		return ret;
 	}
-	msleep(100);
+	usleep(100);
 	ret = i2c_cy8c_read(cs->client, CS_BL_HB, data, ARRAY_SIZE(data));
 	if (ret < 0) {
 		pr_err("[cap] i2c Read baseline Err\n");
@@ -212,7 +212,7 @@ static int cy8c_printcs_raw(struct cy8c_cs_data *cs, char *buf)
 			pr_err("[cap] i2c Write inform (%d_%#x) Err\n", i+1, cmd[i]);
 			return ret;
 		}
-		msleep(50);
+		usleep(50);
 		ret = i2c_cy8c_read(cs->client, CS_BL_HB, data, ARRAY_SIZE(data));
 		if (ret < 0) {
 			pr_err("[cap] i2c Read inform (%d_%#x)) Err\n", i+1, cmd[i]);
@@ -601,7 +601,7 @@ static int cy8c_cs_probe(struct i2c_client *client,
 
 	if (pdata) {
 		pdata->reset();
-		msleep(50);
+		hr_msleep(50);
 		cs->intr = pdata->gpio_irq;
 	}
 
@@ -755,7 +755,7 @@ static int cy8c_cs_resume(struct i2c_client *client)
 	pr_info("[cap] %s\n", __func__);
 	cs->reset();
 
-	msleep(50);
+	usleep(50);
 
 	if (client->irq && cs->use_irq)
 		enable_irq(client->irq);
