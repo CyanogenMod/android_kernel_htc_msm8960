@@ -16,3 +16,6 @@ obj-$(CONFIG_MACH_VILLE) += ville/
 
 # M7
 obj-$(CONFIG_MACH_M7_UL) += m7/
+
+# M4
+obj-$(CONFIG_MACH_M4_UL) += m4/

@@ -50,4 +50,11 @@ config HTC_WAKE_ON_VOL
 	bool "Enable wake-on-volume support"
 	default y
 
+config HTC_HEADSET_GPIO
+	tristate "HTC GPIO headset detection driver"
+	depends on HTC_HEADSET_MGR
+	default n
+	help
+	  Provides support for HTC GPIO headset detection.
+
 endmenu

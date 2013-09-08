@@ -1,0 +1,13 @@
+obj-$(CONFIG_MACH_M4_UL) += board-m4.o
+obj-$(CONFIG_MACH_M4_UL) += board-m4-regulator.o
+obj-$(CONFIG_MACH_M4_UL) += board-m4-gpiomux.o
+obj-$(CONFIG_MACH_M4_UL) += board-m4-storage.o
+obj-$(CONFIG_MACH_M4_UL) += board-m4-audio.o
+obj-$(CONFIG_MACH_M4_UL) += board-m4-pmic.o
+obj-$(CONFIG_MACH_M4_UL) += board-m4-keypad.o
+obj-$(CONFIG_MACH_M4_UL) += board-m4-camera.o
+obj-$(CONFIG_MACH_M4_UL) += board-m4-mmc.o
+obj-$(CONFIG_MACH_M4_UL) += board-m4-rfkill.o
+obj-$(CONFIG_MACH_M4_UL) += board-m4-wifi.o
+obj-$(CONFIG_MACH_M4_UL) += display/
+CFLAGS_board-m4-display.o += -Idrivers/video
