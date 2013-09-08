@@ -684,6 +684,12 @@ config SENSORS_AKM8963_NST
 	  If you say yes here you get support for Asahi Kasei's
 	  orientation sensor AK8963 with Magnetic Filed Uncalibrated.
 
+config SENSORS_AKM8963
+	tristate "AKM8963 compass driver"
+	depends on I2C
+	help
+	  AKM8963 compass driver for HTC.
+
 config SENSORS_AKM8975
 	tristate "AKM8975 compass driver"
 	depends on I2C
