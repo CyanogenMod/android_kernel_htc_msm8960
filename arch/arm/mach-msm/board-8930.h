@@ -159,6 +159,7 @@ void __init configure_8930_sglte_regulator(void);
 
 #define MSM_8930_GSBI3_QUP_I2C_BUS_ID 3
 #define MSM_8930_GSBI4_QUP_I2C_BUS_ID 4
+#define MSM_8930_GSBI5_QUP_I2C_BUS_ID 5
 #define MSM_8930_GSBI8_QUP_I2C_BUS_ID 8
 #define MSM_8930_GSBI9_QUP_I2C_BUS_ID 0
 #define MSM_8930_GSBI10_QUP_I2C_BUS_ID 10
