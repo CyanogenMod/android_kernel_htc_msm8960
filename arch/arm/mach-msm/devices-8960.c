@@ -2541,6 +2541,13 @@ static struct resource resources_qup_spi_gsbi10[] = {
 #endif
 };
 
+struct platform_device msm8930_device_qup_spi_gsbi10 = {
+	.name		= "spi_qsd",
+	.id		= 1,
+	.num_resources	= ARRAY_SIZE(resources_qup_spi_gsbi10),
+	.resource	= resources_qup_spi_gsbi10,
+};
+
 /* Use GSBI10 QUP for SPI-1 */
 struct platform_device msm8960_device_qup_spi_gsbi10 = {
 	.name		= "spi_qsd",
