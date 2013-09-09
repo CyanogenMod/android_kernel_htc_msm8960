@@ -331,7 +331,7 @@ static int ville_send_display_cmds(struct dsi_cmd_desc *cmd, int cnt)
 
 	ret = mipi_dsi_cmdlist_put(&cmdreq);
 	if (ret < 0)
-		printk(KERN_ERR "[DISP] %s failed (%d)\n", __func__, ret);
+		pr_err("%s failed (%d)\n", __func__, ret);
 	return ret;
 }
 
@@ -340,8 +340,6 @@ static int mipi_ville_lcd_on(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
 	struct mipi_panel_info *mipi;
-
-	printk(KERN_ERR  "[DISP] %s +++\n", __func__);
 
 	mfd = platform_get_drvdata(pdev);
 	if (!mfd)
@@ -354,8 +352,7 @@ static int mipi_ville_lcd_on(struct platform_device *pdev)
 
 	mipi = &mfd->panel_info.mipi;
 	if (mipi->mode == DSI_VIDEO_MODE) {
-		printk(KERN_ERR "[DISP] %s: does not support video mode\n",
-				__func__);
+		pr_err("%s: does not support video mode\n", __func__);
 		return -EINVAL;
 	}
 
@@ -364,13 +361,11 @@ static int mipi_ville_lcd_on(struct platform_device *pdev)
 			panel_type == PANEL_ID_VILLE_AUO) {
 		ville_send_display_cmds(cmd_on_cmds, cmd_on_cmds_count);
 	} else {
-		printk(KERN_ERR "%s: panel_type is not supported!(%d)\n",
+		pr_err("%s: panel_type is not supported!(%d)\n",
 			__func__, panel_type);
 		return -EINVAL;
 	}
 	mipi_lcd_on = 1;
-
-	printk(KERN_ERR  "[DISP] %s ---\n", __func__);
 
 	return 0;
 }
@@ -378,7 +373,7 @@ static int mipi_ville_lcd_on(struct platform_device *pdev)
 static int mipi_ville_lcd_off(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
-	printk(KERN_ERR  "[DISP] %s +++\n", __func__);
+
 	mfd = platform_get_drvdata(pdev);
 
 	if (!mfd)
@@ -505,7 +500,6 @@ inline void mipi_dsi_set_backlight(struct msm_fb_data_type *mfd, int level)
 
 	mipi  = &mfd->panel_info.mipi;
 
-	printk(KERN_ERR "[DISP] %s level=%d\n", __func__, level);
 	if (panel_type == PANEL_ID_VILLE_SAMSUNG_SG_C2)
 		ville_shrink_pwm_c2(mfd->bl_level);
 	else if (panel_type == PANEL_ID_VILLE_SAMSUNG_SG)
@@ -513,9 +507,6 @@ inline void mipi_dsi_set_backlight(struct msm_fb_data_type *mfd, int level)
 
 	if (panel_type == PANEL_ID_VILLE_SAMSUNG_SG || panel_type == PANEL_ID_VILLE_SAMSUNG_SG_C2)
 		ville_send_display_cmds(ville_cmd_backlight_cmds, ARRAY_SIZE(ville_cmd_backlight_cmds));
-
-	printk(KERN_DEBUG "%s+ bl_level=%d\n", __func__, mfd->bl_level);
-	return;
 }
 
 static void mipi_ville_set_backlight(struct msm_fb_data_type *mfd)
@@ -527,7 +518,6 @@ static void mipi_ville_set_backlight(struct msm_fb_data_type *mfd)
 
 static int __devinit mipi_ville_lcd_probe(struct platform_device *pdev)
 {
-	printk(KERN_ERR "%s: probe ++ %d\n", __func__, panel_type);
 	if (panel_type == PANEL_ID_VILLE_SAMSUNG_SG ||
 			panel_type == PANEL_ID_VILLE_SAMSUNG_SG_C2) {
 		display_off_cmds = ville_display_off_cmds;
@@ -595,13 +585,13 @@ int mipi_ville_device_register(struct msm_panel_info *pinfo,
 	ret = platform_device_add_data(pdev, &ville_panel_data,
 		sizeof(ville_panel_data));
 	if (ret) {
-		printk(KERN_ERR "%s: platform_device_add_data failed!\n", __func__);
+		pr_err("%s: platform_device_add_data failed!\n", __func__);
 		goto err_device_put;
 	}
 
 	ret = platform_device_add(pdev);
 	if (ret) {
-		printk(KERN_ERR "%s: platform_device_register failed!\n", __func__);
+		pr_err("%s: platform_device_register failed!\n", __func__);
 		goto err_device_put;
 	}
 
@@ -614,7 +604,5 @@ err_device_put:
 
 static int mipi_ville_lcd_init(void)
 {
-	printk(KERN_ERR  "[DISP] %s +++\n", __func__);
-	printk(KERN_ERR  "[DISP] %s ---\n", __func__);
 	return platform_driver_register(&this_driver);
 }

@@ -1480,7 +1480,7 @@ static int fighter_send_display_cmds(struct dsi_cmd_desc *cmd, int cnt)
 
 	ret = mipi_dsi_cmdlist_put(&cmdreq);
 	if (ret < 0)
-		printk(KERN_ERR "[DISP] %s failed (%d)\n", __func__, ret);
+		pr_err("%s failed (%d)\n", __func__, ret);
 	return ret;
 }
 
@@ -1490,7 +1490,6 @@ static int mipi_fighter_lcd_on(struct platform_device *pdev)
 	struct msm_fb_data_type *mfd;
 	struct mipi_panel_info *mipi;
 
-	printk(KERN_ERR  "[DISP] %s +++\n", __func__);
 	mfd = platform_get_drvdata(pdev);
 	if (!mfd)
 		return -ENODEV;
@@ -1508,7 +1507,6 @@ static int mipi_fighter_lcd_on(struct platform_device *pdev)
 		fighter_send_display_cmds(novatek_video_on_cmds,
 				ARRAY_SIZE(novatek_video_on_cmds));
 
-	printk(KERN_ERR  "[DISP] %s ---\n", __func__);
 	mipi_lcd_on = 1;
 	return 0;
 }
@@ -1516,7 +1514,7 @@ static int mipi_fighter_lcd_on(struct platform_device *pdev)
 static int mipi_fighter_lcd_off(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
-	printk(KERN_ERR  "[DISP] %s +++\n", __func__);
+
 	mfd = platform_get_drvdata(pdev);
 
 	if (!mfd)
@@ -1551,8 +1549,6 @@ static unsigned char fighter_shrink_pwm(int val)
 	} else if (val > BRI_SETTING_MAX)
 		shrink_br = PWM_MAX;
 
-	printk(KERN_INFO "brightness orig=%d, transformed=%d\n", val, shrink_br);
-
 	return shrink_br;
 }
 
@@ -1562,14 +1558,9 @@ inline void mipi_dsi_set_backlight(struct msm_fb_data_type *mfd, int level)
 
 	mipi  = &mfd->panel_info.mipi;
 
-	printk(KERN_ERR "[DISP] %s level=%d\n", __func__, level);
-
 	led_pwm1[1] = fighter_shrink_pwm(mfd->bl_level);
 
 	fighter_send_display_cmds(fighter_cmd_backlight_cmds, ARRAY_SIZE(fighter_cmd_backlight_cmds));
-
-	printk(KERN_DEBUG "%s+ bl_level=%d\n", __func__, mfd->bl_level);
-	return;
 }
 
 static void mipi_fighter_set_backlight(struct msm_fb_data_type *mfd)
@@ -1582,39 +1573,39 @@ static void mipi_fighter_set_backlight(struct msm_fb_data_type *mfd)
 static void mipi_fighter_per_panel_fcts_init(void)
 {
 	if (panel_type == PANEL_ID_FIGHTER_SAMSUNG_NT) {
-		printk(KERN_INFO "fighter_lcd_on PANEL_ID_FIGHTER_SAMSUNG_NT\n");
+		pr_info("fighter_lcd_on PANEL_ID_FIGHTER_SAMSUNG_NT\n");
 		cmd_on_cmds = novatek_cmd_on_cmds;
 		cmd_on_cmds_count = ARRAY_SIZE(novatek_cmd_on_cmds);
 	} else if (panel_type == PANEL_ID_FIGHTER_SAMSUNG_NT_C2) {
-		printk(KERN_INFO "fighter_lcd_on PANEL_ID_FIGHTER_SAMSUNG_NT_C2\n");
+		pr_info("fighter_lcd_on PANEL_ID_FIGHTER_SAMSUNG_NT_C2\n");
 		cmd_on_cmds = novatek_c2_cmd_on_cmds;
 		cmd_on_cmds_count = ARRAY_SIZE(novatek_c2_cmd_on_cmds);
 	} else if (panel_type == PANEL_ID_FIGHTER_SAMSUNG_NT_C3) {
-		printk(KERN_INFO "fighter_lcd_on PANEL_ID_FIGHTER_SAMSUNG_NT_C3\n");
+		pr_info("fighter_lcd_on PANEL_ID_FIGHTER_SAMSUNG_NT_C3\n");
 		cmd_on_cmds = novatek_c3_cmd_on_cmds;
 		cmd_on_cmds_count = ARRAY_SIZE(novatek_c3_cmd_on_cmds);
 	} else if (panel_type == PANEL_ID_FIGHTER_LG_NT) {
-		printk(KERN_INFO "fighter_lcd_on PANEL_ID_FIGHTER_LG_NT\n");
+		pr_info("fighter_lcd_on PANEL_ID_FIGHTER_LG_NT\n");
 		cmd_on_cmds = lg_novatek_cmd_on_cmds;
 		cmd_on_cmds_count = ARRAY_SIZE(lg_novatek_cmd_on_cmds);
 	} else if (panel_type == PANEL_ID_FIGHTER_LG_NT_C2) {
-		printk(KERN_INFO "fighter_lcd_on PANEL_ID_FIGHTER_LG_NT_C2\n");
+		pr_info("fighter_lcd_on PANEL_ID_FIGHTER_LG_NT_C2\n");
 		cmd_on_cmds = lg_novatek_c2_cmd_on_cmds;
 		cmd_on_cmds_count = ARRAY_SIZE(lg_novatek_c2_cmd_on_cmds);
 	} else if (panel_type == PANEL_ID_FIGHTER_LG_NT_MP) {
-		printk(KERN_INFO "fighter_lcd_on PANEL_ID_FIGHTER_LG_NT_MP\n");
+		pr_info("fighter_lcd_on PANEL_ID_FIGHTER_LG_NT_MP\n");
 		cmd_on_cmds = lg_novatek_mp_cmd_on_cmds;
 		cmd_on_cmds_count = ARRAY_SIZE(lg_novatek_mp_cmd_on_cmds);
 	} else if (panel_type == PANEL_ID_FIGHTER_SONY_OTM) {
-		printk(KERN_INFO "fighter_lcd_on PANEL_ID_FIGHTER_SONY_OTM\n");
+		pr_info("fighter_lcd_on PANEL_ID_FIGHTER_SONY_OTM\n");
 		cmd_on_cmds = sony_orise9608a_panel_cmd_mode_cmds;
 		cmd_on_cmds_count = ARRAY_SIZE(sony_orise9608a_panel_cmd_mode_cmds);
 	} else if (panel_type == PANEL_ID_FIGHTER_SONY_OTM_C1_1) {
-		printk(KERN_INFO "fighter_lcd_on PANEL_ID_FIGHTER_SONY_OTM_C1_1\n");
+		pr_info("fighter_lcd_on PANEL_ID_FIGHTER_SONY_OTM_C1_1\n");
 		cmd_on_cmds = sony_orise9608a_c1_1_panel_cmd_mode_cmds;
 		cmd_on_cmds_count = ARRAY_SIZE(sony_orise9608a_c1_1_panel_cmd_mode_cmds);
 	} else if (panel_type == PANEL_ID_FIGHTER_SONY_OTM_MP) {
-		printk(KERN_INFO "fighter_lcd_on PANEL_ID_FIGHTER_SONY_OTM_MP\n");
+		pr_info("fighter_lcd_on PANEL_ID_FIGHTER_SONY_OTM_MP\n");
 		cmd_on_cmds = sony_orise9608a_mp_panel_cmd_mode_cmds;
 		cmd_on_cmds_count = ARRAY_SIZE(sony_orise9608a_mp_panel_cmd_mode_cmds);
 	}
@@ -1632,7 +1623,6 @@ static void mipi_fighter_per_panel_fcts_init(void)
 
 static int __devinit mipi_fighter_lcd_probe(struct platform_device *pdev)
 {
-	printk(KERN_ERR "%s: probe ++ %d\n", __func__, panel_type);
 	mipi_fighter_per_panel_fcts_init();
 
 	if (pdev->id == 0) {
@@ -1685,13 +1675,13 @@ int mipi_fighter_device_register(struct msm_panel_info *pinfo,
 	ret = platform_device_add_data(pdev, &fighter_panel_data,
 			sizeof(fighter_panel_data));
 	if (ret) {
-		printk(KERN_ERR "%s: platform_device_add_data failed!\n", __func__);
+		pr_err("%s: platform_device_add_data failed!\n", __func__);
 		goto err_device_put;
 	}
 
 	ret = platform_device_add(pdev);
 	if (ret) {
-		printk(KERN_ERR "%s: platform_device_register failed!\n", __func__);
+		pr_err("%s: platform_device_register failed!\n", __func__);
 		goto err_device_put;
 	}
 
@@ -1704,7 +1694,5 @@ err_device_put:
 
 static int mipi_fighter_lcd_init(void)
 {
-	printk(KERN_ERR  "[DISP] %s +++\n", __func__);
-	printk(KERN_ERR  "[DISP] %s ---\n", __func__);
 	return platform_driver_register(&this_driver);
 }

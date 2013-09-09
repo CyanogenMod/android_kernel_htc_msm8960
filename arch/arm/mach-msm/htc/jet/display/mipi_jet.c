@@ -3072,7 +3072,7 @@ static int jet_send_display_cmds(struct dsi_cmd_desc *cmd, int cnt)
 
 	ret = mipi_dsi_cmdlist_put(&cmdreq);
 	if (ret < 0)
-		printk(KERN_ERR "[DISP] %s failed (%d)\n", __func__, ret);
+		pr_err("%s failed (%d)\n", __func__, ret);
 	return ret;
 }
 
@@ -3107,13 +3107,13 @@ static int mipi_jet_lcd_on(struct platform_device *pdev)
 	if (panel_type != PANEL_ID_NONE) {
 		if (mipi->mode == DSI_VIDEO_MODE) {
 			jet_send_display_cmds(jet_video_on_cmds, jet_video_on_cmds_count);
-			printk(KERN_INFO "%s: panel_type video mode (%d)", __func__, panel_type);
+			pr_info("%s: panel_type video mode (%d)", __func__, panel_type);
 		} else {
 			jet_send_display_cmds(jet_command_on_cmds, jet_command_on_cmds_count);
-			printk(KERN_INFO "%s: panel_type command mode (%d)", __func__, panel_type);
+			pr_info("%s: panel_type command mode (%d)", __func__, panel_type);
 		}
 	} else
-		printk(KERN_INFO "%s: panel_type not supported!(%d)", __func__, panel_type);
+		pr_info("%s: panel_type not supported!(%d)", __func__, panel_type);
 	mipi_lcd_on = 1;
 
 	return 0;
@@ -3134,7 +3134,7 @@ static int mipi_jet_lcd_off(struct platform_device *pdev)
 		return 0;
 
 	if (panel_type != PANEL_ID_NONE) {
-		printk(KERN_INFO "%s\n", __func__);
+		pr_info("%s\n", __func__);
 		jet_send_display_cmds(jet_display_off_cmds,
 				jet_display_off_cmds_count);
 	}
@@ -3162,15 +3162,11 @@ static unsigned char jet_shrink_pwm(int val)
 	} else if (val > BRI_SETTING_MAX)
 		shrink_br = PWM_MAX;
 
-	printk(KERN_INFO "brightness orig=%d, transformed=%d\n", val, shrink_br);
-
 	return shrink_br;
 }
 
 inline void mipi_dsi_set_backlight(struct msm_fb_data_type *mfd, int level)
 {
-	printk(KERN_ERR "[DISP] %s level=%d\n", __func__, level);
-
 	led_pwm1[1] = jet_shrink_pwm(mfd->bl_level);
 
 	if (mfd->bl_level == 0)
@@ -3179,9 +3175,6 @@ inline void mipi_dsi_set_backlight(struct msm_fb_data_type *mfd, int level)
 	jet_send_display_cmds(jet_cmd_backlight_cmds, jet_cmd_backlight_cmds_count);
 
 	bl_level_prevset = mfd->bl_level;
-
-	printk(KERN_DEBUG "%s+ bl_level=%d\n", __func__, mfd->bl_level);
-	return;
 }
 
 static void mipi_jet_set_backlight(struct msm_fb_data_type *mfd)
@@ -3283,8 +3276,6 @@ void mipi_jet_enable_ic_cabc(int cabc, bool dim_on, struct msm_fb_data_type *mfd
 		cabc_cmds = cabc_on_moving;
 
 	jet_send_display_cmds(dim_cmds, ARRAY_SIZE(dim_cmds));
-
-	printk(KERN_INFO "%s: enable dimming and cabc\n", __func__);
 }
 #endif
 
@@ -3332,13 +3323,13 @@ int mipi_jet_device_register(struct msm_panel_info *pinfo,
 	ret = platform_device_add_data(pdev, &jet_panel_data,
 			sizeof(jet_panel_data));
 	if (ret) {
-		printk(KERN_ERR "%s: platform_device_add_data failed!\n", __func__);
+		pr_err("%s: platform_device_add_data failed!\n", __func__);
 		goto err_device_put;
 	}
 
 	ret = platform_device_add(pdev);
 	if (ret) {
-		printk(KERN_ERR "%s: platform_device_register failed!\n", __func__);
+		pr_err("%s: platform_device_register failed!\n", __func__);
 		goto err_device_put;
 	}
 
@@ -3351,7 +3342,5 @@ err_device_put:
 
 static int mipi_jet_lcd_init(void)
 {
-	printk(KERN_ERR  "[DISP] %s +++\n", __func__);
-	printk(KERN_ERR  "[DISP] %s ---\n", __func__);
 	return platform_driver_register(&this_driver);
 }
