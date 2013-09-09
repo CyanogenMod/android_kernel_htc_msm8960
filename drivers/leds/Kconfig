@@ -299,6 +299,17 @@ config LEDS_PM8XXX
 	  To compile this driver as a module, choose M here: the module will
 	  be called leds-pmic8xxx.
 
+config LEDS_PM8038
+	tristate "LED Support for Qualcomm PMIC8038"
+	depends on MFD_PM8XXX
+	help
+	  This option enables support for LEDs connected over PMIC8038
+	  (Power Management IC) chip on Qualcomm reference boards,
+	  for example SURF and FFAs.
+
+	  To compile this driver as a module, choose M here: the module will
+	  be called leds-pmic8038.
+
 config LEDS_PCA9633
 	tristate "LED support for PCA9633 I2C chip"
 	depends on LEDS_CLASS
@@ -316,6 +327,13 @@ config LEDS_QPNP
 
 	  To compile this driver as a module, choose M here: the module will
 	  be called leds-qpnp.
+
+config BACKLIGHT_WLED_CABC
+	bool "Select WLED CABC for PMIC backlight control"
+	depends on LEDS_PM8038
+	default n
+	help
+	  This option selects the WLED CABC path for PMIC backlight control.
 
 config LEDS_WM831X_STATUS
 	tristate "LED support for status LEDs on WM831x PMICs"
