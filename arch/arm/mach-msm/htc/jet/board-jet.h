@@ -45,7 +45,6 @@ extern struct rpm_regulator_platform_data jet_rpm_regulator_pdata __devinitdata;
 
 extern struct platform_device msm8960_device_ext_5v_vreg __devinitdata;
 extern struct platform_device msm8960_device_ext_l2_vreg __devinitdata;
-extern struct platform_device msm8960_device_rpm_regulator __devinitdata;
 extern struct pm8xxx_regulator_platform_data
 	msm_pm8921_regulator_pdata[] __devinitdata;
 
