@@ -2808,6 +2808,7 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_device_saw_core0,
 	&msm_device_saw_core1,
 	&msm8960_device_ext_5v_vreg,
+	&msm8960_device_ssbi_pmic,
 	&msm8960_device_qup_i2c_gsbi3,
 	&msm8960_device_qup_i2c_gsbi4,
 	&msm8960_device_qup_i2c_gsbi5,
@@ -2816,9 +2817,11 @@ static struct platform_device *common_devices[] __initdata = {
 #ifndef CONFIG_MSM_DSPS
 	&msm8960_device_qup_i2c_gsbi12,
 #endif
-	&msm8960_device_ssbi_pmic,
 	&msm_slim_ctrl,
 	&msm_device_wcnss_wlan,
+#if defined(CONFIG_QSEECOM)
+	&qseecom_device,
+#endif
 #if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
 		defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE)
 	&qcrypto_device,
@@ -2831,7 +2834,6 @@ static struct platform_device *common_devices[] __initdata = {
 #ifdef CONFIG_MSM_ROTATOR
 	&msm_rotator_device,
 #endif
-	&msm8960_cpu_slp_status,
 	&msm_device_sps,
 #ifdef CONFIG_MSM_FAKE_BATTERY
 	&fish_battery_device,
@@ -2844,7 +2846,6 @@ static struct platform_device *common_devices[] __initdata = {
 	&android_pmem_audio_device,
 #endif
 #endif
-	&msm_device_vidc,
 	&msm_device_bam_dmux,
 	&msm_fm_platform_init,
 #ifdef CONFIG_HW_RANDOM_MSM
@@ -2856,25 +2857,34 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm8960_rpm_device,
 	&msm8960_rpm_log_device,
 	&msm8960_rpm_stat_device,
+	&msm8960_rpm_master_stat_device,
+	&msm_device_tz_log,
 #ifdef CONFIG_MSM_QDSS
-	&msm_etb_device,
-	&msm_tpiu_device,
-	&msm_funnel_device,
-	&msm_etm_device,
+	&coresight_tpiu_device,
+	&coresight_etb_device,
+	&coresight_funnel_device,
+	&coresight_etm0_device,
+	&coresight_etm1_device,
+	&msm_device_dspcrashd_8960,
 #endif
 	&msm8960_device_watchdog,
 #ifdef CONFIG_MSM_RTB
 	&msm_rtb_device,
 #endif
 	&msm8960_device_cache_erp,
-	&msm8960_iommu_domain_device,
+	&msm8960_device_ebi1_ch0_erp,
+	&msm8960_device_ebi1_ch1_erp,
 #ifdef CONFIG_MSM_CACHE_DUMP
 	&msm_cache_dump_device,
 #endif
+	&msm8960_iommu_domain_device,
+	&msm_tsens_device,
+	&msm8960_pc_cntr,
+	&msm8960_cpu_slp_status,
 #ifdef CONFIG_HTC_BATT_8960
 	&htc_battery_pdev,
 #endif
-	&msm_tsens_device,
+	&msm_device_vidc,
 };
 
 static struct platform_device *ville_devices[] __initdata = {
@@ -2925,7 +2935,6 @@ static struct platform_device *ville_devices[] __initdata = {
 	&msm_bus_mm_fabric,
 	&msm_bus_sys_fpb,
 	&msm_bus_cpss_fpb,
-	&msm_device_tz_log,
 #ifdef CONFIG_PERFLOCK
 	&msm8960_device_perf_lock,
 #endif
