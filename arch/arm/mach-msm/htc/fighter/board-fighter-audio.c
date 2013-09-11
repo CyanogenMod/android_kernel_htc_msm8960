@@ -15,11 +15,9 @@
 #include <linux/gpio.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/platform_device.h>
-#include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/slab.h>
 #include <sound/core.h>
 #include <sound/soc.h>
-#include <sound/tlv.h>
 #include <sound/soc-dapm.h>
 #include <sound/pcm.h>
 #include <sound/jack.h>
@@ -27,6 +25,7 @@
 #include <mach/socinfo.h>
 #include <sound/tpa2051d3.h>
 #include <asm/system_info.h>
+
 #include <linux/mfd/wcd9xxx/core.h>
 #include "../sound/soc/msm/msm-pcm-routing.h"
 #include "../../../sound/soc/codecs/wcd9310.h"
@@ -121,8 +120,6 @@ static struct tabla_mbhc_config mbhc_cfg = {
 
 static u32 us_euro_sel_gpio = PM8921_GPIO_PM_TO_SYS(JACK_US_EURO_SEL_GPIO);
 
-static const DECLARE_TLV_DB_SCALE(line_gain, 0, 7, 1);
-
 static struct mutex cdc_mclk_mutex;
 
 static void msm_enable_ext_spk_amp_gpio(u32 spk_amp_gpio)
@@ -154,9 +151,6 @@ static void msm_enable_ext_spk_amp_gpio(u32 spk_amp_gpio)
 		else {
 			pr_debug("%s: enable Bottom spkr amp gpio\n", __func__);
 			gpio_direction_output(bottom_spk_pamp_gpio, 1);
-
-			if (system_rev < 3)
-				set_speaker_amp(1);
 		}
 	} else if (spk_amp_gpio == top_spk_pamp_gpio) {
 
@@ -247,9 +241,6 @@ static void msm_ext_spk_power_amp_off(u32 spk)
 		gpio_direction_output(bottom_spk_pamp_gpio, 0);
 		gpio_free(bottom_spk_pamp_gpio);
 		msm_ext_bottom_spk_pamp = 0;
-
-		if (system_rev < 3)
-			set_speaker_amp(0);
 
 		pr_debug("%s: sleeping 4 ms after turning off external Bottom"
 			" Speaker Ampl\n", __func__);
@@ -783,12 +774,6 @@ end:
 	return ret;
 }
 
-static const struct snd_kcontrol_new tabla_xbvol_controls[] = {
-         SOC_SINGLE_TLV("LINEOUT1XB Volume", TABLA_A_RX_LINE_1_GAIN, 0, 12, 1,
-                 line_gain),
-         SOC_SINGLE_TLV("LINEOUT3XB Volume", TABLA_A_RX_LINE_3_GAIN, 0, 12, 1,
-                 line_gain),
-};
 static const struct snd_kcontrol_new int_btsco_rate_mixer_controls[] = {
 	SOC_ENUM_EXT("Internal BTSCO SampleRate", msm_btsco_enum[0],
 		msm_btsco_rate_get, msm_btsco_rate_put),
@@ -818,14 +803,6 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	pr_debug("%s(), dev_name%s\n", __func__, dev_name(cpu_dai->dev));
 
 	rtd->pmdown_time = 0;
-	if (system_rev == 1) 
-          {
-            //XB lower the receiver gain
-            err = snd_soc_add_codec_controls(codec, tabla_xbvol_controls,
-                                             ARRAY_SIZE(tabla_xbvol_controls));
-            if (err < 0)
-              return err;
-          }
 
 	snd_soc_dapm_new_controls(dapm, msm_dapm_widgets,
 				ARRAY_SIZE(msm_dapm_widgets));
@@ -925,25 +902,6 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 
 	return 0;
 }
-
-#if 0
-static int msm_hdmi_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
-					struct snd_pcm_hw_params *params)
-{
-	struct snd_interval *rate = hw_param_interval(params,
-					SNDRV_PCM_HW_PARAM_RATE);
-
-	struct snd_interval *channels = hw_param_interval(params,
-					SNDRV_PCM_HW_PARAM_CHANNELS);
-
-	pr_debug("%s channels->min %u channels->max %u ()\n", __func__,
-			channels->min, channels->max);
-
-        rate->min = rate->max = 48000;
-
-	return 0;
-}
-#endif
 
 static int msm_btsco_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 					struct snd_pcm_hw_params *params)
@@ -1166,7 +1124,6 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.ignore_pmdown_time = 1, /* this dainlink has playback support */
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
-		/* .be_id = do not care */
 	},
 	{
 		.name = "INT_FM Hostless",
@@ -1180,7 +1137,6 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.ignore_pmdown_time = 1, /* this dainlink has playback support */
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
-		/* .be_id = do not care */
 	},
 	{
 		.name = "MSM AFE-PCM RX",
@@ -1219,20 +1175,6 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.stream_name = "AUXPCM Hostless",
 		.cpu_dai_name	= "AUXPCM_HOSTLESS",
 		.platform_name  = "msm-pcm-hostless",
-		.dynamic = 1,
-		.trigger = {SND_SOC_DPCM_TRIGGER_POST, SND_SOC_DPCM_TRIGGER_POST},
-		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
-		.ignore_suspend = 1,
-		.ignore_pmdown_time = 1, /* this dainlink has playback support */
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.codec_name = "snd-soc-dummy",
-	},
-	/* HDMI Hostless */
-	{
-		.name = "HDMI_RX_HOSTLESS",
-		.stream_name = "HDMI_RX_HOSTLESS",
-		.cpu_dai_name = "HDMI_HOSTLESS",
-		.platform_name = "msm-pcm-hostless",
 		.dynamic = 1,
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST, SND_SOC_DPCM_TRIGGER_POST},
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
@@ -1333,20 +1275,6 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.be_id = MSM_BACKEND_DAI_INT_FM_TX,
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
 	},
-#if 0
-	/* HDMI BACK END DAI Link */
-	{
-		.name = LPASS_BE_HDMI,
-		.stream_name = "HDMI Playback",
-		.cpu_dai_name = "msm-dai-q6-hdmi.8",
-		.platform_name = "msm-pcm-routing",
-		.codec_name     = "msm-stub-codec.1",
-		.codec_dai_name = "msm-stub-rx",
-		.no_pcm = 1,
-		.be_id = MSM_BACKEND_DAI_HDMI_RX,
-		.be_hw_params_fixup = msm_hdmi_be_hw_params_fixup,
-	},
-#endif
 	/* Backend AFE DAI Links */
 	{
 		.name = LPASS_BE_AFE_PCM_RX,
@@ -1383,7 +1311,7 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.be_id = MSM_BACKEND_DAI_AUXPCM_RX,
 		.be_hw_params_fixup = msm_auxpcm_be_params_fixup,
 		.ops = &msm_auxpcm_be_ops,
-		.ignore_pmdown_time = 1, /* this dainlink has playback support */
+		.ignore_pmdown_time = 1,
 	},
 	{
 		.name = LPASS_BE_AUXPCM_TX,
@@ -1500,7 +1428,7 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.codec_name     = "tabla_codec",
 		.codec_dai_name	= "tabla_rx1",
 		.no_pcm = 1,
-                .dynamic = 1,
+		.dynamic = 1,
 		.be_id = MSM_BACKEND_DAI_SLIMBUS_0_RX,
 		.init = &msm_audrx_init,
 		.be_hw_params_fixup = msm_slim_0_rx_be_hw_params_fixup,
@@ -1614,7 +1542,7 @@ static int __init msm_fighter_audio_init(void)
 	if (!soc_class_is_msm8960()) {
 		pr_debug("%s: Not the right machine type\n", __func__);
 		return -ENODEV ;
-	}        
+	}
 
 	mbhc_cfg.calibration = def_tabla_mbhc_cal();
 	if (!mbhc_cfg.calibration) {
