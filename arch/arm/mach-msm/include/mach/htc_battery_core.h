@@ -81,10 +81,13 @@ struct htc_battery_core {
 	int (*func_get_batt_rt_attr)(enum htc_batt_rt_attr attr, int* val);
 	int (*func_show_batt_attr)(struct device_attribute *attr, char *buf);
 	int (*func_show_cc_attr)(struct device_attribute *attr, char *buf);
+	int (*func_show_htc_extension_attr)(struct device_attribute *attr, char *buf);
 	int (*func_get_battery_info)(struct battery_info_reply *buffer);
 	int (*func_charger_control)(enum charger_control_flag);
 	int (*func_context_event_handler)(enum batt_context_event);
 	void (*func_set_full_level)(int full_level);
+	int (*func_set_max_input_current)(int target_ma);
+	int (*func_notify_pnpmgr_charging_enabled)(int charging_enabled);
 };
 #ifdef CONFIG_HTC_BATT_CORE
 extern int htc_battery_core_update_changed(void);

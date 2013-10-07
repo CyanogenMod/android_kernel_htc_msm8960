@@ -9,6 +9,13 @@ endmenu
 
 menu "HTC Specific Patches"
 
+config HTC_BATT_ALARM
+	bool "Enable 3.0V device shutdown mechanism"
+	depends on HAS_EARLYSUSPEND
+	default n
+	help
+	  Enable 3.0V triggeer level 0 shutdown rule
+
 config HTC_BATT_CORE
 	depends on POWER_SUPPLY
 	default n
