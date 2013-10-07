@@ -42,6 +42,8 @@ static int ehci_msm_reset(struct usb_hcd *hcd)
 	ehci->caps = USB_CAPLENGTH;
 	hcd->has_tt = 1;
 
+	ehci->log2_irq_thresh = 5;
+
 	retval = ehci_setup(hcd);
 	if (retval)
 		return retval;
