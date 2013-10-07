@@ -17,9 +17,9 @@
 #include <linux/err.h>
 #include <mach/htc_battery_cell.h>
 
-static struct htc_battery_cell *cells;	
-static int cell_num;					
-static struct htc_battery_cell *cur_cell; 
+static struct htc_battery_cell *cells;
+static int cell_num;
+static struct htc_battery_cell *cur_cell;
 
 static unsigned int hv_authenticated;
 
@@ -112,7 +112,7 @@ inline struct htc_battery_cell *htc_battery_cell_find(int id_raw)
 	}
 	pr_err("[BATT] %s: cell id can not be identified (id_raw=%d)\n",
 			__func__, id_raw);
-	
+
 	return pcell;
 }
 
@@ -127,19 +127,19 @@ inline int htc_battery_cell_find_and_set_id_auto(int id_raw)
 		pr_err("[BATT] cell pointer is NULL so unknown ID is return.\n");
 		return HTC_BATTERY_CELL_ID_UNKNOWN;
 	}
-	
+
 	if (cur_cell == pcell)
 		return pcell->id;
-	
+
 	if (cur_cell) {
 		if (pcell->id == HTC_BATTERY_CELL_ID_UNKNOWN) {
 			unknown_count++;
 			if (unknown_count < HTC_BATTERY_CELL_CHECK_UNKNOWN_COUNT)
-				return cur_cell->id; 
+				return cur_cell->id;
 		} else
 			unknown_count = 0;
 	} else {
-		
+
 		pr_warn("[BATT]warn: cur_cell is initiated by %s", __func__);
 		cur_cell = pcell;
 		return pcell->id;
@@ -164,7 +164,7 @@ static int __init check_dq_setup(char *str)
 		hv_authenticated = 0;
 		pr_info("[BATT] HV authentication failed.\n");
 	}
-	return 0; 
+	return 0;
 }
 __setup("androidboot.dq=", check_dq_setup);
 
