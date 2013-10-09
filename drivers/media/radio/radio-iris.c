@@ -4505,7 +4505,7 @@ static int iris_vidioc_s_frequency(struct file *file, void *priv,
 				radio->fm_hdev);
 	}
 
-	retval = iris_set_freq(radio, freq->frequency);
+	retval = iris_set_freq(radio, f);
 
 	if (radio->mode == FM_TRANS
 		 && radio->trans_conf.rds_std == 2
