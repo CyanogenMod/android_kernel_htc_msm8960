@@ -76,7 +76,6 @@ struct t_mhl_status_notifier{
 int mhl_detect_register_notifier(struct t_mhl_status_notifier *);
 static LIST_HEAD(g_lh_mhl_detect_notifier_list);
 
-#if (defined(CONFIG_USB_OTG) && defined(CONFIG_USB_OTG_HOST))
 struct t_usb_host_status_notifier{
 	struct list_head usb_host_notifier_link;
 	const char *name;
@@ -84,7 +83,6 @@ struct t_usb_host_status_notifier{
 };
 int usb_host_detect_register_notifier(struct t_usb_host_status_notifier *);
 static LIST_HEAD(g_lh_usb_host_detect_notifier_list);
-#endif
 
 int board_mfg_mode(void);
 
