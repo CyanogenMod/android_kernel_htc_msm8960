@@ -3333,7 +3333,6 @@ void msm_otg_set_vbus_state(int online)
 }
 
 
-#if (defined(CONFIG_USB_OTG) && defined(CONFIG_USB_OTG_HOST))
 void msm_otg_set_id_state(int id)
 {
 	struct msm_otg *motg = the_msm_otg;
@@ -3360,7 +3359,6 @@ static void usb_host_cable_detect(bool cable_in)
 	else
 		msm_otg_set_id_state(1);
 }
-#endif
 
 void msm_otg_set_disable_usb(int disable_usb)
 {
@@ -3726,12 +3724,10 @@ static void msm_otg_debugfs_cleanup(void)
 	debugfs_remove_recursive(msm_otg_dbg_root);
 }
 
-#if (defined(CONFIG_USB_OTG) && defined(CONFIG_USB_OTG_HOST))
 static struct t_usb_host_status_notifier usb_host_status_notifier = {
 	.name = "usb_host",
 	.func = usb_host_cable_detect,
 };
-#endif
 
 static u64 msm_otg_dma_mask = DMA_BIT_MASK(64);
 static struct platform_device *msm_otg_add_pdev(
@@ -4176,9 +4172,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 #endif
 	}
 
-#if (defined(CONFIG_USB_OTG) && defined(CONFIG_USB_OTG_HOST))
 	usb_host_detect_register_notifier(&usb_host_status_notifier);
-#endif
 
 	if (motg->pdata->phy_type == SNPS_28NM_INTEGRATED_PHY) {
 #if 0

@@ -159,7 +159,6 @@ int cable_detect_register_notifier(struct t_cable_status_notifier *notifier)
 	return 0;
 }
 
-#if (defined(CONFIG_USB_OTG) && defined(CONFIG_USB_OTG_HOST))
 static DEFINE_MUTEX(usb_host_notify_sem);
 static void send_usb_host_connect_notify(int cable_in)
 {
@@ -191,7 +190,6 @@ int usb_host_detect_register_notifier(struct t_usb_host_status_notifier *notifie
 	mutex_unlock(&usb_host_notify_sem);
 	return 0;
 }
-#endif
 
 static void check_vbus_in(struct work_struct *w)
 {
@@ -430,14 +428,12 @@ static void cable_detect_handler(struct work_struct *w)
 		sii9234_mhl_device_wakeup();
 		break;
 #endif
-#if (defined(CONFIG_USB_OTG) && defined(CONFIG_USB_OTG_HOST))
 	case DOCK_STATE_USB_HOST:
 		CABLE_INFO("USB Host inserted\n");
 		send_usb_host_connect_notify(1);
 		pInfo->accessory_type = DOCK_STATE_USB_HOST;
 		switch_set_state(&dock_switch, DOCK_STATE_USB_HOST);
 		break;
-#endif
 	case DOCK_STATE_DMB:
 		CABLE_INFO("DMB inserted\n");
 		send_cable_connect_notify(CONNECT_TYPE_CLEAR);
@@ -499,14 +495,12 @@ static void cable_detect_handler(struct work_struct *w)
 			sii9234_disableIRQ();
 			break;
 #endif
-#if (defined(CONFIG_USB_OTG) && defined(CONFIG_USB_OTG_HOST))
 		case DOCK_STATE_USB_HOST:
 			CABLE_INFO("USB host cable removed\n");
 			pInfo->accessory_type = DOCK_STATE_UNDOCKED;
 			send_usb_host_connect_notify(0);
 			switch_set_state(&dock_switch, DOCK_STATE_UNDOCKED);
 			break;
-#endif
 		case DOCK_STATE_DMB:
 			CABLE_INFO("DMB removed\n");
 			switch_set_state(&dock_switch, DOCK_STATE_UNDOCKED);
@@ -615,11 +609,7 @@ static int second_detect(struct cable_detect_info *pInfo)
 		type = DOCK_STATE_AUDIO_DOCK;
 #endif
 	else
-#if (defined(CONFIG_USB_OTG) && defined(CONFIG_USB_OTG_HOST))
 		type = DOCK_STATE_USB_HOST;
-#else
-		type = DOCK_STATE_UNDEFINED;
-#endif
 
 	if (pInfo->config_usb_id_gpios)
 		pInfo->config_usb_id_gpios(0);
