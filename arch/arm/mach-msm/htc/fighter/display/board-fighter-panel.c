@@ -11,18 +11,21 @@
  *
  */
 
-#include "../../../../drivers/video/msm/msm_fb.h"
-#include "../../../../drivers/video/msm/mipi_dsi.h"
-#include "../../../../drivers/video/msm/mdp.h"
-#include "../../../../drivers/video/msm/mdp4.h"
-#include "../../../../drivers/video/msm/msm_fb_panel.h"
+#include <linux/bootmem.h>
 #include <linux/gpio.h>
 #include <mach/gpio.h>
-#include <mach/panel_id.h>
 #include <mach/msm_memtypes.h>
-#include <linux/bootmem.h>
-#include "../devices.h"
+#include <mach/panel_id.h>
+
+#include "../../../../../../drivers/video/msm/mdp.h"
+#include "../../../../../../drivers/video/msm/mdp4.h"
+#include "../../../../../../drivers/video/msm/mipi_dsi.h"
+#include "../../../../../../drivers/video/msm/msm_fb.h"
+#include "../../../../../../drivers/video/msm/msm_fb_panel.h"
+
+#include "../../../devices.h"
 #include "../board-fighter.h"
+
 #if defined (CONFIG_FB_MSM_MDP_ABL)
 #include <linux/fb.h>
 #endif
@@ -48,13 +51,13 @@
 #define MSM_FB_OVERLAY0_WRITEBACK_SIZE roundup((960 * 544 * 3 * 2), 4096)
 #else
 #define MSM_FB_OVERLAY0_WRITEBACK_SIZE (0)
-#endif  /* CONFIG_FB_MSM_OVERLAY0_WRITEBACK */
+#endif
 
 #ifdef CONFIG_FB_MSM_OVERLAY1_WRITEBACK
 #define MSM_FB_OVERLAY1_WRITEBACK_SIZE roundup((1920 * 1088 * 3 * 2), 4096)
 #else
 #define MSM_FB_OVERLAY1_WRITEBACK_SIZE (0)
-#endif  /* CONFIG_FB_MSM_OVERLAY1_WRITEBACK */
+#endif
 
 static struct resource msm_fb_resources[] = {
 	{
@@ -311,14 +314,7 @@ static int mipi_dsi_panel_power(int on)
 			printk(KERN_ERR "set_optimum_mode %s failed, rc=%d\n", dsivdd_str, rc);
 			return -EINVAL;
 		}
-
-		rc = regulator_enable(v_dsivdd);
-		if (rc) {
-			printk(KERN_ERR "enable regulator %s failed, rc=%d\n", dsivdd_str, rc);
-			return -ENODEV;
-		}
 		if (isOrise()) {
-			usleep(1);
 			rc = regulator_enable(v_lcmio);
 			if (rc) {
 				printk(KERN_ERR "enable regulator %s failed, rc=%d\n", lcmio_str, rc);
@@ -331,30 +327,77 @@ static int mipi_dsi_panel_power(int on)
 				return -ENODEV;
 			}
 		}
+		rc = regulator_enable(v_dsivdd);
+		if (rc) {
+			printk(KERN_ERR "enable regulator %s failed, rc=%d\n", dsivdd_str, rc);
+			return -ENODEV;
+		}
+		if (isOrise()) {
+			rc = regulator_enable(v_lcm);
+			if (rc) {
+				printk(KERN_ERR "enable regulator %s failed, rc=%d\n", lcm_str, rc);
+				return -ENODEV;
+			}
+		} else {
+			rc = regulator_enable(v_lcmio);
+			if (rc) {
+				printk(KERN_ERR "enable regulator %s failed, rc=%d\n", lcmio_str, rc);
+				return -ENODEV;
+			}
+		}
+
 		if (!mipi_lcd_on) {
-			usleep(10);
+			if (isOrise())
+				hr_msleep(1);
+			else
+				hr_msleep(10);
 			gpio_set_value(FIGHTER_LCD_RSTz, 1);
-			usleep(1);
+			if (isOrise())
+				hr_msleep(10);
+			else
+				hr_msleep(5);
 			gpio_set_value(FIGHTER_LCD_RSTz, 0);
-			usleep(35);
+			if (isOrise())
+				hr_msleep(10);
+			else
+				hr_msleep(30);
 			gpio_set_value(FIGHTER_LCD_RSTz, 1);
 		}
+		if (isOrise())
+			hr_msleep(10);
+		else
+			hr_msleep(30);
 
 		bPanelPowerOn = true;
 	} else {
 		printk(KERN_INFO "%s: off\n", __func__);
 
 		if (!bPanelPowerOn) return 0;
-		hr_msleep(100);
+		if (isOrise())
+			hr_msleep(120);
 		gpio_set_value(FIGHTER_LCD_RSTz, 0);
-		hr_msleep(10);
+		if (isOrise())
+			hr_msleep(120);
+		else
+			hr_msleep(5);
 
+		if (isOrise()) {
+			if (regulator_disable(v_lcm)) {
+				printk(KERN_ERR "%s: Unable to enable the regulator: %s\n", __func__, lcm_str);
+				return -EINVAL;
+			}
+		} else {
+			if (regulator_disable(v_lcmio)) {
+				printk(KERN_ERR "%s: Unable to enable the regulator: %s\n", __func__, lcmio_str);
+				return -EINVAL;
+			}
+			hr_msleep(5);
+		}
 		if (regulator_disable(v_dsivdd)) {
 			printk(KERN_ERR "%s: Unable to enable the regulator: %s\n", __func__, dsivdd_str);
 			return -EINVAL;
 		}
 		if (isOrise()) {
-			hr_msleep(5);
 			if (regulator_disable(v_lcmio)) {
 				printk(KERN_ERR "%s: Unable to enable the regulator: %s\n", __func__, lcmio_str);
 				return -EINVAL;

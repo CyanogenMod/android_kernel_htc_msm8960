@@ -1,6 +1,6 @@
 #include <mach/panel_id.h>
-#include "../../../drivers/video/msm/msm_fb.h"
-#include "../../../drivers/video/msm/mipi_dsi.h"
+#include "../../../../../../drivers/video/msm/msm_fb.h"
+#include "../../../../../../drivers/video/msm/mipi_dsi.h"
 #include "mipi_fighter.h"
 
 static struct mipi_dsi_panel_platform_data *mipi_fighter_pdata;
@@ -18,7 +18,6 @@ static char exit_sleep[2] = {0x11, 0x00}; /* DTYPE_DCS_WRITE */
 static char display_off[2] = {0x28, 0x00}; /* DTYPE_DCS_WRITE */
 static char display_on[2] = {0x29, 0x00}; /* DTYPE_DCS_WRITE */
 static char enable_te[2] = {0x35, 0x00}; /* DTYPE_DCS_WRITE1 */
-
 static char rgb_888[2] = {0x3A, 0x77}; /* DTYPE_DCS_WRITE1 */
 
 #define NOVATEK_TWO_LANE
@@ -1528,6 +1527,7 @@ static int mipi_fighter_lcd_off(struct platform_device *pdev)
 	if (panel_type != PANEL_ID_NONE)
 		fighter_send_display_cmds(display_off_cmds, display_off_cmds_count);
 
+	cur_bl_level = 0;
 	mipi_lcd_on = 0;
 	return 0;
 }
@@ -1557,10 +1557,13 @@ inline void mipi_dsi_set_backlight(struct msm_fb_data_type *mfd, int level)
 	struct mipi_panel_info *mipi;
 
 	mipi  = &mfd->panel_info.mipi;
+	if (cur_bl_level == mfd->bl_level || !mfd->panel_power_on)
+		return;
 
 	led_pwm1[1] = fighter_shrink_pwm(mfd->bl_level);
 
-	fighter_send_display_cmds(fighter_cmd_backlight_cmds, ARRAY_SIZE(fighter_cmd_backlight_cmds));
+	fighter_send_display_cmds(fighter_cmd_backlight_cmds,
+			ARRAY_SIZE(fighter_cmd_backlight_cmds));
 }
 
 static void mipi_fighter_set_backlight(struct msm_fb_data_type *mfd)
@@ -1568,6 +1571,13 @@ static void mipi_fighter_set_backlight(struct msm_fb_data_type *mfd)
 	mipi_dsi_set_backlight(mfd, mfd->bl_level);
 
 	cur_bl_level = mfd->bl_level;
+}
+
+static int isOrise(void)
+{
+	return (panel_type == PANEL_ID_FIGHTER_SONY_OTM ||
+		panel_type == PANEL_ID_FIGHTER_SONY_OTM_C1_1 ||
+		panel_type == PANEL_ID_FIGHTER_SONY_OTM_MP);
 }
 
 static void mipi_fighter_per_panel_fcts_init(void)
@@ -1610,9 +1620,7 @@ static void mipi_fighter_per_panel_fcts_init(void)
 		cmd_on_cmds_count = ARRAY_SIZE(sony_orise9608a_mp_panel_cmd_mode_cmds);
 	}
 
-	if (panel_type == PANEL_ID_FIGHTER_SONY_OTM ||
-			panel_type == PANEL_ID_FIGHTER_SONY_OTM_C1_1 ||
-			panel_type == PANEL_ID_FIGHTER_SONY_OTM_MP) {
+	if (isOrise()) {
 		display_off_cmds = novatek_display_off_cmds;
 		display_off_cmds_count = ARRAY_SIZE(novatek_display_off_cmds);
 	} else {
