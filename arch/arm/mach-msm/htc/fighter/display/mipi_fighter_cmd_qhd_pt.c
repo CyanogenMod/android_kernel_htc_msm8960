@@ -1,5 +1,5 @@
-#include "../../../drivers/video/msm/msm_fb.h"
-#include "../../../drivers/video/msm/mipi_dsi.h"
+#include "../../../../../../drivers/video/msm/msm_fb.h"
+#include "../../../../../../drivers/video/msm/mipi_dsi.h"
 #include "mipi_fighter.h"
 
 static struct mipi_dsi_phy_ctrl dsi_cmd_mode_phy_db = {
