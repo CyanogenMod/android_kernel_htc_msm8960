@@ -1216,7 +1216,7 @@ static struct platform_driver msm_cpu_status_driver = {
 	},
 };
 
-static int __devinit msm_pm_init(void)
+static int __init msm_pm_setup_saved_state(void)
 {
 	pgd_t *pc_pgd;
 	pmd_t *pmd;
@@ -1296,6 +1296,8 @@ static struct notifier_block setup_broadcast_notifier = {
 
 static int __init msm_pm_init(void)
 {
+	int rc;
+
 	enum msm_pm_time_stats_id enable_stats[] = {
 		MSM_PM_STAT_IDLE_WFI,
 		MSM_PM_STAT_RETENTION,
@@ -1324,6 +1326,7 @@ static int __init msm_pm_init(void)
 
 	return 0;
 }
+late_initcall(msm_pm_init);
 
 static void __devinit msm_pm_set_flush_fn(uint32_t pc_mode)
 {
@@ -1523,7 +1526,7 @@ static int __devinit msm_pm_8x60_probe(struct platform_device *pdev)
 		cp15_data.reg_val = kzalloc(sizeof(uint32_t) *
 				pdata_local.cp15_data.reg_saved_state_size,
 				GFP_KERNEL);
-		if (cp15_data.reg_val)
+		if (!cp15_data.reg_val)
 			return -ENOMEM;
 
 		memcpy(cp15_data.reg_data, pdata_local.cp15_data.reg_data,
@@ -1536,7 +1539,6 @@ static int __devinit msm_pm_8x60_probe(struct platform_device *pdev)
 	msm_pm_retention_calls_tz = pdata_local.retention_calls_tz;
 
 pm_8x60_probe_done:
-	msm_pm_init();
 	return ret;
 }
 
