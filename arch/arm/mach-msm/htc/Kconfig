@@ -46,4 +46,8 @@ config HTC_HEADSET_ONE_WIRE
 	help
 	  Provides support for HTC 1-wire headset detection.
 
+config HTC_WAKE_ON_VOL
+	bool "Enable wake-on-volume support"
+	default y
+
 endmenu

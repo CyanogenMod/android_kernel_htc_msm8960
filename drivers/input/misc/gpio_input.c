@@ -94,6 +94,51 @@ static void handle_power_key_state(unsigned int code, int value)
 }
 #endif /* CONFIG_TOUCHSCREEN_SYNAPTICS_3K */
 
+#ifdef CONFIG_HTC_WAKE_ON_VOL
+static DEFINE_MUTEX(wakeup_mutex);
+static unsigned char wakeup_bitmask;
+static unsigned char set_wakeup;
+static unsigned int vol_up_irq;
+static unsigned int vol_down_irq;
+static ssize_t vol_wakeup_store(struct device *dev,
+					 struct device_attribute *attr,
+					 const char *buf, size_t count)
+{
+	unsigned char bitmask = 0;
+	bitmask = simple_strtoull(buf, NULL, 10);
+	mutex_lock(&wakeup_mutex);
+	if (bitmask) {
+		if (bitmask == 127)
+			wakeup_bitmask &= bitmask;
+		else if (bitmask > 128)
+			wakeup_bitmask &= bitmask;
+		else
+			wakeup_bitmask |= bitmask;
+	}
+
+	if (wakeup_bitmask && (!set_wakeup)) {
+		enable_irq_wake(vol_up_irq);
+		enable_irq_wake(vol_down_irq);
+		set_wakeup = 1;
+		printk(KERN_INFO "%s:change to wake up function(%d, %d)\n", __func__, vol_up_irq, vol_down_irq);
+	} else if ((!wakeup_bitmask) && set_wakeup){
+		disable_irq_wake(vol_up_irq);
+		disable_irq_wake(vol_down_irq);
+		set_wakeup = 0;
+		printk(KERN_INFO "%s:change to non-wake up function(%d, %d)\n", __func__, vol_up_irq, vol_down_irq);
+	}
+	mutex_unlock(&wakeup_mutex);
+	return count;
+}
+static ssize_t vol_wakeup_show(struct device *dev,
+					struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%x\n", wakeup_bitmask);
+}
+
+static DEVICE_ATTR(vol_wakeup, 0664, vol_wakeup_show, vol_wakeup_store);
+#endif /* CONFIG_HTC_WAKE_ON_VOL */
+
 enum {
 	DEBOUNCE_UNSTABLE     = BIT(0),	/* Got irq, while debouncing */
 	DEBOUNCE_PRESSED      = BIT(1),
@@ -303,6 +348,20 @@ static int gpio_event_input_request_irqs(struct gpio_input_state *ds)
 				ds->info->keymap[i].gpio, irq);
 			goto err_request_irq_failed;
 		}
+#ifdef CONFIG_HTC_WAKE_ON_VOL
+		if (ds->info->keymap[i].code == KEY_VOLUMEUP ||
+			ds->info->keymap[i].code == KEY_VOLUMEDOWN) {
+			pr_info("keycode = %d, gpio = %d, irq = %d\n",
+				ds->info->keymap[i].code,
+				ds->info->keymap[i].gpio, irq);
+			if (ds->info->keymap[i].code == KEY_VOLUMEUP)
+				vol_up_irq = irq;
+			else
+				vol_down_irq = irq;
+		} else {
+			enable_irq_wake(irq);
+		}
+#endif
 		if (ds->info->info.no_suspend) {
 			err = enable_irq_wake(irq);
 			if (err) {
@@ -340,6 +399,9 @@ int gpio_event_input_func(struct gpio_event_input_devs *input_devs,
 	unsigned long irqflags;
 	struct gpio_event_input_info *di;
 	struct gpio_input_state *ds = *data;
+#ifdef CONFIG_HTC_WAKE_ON_VOL
+	struct kobject *keyboard_kobj;
+#endif
 
 	di = container_of(info, struct gpio_event_input_info, info);
 
@@ -411,6 +473,20 @@ int gpio_event_input_func(struct gpio_event_input_devs *input_devs,
 		}
 
 		ret = gpio_event_input_request_irqs(ds);
+
+#ifdef CONFIG_HTC_WAKE_ON_VOL
+		keyboard_kobj = kobject_create_and_add("keyboard", NULL);
+		if (keyboard_kobj == NULL) {
+			printk(KERN_ERR "KEY_ERR: %s: subsystem_register failed\n", __func__);
+			ret = -ENOMEM;
+			return ret;
+		}
+		if (sysfs_create_file(keyboard_kobj, &dev_attr_vol_wakeup.attr))
+			printk(KERN_ERR "KEY_ERR: %s: sysfs_create_file "
+					"return %d\n", __func__, ret);
+		wakeup_bitmask = 0;
+		set_wakeup = 0;
+#endif
 
 		spin_lock_irqsave(&ds->irq_lock, irqflags);
 		ds->use_irq = ret == 0;
