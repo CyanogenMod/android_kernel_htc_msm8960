@@ -31,6 +31,10 @@ static int __init mipi_cmd_fighter_qhd_pt_init(void)
 
 	pinfo.xres = 540;
 	pinfo.yres = 960;
+
+	pinfo.width = 49;
+	pinfo.height = 87;
+
 	pinfo.type = MIPI_CMD_PANEL;
 	pinfo.pdest = DISPLAY_1;
 	pinfo.wait_cycle = 0;

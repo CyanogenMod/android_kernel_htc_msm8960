@@ -66,6 +66,9 @@ static int __init mipi_video_auo_hd720p_init(void)
 	pinfo.xres = 720;
 	pinfo.yres = 1280;
 
+	pinfo.width = 58;
+	pinfo.height = 103;
+
 	pinfo.pdest = DISPLAY_1;
 	pinfo.wait_cycle = 0;
 	pinfo.bpp = 24;
@@ -165,6 +168,9 @@ static int __init mipi_video_sony_hd720p_init(void)
 
 	pinfo.xres = 720;
 	pinfo.yres = 1280;
+
+	pinfo.width = 58;
+	pinfo.height = 103;
 
 	pinfo.pdest = DISPLAY_1;
 	pinfo.wait_cycle = 0;

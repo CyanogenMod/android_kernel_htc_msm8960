@@ -35,6 +35,9 @@ static int __init mipi_cmd_ville_qhd_pt_init(void)
 	pinfo.wait_cycle = 0;
 	pinfo.bpp = 24;
 
+	pinfo.width = 49;
+	pinfo.height = 87;
+
 	pinfo.lcdc.h_back_porch = 64;
 	pinfo.lcdc.h_front_porch = 96;
 	pinfo.lcdc.h_pulse_width = 32;

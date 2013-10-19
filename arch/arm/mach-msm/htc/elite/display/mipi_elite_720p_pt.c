@@ -95,6 +95,9 @@ static int __init mipi_video_sony_hd720p_init(void)
 	pinfo.wait_cycle = 0;
 	pinfo.bpp = 24;
 
+	pinfo.width = 58;
+	pinfo.height = 103;
+
 	pinfo.lcdc.h_back_porch = 104;
 	pinfo.lcdc.h_front_porch = 95;
 	pinfo.lcdc.h_pulse_width = 1;
@@ -191,6 +194,9 @@ static int __init mipi_video_sharp_nt_720p_pt_init(void)
 
 	pinfo.xres = 720;
 	pinfo.yres = 1280;
+
+	pinfo.width = 58;
+	pinfo.height = 103;
 
 	pinfo.pdest = DISPLAY_1;
 	pinfo.wait_cycle = 0;
