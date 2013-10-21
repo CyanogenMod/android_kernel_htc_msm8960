@@ -4138,7 +4138,7 @@ error:
 	kobject_del(camera_attrs_obj);
 	return ret;
 }
-extern int system_rev;
+extern unsigned int system_rev;
 
 static int __devinit msm_camera_probe(struct platform_device *pdev)
 {
