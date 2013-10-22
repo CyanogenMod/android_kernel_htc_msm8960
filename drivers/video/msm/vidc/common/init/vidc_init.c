@@ -403,7 +403,7 @@ void vidc_cleanup_addr_table(struct video_client_ctx *client_ctx,
 				enum buffer_dir buffer)
 {
 	u32 *num_of_buffers = NULL;
-	u32 i = 0;
+	u32 i = 0, len = 0;
 	struct buf_addr_table *buf_addr_table;
 	if (buffer == BUFFER_TYPE_INPUT) {
 		buf_addr_table = client_ctx->input_buf_addr_table;
@@ -446,6 +446,38 @@ void vidc_cleanup_addr_table(struct video_client_ctx *client_ctx,
 			}
 		}
 	}
+	len = sizeof(client_ctx->recon_buffer)/
+		sizeof(struct vcd_property_enc_recon_buffer);
+	for (i = 0; i < len; i++) {
+		if (!vcd_get_ion_status()) {
+			if (client_ctx->recon_buffer[i].client_data) {
+				msm_subsystem_unmap_buffer(
+				(struct msm_mapped_buffer *)
+				client_ctx->recon_buffer[i].client_data);
+				client_ctx->recon_buffer[i].client_data = NULL;
+			}
+		} else  {
+			if (!IS_ERR_OR_NULL(
+				client_ctx->recon_buffer_ion_handle[i])) {
+				ion_unmap_kernel(client_ctx->user_ion_client,
+				client_ctx->recon_buffer_ion_handle[i]);
+				if (!res_trk_check_for_sec_session() &&
+				   (res_trk_get_core_type() !=
+					(u32)VCD_CORE_720P)) {
+					ion_unmap_iommu(client_ctx->
+						user_ion_client,
+						client_ctx->
+						recon_buffer_ion_handle[i],
+						VIDEO_DOMAIN,
+						VIDEO_MAIN_POOL);
+				}
+				ion_free(client_ctx->user_ion_client,
+				client_ctx->recon_buffer_ion_handle[i]);
+				client_ctx->recon_buffer_ion_handle[i] = NULL;
+			}
+		}
+	}
+
 	if (client_ctx->vcd_h264_mv_buffer.client_data) {
 		msm_subsystem_unmap_buffer((struct msm_mapped_buffer *)
 		client_ctx->vcd_h264_mv_buffer.client_data);
@@ -609,6 +641,7 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 	size_t ion_len;
 	struct vcd_property_hdr vcd_property_hdr;
 	struct vcd_property_codec codec;
+	unsigned long mapped_length = length;
 	u32 vcd_status = VCD_ERR_FAIL;
 
 	if (!client_ctx || !length)
@@ -637,7 +670,7 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 				DBG("%s(): Double iommu map size from %u "\
 				"to %u for non-H264", __func__,
 				(u32)length, (u32)(length * 2));
-				length = length * 2;
+				mapped_length = length * 2;
 			}
 		}
 	}
@@ -669,7 +702,7 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 			? MSM_SUBSYSTEM_MAP_IOVA :
 			MSM_SUBSYSTEM_MAP_IOVA|MSM_SUBSYSTEM_ALIGN_IOVA_8K;
 			mapped_buffer = msm_subsystem_map_buffer(phys_addr,
-			length, flags, vidc_mmu_subsystem,
+			mapped_length, flags, vidc_mmu_subsystem,
 			sizeof(vidc_mmu_subsystem)/sizeof(unsigned int));
 			if (IS_ERR(mapped_buffer)) {
 				pr_err("buffer map failed");
@@ -714,7 +747,7 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 						VIDEO_DOMAIN,
 						VIDEO_MAIN_POOL,
 						SZ_8K,
-						length,
+						mapped_length,
 						(unsigned long *) &iova,
 						(unsigned long *) &buffer_size,
 						0, 0);
@@ -738,6 +771,7 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 		buf_addr_table[*num_of_buffers].kernel_vaddr = *kernel_vaddr;
 		buf_addr_table[*num_of_buffers].pmem_fd = pmem_fd;
 		buf_addr_table[*num_of_buffers].file = file;
+		buf_addr_table[*num_of_buffers].buff_len = length;
 		buf_addr_table[*num_of_buffers].phy_addr = phys_addr;
 		buf_addr_table[*num_of_buffers].buff_ion_handle =
 						buff_ion_handle;
@@ -816,6 +850,7 @@ u32 vidc_insert_addr_table_kernel(struct video_client_ctx *client_ctx,
 		buf_addr_table[*num_of_buffers].kernel_vaddr = kernel_vaddr;
 		buf_addr_table[*num_of_buffers].pmem_fd = -1;
 		buf_addr_table[*num_of_buffers].file = NULL;
+		buf_addr_table[*num_of_buffers].buff_len = length;
 		buf_addr_table[*num_of_buffers].phy_addr = phys_addr;
 		buf_addr_table[*num_of_buffers].buff_ion_handle = NULL;
 		*num_of_buffers = *num_of_buffers + 1;
@@ -898,6 +933,8 @@ u32 vidc_delete_addr_table(struct video_client_ctx *client_ctx,
 			buf_addr_table[*num_of_buffers - 1].pmem_fd;
 		buf_addr_table[i].file =
 			buf_addr_table[*num_of_buffers - 1].file;
+		buf_addr_table[i].buff_len =
+			buf_addr_table[*num_of_buffers - 1].buff_len;
 		buf_addr_table[i].buff_ion_handle =
 			buf_addr_table[*num_of_buffers - 1].buff_ion_handle;
 	}
