@@ -63,6 +63,8 @@
 #define MSG_ID_STATS_BF                 45
 #define MSG_ID_STATS_BHIST              46
 #define MSG_ID_STOP_LS_ACK              47
+#define MSG_ID_OUTPUT_TERTIARY1         48
+#define MSG_ID_RDI0_UPDATE_ACK          49
 
 #define VFE_CMD_DUMMY_0                                 0
 #define VFE_CMD_SET_CLK                                 1
@@ -212,6 +214,8 @@
 #define VFE_CMD_SET_BAYER_ENABLE                        145
 #define VFE_CMD_SET_CAMERA_MODE                         146 
 #define VFE_CMD_SET_SW_SHARPNESS_CMD                    147
+#define VFE_CMD_START_RDI0                              148
+#define VFE_CMD_STOP_RDI0                               149
 
 struct msm_isp_cmd {
 	int32_t  id;
@@ -337,6 +341,7 @@ struct msm_mctl_pp_frame_cmd {
 #define VFE_OUTPUTS_RAW			BIT(8)
 #define VFE_OUTPUTS_JPEG_AND_THUMB	BIT(9)
 #define VFE_OUTPUTS_THUMB_AND_JPEG	BIT(10)
+#define VFE_OUTPUTS_RDI0		BIT(11)
 
 #endif 
 

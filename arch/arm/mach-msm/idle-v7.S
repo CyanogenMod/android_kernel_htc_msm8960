@@ -268,7 +268,7 @@ ENTRY(msm_pm_collapse_exit)
 	mrc	p15, 0, r2, c0, c0, 5	/* MPIDR */
 	ands	r2, r2, #15		/* What CPU am I */
 	ldr	r1, =CPU0_EXIT_COUNT_PHYS
-	ldr     r3, [r1, r2, LSL #2]
+	ldr     r3, [r1, r2, LSL #2]!
 	add 	r3, r3, #1
 	str	r3, [r1]
 	dsb

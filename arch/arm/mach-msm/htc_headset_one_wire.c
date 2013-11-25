@@ -165,11 +165,9 @@ static int hs_1wire_query(int type)
 	return 0; 
 }
 
-static int hs_1wire_read_key(void)
+static int hs_1wire_open(void)
 {
-	char key_code[10];
-	int read_count, retry, i, ret;
-
+	int ret;
 	ret = cancel_delayed_work_sync(&onewire_closefile_work);
 	HS_LOG("[1-wire]hs_1wire_read_key");
 	if (!ret) {
@@ -178,6 +176,16 @@ static int hs_1wire_read_key(void)
 	}
 	queue_delayed_work(onewire_wq, &onewire_closefile_work, msecs_to_jiffies(2000));
 	if (!fp)
+		return -1;
+	return 0;
+}
+
+static int hs_1wire_read_key(void)
+{
+	char key_code[10];
+	int read_count, retry, i;
+
+	if (hs_1wire_open()!=0)
 		return -1;
 	for (retry = 0; retry < 3;retry++) {
 		read_count = readFile(fp, key_code, 10);
@@ -311,10 +319,13 @@ static void hs_1wire_register(void)
 		notifier.func = hs_1wire_deinit;
 		headset_notifier_register(&notifier);
 
+		notifier.id = HEADSET_REG_1WIRE_OPEN;
+		notifier.func = hs_1wire_open;
+		headset_notifier_register(&notifier);
+
 		notifier.id = HEADSET_REG_1WIRE_REPORT_TYPE;
 		notifier.func = hs_1wire_report_type;
 		headset_notifier_register(&notifier);
-
 }
 
 void one_wire_gpio_tx(int enable)
@@ -360,7 +371,7 @@ static int htc_headset_1wire_probe(struct platform_device *pdev)
 	}
 	mutex_init(&hi->mutex_lock);
 	hs_1wire_register();
-	queue_delayed_work(onewire_wq, &onewire_init_work, msecs_to_jiffies(3000));
+	queue_delayed_work(onewire_wq, &onewire_init_work, msecs_to_jiffies(1000));
 	hs_notify_driver_ready(DRIVER_NAME);
 
 	HS_LOG("--------------------");

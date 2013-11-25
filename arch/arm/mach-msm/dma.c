@@ -351,7 +351,7 @@ static void msm_dmov_enqueue_cmd_ext_work(struct work_struct *work)
 	}
 	if (!dmov_conf[adm].channel_active) {
 		dmov_conf[adm].clk_ctl = CLK_TO_BE_DIS;
-#ifdef CONFIG_MACH_DUMMY
+#ifdef CONFIG_MACH_VILLEC2
 		schedule_delayed_work(&dmov_conf[adm].work, HZ/10);
 #else
 		schedule_delayed_work(&dmov_conf[adm].work, HZ);
@@ -572,7 +572,7 @@ static irqreturn_t msm_dmov_isr(int irq, void *dev_id)
 	if (!dmov_conf[adm].channel_active && valid) {
 		disable_irq_nosync(dmov_conf[adm].irq);
 		dmov_conf[adm].clk_ctl = CLK_TO_BE_DIS;
-#ifdef CONFIG_MACH_DUMMY
+#ifdef CONFIG_MACH_VILLEC2
 		schedule_delayed_work(&dmov_conf[adm].work, HZ/10);
 #else
 		schedule_delayed_work(&dmov_conf[adm].work, HZ);

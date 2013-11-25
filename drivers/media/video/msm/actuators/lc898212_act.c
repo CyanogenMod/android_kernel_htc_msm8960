@@ -15,8 +15,9 @@
 #include "msm_camera_i2c.h"
 #include <mach/gpio.h>
 
-#define	LC898212_TOTAL_STEPS_NEAR_TO_FAR			  30 
-#define	LC898212_STEP_NEAR_10CM			  28
+#define	LC898212_TOTAL_STEPS_NEAR_TO_FAR			  20 
+#define	LC898212_STEP_NEAR_10CM			  18
+#define	LC898212_STEP_FAR			  2
 #define LC898212_TOTAL_STEPS_NEAR_TO_FAR_RAWCHIP_AF                        256 
 
 #define REG_VCM_I2C_ADDR			0xe4
@@ -29,9 +30,8 @@
 #define DEFAULT_MACRO -0x7000
 
 int16_t lc898212_kernel_step_table[LC898212_TOTAL_STEPS_NEAR_TO_FAR+1]
-	= {0x48C0, 0x4560, 0x4201, 0x3FBF, 0x3D7D, 0x3AA8, 0x37D3, 0x34FB, 0x3223, 0x2EDF,
-		0x2B9A, 0x2925, 0x26AF, 0x2339, 0x1FC4, 0x1A8B, 0x1552, 0x0C86, 0x03BA, 0x0132,
-		0xFEA9, 0xFBB9, 0xF8CA, 0xF559, 0xF1E8, 0xEEA8, 0xEB69, 0xE639, 0xE10A, 0xD191, 0xC218};
+	= {0x4F7F, 0x4C1F, 0x48C0, 0x4560, 0x4201, 0x3FBF, 0x3D7D, 0x3AA8, 0x37D3, 0x31B6, 0x2B9A, 0x2480,
+		0x1D66, 0x151D, 0x0CD4, 0xFF8D, 0xF40E, 0xEC93, 0xE519, 0xD398, 0xC218};
 
 
 DEFINE_MUTEX(lc898212_act_mutex);
@@ -124,28 +124,33 @@ int32_t lc898212_msm_actuator_init_table(
 			GFP_KERNEL);
 	if (a_ctrl->step_position_table) {
 		uint16_t i = 0;
-		int16_t infinity = lc898212_kernel_step_table[0];
+		int16_t infinity = lc898212_kernel_step_table[LC898212_STEP_FAR];
 		int16_t macro = lc898212_kernel_step_table[LC898212_STEP_NEAR_10CM];
 		int16_t min_value = lc898212_kernel_step_table[a_ctrl->set_info.total_steps];
+		int16_t max_value = lc898212_kernel_step_table[0];
 
 		if (a_ctrl->af_OTP_info.VCM_OTP_Read) {
 			infinity = a_ctrl->af_OTP_info.VCM_Infinity;
 			macro = a_ctrl->af_OTP_info.VCM_Macro;
 			min_value = a_ctrl->af_OTP_info.VCM_Top_Mech;
+			max_value = a_ctrl->af_OTP_info.VCM_Bottom_Mech;
 		}
 
-		a_ctrl->step_position_table[0] = a_ctrl->initial_code = infinity;
-		pr_info("%s infinity=%x macro=%x min_value=%x\n",__func__, infinity, macro, min_value);
+		a_ctrl->initial_code = infinity;
+		pr_info("%s infinity=%x (%d) macro=%x (%d) min_value=%x (%d) max_value=%x (%d)\n",__func__, infinity, (int16_t)infinity,
+			macro, (int16_t)macro, min_value, (int16_t)min_value, max_value, (int16_t)max_value);
 
-		for (i = 1; i <= a_ctrl->set_info.total_steps; i++) {
-
+		for (i = 0; i <= a_ctrl->set_info.total_steps; i++) {
 			if (a_ctrl->af_OTP_info.VCM_OTP_Read) {
+
 				a_ctrl->step_position_table[i] = infinity +
-					(lc898212_kernel_step_table[i] - lc898212_kernel_step_table[0]) * (macro - infinity) /
-					(lc898212_kernel_step_table[LC898212_STEP_NEAR_10CM] - lc898212_kernel_step_table[0]);
+					(lc898212_kernel_step_table[i] - lc898212_kernel_step_table[LC898212_STEP_FAR]) * (macro - infinity) /
+					(lc898212_kernel_step_table[LC898212_STEP_NEAR_10CM] - lc898212_kernel_step_table[LC898212_STEP_FAR]);
 
 				if ((int16_t)a_ctrl->step_position_table[i] < min_value)
 					a_ctrl->step_position_table[i] = min_value;
+				if ((int16_t)a_ctrl->step_position_table[i] > max_value)
+					a_ctrl->step_position_table[i] = max_value;
 			} else
 				a_ctrl->step_position_table[i] = lc898212_kernel_step_table[i];
 
@@ -241,7 +246,7 @@ static int32_t lc898212_wrapper_i2c_write(struct msm_actuator_ctrl_t *a_ctrl,
 
     rc = msm_camera_i2c_write(&a_ctrl->i2c_client,
          0x16,
-         dir ? 0x180 : 0xfe80,
+         dir==-1 ? 0x180 : 0xfe80,
          MSM_CAMERA_I2C_WORD_DATA);
     if (rc < 0) {
         pr_err("%s 0x16 i2c write failed (%d)\n", __func__, rc);
@@ -960,7 +965,7 @@ static int32_t lc898212_act_init_focus(struct msm_actuator_ctrl_t *a_ctrl)
 	    return rc;
     }
 
-    step = (signed short)infinity > (signed short)data ? 0xfe80 : 0x180;
+    step = (signed short)infinity <= (signed short)data ? 0xfe80 : 0x180;
 
     rc = msm_camera_i2c_write(&a_ctrl->i2c_client, 0x16, step, MSM_CAMERA_I2C_WORD_DATA);
     if (rc < 0) {

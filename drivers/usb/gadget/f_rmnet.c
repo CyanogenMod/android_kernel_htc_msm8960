@@ -1023,6 +1023,7 @@ static int frmnet_bind_config(struct usb_configuration *c, unsigned portno)
 	dev->port.disconnect = frmnet_disconnect;
 	dev->port.connect = frmnet_connect;
 
+	rmnet_interface_desc.iInterface = rmnet_string_defs[0].id;
 	status = usb_add_function(c, f);
 	if (status) {
 		pr_err("%s: usb add function failed: %d\n",

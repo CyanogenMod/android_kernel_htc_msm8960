@@ -1,6 +1,6 @@
 /* Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -26,7 +26,7 @@
 #include <linux/debugfs.h>
 #include "audio_utils_aio.h"
 
-#ifdef CONFIG_MACH_DUMMY
+#ifdef CONFIG_MACH_VILLEC2
 #undef pr_info
 #undef pr_err
 #define pr_info(fmt, ...) pr_aud_info(fmt, ##__VA_ARGS__)
@@ -1159,7 +1159,7 @@ long audio_aio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		
 		stats.byte_count = atomic_read(&audio->in_bytes);
 		stats.sample_count = atomic_read(&audio->in_samples);
-		timestamp = q6asm_get_session_time(audio->ac);
+		q6asm_get_session_time(audio->ac, &timestamp);
 		memcpy(&stats.unused[0], &timestamp, sizeof(timestamp));
 		if (copy_to_user((void *)arg, &stats, sizeof(stats)))
 			rc = -EFAULT;

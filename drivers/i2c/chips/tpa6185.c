@@ -70,7 +70,7 @@ static int tpa6185_i2c_read(char *rxData, int length);
 static struct dentry *debugfs_tpa_dent;
 static struct dentry *debugfs_peek;
 static struct dentry *debugfs_poke;
-static unsigned char read_data;
+static unsigned char read_data[8] = {0};
 
 static int get_parameters(char *buf, long int *param1, int num_of_par)
 {
@@ -108,7 +108,7 @@ static ssize_t codec_debug_read(struct file *file, char __user *ubuf,
 {
 	char lbuf[8];
 
-	snprintf(lbuf, sizeof(lbuf), "0x%x\n", read_data);
+	snprintf(lbuf, sizeof(lbuf), "0x%llx\n", *(long long unsigned*)read_data);
 	return simple_read_from_buffer(ubuf, count, ppos, lbuf, strlen(lbuf));
 }
 
@@ -144,7 +144,7 @@ static ssize_t codec_debug_write(struct file *filp,
 		if ((param[0] <= 0xFF) && (rc == 0)) {
 			reg_idx[0] = param[0];
 			tpa6185_i2c_write_for_read(reg_idx, 1);
-			tpa6185_i2c_read(&read_data, sizeof(HEADSET_AMP_ON));
+			tpa6185_i2c_read(read_data, sizeof(HEADSET_AMP_ON));
 		} else
 			rc = -EINVAL;
 	}

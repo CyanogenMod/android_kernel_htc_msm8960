@@ -202,9 +202,11 @@ struct external_common_state_type {
 	boolean hpd_state;
 	struct kobject *uevent_kobj;
 	uint32 video_resolution;
+	boolean default_res_supported;
 	bool vcdb_support;
 	struct device *dev;
 	struct switch_dev sdev;
+	struct switch_dev audio_sdev;
 #ifdef CONFIG_FB_MSM_HDMI_3D
 	boolean format_3d;
 	void (*switch_3d)(boolean on);

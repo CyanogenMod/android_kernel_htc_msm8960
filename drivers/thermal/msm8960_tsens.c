@@ -102,6 +102,7 @@ enum tsens_trip_type {
 #define TSENS_RED_SHIFT					8
 #define TSENS_8960_QFPROM_SHIFT				4
 #define TSENS_SENSOR_QFPROM_SHIFT			2
+#define TSENS_SENSOR9_SHIFT                            12
 #define TSENS_SENSOR0_SHIFT				3
 #define TSENS_MASK1					1
 
@@ -751,6 +752,13 @@ static void tsens8960_sensor_mode_init(void)
 				~((((1 << tmdev->tsens_num_sensor) - 1) >> 1)
 				<< (TSENS_SENSOR0_SHIFT + 1)), TSENS_CNTL_ADDR);
 		tmdev->sensor[TSENS_MAIN_SENSOR].mode = THERMAL_DEVICE_ENABLED;
+
+#ifdef CONFIG_MSM8930_ONLY
+               reg_cntl = readl_relaxed(TSENS_CNTL_ADDR);
+               writel_relaxed(reg_cntl |
+                               (1 << TSENS_SENSOR9_SHIFT), TSENS_CNTL_ADDR);
+               tmdev->sensor[9].mode = THERMAL_DEVICE_ENABLED;
+#endif
 	}
 }
 

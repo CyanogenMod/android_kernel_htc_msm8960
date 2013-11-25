@@ -10,16 +10,24 @@
 #define DOCK_STATE_USB_HOST				(1 << 4)
 #define DOCK_STATE_DMB						(1 << 5)
 #define DOCK_STATE_AUDIO_DOCK				(1 << 6)
+#ifdef CONFIG_USB_OTG_HOST_CHG
+#define DOCK_STATE_HOST_CHG_DOCK			(1 << 7)
+#else
 #define DOCK_STATE_THREE_POGO_DOCK		(1 << 7)
-
+#endif
 #define DOCK_DET_DELAY		HZ/4
 #ifdef CONFIG_MACH_DUMMY
 #define ADC_RETRY 5
 #else
 #define ADC_RETRY 3
 #endif
-#define ADC_DELAY HZ/8
 
+#ifdef CONFIG_USB_OTG_HOST_CHG
+#define ADC_DELAY HZ/8
+#define HOST_DET_DELAY HZ/2
+#else
+#define ADC_DELAY HZ/8
+#endif
 #define PM8058ADC_15BIT(adc) ((adc * 2200) / 32767) 
 
 #define CABLE_ERR(fmt, args...) \

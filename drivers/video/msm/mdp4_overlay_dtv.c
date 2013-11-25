@@ -624,7 +624,9 @@ int mdp4_dtv_on(struct platform_device *pdev)
 	vctrl->dev = mfd->fbi->dev;
 	vctrl->vsync_irq_enabled = 0;
 
+#if 0
 	mdp_footswitch_ctrl(TRUE);
+#endif
 	
 	mdp_clk_ctrl(1);
 
@@ -723,7 +725,9 @@ int mdp4_dtv_off(struct platform_device *pdev)
 	}
 
 	ret = panel_next_off(pdev);
+#if 0
 	mdp_footswitch_ctrl(FALSE);
+#endif
 
 	mdp4_overlay_iommu_unmap_freelist(mixer);
 	mdp4_overlay_iommu_unmap_freelist(mixer);

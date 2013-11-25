@@ -8,6 +8,7 @@ extern struct proto rawv6_prot;
 extern struct proto udpv6_prot;
 extern struct proto udplitev6_prot;
 extern struct proto tcpv6_prot;
+extern struct proto pingv6_prot;
 
 struct flowi6;
 
@@ -18,6 +19,8 @@ extern void				ipv6_exthdrs_exit(void);
 extern int				ipv6_frag_init(void);
 extern void				ipv6_frag_exit(void);
 
+extern int				pingv6_init(void);
+extern void				pingv6_exit(void);
 extern int				rawv6_init(void);
 extern void				rawv6_exit(void);
 extern int				udpv6_init(void);

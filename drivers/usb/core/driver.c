@@ -964,6 +964,12 @@ static int usb_suspend_both(struct usb_device *udev, pm_message_t msg)
 
 		if (udev->parent && !PMSG_IS_AUTO(msg))
 			status = 0;
+		if (status == -EPROTO) {
+			int r = 0;
+			dev_info(&udev->dev, "%s:  status=[%d], call usb_resume_device+\n", __func__, status);
+			r = usb_resume_device(udev, msg);
+			dev_info(&udev->dev, "%s:  usb_resume_device-, r=[%d]\n", __func__, r);
+		}
 	}
 
 	

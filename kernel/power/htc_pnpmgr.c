@@ -241,6 +241,31 @@ power_attr(perflock_scaling_max);
 power_attr(perflock_scaling_min);
 #endif
 
+#ifdef CONFIG_QSC_MODEM
+static bool mdm_lock_value = 1;
+#else
+static bool mdm_lock_value = 0;
+#endif
+
+ssize_t
+mdm_lock_show(struct kobject *kobj, struct kobj_attribute *attr,
+                char *buf)
+{
+	int ret = 0;
+
+	ret = sprintf(buf, "%d", mdm_lock_value);
+	return ret;
+}
+
+define_int_store(mdm_lock, mdm_lock_value, null_cb);
+power_attr(mdm_lock);
+
+void mdm_lock(bool value)
+{
+	mdm_lock_value = value;
+	sysfs_notify(cpufreq_kobj, NULL, "mdm_lock");
+}
+
 #ifdef CONFIG_HOTPLUG_CPU
 ssize_t
 cpu_hotplug_show(struct kobject *kobj, struct kobj_attribute *attr,
@@ -287,6 +312,7 @@ static struct attribute *cpufreq_g[] = {
 	&perflock_scaling_max_attr.attr,
 	&perflock_scaling_min_attr.attr,
 #endif
+	&mdm_lock_attr.attr,
 	NULL,
 };
 

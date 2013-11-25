@@ -84,6 +84,7 @@ struct android_usb_platform_data {
 	u8			usb_core_id;
 	int adb_perf_lock_on;
 	int mtp_perf_lock_on;
+	int vzw_unmount_cdrom;
 };
 
 struct usb_mass_storage_platform_data {

@@ -82,6 +82,13 @@ enum {
 	POWER_SUPPLY_SCOPE_DEVICE,
 };
 
+enum {
+	HTC_UI_PJ_NOT_CHG = 0,
+	HTC_UI_PJ_CHG,
+	HTC_UI_PJ_FULL,
+	HTC_UI_PJ_EMPTY,
+};
+
 enum power_supply_property {
 	
 	POWER_SUPPLY_PROP_STATUS = 0,

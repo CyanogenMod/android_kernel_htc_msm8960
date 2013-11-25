@@ -34,6 +34,7 @@ enum {
 	USB_FUNCTION_NCM,
 	USB_FUNCTION_PROJECTOR2,
 	USB_FUNCTION_AUDIO_SOURCE, 
+	USB_FUNCTION_PTP, 
 	USB_FUNCTION_AUTOBOT = 30,
 	USB_FUNCTION_RNDIS_IPT = 31,
 };
@@ -112,7 +113,10 @@ static struct usb_string_node usb_string_array[] = {
 		.usb_function_flag = 1 << USB_FUNCTION_AUDIO_SOURCE,
 		.name = "audio_source",
 	},
-
+	{
+		.usb_function_flag = 1 << USB_FUNCTION_PTP,
+		.name = "ptp",
+	},
 
 };
 
@@ -400,6 +404,9 @@ int android_switch_function(unsigned func)
 			list_add_tail(&f->enabled_list, &dev->enabled_functions);
 		} else if ((func & (1 << USB_FUNCTION_MTP)) &&
 				!strcmp(f->name, "mtp"))
+			list_add_tail(&f->enabled_list, &dev->enabled_functions);
+		else if ((func & (1 << USB_FUNCTION_PTP)) &&
+				!strcmp(f->name, "ptp"))
 			list_add_tail(&f->enabled_list, &dev->enabled_functions);
 		else if ((func & (1 << USB_FUNCTION_ACCESSORY)) &&
 				!strcmp(f->name, "accessory"))

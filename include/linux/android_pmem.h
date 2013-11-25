@@ -98,10 +98,15 @@ enum pmem_allocator_type {
 struct android_pmem_platform_data
 {
 	const char* name;
+
+	unsigned long start;
+
 	
 	unsigned long size;
 
 	enum pmem_allocator_type allocator_type;
+	enum pmem_allocator_type no_allocator;
+
 	unsigned int quantum;
 
 	unsigned cached;

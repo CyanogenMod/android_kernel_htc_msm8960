@@ -29,6 +29,7 @@
 
 #define cls_dev_to_mmc_host(d)	container_of(d, struct mmc_host, class_dev)
 
+extern struct workqueue_struct *stats_workqueue;
 static void mmc_host_classdev_release(struct device *dev)
 {
 	struct mmc_host *host = cls_dev_to_mmc_host(dev);
@@ -260,6 +261,7 @@ struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
 		kasprintf(GFP_KERNEL, "%s_detect", mmc_hostname(host)));
 	INIT_DELAYED_WORK(&host->detect, mmc_rescan);
 	INIT_DELAYED_WORK(&host->remove, mmc_remove_sd_card);
+	INIT_DELAYED_WORK(&host->stats_work, mmc_stats);
 #ifdef CONFIG_PM
 	host->pm_notify.notifier_call = mmc_pm_notify;
 #endif
@@ -279,15 +281,16 @@ free:
 }
 
 EXPORT_SYMBOL(mmc_alloc_host);
-#ifdef CONFIG_MMC_PERF_PROFILING
+
 static ssize_t
 show_perf(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct mmc_host *host = dev_get_drvdata(dev);
 	int64_t rtime_drv, wtime_drv;
 	unsigned long rbytes_drv, wbytes_drv;
+	unsigned long flags;
 
-	spin_lock(&host->lock);
+	spin_lock_irqsave(&host->lock, flags);
 
 	rbytes_drv = host->perf.rbytes_drv;
 	wbytes_drv = host->perf.wbytes_drv;
@@ -295,7 +298,7 @@ show_perf(struct device *dev, struct device_attribute *attr, char *buf)
 	rtime_drv = ktime_to_us(host->perf.rtime_drv);
 	wtime_drv = ktime_to_us(host->perf.wtime_drv);
 
-	spin_unlock(&host->lock);
+	spin_unlock_irqrestore(&host->lock, flags);
 
 	return snprintf(buf, PAGE_SIZE, "Write performance at driver Level:"
 					"%lu bytes in %lld microseconds\n"
@@ -311,55 +314,27 @@ set_perf(struct device *dev, struct device_attribute *attr,
 {
 	int64_t value;
 	struct mmc_host *host = dev_get_drvdata(dev);
+	unsigned long flags;
 
 	sscanf(buf, "%lld", &value);
-	spin_lock(&host->lock);
+	spin_lock_irqsave(&host->lock, flags);
+
 	if (!value) {
 		memset(&host->perf, 0, sizeof(host->perf));
 		host->perf_enable = false;
-	} else {
+	} else if (!host->perf_enable) {
 		host->perf_enable = true;
+		if (stats_workqueue)
+			queue_delayed_work(stats_workqueue, &host->stats_work,
+				msecs_to_jiffies(MMC_STATS_INTERVAL));
 	}
-	spin_unlock(&host->lock);
+	spin_unlock_irqrestore(&host->lock, flags);
 
 	return count;
 }
 
 static DEVICE_ATTR(perf, S_IRUGO | S_IWUSR,
 		show_perf, set_perf);
-
-#else
-static ssize_t
-show_perf(struct device *dev, struct device_attribute *attr, char *buf)
-{
-	struct mmc_host *host = dev_get_drvdata(dev);
-	if (!host)
-		return 0;
-	return sprintf(buf, "%d", host->perf_enable);
-}
-
-static ssize_t
-set_perf(struct device *dev, struct device_attribute *attr,
-		const char *buf, size_t count)
-{
-	int64_t value;
-	struct mmc_host *host = dev_get_drvdata(dev);
-
-	sscanf(buf, "%lld", &value);
-	spin_lock(&host->lock);
-	if (!value) {
-		host->perf_enable = false;
-	} else {
-		host->perf_enable = true;
-	}
-	spin_unlock(&host->lock);
-
-	return count;
-}
-
-static DEVICE_ATTR(perf, S_IRUGO | S_IWUSR,
-		show_perf, set_perf);
-#endif
 
 static ssize_t
 show_burst(struct device *dev, struct device_attribute *attr, char *buf)
@@ -392,9 +367,36 @@ set_burst(struct device *dev, struct device_attribute *attr,
 static DEVICE_ATTR(burst, S_IRUGO | S_IWUSR | S_IWGRP,
 		show_burst, set_burst);
 
+
+static ssize_t
+show_debug(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct mmc_host *host = dev_get_drvdata(dev);
+	if (!host)
+		return 0;
+	return sprintf(buf, "%d", host->debug_mask);
+}
+
+static ssize_t
+set_debug(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	int value;
+	struct mmc_host *host = dev_get_drvdata(dev);
+
+	sscanf(buf, "%d", &value);
+	host->debug_mask = value;
+	pr_info("%s: set debug 0x%x\n", mmc_hostname(host), value);
+
+	return count;
+}
+static DEVICE_ATTR(debug, S_IRUGO | S_IWUSR,
+		show_debug, set_debug);
+
 static struct attribute *dev_attrs[] = {
 	&dev_attr_perf.attr,
 	&dev_attr_burst.attr,
+	&dev_attr_debug.attr,
 	NULL,
 };
 static struct attribute_group dev_attr_grp = {

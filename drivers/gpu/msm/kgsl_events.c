@@ -183,7 +183,7 @@ int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
 		return -ENOMEM;
 	}
 
-	ret = kgsl_active_count_get_light(device);
+	ret = kgsl_active_count_get(device);
 	if (ret < 0) {
 		kfree(event);
 		return ret;

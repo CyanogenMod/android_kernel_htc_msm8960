@@ -35,6 +35,9 @@ struct htc_gauge {
 	int (*get_battery_cc)(int *result);
 	int (*is_battery_temp_fault)(int *result);
 	int (*is_battery_full)(int *result);
+	int (*is_pj_full)(int *result);
+	void (*get_pj_voltage)(int *result);
+	int (*calculate_pj_level)(int vol, int is_charging, int batt_temp);
 #if 0
 	int (*dump_all)(void);
 #endif

@@ -60,6 +60,10 @@ static void set_acpuclk_L2_freq_foot_print(unsigned khz)
 	mb();
 }
 
+#ifdef CONFIG_ACPU_CUSTOM_FREQ_SUPPORT
+static unsigned long acpu_max_freq = CONFIG_ACPU_MAX_FREQ;
+#endif
+
 #define PRI_SRC_SEL_SEC_SRC	0
 #define PRI_SRC_SEL_HFPLL	1
 #define PRI_SRC_SEL_HFPLL_DIV2	2
@@ -536,15 +540,17 @@ static int acpuclk_krait_set_rate(int cpu, unsigned long rate,
 	if (prev_l2_src == HFPLL)
 		disable_l2_regulators();
 
+	set_acpuclk_foot_print(cpu, 0x7);
+
 	
 	set_bus_bw(drv.l2_freq_tbl[tgt_l2_l].bw_level);
 
-	set_acpuclk_foot_print(cpu, 0x7);
+	set_acpuclk_foot_print(cpu, 0x8);
 
 	
 	decrease_vdd(cpu, &vdd_data, reason);
 
-	set_acpuclk_foot_print(cpu, 0x8);
+	set_acpuclk_foot_print(cpu, 0x9);
 
 	
 	if (reason == SETRATE_CPUFREQ && tgt->avsdscr_setting) {
@@ -558,7 +564,7 @@ out:
 	if (reason == SETRATE_CPUFREQ || reason == SETRATE_HOTPLUG)
 		mutex_unlock(&driver_lock);
 
-	set_acpuclk_foot_print(cpu, 0x9);
+	set_acpuclk_foot_print(cpu, 0xA);
 
 	return rc;
 }
@@ -1027,11 +1033,23 @@ static int __init get_pvs_bin(u32 pte_efuse)
 	return pvs_bin;
 }
 
+static int speed_bin_filter = 0;
+static unsigned long speed_bin_freq = 0;
+void set_acpu_speedbin_filter_freq(int bin, unsigned long freq)
+{
+	speed_bin_filter = bin;
+	speed_bin_freq = freq;
+}
+
 static struct pvs_table * __init select_freq_plan(u32 pte_efuse_phys,
 			struct pvs_table (*pvs_tables)[NUM_PVS])
 {
 	void __iomem *pte_efuse;
 	u32 pte_efuse_val;
+#ifdef CONFIG_ACPU_CUSTOM_FREQ_SUPPORT
+	struct pvs_table *pvs;
+	struct acpu_level *l;
+#endif
 
 	pte_efuse = ioremap(pte_efuse_phys, 4);
 	if (!pte_efuse) {
@@ -1046,7 +1064,32 @@ static struct pvs_table * __init select_freq_plan(u32 pte_efuse_phys,
 	drv.speed_bin = get_speed_bin(pte_efuse_val);
 	drv.pvs_bin = get_pvs_bin(pte_efuse_val);
 
+#ifdef CONFIG_ACPU_SPEED_BIN_FREQ_SUPPORT
+	if ((speed_bin_freq!=0) && (drv.speed_bin == speed_bin_filter))
+		acpu_max_freq = speed_bin_freq;
+#endif
+
+#ifdef CONFIG_ACPU_CUSTOM_FREQ_SUPPORT
+	pvs = &pvs_tables[drv.speed_bin][drv.pvs_bin];
+	BUG_ON(!pvs->table);
+
+	
+	if (acpu_max_freq) {
+		for (l = pvs->table; l->speed.khz != 0; l++) {
+			if (l->speed.khz >= acpu_max_freq) {
+				if(l->speed.khz == acpu_max_freq)
+					l++;
+				for (; l->speed.khz != 0; l++)
+					l->use_for_scaling = 0;
+				break;
+			}
+		}
+	}
+
+	return pvs;
+#else
 	return &pvs_tables[drv.speed_bin][drv.pvs_bin];
+#endif
 }
 
 static void __init drv_data_init(struct device *dev,

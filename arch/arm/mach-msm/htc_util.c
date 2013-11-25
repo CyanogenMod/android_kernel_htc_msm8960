@@ -748,18 +748,25 @@ void htc_kernel_top(void)
 	io_time = (unsigned long)(new_cpu_stat.cpustat[CPUTIME_IOWAIT] - old_cpu_stat.cpustat[CPUTIME_IOWAIT]);
 	irq_time = (unsigned long)((new_cpu_stat.cpustat[CPUTIME_IRQ] + new_cpu_stat.cpustat[CPUTIME_SOFTIRQ])
 			- (old_cpu_stat.cpustat[CPUTIME_IRQ] + old_cpu_stat.cpustat[CPUTIME_SOFTIRQ]));
-	idle_time = (unsigned long)
-	((new_cpu_stat.cpustat[CPUTIME_IDLE] + new_cpu_stat.cpustat[CPUTIME_STEAL] + new_cpu_stat.cpustat[CPUTIME_GUEST])
-	 - (old_cpu_stat.cpustat[CPUTIME_IDLE] + old_cpu_stat.cpustat[CPUTIME_STEAL] + old_cpu_stat.cpustat[CPUTIME_GUEST]));
+
+
+    
+
+    idle_time = (unsigned long)((new_cpu_stat.cpustat[CPUTIME_IDLE] > old_cpu_stat.cpustat[CPUTIME_IDLE]) 
+            ? new_cpu_stat.cpustat[CPUTIME_IDLE] - old_cpu_stat.cpustat[CPUTIME_IDLE] : 0);
+    idle_time += (unsigned long)((new_cpu_stat.cpustat[CPUTIME_STEAL] + new_cpu_stat.cpustat[CPUTIME_GUEST]) 
+                - (old_cpu_stat.cpustat[CPUTIME_STEAL] + old_cpu_stat.cpustat[CPUTIME_GUEST]));
+    
+
 	delta_time = user_time + system_time + io_time + irq_time + idle_time;
 
 	if ((full_loading_counter >= 9) && (full_loading_counter % 3 == 0))
 		 dump_top_stack = 1;
 
 	
-	printk("[K] CPU Usage\t\tPID\t\tName\n");
+	printk(KERN_INFO "[K] CPU Usage\t\tPID\t\tName\n");
 	for (i = 0 ; i < NUM_BUSY_THREAD_CHECK ; i++) {
-		printk("[K] %8lu%%\t\t%d\t\t%s\t\t%d\n",
+		printk(KERN_INFO "[K] %8lu%%\t\t%d\t\t%s\t\t%d\n",
 				curr_proc_delta[top_loading[i]] * 100 / delta_time,
 				top_loading[i],
 				task_ptr_array[top_loading[i]]->comm,
@@ -858,9 +865,15 @@ void htc_kernel_top_accumulation(void)
 	io_time = (unsigned long)(new_cpu_stat_accu.cpustat[CPUTIME_IOWAIT] - old_cpu_stat_accu.cpustat[CPUTIME_IOWAIT]);
 	irq_time = (unsigned long)((new_cpu_stat_accu.cpustat[CPUTIME_IRQ] + new_cpu_stat_accu.cpustat[CPUTIME_SOFTIRQ])
 			- (old_cpu_stat_accu.cpustat[CPUTIME_IRQ] + old_cpu_stat_accu.cpustat[CPUTIME_SOFTIRQ]));
-	idle_time = (unsigned long)
-	((new_cpu_stat_accu.cpustat[CPUTIME_IDLE] + new_cpu_stat_accu.cpustat[CPUTIME_STEAL] + new_cpu_stat_accu.cpustat[CPUTIME_GUEST])
-	 - (old_cpu_stat_accu.cpustat[CPUTIME_IDLE] + old_cpu_stat_accu.cpustat[CPUTIME_STEAL] + old_cpu_stat_accu.cpustat[CPUTIME_GUEST]));
+
+    
+
+    idle_time = (unsigned long)((new_cpu_stat_accu.cpustat[CPUTIME_IDLE] > old_cpu_stat_accu.cpustat[CPUTIME_IDLE]) 
+            ? new_cpu_stat_accu.cpustat[CPUTIME_IDLE] - old_cpu_stat_accu.cpustat[CPUTIME_IDLE] : 0);
+    idle_time += (unsigned long)((new_cpu_stat_accu.cpustat[CPUTIME_STEAL] + new_cpu_stat_accu.cpustat[CPUTIME_GUEST]) 
+                - (old_cpu_stat_accu.cpustat[CPUTIME_STEAL] + old_cpu_stat_accu.cpustat[CPUTIME_GUEST]));
+    
+
 	delta_time = user_time + system_time + io_time + irq_time + idle_time;
 
 	if ((full_loading_counter >= 9) && (full_loading_counter % 3 == 0))

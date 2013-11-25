@@ -34,6 +34,7 @@ static struct htc_battery_cell default_cell = {
 	.voltage_min = 3200,
 	.chg_param = NULL,
 	.gauge_param = NULL,
+	.pj_param = NULL,
 };
 
 int htc_battery_cell_init(struct htc_battery_cell *ary, int ary_size)
@@ -93,6 +94,13 @@ inline void *htc_battery_cell_get_cur_cell_gauge_cdata(void)
 {
 	if (cur_cell)
 		return cur_cell->gauge_param;
+	return NULL;
+}
+
+inline void *htc_battery_cell_get_cur_cell_pj_cdata(void)
+{
+	if (cur_cell)
+		return cur_cell->pj_param;
 	return NULL;
 }
 

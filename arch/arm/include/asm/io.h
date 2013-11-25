@@ -47,7 +47,7 @@ extern void __raw_readsl(const void __iomem *addr, void *data, int longlen);
 	int _ret; \
 	void *_addr = (void *)(a); \
 	io_footprint_start(_addr); \
-	if (unlikely(msm_rtb_enabled())) \
+	if (likely(msm_rtb_enabled())) \
 		_ret = uncached_logk(LOGK_WRITEL, _addr); \
 	else \
 		_ret = 0; \

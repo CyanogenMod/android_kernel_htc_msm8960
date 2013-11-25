@@ -106,7 +106,11 @@ struct sk_buff *__skb_recv_datagram(struct sock *sk, unsigned flags,
 		skb_queue_walk(queue, skb) {
 			*peeked = skb->peeked;
 			if (flags & MSG_PEEK) {
+#ifdef CONFIG_HTC_NETWORK_MODIFY
+				if (*off >= skb->len && skb->len) {
+#else
 				if (*off >= skb->len) {
+#endif
 					*off -= skb->len;
 					continue;
 				}

@@ -3,7 +3,7 @@
 choice
       	prompt "Select MSM 3D Graphic driver branch"
 	depends on FB_MSM
-	default MSM_KGSL_JB_MR1
+	default MSM_KGSL_MAINLINE
 
 config MSM_KGSL_MAINLINE
         bool "MSM 3D Graphics driver (branch jb_2.5)"

@@ -619,7 +619,6 @@ static void do_emergency_remount(struct work_struct *work)
 		__put_super(p);
 	spin_unlock(&sb_lock);
 	kfree(work);
-	atomic_set(&emmc_reboot, 1);
 	atomic_set(&vfs_emergency_remount, 0);
 	printk("Lock eMMC\n");
 	printk("Emergency Remount complete\n");

@@ -338,5 +338,7 @@ source "drivers/net/wireless/mwifiex/Kconfig"
 source "drivers/net/wireless/bcmdhd_4330/Kconfig"
 source "drivers/net/wireless/bcmdhd_4334/Kconfig"
 source "drivers/net/wireless/bcmdhd_4335/Kconfig"
+source "drivers/net/wireless/bcmdhd_4335_mcc/Kconfig"
+source "drivers/net/wireless/bcmdhd_4334_mcc/Kconfig"
 
 endif # WLAN

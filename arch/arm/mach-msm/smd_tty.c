@@ -528,7 +528,7 @@ static int __init smd_tty_init(void)
 			legacy_ds |= cpu_is_qsd8x50() || cpu_is_msm8x55();
 			legacy_ds |= cpu_is_msm8x60() &&
 					(socinfo_get_platform_subtype() == 0x0);
-			#ifdef CONFIG_MACH_DUMMY
+			#ifdef CONFIG_MACH_JEWEL_DD
 			legacy_ds = 1;
 			#endif
 

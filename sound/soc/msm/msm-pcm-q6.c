@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,13 +40,19 @@
 
 static struct audio_locks the_locks;
 
+static atomic_t audio_capture_buffer_count;
+
 struct snd_msm {
 	struct snd_card *card;
 	struct snd_pcm *pcm;
 };
 
 #define PLAYBACK_NUM_PERIODS	8
-#define PLAYBACK_PERIOD_SIZE	8192
+#if defined(CONFIG_AUDIO_24BIT)
+#define PLAYBACK_PERIOD_SIZE	4096
+#else
+#define PLAYBACK_PERIOD_SIZE    2048
+#endif
 #define CAPTURE_NUM_PERIODS	16
 #define CAPTURE_PERIOD_SIZE	320
 
@@ -130,6 +136,9 @@ static void event_handler(uint32_t opcode,
 	int i = 0;
 	uint32_t idx = 0;
 	uint32_t size = 0;
+	
+	snd_pcm_uframes_t avail_count = 0;
+	
 
 	pr_debug("%s\n", __func__);
 	switch (opcode) {
@@ -169,6 +178,10 @@ static void event_handler(uint32_t opcode,
 		in_frame_info[token][1] = payload[3];
 
 		
+		atomic_dec(&audio_capture_buffer_count);
+		
+
+		
 		if (in_frame_info[token][0]) {
 			prtd->pcm_irq_pos += in_frame_info[token][0];
 			pr_debug("pcm_irq_pos=%d\n", prtd->pcm_irq_pos);
@@ -181,7 +194,13 @@ static void event_handler(uint32_t opcode,
 			    q6asm_is_cpu_buf_avail_nolock(OUT,
 				prtd->audio_client,
 				&size, &idx))
+			{
+				atomic_inc(&audio_capture_buffer_count);
 				q6asm_read_nolock(prtd->audio_client);
+				pr_debug("cpu buffer is available, call q6asm_read, in_count %d\n", atomic_read(&prtd->in_count));
+			}else{
+				pr_debug("cpu buffer is not available, no q6asm_read, in_count %d\n", atomic_read(&prtd->in_count));
+			}
 		} else {
 			pr_debug("%s: reclaim flushed buf in_count %x\n",
 				 __func__, atomic_read(&prtd->in_count));
@@ -190,8 +209,35 @@ static void event_handler(uint32_t opcode,
 				pr_info("%s: reclaimed all buffers\n", __func__);
 				if (atomic_read(&prtd->start))
 					snd_pcm_period_elapsed(substream);
+
+				
+				if(atomic_read(&prtd->start)){
+					avail_count = snd_pcm_capture_avail(prtd->substream->runtime);
+					if(avail_count == 0){
+						pr_info("reclaim: no waiting process, re-send read cmd! \n");
+						atomic_inc(&audio_capture_buffer_count);
+						q6asm_read(prtd->audio_client);
+					}
+				}
+				
+				pr_info("reclaim: avail_count %lu, start %d, audio_capture_buffer_count %d\n",
+					avail_count, atomic_read(&prtd->start), atomic_read(&audio_capture_buffer_count));
+				
+
 				wake_up(&the_locks.read_wait);
 			}
+			
+			else {
+				if(atomic_read(&prtd->start) && (atomic_read(&audio_capture_buffer_count) == 0)){
+					avail_count = snd_pcm_capture_avail(prtd->substream->runtime);
+					if( (avail_count == 0)){
+						pr_info("reclaim: [2] no waiting process, re-send read cmd! \n");
+						atomic_inc(&audio_capture_buffer_count);
+						q6asm_read(prtd->audio_client);
+					}
+				}
+			}
+			
 		}
 
 		break;
@@ -304,9 +350,14 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 
 	for (i = 0; i < runtime->periods; i++)
 		q6asm_read(prtd->audio_client);
+
 	prtd->periods = runtime->periods;
 
 	prtd->enabled = 1;
+
+	
+	atomic_set(&audio_capture_buffer_count, runtime->periods);
+	
 
 	return ret;
 }
@@ -476,13 +527,14 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 		if (!ret)
 			pr_err("%s: CMD_EOS failed\n", __func__);
         }
-	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
-	q6asm_audio_client_buf_free_contiguous(dir,
-				prtd->audio_client);
-
+	if(prtd->audio_client) {
+		q6asm_cmd(prtd->audio_client, CMD_CLOSE);
+		q6asm_audio_client_buf_free_contiguous(dir,
+			prtd->audio_client);
+		q6asm_audio_client_free(prtd->audio_client);
+	}
 	msm_pcm_routing_dereg_phy_stream(soc_prtd->dai_link->be_id,
 	SNDRV_PCM_STREAM_PLAYBACK);
-	q6asm_audio_client_free(prtd->audio_client);
 	kfree(prtd);
 	return 0;
 }
@@ -513,11 +565,11 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 	ret = wait_event_timeout(the_locks.read_wait,
 			(atomic_read(&prtd->in_count)), 5 * HZ);
 	if (!ret) {
-		pr_debug("%s: wait_event_timeout failed\n", __func__);
+		pr_err("%s: wait_event_timeout failed\n", __func__);
 		goto fail;
 	}
 	if (!atomic_read(&prtd->in_count)) {
-		pr_debug("%s: pcm stopped in_count 0\n", __func__);
+		pr_err("%s: pcm stopped in_count 0\n", __func__);
 		return 0;
 	}
 	pr_debug("Checking if valid buffer is available...%08x\n",
@@ -547,6 +599,9 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 		memset(&in_frame_info[idx], 0,
 			sizeof(uint32_t) * 2);
 		atomic_dec(&prtd->in_count);
+		
+		atomic_inc(&audio_capture_buffer_count);
+		
 		ret = q6asm_read(prtd->audio_client);
 		if (ret < 0) {
 			pr_err("q6asm read failed\n");
@@ -680,7 +735,7 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 		if (ret < 0) {
 			pr_err("%s: q6asm_open_write_v2 failed\n", __func__);
 			q6asm_audio_client_free(prtd->audio_client);
-			kfree(prtd);
+			prtd->audio_client = NULL;
 			return -ENOMEM;
 		}
 

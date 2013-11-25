@@ -1120,8 +1120,10 @@ int mdp4_dsi_cmd_off(struct platform_device *pdev)
 
 			
 			pipe = vctrl->base_pipe;
-			mdp4_mixer_stage_down(pipe, 1);
-			mdp4_overlay_pipe_free(pipe, 1);
+			if (pipe) {
+				mdp4_mixer_stage_down(pipe, 1);
+				mdp4_overlay_pipe_free(pipe, 1);
+			}
 			vctrl->base_pipe = NULL;
 		} else {
 			

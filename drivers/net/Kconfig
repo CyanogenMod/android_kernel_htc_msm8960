@@ -347,9 +347,6 @@ config HTC_TCP_SYN_FAIL
 
 source "drivers/net/hyperv/Kconfig"
 
-config HTC_NETWORK_MODIFY
-	tristate "Belong to HTC Netowrking modifications"
-
 config KINETO_GAN
         tristate "Kineto GAN virtual network interface"
         depends on ARM

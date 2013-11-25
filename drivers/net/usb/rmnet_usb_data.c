@@ -19,6 +19,8 @@
 #include <linux/usb.h>
 #include <linux/usb/usbnet.h>
 #include <linux/msm_rmnet.h>
+#include <net/ipv6.h>
+#include <net/addrconf.h>
 
 #include "rmnet_usb_ctrl.h"
 
@@ -411,6 +413,10 @@ static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 
 static void rmnet_usb_setup(struct net_device *dev)
 {
+#ifdef DISABLE_RMNET_USB_IPV6_ACCEPT_RA_DEFRTR
+	struct inet6_dev *idev = NULL;
+#endif 
+
 	
 	dev->netdev_ops = &rmnet_usb_ops_ether;
 
@@ -420,6 +426,19 @@ static void rmnet_usb_setup(struct net_device *dev)
 	dev->needed_headroom = HEADROOM_FOR_QOS;
 	random_ether_addr(dev->dev_addr);
 	dev->watchdog_timeo = 1000; 
+
+#ifdef DISABLE_RMNET_USB_IPV6_ACCEPT_RA_DEFRTR
+	idev = in6_dev_get(dev);
+	if (idev)
+	{
+		idev->cnf.accept_ra_defrtr = 0;
+		if (idev->dev)
+			pr_info("net_device:%s set accept_ra_defrtr:%d\n", idev->dev->name, idev->cnf.accept_ra_defrtr);
+	}
+
+	if (idev)
+		in6_dev_put(idev);
+#endif 
 }
 
 static int rmnet_usb_data_status(struct seq_file *s, void *unused)

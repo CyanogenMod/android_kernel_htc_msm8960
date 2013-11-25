@@ -29,19 +29,6 @@
 #include <linux/slab.h>
 #include "ecryptfs_kernel.h"
 
-/**
- * ecryptfs_d_revalidate - revalidate an ecryptfs dentry
- * @dentry: The ecryptfs dentry
- * @nd: The associated nameidata
- *
- * Called when the VFS needs to revalidate a dentry. This
- * is called whenever a name lookup finds a dentry in the
- * dcache. Most filesystems leave this as NULL, because all their
- * dentries in the dcache are valid.
- *
- * Returns 1 if valid, 0 otherwise.
- *
- */
 static int ecryptfs_d_revalidate(struct dentry *dentry, struct nameidata *nd)
 {
 	struct dentry *lower_dentry;
@@ -80,12 +67,6 @@ out:
 
 struct kmem_cache *ecryptfs_dentry_info_cache;
 
-/**
- * ecryptfs_d_release
- * @dentry: The ecryptfs dentry
- *
- * Called when a dentry is really deallocated.
- */
 static void ecryptfs_d_release(struct dentry *dentry)
 {
 	if (ecryptfs_dentry_to_private(dentry)) {

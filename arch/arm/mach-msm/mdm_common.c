@@ -214,6 +214,52 @@ static ssize_t modem_silent_reset_info_show(struct device *dev,
 static DEVICE_ATTR(msr_info, S_IRUSR | S_IROTH | S_IRGRP | S_IWUSR,
 	modem_silent_reset_info_show, modem_silent_reset_info_store);
 
+static struct kobject *subsystem_restart_reason_obj;
+
+static ssize_t mdm_subsystem_restart_reason_store(struct device *dev,
+		struct device_attribute *attr,	const char *buf, size_t count)
+{
+	return modem_silent_reset_info_store(dev, attr, buf, count);
+}
+
+static ssize_t mdm_subsystem_restart_reason_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return modem_silent_reset_info_show(dev, attr, buf);
+}
+
+static DEVICE_ATTR(subsystem_restart_reason_nonblock, S_IRUSR | S_IROTH | S_IRGRP | S_IWUSR,
+        mdm_subsystem_restart_reason_show, mdm_subsystem_restart_reason_store);
+
+static int mdm_subsystem_restart_properties_init(void)
+{
+	int ret = 0;
+	subsystem_restart_reason_obj = kobject_create_and_add("subsystem_restart_properties", NULL);
+	if (subsystem_restart_reason_obj == NULL) {
+		pr_info("kobject_create_and_add: subsystem_restart_properties failed\n");
+                return -EFAULT;
+	}
+
+	ret = sysfs_create_file(subsystem_restart_reason_obj,
+             &dev_attr_subsystem_restart_reason_nonblock.attr);
+        if (ret) {
+                pr_info("sysfs_create_file: subsystem_restart_reason_nonblock failed\n");
+                return -EFAULT;
+        }
+	return 0;
+}
+
+static int mdm_subsystem_restart_properties_release(void)
+{
+	
+	if(subsystem_restart_reason_obj != NULL) {
+		sysfs_remove_file(subsystem_restart_reason_obj,
+			&dev_attr_subsystem_restart_reason_nonblock.attr);
+		kobject_put(subsystem_restart_reason_obj);
+	}
+	return 0;
+}
+
 static int modem_silent_reset_info_sysfs_attrs(struct platform_device *pdev)
 {
 	int i = 0;
@@ -244,8 +290,13 @@ static void mdm_restart_reason_fn(struct work_struct *work)
 
 	do {
 		msleep(SFR_RETRY_INTERVAL);
+#if defined(CONFIG_BUILD_EDIAG)
+                pr_info("SYSMON is supposed to be used as char dev with specific purpose.\n");
+                ret = -EINVAL;
+#else
 		ret = sysmon_get_reason(SYSMON_SS_EXT_MODEM,
 					sfr_buf, sizeof(sfr_buf));
+#endif
 		if (ret) {
 			pr_err("%s: Error retrieving mdm restart reason, ret = %d, "
 					"%d/%d tries\n", __func__, ret,
@@ -511,8 +562,33 @@ static int notify_mdm_nv_write_done(void)
 	return 0;
 }
 
+extern void set_mdm2ap_errfatal_restart_flag(unsigned);
+static void mdm_crash_dump_dbg_info(void)
+{
+	dump_mdm_related_gpio();
 
-extern void set_mdm2ap_errfatal_restart_flag(unsigned);		
+	
+	printk(KERN_INFO "=== Show qcks stack ===\n");
+	show_thread_group_state_filter("qcks", 0);
+	printk(KERN_INFO "\n");
+
+	printk(KERN_INFO "=== Show efsks stack ===\n");
+	show_thread_group_state_filter("efsks", 0);
+	printk(KERN_INFO "\n");
+
+	printk(KERN_INFO "=== Show ks stack ===\n");
+	show_thread_group_state_filter("ks", 0);
+	printk(KERN_INFO "\n");
+
+	pr_info("### Show Blocked State in ###\n");
+	show_state_filter(TASK_UNINTERRUPTIBLE);
+	if (get_restart_level() == RESET_SOC)
+		msm_rtb_disable();
+
+	if (get_restart_level() == RESET_SOC)
+		set_mdm2ap_errfatal_restart_flag(1);
+}
+
 static void mdm_fatal_fn(struct work_struct *work)
 {
 	
@@ -532,16 +608,7 @@ static void mdm_fatal_fn(struct work_struct *work)
 		return;
 	}
 
-	dump_mdm_related_gpio();
-
-	
-	pr_info("### Show Blocked State in ###\n");
-	show_state_filter(TASK_UNINTERRUPTIBLE);
-	if (get_restart_level() == RESET_SOC)
-		msm_rtb_disable();
-
-	if (get_restart_level() == RESET_SOC)
-		set_mdm2ap_errfatal_restart_flag(1);
+	mdm_crash_dump_dbg_info();
 	
 
 	pr_info("%s: Reseting the mdm due to an errfatal\n", __func__);
@@ -591,16 +658,7 @@ static void mdm_status_fn(struct work_struct *work)
 		pr_info("%s: unexpected reset external modem\n", __func__);
 
 		
-		dump_mdm_related_gpio();
-
-		
-		pr_info("### Show Blocked State in ###\n");
-		show_state_filter(TASK_UNINTERRUPTIBLE);
-		if (get_restart_level() == RESET_SOC)
-			msm_rtb_disable();
-
-		if (get_restart_level() == RESET_SOC)
-			set_mdm2ap_errfatal_restart_flag(1);
+		mdm_crash_dump_dbg_info();
 		
 
 		subsystem_restart(EXTERNAL_MODEM);
@@ -869,6 +927,7 @@ static void mdm_modem_initialize_data(struct platform_device  *pdev,
 
 #ifdef CONFIG_HTC_STORE_MODEM_RESET_INFO
 	modem_silent_reset_info_sysfs_attrs(pdev);
+	mdm_subsystem_restart_properties_init();
 #endif
 
 	
@@ -1144,6 +1203,10 @@ int mdm_common_modem_remove(struct platform_device *pdev)
 	kfree(mdm_drv);
 
 	ret = misc_deregister(&mdm_modem_misc);
+
+#ifdef CONFIG_HTC_STORE_MODEM_RESET_INFO
+	mdm_subsystem_restart_properties_release();
+#endif
 	return ret;
 }
 

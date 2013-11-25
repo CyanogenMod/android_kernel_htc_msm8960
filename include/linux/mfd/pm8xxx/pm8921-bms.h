@@ -69,6 +69,14 @@ struct pm8921_bms_battery_data {
 	int			level_ocv_update_stop_end; 
 };
 
+struct pm8921_bms_pj_data {
+	struct single_row_lut	*pj_vth_discharge_lut;
+	struct single_row_lut	*pj_dvi_discharge_lut;
+	struct single_row_lut	*pj_vth_charge_lut;
+	struct single_row_lut	*pj_dvi_charge_lut;
+	struct single_row_lut	*pj_temp_lut;
+};
+
 struct pm8xxx_bms_core_data {
 	unsigned int	batt_temp_channel;
 	unsigned int	vbat_channel;
@@ -95,6 +103,7 @@ struct pm8921_bms_platform_data {
 	int				enable_fcc_learning;
 	unsigned int			criteria_sw_est_ocv; 
 	unsigned int			rconn_mohm_sw_est_ocv;
+	void (*get_power_jacket_status) (int *full, int *status, int *exist);
 };
 
 extern int batt_stored_magic_num;
@@ -111,6 +120,8 @@ int pm8921_bms_get_vsense_avg(int *result);
 int pm8921_bms_get_battery_current(int *result);
 
 int pm8921_bms_get_percent_charge(void);
+
+int pm8921_calculate_pj_level(int Vjk, int is_charging, int batt_temp);
 
 int pm8921_bms_get_fcc(void);
 
@@ -143,6 +154,10 @@ static inline int pm8921_bms_get_battery_current(int *result)
 	return -ENXIO;
 }
 static inline int pm8921_bms_get_percent_charge(void)
+{
+	return -ENXIO;
+}
+static inline int pm8921_calculate_pj_level(int Vjk, int is_charging, int batt_temp)
 {
 	return -ENXIO;
 }

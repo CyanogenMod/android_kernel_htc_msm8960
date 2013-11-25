@@ -668,6 +668,12 @@ config POWER_KEY_CLR_RESET
 	help
 	  Say Y here if you want to support power key LED.
 
+config POWER_VOLUP_RESET
+	tristate "(power+volup) reset"
+	depends on POWER_KEY_LED && POWER_KEY_CLR_RESET
+	help
+	  Say Y here if you want to support power key LED.
+
 config PWRKEY_WAKESRC_LOG
 	tristate "Power key wake up source log"
 	default n

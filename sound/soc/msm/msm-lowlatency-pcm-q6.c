@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +31,8 @@
 #include "msm-pcm-q6.h"
 #include "msm-pcm-routing.h"
 
+#define Q6_EFFECT_DEBUG 0
+
 static struct audio_locks the_locks;
 
 struct snd_msm {
@@ -43,10 +45,10 @@ struct snd_msm_volume {
    unsigned volume;
 };
 
-#define PLAYBACK_NUM_PERIODS       4
-#define PLAYBACK_MAX_PERIOD_SIZE   1024
-#define PLAYBACK_MIN_PERIOD_SIZE   512
-#define CAPTURE_NUM_PERIODS        4
+#define PLAYBACK_NUM_PERIODS       2
+#define PLAYBACK_MAX_PERIOD_SIZE   2048
+#define PLAYBACK_MIN_PERIOD_SIZE   1024
+#define CAPTURE_NUM_PERIODS        2
 #define CAPTURE_MIN_PERIOD_SIZE        128
 #define CAPTURE_MAX_PERIOD_SIZE        1024
 
@@ -76,7 +78,7 @@ static struct snd_pcm_hardware msm_pcm_hardware_playback = {
                SNDRV_PCM_INFO_MMAP_VALID |
                SNDRV_PCM_INFO_INTERLEAVED |
                SNDRV_PCM_INFO_PAUSE | SNDRV_PCM_INFO_RESUME),
-   .formats =              SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
+   .formats =              SNDRV_PCM_FMTBIT_S16_LE,
    .rates =                SNDRV_PCM_RATE_8000_48000 | SNDRV_PCM_RATE_KNOT,
    .rate_min =             8000,
    .rate_max =             48000,
@@ -415,7 +417,7 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
                __func__, atomic_read(&prtd->out_count));
    ret = wait_event_timeout(the_locks.write_wait,
            (atomic_read(&prtd->out_count)), 5 * HZ);
-   if (ret < 0) {
+   if (!ret) {
        pr_err("%s: wait_event_timeout failed\n", __func__);
        goto fail;
    }
@@ -468,7 +470,7 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
    dir = IN;
    ret = wait_event_timeout(the_locks.eos_wait,
                prtd->cmd_ack, 5 * HZ);
-   if (ret < 0)
+   if (!ret)
        pr_err("%s: CMD_EOS failed\n", __func__);
    q6asm_cmd(prtd->audio_client, CMD_CLOSE);
    q6asm_audio_client_buf_free_contiguous(dir,
@@ -506,7 +508,7 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 
    ret = wait_event_timeout(the_locks.read_wait,
            (atomic_read(&prtd->in_count)), 5 * HZ);
-   if (ret < 0) {
+   if (!ret) {
        pr_debug("%s: wait_event_timeout failed\n", __func__);
        goto fail;
    }
@@ -652,57 +654,35 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
    struct snd_dma_buffer *dma_buf = &substream->dma_buffer;
    struct audio_buffer *buf;
    int dir, ret;
-   short bit_width = 16;
 
    if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
        dir = IN;
    else
        dir = OUT;
 
-	if (params_format(params) == SNDRV_PCM_FORMAT_S24_LE)
-		bit_width = 24;
+	ret = q6asm_audio_client_buf_alloc_contiguous(dir,
+		prtd->audio_client,
+		(params_buffer_bytes(params) / params_periods(params)),
+		params_periods(params));
 
-    
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK && params_format(params) == SNDRV_PCM_FORMAT_S24_LE) {
-		bit_width = 24;
-		ret = q6asm_open_write_v2(prtd->audio_client,
-				FORMAT_MULTI_CHANNEL_LINEAR_PCM, bit_width);
-		if (ret < 0) {
-			pr_err("%s: q6asm_open_write_v2 failed\n", __func__);
-			q6asm_audio_client_free(prtd->audio_client);
-			kfree(prtd);
-			return -ENOMEM;
-		}
-
-		pr_debug("%s: session ID %d\n", __func__,
-			prtd->audio_client->session);
-		prtd->session_id = prtd->audio_client->session;
-		prtd->cmd_ack = 1;
+	if (ret < 0) {
+		pr_err("Audio Start: Buffer Allocation failed rc = %d\n", ret);
+		return -ENOMEM;
 	}
+	buf = prtd->audio_client->port[dir].buf;
 
-   ret = q6asm_audio_client_buf_alloc_contiguous(dir,
-       prtd->audio_client,
-       (params_buffer_bytes(params) / params_periods(params)),
-       params_periods(params));
+	pr_debug("%s:buf = %p\n", __func__, buf);
+	dma_buf->dev.type = SNDRV_DMA_TYPE_DEV;
+	dma_buf->dev.dev = substream->pcm->card->dev;
+	dma_buf->private_data = NULL;
+	dma_buf->area = buf[0].data;
+	dma_buf->addr =  buf[0].phys;
+	dma_buf->bytes = params_buffer_bytes(params);
+	if (!dma_buf->area)
+		return -ENOMEM;
 
-   if (ret < 0) {
-       pr_err("Audio Start: Buffer Allocation failed rc = %d\n", ret);
-       return -ENOMEM;
-   }
-   buf = prtd->audio_client->port[dir].buf;
-
-   pr_debug("%s:buf = %p\n", __func__, buf);
-   dma_buf->dev.type = SNDRV_DMA_TYPE_DEV;
-   dma_buf->dev.dev = substream->pcm->card->dev;
-   dma_buf->private_data = NULL;
-   dma_buf->area = buf[0].data;
-   dma_buf->addr =  buf[0].phys;
-   dma_buf->bytes = params_buffer_bytes(params);
-   if (!dma_buf->area)
-       return -ENOMEM;
-
-   snd_pcm_set_runtime_buffer(substream, &substream->dma_buffer);
-   return 0;
+	snd_pcm_set_runtime_buffer(substream, &substream->dma_buffer);
+	return 0;
 }
 
 static struct snd_pcm_ops msm_pcm_ops = {

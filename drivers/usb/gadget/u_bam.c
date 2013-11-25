@@ -206,8 +206,6 @@ static void gbam_write_data_tohost(struct gbam_port *port)
 		} else {
 			req->no_interrupt = 1;
 		}
-		
-		req->zero = 1;
 
 		
 		req->zero = 1;

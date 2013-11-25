@@ -35,11 +35,6 @@
 #include <linux/slab.h>
 #include "ecryptfs_kernel.h"
 
-/**
- * request_key returned an error instead of a valid key address;
- * determine the type of error, make appropriate log entries, and
- * return an error code.
- */
 static int process_request_key_err(long err_code)
 {
 	int rc = 0;
@@ -83,15 +78,6 @@ static int process_find_global_auth_tok_for_sig_err(int err_code)
 	return rc;
 }
 
-/**
- * ecryptfs_parse_packet_length
- * @data: Pointer to memory containing length at offset
- * @size: This function writes the decoded size to this memory
- *        address; zero on error
- * @length_size: The number of bytes occupied by the encoded length
- *
- * Returns zero on success; non-zero on error
- */
 int ecryptfs_parse_packet_length(unsigned char *data, size_t *size,
 				 size_t *length_size)
 {
@@ -100,16 +86,16 @@ int ecryptfs_parse_packet_length(unsigned char *data, size_t *size,
 	(*length_size) = 0;
 	(*size) = 0;
 	if (data[0] < 192) {
-		/* One-byte length */
+		
 		(*size) = (unsigned char)data[0];
 		(*length_size) = 1;
 	} else if (data[0] < 224) {
-		/* Two-byte length */
+		
 		(*size) = (((unsigned char)(data[0]) - 192) * 256);
 		(*size) += ((unsigned char)(data[1]) + 192);
 		(*length_size) = 2;
 	} else if (data[0] == 255) {
-		/* If support is added, adjust ECRYPTFS_MAX_PKT_LEN_SIZE */
+		
 		ecryptfs_printk(KERN_ERR, "Five-byte packet length not "
 				"supported\n");
 		rc = -EINVAL;
@@ -146,7 +132,7 @@ int ecryptfs_write_packet_length(char *dest, size_t size,
 		dest[1] = ((size - 192) % 256);
 		(*packet_size_length) = 2;
 	} else {
-		/* If support is added, adjust ECRYPTFS_MAX_PKT_LEN_SIZE */
+		
 		rc = -EINVAL;
 		ecryptfs_printk(KERN_WARNING,
 				"Unsupported packet size: [%zd]\n", size);
@@ -164,14 +150,6 @@ write_tag_64_packet(char *signature, struct ecryptfs_session_key *session_key,
 	char *message;
 	int rc;
 
-	/*
-	 *              ***** TAG 64 Packet Format *****
-	 *    | Content Type                       | 1 byte       |
-	 *    | Key Identifier Size                | 1 or 2 bytes |
-	 *    | Key Identifier                     | arbitrary    |
-	 *    | Encrypted File Encryption Key Size | 1 or 2 bytes |
-	 *    | Encrypted File Encryption Key      | arbitrary    |
-	 */
 	data_len = (5 + ECRYPTFS_SIG_SIZE_HEX
 		    + session_key->encrypted_key_size);
 	*packet = kmalloc(data_len, GFP_KERNEL);
@@ -222,13 +200,6 @@ parse_tag_65_packet(struct ecryptfs_session_key *session_key, u8 *cipher_code,
 	u16 expected_checksum = 0;
 	int rc;
 
-	/*
-	 *              ***** TAG 65 Packet Format *****
-	 *         | Content Type             | 1 byte       |
-	 *         | Status Indicator         | 1 byte       |
-	 *         | File Encryption Key Size | 1 or 2 bytes |
-	 *         | File Encryption Key      | arbitrary    |
-	 */
 	message_len = msg->data_len;
 	data = msg->data;
 	if (message_len < 4) {
@@ -267,7 +238,7 @@ parse_tag_65_packet(struct ecryptfs_session_key *session_key, u8 *cipher_code,
 		goto out;
 	}
 	*cipher_code = data[i++];
-	/* The decrypted key includes 1 byte cipher code and 2 byte checksum */
+	
 	session_key->decrypted_key_size = m_size - 3;
 	if (session_key->decrypted_key_size > ECRYPTFS_MAX_KEY_BYTES) {
 		ecryptfs_printk(KERN_ERR, "key_size [%d] larger than "
@@ -308,14 +279,6 @@ write_tag_66_packet(char *signature, u8 cipher_code,
 	char *message;
 	int rc;
 
-	/*
-	 *              ***** TAG 66 Packet Format *****
-	 *         | Content Type             | 1 byte       |
-	 *         | Key Identifier Size      | 1 or 2 bytes |
-	 *         | Key Identifier           | arbitrary    |
-	 *         | File Encryption Key Size | 1 or 2 bytes |
-	 *         | File Encryption Key      | arbitrary    |
-	 */
 	data_len = (5 + ECRYPTFS_SIG_SIZE_HEX + crypt_stat->key_size);
 	*packet = kmalloc(data_len, GFP_KERNEL);
 	message = *packet;
@@ -335,7 +298,7 @@ write_tag_66_packet(char *signature, u8 cipher_code,
 	i += packet_size_len;
 	memcpy(&message[i], signature, ECRYPTFS_SIG_SIZE_HEX);
 	i += ECRYPTFS_SIG_SIZE_HEX;
-	/* The encrypted key includes 1 byte cipher code and 2 byte checksum */
+	
 	rc = ecryptfs_write_packet_length(&message[i], crypt_stat->key_size + 3,
 					  &packet_size_len);
 	if (rc) {
@@ -366,16 +329,9 @@ parse_tag_67_packet(struct ecryptfs_key_record *key_rec,
 	size_t message_len;
 	int rc;
 
-	/*
-	 *              ***** TAG 65 Packet Format *****
-	 *    | Content Type                       | 1 byte       |
-	 *    | Status Indicator                   | 1 byte       |
-	 *    | Encrypted File Encryption Key Size | 1 or 2 bytes |
-	 *    | Encrypted File Encryption Key      | arbitrary    |
-	 */
 	message_len = msg->data_len;
 	data = msg->data;
-	/* verify that everything through the encrypted FEK size is present */
+	
 	if (message_len < 4) {
 		rc = -EIO;
 		printk(KERN_ERR "%s: message_len is [%zd]; minimum acceptable "
@@ -422,12 +378,6 @@ out:
 	return rc;
 }
 
-/**
- * ecryptfs_verify_version
- * @version: The version number to confirm
- *
- * Returns zero on good version; non-zero otherwise
- */
 static int ecryptfs_verify_version(u16 version)
 {
 	int rc = 0;
@@ -454,13 +404,6 @@ out:
 	return rc;
 }
 
-/**
- * ecryptfs_verify_auth_tok_from_key
- * @auth_tok_key: key containing the authentication token
- * @auth_tok: authentication token
- *
- * Returns zero on valid auth tok; -EINVAL otherwise
- */
 static int
 ecryptfs_verify_auth_tok_from_key(struct key *auth_tok_key,
 				  struct ecryptfs_auth_tok **auth_tok)
@@ -541,21 +484,6 @@ out:
 	return rc;
 }
 
-/**
- * ecryptfs_find_auth_tok_for_sig
- * @auth_tok: Set to the matching auth_tok; NULL if not found
- * @crypt_stat: inode crypt_stat crypto context
- * @sig: Sig of auth_tok to find
- *
- * For now, this function simply looks at the registered auth_tok's
- * linked off the mount_crypt_stat, so all the auth_toks that can be
- * used must be registered at mount time. This function could
- * potentially try a lot harder to find auth_tok's (e.g., by calling
- * out to ecryptfsd to dynamically retrieve an auth_tok object) so
- * that static registration of auth_tok's will no longer be necessary.
- *
- * Returns zero on no error; non-zero on error
- */
 static int
 ecryptfs_find_auth_tok_for_sig(
 	struct key **auth_tok_key,
@@ -568,11 +496,6 @@ ecryptfs_find_auth_tok_for_sig(
 	rc = ecryptfs_find_global_auth_tok_for_sig(auth_tok_key, auth_tok,
 						   mount_crypt_stat, sig);
 	if (rc == -ENOENT) {
-		/* if the flag ECRYPTFS_GLOBAL_MOUNT_AUTH_TOK_ONLY is set in the
-		 * mount_crypt_stat structure, we prevent to use auth toks that
-		 * are not inserted through the ecryptfs_add_global_auth_tok
-		 * function.
-		 */
 		if (mount_crypt_stat->flags
 				& ECRYPTFS_GLOBAL_MOUNT_AUTH_TOK_ONLY)
 			return -EINVAL;
@@ -583,11 +506,6 @@ ecryptfs_find_auth_tok_for_sig(
 	return rc;
 }
 
-/**
- * write_tag_70_packet can gobble a lot of stack space. We stuff most
- * of the function's parameters in a kmalloc'd struct to help reduce
- * eCryptfs' overall stack usage.
- */
 struct ecryptfs_write_tag_70_packet_silly_stack {
 	u8 cipher_code;
 	size_t max_packet_size;
@@ -610,16 +528,6 @@ struct ecryptfs_write_tag_70_packet_silly_stack {
 	struct scatterlist hash_sg;
 };
 
-/**
- * write_tag_70_packet - Write encrypted filename (EFN) packet against FNEK
- * @filename: NULL-terminated filename string
- *
- * This is the simplest mechanism for achieving filename encryption in
- * eCryptfs. It encrypts the given filename with the mount-wide
- * filename encryption key (FNEK) and stores it in a packet to @dest,
- * which the callee will encode and write directly into the dentry
- * name.
- */
 int
 ecryptfs_write_tag_70_packet(char *dest, size_t *remaining_bytes,
 			     size_t *packet_size,
@@ -660,8 +568,6 @@ ecryptfs_write_tag_70_packet(char *dest, size_t *remaining_bytes,
 	}
 	mutex_lock(s->tfm_mutex);
 	s->block_size = crypto_blkcipher_blocksize(s->desc.tfm);
-	/* Plus one for the \0 separator between the random prefix
-	 * and the plaintext filename */
 	s->num_rand_bytes = (ECRYPTFS_FILENAME_MIN_RANDOM_PREPEND_BYTES + 1);
 	s->block_aligned_filename_size = (s->num_rand_bytes + filename_size);
 	if ((s->block_aligned_filename_size % s->block_size) != 0) {
@@ -671,14 +577,6 @@ ecryptfs_write_tag_70_packet(char *dest, size_t *remaining_bytes,
 		s->block_aligned_filename_size = (s->num_rand_bytes
 						  + filename_size);
 	}
-	/* Octet 0: Tag 70 identifier
-	 * Octets 1-N1: Tag 70 packet size (includes cipher identifier
-	 *              and block-aligned encrypted filename size)
-	 * Octets N1-N2: FNEK sig (ECRYPTFS_SIG_SIZE)
-	 * Octet N2-N3: Cipher identifier (1 octet)
-	 * Octets N3-N4: Block-aligned encrypted filename
-	 *  - Consists of a minimum number of random characters, a \0
-	 *    separator, and then the filename */
 	s->max_packet_size = (ECRYPTFS_TAG_70_MAX_METADATA_SIZE
 			      + s->block_aligned_filename_size);
 	if (dest == NULL) {
@@ -705,7 +603,7 @@ ecryptfs_write_tag_70_packet(char *dest, size_t *remaining_bytes,
 	dest[s->i++] = ECRYPTFS_TAG_70_PACKET_TYPE;
 	rc = ecryptfs_write_packet_length(&dest[s->i],
 					  (ECRYPTFS_SIG_SIZE
-					   + 1 /* Cipher code */
+					   + 1 
 					   + s->block_aligned_filename_size),
 					  &s->packet_size_len);
 	if (rc) {
@@ -731,8 +629,6 @@ ecryptfs_write_tag_70_packet(char *dest, size_t *remaining_bytes,
 		goto out_free_unlock;
 	}
 	dest[s->i++] = s->cipher_code;
-	/* TODO: Support other key modules than passphrase for
-	 * filename encryption */
 	if (s->auth_tok->token_type != ECRYPTFS_PASSWORD) {
 		rc = -EOPNOTSUPP;
 		printk(KERN_INFO "%s: Filename encryption only supports "
@@ -831,10 +727,6 @@ ecryptfs_write_tag_70_packet(char *dest, size_t *remaining_bytes,
 		       __func__, rc, s->block_aligned_filename_size);
 		goto out_release_free_unlock;
 	}
-	/* The characters in the first block effectively do the job
-	 * of the IV here, so we just use 0's for the IV. Note the
-	 * constraint that ECRYPTFS_FILENAME_MIN_RANDOM_PREPEND_BYTES
-	 * >= ECRYPTFS_MAX_IV_BYTES. */
 	memset(s->iv, 0, ECRYPTFS_MAX_IV_BYTES);
 	s->desc.info = s->iv;
 	rc = crypto_blkcipher_setkey(
@@ -895,21 +787,6 @@ struct ecryptfs_parse_tag_70_packet_silly_stack {
 	char cipher_string[ECRYPTFS_MAX_CIPHER_NAME_SIZE];
 };
 
-/**
- * parse_tag_70_packet - Parse and process FNEK-encrypted passphrase packet
- * @filename: This function kmalloc's the memory for the filename
- * @filename_size: This function sets this to the amount of memory
- *                 kmalloc'd for the filename
- * @packet_size: This function sets this to the the number of octets
- *               in the packet parsed
- * @mount_crypt_stat: The mount-wide cryptographic context
- * @data: The memory location containing the start of the tag 70
- *        packet
- * @max_packet_size: The maximum legal size of the packet to be parsed
- *                   from @data
- *
- * Returns zero on success; non-zero otherwise
- */
 int
 ecryptfs_parse_tag_70_packet(char **filename, size_t *filename_size,
 			     size_t *packet_size,
@@ -938,14 +815,6 @@ ecryptfs_parse_tag_70_packet(char **filename, size_t *filename_size,
 		rc = -EINVAL;
 		goto out;
 	}
-	/* Octet 0: Tag 70 identifier
-	 * Octets 1-N1: Tag 70 packet size (includes cipher identifier
-	 *              and block-aligned encrypted filename size)
-	 * Octets N1-N2: FNEK sig (ECRYPTFS_SIG_SIZE)
-	 * Octet N2-N3: Cipher identifier (1 octet)
-	 * Octets N3-N4: Block-aligned encrypted filename
-	 *  - Consists of a minimum number of random numbers, a \0
-	 *    separator, and then the filename */
 	if (data[(*packet_size)++] != ECRYPTFS_TAG_70_PACKET_TYPE) {
 		printk(KERN_WARNING "%s: Invalid packet tag [0x%.2x]; must be "
 		       "tag [0x%.2x]\n", __func__,
@@ -1031,14 +900,8 @@ ecryptfs_parse_tag_70_packet(char **filename, size_t *filename_size,
 		       __func__, rc, s->block_aligned_filename_size);
 		goto out_free_unlock;
 	}
-	/* The characters in the first block effectively do the job of
-	 * the IV here, so we just use 0's for the IV. Note the
-	 * constraint that ECRYPTFS_FILENAME_MIN_RANDOM_PREPEND_BYTES
-	 * >= ECRYPTFS_MAX_IV_BYTES. */
 	memset(s->iv, 0, ECRYPTFS_MAX_IV_BYTES);
 	s->desc.info = s->iv;
-	/* TODO: Support other key modules than passphrase for
-	 * filename encryption */
 	if (s->auth_tok->token_type != ECRYPTFS_PASSWORD) {
 		rc = -EOPNOTSUPP;
 		printk(KERN_INFO "%s: Filename encryption only supports "
@@ -1134,13 +997,6 @@ ecryptfs_get_auth_tok_sig(char **sig, struct ecryptfs_auth_tok *auth_tok)
 	return rc;
 }
 
-/**
- * decrypt_pki_encrypted_session_key - Decrypt the session key with the given auth_tok.
- * @auth_tok: The key authentication token used to decrypt the session key
- * @crypt_stat: The cryptographic context
- *
- * Returns zero on success; non-zero error otherwise.
- */
 static int
 decrypt_pki_encrypted_session_key(struct ecryptfs_auth_tok *auth_tok,
 				  struct ecryptfs_crypt_stat *crypt_stat)
@@ -1150,7 +1006,7 @@ decrypt_pki_encrypted_session_key(struct ecryptfs_auth_tok *auth_tok,
 	struct ecryptfs_message *msg = NULL;
 	char *auth_tok_sig;
 	char *payload;
-	size_t payload_len;
+	size_t payload_len = 0;
 	int rc;
 
 	rc = ecryptfs_get_auth_tok_sig(&auth_tok_sig, auth_tok);
@@ -1222,23 +1078,6 @@ static void wipe_auth_tok_list(struct list_head *auth_tok_list_head)
 
 struct kmem_cache *ecryptfs_auth_tok_list_item_cache;
 
-/**
- * parse_tag_1_packet
- * @crypt_stat: The cryptographic context to modify based on packet contents
- * @data: The raw bytes of the packet.
- * @auth_tok_list: eCryptfs parses packets into authentication tokens;
- *                 a new authentication token will be placed at the
- *                 end of this list for this packet.
- * @new_auth_tok: Pointer to a pointer to memory that this function
- *                allocates; sets the memory address of the pointer to
- *                NULL on error. This object is added to the
- *                auth_tok_list.
- * @packet_size: This function writes the size of the parsed packet
- *               into this memory location; zero on error.
- * @max_packet_size: The maximum allowable packet size
- *
- * Returns zero on success; non-zero on error.
- */
 static int
 parse_tag_1_packet(struct ecryptfs_crypt_stat *crypt_stat,
 		   unsigned char *data, struct list_head *auth_tok_list,
@@ -1252,19 +1091,6 @@ parse_tag_1_packet(struct ecryptfs_crypt_stat *crypt_stat,
 
 	(*packet_size) = 0;
 	(*new_auth_tok) = NULL;
-	/**
-	 * This format is inspired by OpenPGP; see RFC 2440
-	 * packet tag 1
-	 *
-	 * Tag 1 identifier (1 byte)
-	 * Max Tag 1 packet size (max 3 bytes)
-	 * Version (1 byte)
-	 * Key identifier (8 bytes; ECRYPTFS_SIG_SIZE)
-	 * Cipher identifier (1 byte)
-	 * Encrypted key size (arbitrary)
-	 *
-	 * 12 bytes minimum packet size
-	 */
 	if (unlikely(max_packet_size < 12)) {
 		printk(KERN_ERR "Invalid max packet size; must be >=12\n");
 		rc = -EINVAL;
@@ -1276,8 +1102,6 @@ parse_tag_1_packet(struct ecryptfs_crypt_stat *crypt_stat,
 		rc = -EINVAL;
 		goto out;
 	}
-	/* Released: wipe_auth_tok_list called in ecryptfs_parse_packet_set or
-	 * at end of function upon failure */
 	auth_tok_list_item =
 		kmem_cache_zalloc(ecryptfs_auth_tok_list_item_cache,
 				  GFP_KERNEL);
@@ -1314,8 +1138,6 @@ parse_tag_1_packet(struct ecryptfs_crypt_stat *crypt_stat,
 	ecryptfs_to_hex((*new_auth_tok)->token.private_key.signature,
 			&data[(*packet_size)], ECRYPTFS_SIG_SIZE);
 	*packet_size += ECRYPTFS_SIG_SIZE;
-	/* This byte is skipped because the kernel does not need to
-	 * know which public key encryption algorithm was used */
 	(*packet_size)++;
 	(*new_auth_tok)->session_key.encrypted_key_size =
 		body_size - (ECRYPTFS_SIG_SIZE + 2);
@@ -1353,24 +1175,6 @@ out:
 	return rc;
 }
 
-/**
- * parse_tag_3_packet
- * @crypt_stat: The cryptographic context to modify based on packet
- *              contents.
- * @data: The raw bytes of the packet.
- * @auth_tok_list: eCryptfs parses packets into authentication tokens;
- *                 a new authentication token will be placed at the end
- *                 of this list for this packet.
- * @new_auth_tok: Pointer to a pointer to memory that this function
- *                allocates; sets the memory address of the pointer to
- *                NULL on error. This object is added to the
- *                auth_tok_list.
- * @packet_size: This function writes the size of the parsed packet
- *               into this memory location; zero on error.
- * @max_packet_size: maximum number of bytes to parse
- *
- * Returns zero on success; non-zero on error.
- */
 static int
 parse_tag_3_packet(struct ecryptfs_crypt_stat *crypt_stat,
 		   unsigned char *data, struct list_head *auth_tok_list,
@@ -1384,22 +1188,6 @@ parse_tag_3_packet(struct ecryptfs_crypt_stat *crypt_stat,
 
 	(*packet_size) = 0;
 	(*new_auth_tok) = NULL;
-	/**
-	 *This format is inspired by OpenPGP; see RFC 2440
-	 * packet tag 3
-	 *
-	 * Tag 3 identifier (1 byte)
-	 * Max Tag 3 packet size (max 3 bytes)
-	 * Version (1 byte)
-	 * Cipher code (1 byte)
-	 * S2K specifier (1 byte)
-	 * Hash identifier (1 byte)
-	 * Salt (ECRYPTFS_SALT_SIZE)
-	 * Hash iterations (1 byte)
-	 * Encrypted key (arbitrary)
-	 *
-	 * (ECRYPTFS_SALT_SIZE + 7) minimum packet size
-	 */
 	if (max_packet_size < (ECRYPTFS_SALT_SIZE + 7)) {
 		printk(KERN_ERR "Max packet size too large\n");
 		rc = -EINVAL;
@@ -1411,8 +1199,6 @@ parse_tag_3_packet(struct ecryptfs_crypt_stat *crypt_stat,
 		rc = -EINVAL;
 		goto out;
 	}
-	/* Released: wipe_auth_tok_list called in ecryptfs_parse_packet_set or
-	 * at end of function upon failure */
 	auth_tok_list_item =
 	    kmem_cache_zalloc(ecryptfs_auth_tok_list_item_cache, GFP_KERNEL);
 	if (!auth_tok_list_item) {
@@ -1458,8 +1244,6 @@ parse_tag_3_packet(struct ecryptfs_crypt_stat *crypt_stat,
 					    (u16)data[(*packet_size)]);
 	if (rc)
 		goto out_free;
-	/* A little extra work to differentiate among the AES key
-	 * sizes; see RFC2440 */
 	switch(data[(*packet_size)++]) {
 	case RFC2440_CIPHER_AES_192:
 		crypt_stat->key_size = 24;
@@ -1476,21 +1260,18 @@ parse_tag_3_packet(struct ecryptfs_crypt_stat *crypt_stat,
 		rc = -ENOSYS;
 		goto out_free;
 	}
-	/* TODO: finish the hash mapping */
+	
 	switch (data[(*packet_size)++]) {
-	case 0x01: /* See RFC2440 for these numbers and their mappings */
-		/* Choose MD5 */
+	case 0x01: 
+		
 		memcpy((*new_auth_tok)->token.password.salt,
 		       &data[(*packet_size)], ECRYPTFS_SALT_SIZE);
 		(*packet_size) += ECRYPTFS_SALT_SIZE;
-		/* This conversion was taken straight from RFC2440 */
+		
 		(*new_auth_tok)->token.password.hash_iterations =
 			((u32) 16 + (data[(*packet_size)] & 15))
 				<< ((data[(*packet_size)] >> 4) + 6);
 		(*packet_size)++;
-		/* Friendly reminder:
-		 * (*new_auth_tok)->session_key.encrypted_key_size =
-		 *         (body_size - (ECRYPTFS_SALT_SIZE + 5)); */
 		memcpy((*new_auth_tok)->session_key.encrypted_key,
 		       &data[(*packet_size)],
 		       (*new_auth_tok)->session_key.encrypted_key_size);
@@ -1500,7 +1281,7 @@ parse_tag_3_packet(struct ecryptfs_crypt_stat *crypt_stat,
 			~ECRYPTFS_CONTAINS_DECRYPTED_KEY;
 		(*new_auth_tok)->session_key.flags |=
 			ECRYPTFS_CONTAINS_ENCRYPTED_KEY;
-		(*new_auth_tok)->token.password.hash_algo = 0x01; /* MD5 */
+		(*new_auth_tok)->token.password.hash_algo = 0x01; 
 		break;
 	default:
 		ecryptfs_printk(KERN_ERR, "Unsupported hash algorithm: "
@@ -1509,8 +1290,6 @@ parse_tag_3_packet(struct ecryptfs_crypt_stat *crypt_stat,
 		goto out_free;
 	}
 	(*new_auth_tok)->token_type = ECRYPTFS_PASSWORD;
-	/* TODO: Parametarize; we might actually want userspace to
-	 * decrypt the session key. */
 	(*new_auth_tok)->session_key.flags &=
 			    ~(ECRYPTFS_USERSPACE_SHOULD_TRY_TO_DECRYPT);
 	(*new_auth_tok)->session_key.flags &=
@@ -1529,22 +1308,6 @@ out:
 	return rc;
 }
 
-/**
- * parse_tag_11_packet
- * @data: The raw bytes of the packet
- * @contents: This function writes the data contents of the literal
- *            packet into this memory location
- * @max_contents_bytes: The maximum number of bytes that this function
- *                      is allowed to write into contents
- * @tag_11_contents_size: This function writes the size of the parsed
- *                        contents into this memory location; zero on
- *                        error
- * @packet_size: This function writes the size of the parsed packet
- *               into this memory location; zero on error
- * @max_packet_size: maximum number of bytes to parse
- *
- * Returns zero on success; non-zero on error.
- */
 static int
 parse_tag_11_packet(unsigned char *data, unsigned char *contents,
 		    size_t max_contents_bytes, size_t *tag_11_contents_size,
@@ -1556,20 +1319,6 @@ parse_tag_11_packet(unsigned char *data, unsigned char *contents,
 
 	(*packet_size) = 0;
 	(*tag_11_contents_size) = 0;
-	/* This format is inspired by OpenPGP; see RFC 2440
-	 * packet tag 11
-	 *
-	 * Tag 11 identifier (1 byte)
-	 * Max Tag 11 packet size (max 3 bytes)
-	 * Binary format specifier (1 byte)
-	 * Filename length (1 byte)
-	 * Filename ("_CONSOLE") (8 bytes)
-	 * Modification date (4 bytes)
-	 * Literal data (arbitrary)
-	 *
-	 * We need at least 16 bytes of data for the packet to even be
-	 * valid.
-	 */
 	if (max_packet_size < 16) {
 		printk(KERN_ERR "Maximum packet size too small\n");
 		rc = -EINVAL;
@@ -1614,7 +1363,7 @@ parse_tag_11_packet(unsigned char *data, unsigned char *contents,
 		rc = -EINVAL;
 		goto out;
 	}
-	(*packet_size) += 12; /* Ignore filename and modification date */
+	(*packet_size) += 12; 
 	memcpy(contents, &data[(*packet_size)], (*tag_11_contents_size));
 	(*packet_size) += (*tag_11_contents_size);
 out:
@@ -1654,13 +1403,6 @@ out:
 	return rc;
 }
 
-/**
- * decrypt_passphrase_encrypted_session_key - Decrypt the session key with the given auth_tok.
- * @auth_tok: The passphrase authentication token to use to encrypt the FEK
- * @crypt_stat: The cryptographic context
- *
- * Returns zero on success; non-zero error otherwise
- */
 static int
 decrypt_passphrase_encrypted_session_key(struct ecryptfs_auth_tok *auth_tok,
 					 struct ecryptfs_crypt_stat *crypt_stat)
@@ -1742,19 +1484,6 @@ out:
 	return rc;
 }
 
-/**
- * ecryptfs_parse_packet_set
- * @crypt_stat: The cryptographic context
- * @src: Virtual address of region of memory containing the packets
- * @ecryptfs_dentry: The eCryptfs dentry associated with the packet set
- *
- * Get crypt_stat to have the file's session key if the requisite key
- * is available to decrypt the session key.
- *
- * Returns Zero if a valid authentication token was retrieved and
- * processed; negative value for file not encrypted or for error
- * conditions.
- */
 int ecryptfs_parse_packet_set(struct ecryptfs_crypt_stat *crypt_stat,
 			      unsigned char *src,
 			      struct dentry *ecryptfs_dentry)
@@ -1776,8 +1505,6 @@ int ecryptfs_parse_packet_set(struct ecryptfs_crypt_stat *crypt_stat,
 	int rc = 0;
 
 	INIT_LIST_HEAD(&auth_tok_list);
-	/* Parse the header to find as many packets as we can; these will be
-	 * added the our &auth_tok_list */
 	next_packet_is_auth_tok_packet = 1;
 	while (next_packet_is_auth_tok_packet) {
 		size_t max_packet_size = ((PAGE_CACHE_SIZE - 8) - i);
@@ -1861,12 +1588,6 @@ int ecryptfs_parse_packet_set(struct ecryptfs_crypt_stat *crypt_stat,
 		rc = -EINVAL;
 		goto out;
 	}
-	/* auth_tok_list contains the set of authentication tokens
-	 * parsed from the metadata. We need to find a matching
-	 * authentication token that has the secret component(s)
-	 * necessary to decrypt the EFEK in the auth_tok parsed from
-	 * the metadata. There may be several potential matches, but
-	 * just one will be sufficient to decrypt to get the FEK. */
 find_next_matching_auth_tok:
 	found_auth_tok = 0;
 	list_for_each_entry(auth_tok_list_item, &auth_tok_list, list) {
@@ -2007,20 +1728,6 @@ out:
 	kfree(payload);
 	return rc;
 }
-/**
- * write_tag_1_packet - Write an RFC2440-compatible tag 1 (public key) packet
- * @dest: Buffer into which to write the packet
- * @remaining_bytes: Maximum number of bytes that can be writtn
- * @auth_tok_key: The authentication token key to unlock and put when done with
- *                @auth_tok
- * @auth_tok: The authentication token used for generating the tag 1 packet
- * @crypt_stat: The cryptographic context
- * @key_rec: The key record struct for the tag 1 packet
- * @packet_size: This function will write the number of bytes that end
- *               up constituting the packet; set to zero on error
- *
- * Returns zero on success; non-zero on error.
- */
 static int
 write_tag_1_packet(char *dest, size_t *remaining_bytes,
 		   struct key *auth_tok_key, struct ecryptfs_auth_tok *auth_tok,
@@ -2063,14 +1770,12 @@ write_tag_1_packet(char *dest, size_t *remaining_bytes,
 		ecryptfs_dump_hex(key_rec->enc_key, key_rec->enc_key_size);
 	}
 encrypted_session_key_set:
-	/* This format is inspired by OpenPGP; see RFC 2440
-	 * packet tag 1 */
-	max_packet_size = (1                         /* Tag 1 identifier */
-			   + 3                       /* Max Tag 1 packet size */
-			   + 1                       /* Version */
-			   + ECRYPTFS_SIG_SIZE       /* Key identifier */
-			   + 1                       /* Cipher identifier */
-			   + key_rec->enc_key_size); /* Encrypted key size */
+	max_packet_size = (1                         
+			   + 3                       
+			   + 1                       
+			   + ECRYPTFS_SIG_SIZE       
+			   + 1                       
+			   + key_rec->enc_key_size); 
 	if (max_packet_size > (*remaining_bytes)) {
 		printk(KERN_ERR "Packet length larger than maximum allowable; "
 		       "need up to [%td] bytes, but there are only [%td] "
@@ -2088,7 +1793,7 @@ encrypted_session_key_set:
 		goto out;
 	}
 	(*packet_size) += packet_size_length;
-	dest[(*packet_size)++] = 0x03; /* version 3 */
+	dest[(*packet_size)++] = 0x03; 
 	memcpy(&dest[(*packet_size)], key_rec->sig, ECRYPTFS_SIG_SIZE);
 	(*packet_size) += ECRYPTFS_SIG_SIZE;
 	dest[(*packet_size)++] = RFC2440_CIPHER_RSA;
@@ -2122,15 +1827,13 @@ write_tag_11_packet(char *dest, size_t *remaining_bytes, char *contents,
 	int rc = 0;
 
 	(*packet_length) = 0;
-	/* This format is inspired by OpenPGP; see RFC 2440
-	 * packet tag 11 */
-	max_packet_size = (1                   /* Tag 11 identifier */
-			   + 3                 /* Max Tag 11 packet size */
-			   + 1                 /* Binary format specifier */
-			   + 1                 /* Filename length */
-			   + 8                 /* Filename ("_CONSOLE") */
-			   + 4                 /* Modification date */
-			   + contents_length); /* Literal data */
+	max_packet_size = (1                   
+			   + 3                 
+			   + 1                 
+			   + 1                 
+			   + 8                 
+			   + 4                 
+			   + contents_length); 
 	if (max_packet_size > (*remaining_bytes)) {
 		printk(KERN_ERR "Packet length larger than maximum allowable; "
 		       "need up to [%td] bytes, but there are only [%td] "
@@ -2148,7 +1851,7 @@ write_tag_11_packet(char *dest, size_t *remaining_bytes, char *contents,
 		goto out;
 	}
 	(*packet_length) += packet_size_length;
-	dest[(*packet_length)++] = 0x62; /* binary data format specifier */
+	dest[(*packet_length)++] = 0x62; 
 	dest[(*packet_length)++] = 8;
 	memcpy(&dest[(*packet_length)], "_CONSOLE", 8);
 	(*packet_length) += 8;
@@ -2312,17 +2015,15 @@ write_tag_3_packet(char *dest, size_t *remaining_bytes,
 				  key_rec->enc_key_size);
 	}
 encrypted_session_key_set:
-	/* This format is inspired by OpenPGP; see RFC 2440
-	 * packet tag 3 */
-	max_packet_size = (1                         /* Tag 3 identifier */
-			   + 3                       /* Max Tag 3 packet size */
-			   + 1                       /* Version */
-			   + 1                       /* Cipher code */
-			   + 1                       /* S2K specifier */
-			   + 1                       /* Hash identifier */
-			   + ECRYPTFS_SALT_SIZE      /* Salt */
-			   + 1                       /* Hash iterations */
-			   + key_rec->enc_key_size); /* Encrypted key size */
+	max_packet_size = (1                         
+			   + 3                       
+			   + 1                       
+			   + 1                       
+			   + 1                       
+			   + 1                       
+			   + ECRYPTFS_SALT_SIZE      
+			   + 1                       
+			   + key_rec->enc_key_size); 
 	if (max_packet_size > (*remaining_bytes)) {
 		printk(KERN_ERR "Packet too large; need up to [%td] bytes, but "
 		       "there are only [%td] available\n", max_packet_size,
@@ -2331,8 +2032,6 @@ encrypted_session_key_set:
 		goto out;
 	}
 	dest[(*packet_size)++] = ECRYPTFS_TAG_3_PACKET_TYPE;
-	/* Chop off the Tag 3 identifier(1) and Tag 3 packet size(3)
-	 * to get the number of octets in the actual Tag 3 packet */
 	rc = ecryptfs_write_packet_length(&dest[(*packet_size)],
 					  (max_packet_size - 4),
 					  &packet_size_length);
@@ -2342,9 +2041,7 @@ encrypted_session_key_set:
 		goto out;
 	}
 	(*packet_size) += packet_size_length;
-	dest[(*packet_size)++] = 0x04; /* version 4 */
-	/* TODO: Break from RFC2440 so that arbitrary ciphers can be
-	 * specified with strings */
+	dest[(*packet_size)++] = 0x04; 
 	cipher_code = ecryptfs_code_for_cipher_string(crypt_stat->cipher,
 						      crypt_stat->key_size);
 	if (cipher_code == 0) {
@@ -2354,12 +2051,12 @@ encrypted_session_key_set:
 		goto out;
 	}
 	dest[(*packet_size)++] = cipher_code;
-	dest[(*packet_size)++] = 0x03;	/* S2K */
-	dest[(*packet_size)++] = 0x01;	/* MD5 (TODO: parameterize) */
+	dest[(*packet_size)++] = 0x03;	
+	dest[(*packet_size)++] = 0x01;	
 	memcpy(&dest[(*packet_size)], auth_tok->token.password.salt,
 	       ECRYPTFS_SALT_SIZE);
-	(*packet_size) += ECRYPTFS_SALT_SIZE;	/* salt */
-	dest[(*packet_size)++] = 0x60;	/* hash iterations (65536) */
+	(*packet_size) += ECRYPTFS_SALT_SIZE;	
+	dest[(*packet_size)++] = 0x60;	
 	memcpy(&dest[(*packet_size)], key_rec->enc_key,
 	       key_rec->enc_key_size);
 	(*packet_size) += key_rec->enc_key_size;
@@ -2437,7 +2134,7 @@ ecryptfs_generate_key_packet_set(char *dest_base,
 				goto out_free;
 			}
 			(*len) += written;
-			/* Write auth tok signature packet */
+			
 			rc = write_tag_11_packet((dest_base + (*len)), &max,
 						 key_rec->sig,
 						 ECRYPTFS_SIG_SIZE, &written);
@@ -2495,7 +2192,7 @@ int ecryptfs_add_keysig(struct ecryptfs_crypt_stat *crypt_stat, char *sig)
 	}
 	memcpy(new_key_sig->keysig, sig, ECRYPTFS_SIG_SIZE_HEX);
 	new_key_sig->keysig[ECRYPTFS_SIG_SIZE_HEX] = '\0';
-	/* Caller must hold keysig_list_mutex */
+	
 	list_add(&new_key_sig->crypt_stat_list, &crypt_stat->keysig_list);
 
 	return 0;

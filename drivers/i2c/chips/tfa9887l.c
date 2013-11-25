@@ -281,11 +281,15 @@ void set_tfa9887l_spkamp(int en, int dsp_mode)
 			tfa9887_i2c_write(mute_reg, 1);
 			tfa9887_i2c_read(mute_data + 1, 2);
 			mute_data[0] = 0x6;
-			mute_data[2] &= 0xef;  
+			mute_data[2] &= 0xdf;  
 			power_data[0] = 0x9;
 			power_data[2] &= 0xfe; 
+			
 			tfa9887_i2c_write(power_data, 3);
+			
 			tfa9887_i2c_write(mute_data, 3);
+			power_data[2] |= 0x8;  
+			tfa9887_i2c_write(power_data, 3);
 		}
 	} else if (!en && last_spkampl_state) {
 		last_spkampl_state = 0;
@@ -299,10 +303,17 @@ void set_tfa9887l_spkamp(int en, int dsp_mode)
 			tfa9887_i2c_write(mute_reg, 1);
 			tfa9887_i2c_read(mute_data + 1, 2);
 			mute_data[0] = 0x6;
-			mute_data[2] |= 0x10; 
-			power_data[0] = 0x9;
-			power_data[2] |= 0x1;  
+			mute_data[2] |= 0x20; 
+			
 			tfa9887_i2c_write(mute_data, 3);
+			tfa9887_i2c_write(power_reg, 1);
+			tfa9887_i2c_read(power_data + 1, 2);
+			power_data[0] = 0x9;
+			power_data[2] &= 0xf7;  
+			tfa9887_i2c_write(power_data, 3);
+			
+			
+			power_data[2] |= 0x1;  
 			tfa9887_i2c_write(power_data, 3);
 		}
 	}
@@ -371,7 +382,7 @@ static long tfa9887l_ioctl(struct file *file, unsigned int cmd,
 
 		len = reg_value[0];
 		
-		pr_info("TPA9887_KLOCK2 %d\n", reg_value[1]);
+		pr_debug("TPA9887_KLOCK2 %d\n", reg_value[1]);
 		if (reg_value[1])
 		   mutex_lock(&spk_ampl_lock);
 		else

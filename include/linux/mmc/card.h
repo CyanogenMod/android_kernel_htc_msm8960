@@ -262,6 +262,8 @@ struct mmc_card {
 #define MMC_STATE_NEED_BKOPS	(1<<10)		
 #define MMC_STATE_DOING_BKOPS	(1<<11)		
 #define MMC_STATE_CHECK_BKOPS	(1<<12)		
+#define MMC_STATE_NEED_SANITIZE		(1<<13)		
+#define MMC_STATE_DOING_SANITIZE	(1<<14)		
 	unsigned int		quirks; 	
 #define MMC_QUIRK_LENIENT_FN0	(1<<0)		
 #define MMC_QUIRK_BLKSZ_FOR_BYTE_MODE (1<<1)	
@@ -322,6 +324,8 @@ struct mmc_card {
 	s8			speed_class; 
 
 	struct mmc_wr_pack_stats wr_pack_stats; 
+	int			bkops_check_status;
+	int			need_sanitize;
 };
 
 static inline void mmc_part_add(struct mmc_card *card, unsigned int size,
@@ -414,6 +418,10 @@ static inline void __maybe_unused remove_quirk(struct mmc_card *card, int data)
 	card->quirks &= ~data;
 }
 
+#define SAMSUNG_MMC 0x15
+#define SANDISK_MMC 0x45
+#define HYNIX_MMC 0x90
+
 #define mmc_card_mmc(c)		((c)->type == MMC_TYPE_MMC)
 #define mmc_card_sd(c)		((c)->type == MMC_TYPE_SD)
 #define mmc_card_sdio(c)	((c)->type == MMC_TYPE_SDIO)
@@ -432,6 +440,8 @@ static inline void __maybe_unused remove_quirk(struct mmc_card *card, int data)
 #define mmc_card_need_bkops(c)	((c)->state & MMC_STATE_NEED_BKOPS)
 #define mmc_card_doing_bkops(c)	((c)->state & MMC_STATE_DOING_BKOPS)
 #define mmc_card_check_bkops(c) ((c)->state & MMC_STATE_CHECK_BKOPS)
+#define mmc_card_need_sanitize(c)	((c)->state & MMC_STATE_NEED_SANITIZE)
+#define mmc_card_doing_sanitize(c)	((c)->state & MMC_STATE_DOING_SANITIZE)
 
 #define mmc_card_set_present(c)	((c)->state |= MMC_STATE_PRESENT)
 #define mmc_card_set_readonly(c) ((c)->state |= MMC_STATE_READONLY)
@@ -447,10 +457,14 @@ static inline void __maybe_unused remove_quirk(struct mmc_card *card, int data)
 #define mmc_card_set_need_bkops(c)	((c)->state |= MMC_STATE_NEED_BKOPS)
 #define mmc_card_set_doing_bkops(c)	((c)->state |= MMC_STATE_DOING_BKOPS)
 #define mmc_card_set_check_bkops(c) ((c)->state |= MMC_STATE_CHECK_BKOPS)
+#define mmc_card_set_need_sanitize(c)	((c)->state |= MMC_STATE_NEED_SANITIZE)
+#define mmc_card_set_doing_sanitize(c)	((c)->state |= MMC_STATE_DOING_SANITIZE)
 
 #define mmc_card_clr_need_bkops(c)	((c)->state &= ~MMC_STATE_NEED_BKOPS)
 #define mmc_card_clr_doing_bkops(c)	((c)->state &= ~MMC_STATE_DOING_BKOPS)
 #define mmc_card_clr_check_bkops(c) ((c)->state &= ~MMC_STATE_CHECK_BKOPS)
+#define mmc_card_clr_need_sanitize(c)	((c)->state &= ~MMC_STATE_NEED_SANITIZE)
+#define mmc_card_clr_doing_sanitize(c)	((c)->state &= ~MMC_STATE_DOING_SANITIZE)
 #define mmc_card_clr_sleep(c)	((c)->state &= ~MMC_STATE_SLEEP)
 
 static inline void __maybe_unused add_quirk_mmc(struct mmc_card *card, int data)

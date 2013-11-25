@@ -87,6 +87,11 @@ static struct usb_serial *get_free_serial(struct usb_serial *serial,
 	*minor = 0;
 	mutex_lock(&table_lock);
 	for (i = 0; i < SERIAL_TTY_MINORS; ++i) {
+#ifdef CONFIG_BUILD_EDIAG
+		if ((serial->dev->actconfig->desc.bNumInterfaces == 9) && serial->interface->cur_altsetting->desc.bInterfaceNumber == 1)
+			if (i <= 2)
+				i = 2;
+#endif
 		if (serial_table[i])
 			continue;
 

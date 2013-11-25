@@ -125,6 +125,11 @@ extern int mmc_wait_for_app_cmd(struct mmc_host *, struct mmc_card *,
 extern int mmc_switch(struct mmc_card *, u8, u8, u8, unsigned int);
 extern int mmc_send_ext_csd(struct mmc_card *card, u8 *ext_csd);
 extern void mmc_start_bkops(struct mmc_card *card);
+extern int mmc_card_start_sanitize(struct mmc_card *host);
+extern int mmc_card_start_bkops(struct mmc_card *host);
+#define MMC_WORK_BKOPS		1
+#define MMC_WORK_SANITIZE	2
+extern int mmc_card_stop_work(struct mmc_card *host, int work, int *complete);
 #define MMC_ERASE_ARG		0x00000000
 #define MMC_TRIM_ARG		0x00000001
 #define MMC_DISCARD_ARG		0x00000003

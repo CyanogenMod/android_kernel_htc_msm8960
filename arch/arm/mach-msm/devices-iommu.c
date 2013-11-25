@@ -365,7 +365,7 @@ static struct msm_iommu_dev vcodec_b_iommu = {
 static struct msm_iommu_dev gfx3d_iommu = {
 	.name = "gfx3d",
 	.ncb = 3,
-#ifdef CONFIG_MSM_KGSL_JB_MR1
+#ifndef CONFIG_MSM_KGSL_MAINLINE
 	.ttbr_split = 1,
 #else
 	.ttbr_split = 0,
@@ -375,7 +375,7 @@ static struct msm_iommu_dev gfx3d_iommu = {
 static struct msm_iommu_dev gfx3d1_iommu = {
 	.name = "gfx3d1",
 	.ncb = 3,
-#ifdef CONFIG_MSM_KGSL_JB_MR1
+#ifndef CONFIG_MSM_KGSL_MAINLINE
 	.ttbr_split = 1,
 #else
 	.ttbr_split = 0,
@@ -385,7 +385,7 @@ static struct msm_iommu_dev gfx3d1_iommu = {
 static struct msm_iommu_dev gfx2d0_iommu = {
 	.name = "gfx2d0",
 	.ncb = 2,
-#ifdef CONFIG_MSM_KGSL_JB_MR1
+#ifndef CONFIG_MSM_KGSL_MAINLINE
 	.ttbr_split = 1,
 #else
 	.ttbr_split = 0,
@@ -395,7 +395,7 @@ static struct msm_iommu_dev gfx2d0_iommu = {
 static struct msm_iommu_dev gfx2d1_iommu = {
 	.name = "gfx2d1",
 	.ncb = 2,
-#ifdef CONFIG_MSM_KGSL_JB_MR1
+#ifndef CONFIG_MSM_KGSL_MAINLINE
 	.ttbr_split = 1,
 #else
 	.ttbr_split = 0,

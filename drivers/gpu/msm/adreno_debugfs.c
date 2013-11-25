@@ -60,28 +60,6 @@ void adreno_debugfs_init(struct kgsl_device *device)
 		&adreno_dev->wait_timeout);
 	debugfs_create_u32("ib_check", 0644, device->d_debugfs,
 			   &adreno_dev->ib_check_level);
-	
-	adreno_dev->fast_hang_detect = 1;
-	debugfs_create_u32("fast_hang_detect", 0644, device->d_debugfs,
-			   &adreno_dev->fast_hang_detect);
-
-	
-	adreno_dev->ft_user_control = 0;
-	debugfs_create_u32("ft_user_control", 0644, device->d_debugfs,
-			   &adreno_dev->ft_user_control);
-	adreno_dev->ft_policy = KGSL_FT_DEFAULT_POLICY;
-	debugfs_create_u32("ft_policy", 0644, device->d_debugfs,
-			   &adreno_dev->ft_policy);
-
-	
-	adreno_dev->long_ib_detect = 1;
-	debugfs_create_u32("long_ib_detect", 0644, device->d_debugfs,
-			   &adreno_dev->long_ib_detect);
-
-	adreno_dev->ft_pf_policy = KGSL_FT_PAGEFAULT_DEFAULT_POLICY;
-	debugfs_create_u32("ft_pagefault_policy", 0644, device->d_debugfs,
-			   &adreno_dev->ft_pf_policy);
-
 	debugfs_create_u32("active_cnt", 0444, device->d_debugfs,
 			   &device->active_cnt);
 }

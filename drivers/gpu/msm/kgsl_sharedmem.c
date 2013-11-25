@@ -620,8 +620,10 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 	}
 
 
-	pages = kmalloc(memdesc->sglen_alloc * sizeof(struct page *),
-		GFP_KERNEL);
+	if ((memdesc->sglen_alloc * sizeof(struct page *)) > PAGE_SIZE)
+		pages = vmalloc(memdesc->sglen_alloc * sizeof(struct page *));
+	else
+		pages = kmalloc(PAGE_SIZE, GFP_KERNEL);
 
 	if (pages == NULL) {
 		ret = -ENOMEM;
@@ -695,16 +697,19 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 	outer_cache_range_op_sg(memdesc->sg, memdesc->sglen,
 				KGSL_CACHE_OP_FLUSH);
 
+	KGSL_STATS_ADD(size, kgsl_driver.stats.page_alloc,
+		kgsl_driver.stats.page_alloc_max);
+
 	order = get_order(size);
 
 	if (order < 16)
 		kgsl_driver.stats.histogram[order]++;
 
 done:
-	kfree(pages);
-
-	KGSL_STATS_ADD(size, kgsl_driver.stats.page_alloc,
-		kgsl_driver.stats.page_alloc_max);
+	if ((memdesc->sglen_alloc * sizeof(struct page *)) > PAGE_SIZE)
+		vfree(pages);
+	else
+		kfree(pages);
 
 	if (ret)
 		kgsl_sharedmem_free(memdesc);
@@ -726,7 +731,6 @@ kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 		ret = kgsl_page_alloc_map_kernel(memdesc);
 	if (ret)
 		kgsl_sharedmem_free(memdesc);
-
 	return ret;
 }
 EXPORT_SYMBOL(kgsl_sharedmem_page_alloc);

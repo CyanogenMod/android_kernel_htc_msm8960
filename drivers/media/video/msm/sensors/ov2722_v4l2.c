@@ -41,9 +41,9 @@ static struct msm_camera_i2c_reg_conf ov2722_snap_settings[] = {
     defined(CONFIG_MACH_DELUXE_J) ||\
     defined(CONFIG_MACH_DELUXE_R) ||\
     defined(CONFIG_MACH_IMPRESSION_J) ||\
-    defined(CONFIG_MACH_DUMMY) ||\
-    defined(CONFIG_MACH_DUMMY) ||\
-    defined(CONFIG_MACH_DUMMY)
+    defined(CONFIG_MACH_DELUXE_U) ||\
+    defined(CONFIG_MACH_DELUXE_UL) ||\
+    defined(CONFIG_MACH_DELUXE_UB1)
 
 static struct msm_camera_i2c_reg_conf ov2722_recommend_settings[] = {
 
@@ -948,7 +948,7 @@ int32_t ov2722_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	}
 
 	if (!sdata->use_rawchip && (sdata->htc_image != HTC_CAMERA_IMAGE_YUSHANII_BOARD)) {
-		rc = msm_camio_clk_enable(CAMIO_CAM_MCLK_CLK);
+		rc = msm_camio_clk_enable(sdata,CAMIO_CAM_MCLK_CLK);
 		if (rc < 0) {
 			return rc;
 		}
@@ -984,7 +984,7 @@ int32_t ov2722_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 	}
 
 	if (!sdata->use_rawchip && (sdata->htc_image != HTC_CAMERA_IMAGE_YUSHANII_BOARD)) {
-		msm_camio_clk_disable(CAMIO_CAM_MCLK_CLK);
+		msm_camio_clk_disable(sdata,CAMIO_CAM_MCLK_CLK);
 	}
 	rc = sdata->camera_power_off();
 	if (rc < 0) {

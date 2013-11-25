@@ -31,6 +31,16 @@ struct msm_pmem_setting{
 	resource_size_t pmem_camera_size;
 	resource_size_t ram_console_start;
 	resource_size_t ram_console_size;
+#ifdef CONFIG_BUILD_EDIAG
+	resource_size_t pmem_ediag_start;
+	resource_size_t pmem_ediag_size;
+	resource_size_t pmem_ediag1_start;
+	resource_size_t pmem_ediag1_size;
+	resource_size_t pmem_ediag2_start;
+	resource_size_t pmem_ediag2_size;
+	resource_size_t pmem_ediag3_start;
+	resource_size_t pmem_ediag3_size;
+#endif	
 };
 
 enum {
@@ -178,6 +188,7 @@ unsigned long get_kernel_flag(void);
 unsigned long get_debug_flag(void);
 unsigned int get_radio_flag(void);
 unsigned int get_tamper_sf(void);
+unsigned int get_atsdebug(void);
 int get_ls_setting(void);
 int get_wifi_setting(void);
 int state_helper_register_notifier(void (*func)(void), const char *name);

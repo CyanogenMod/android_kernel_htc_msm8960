@@ -284,6 +284,30 @@ static ssize_t htc_battery_set_full_level(struct device *dev,
 	return count;
 }
 
+static ssize_t htc_battery_set_full_level_dis_batt_chg(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	int rc = 0;
+	unsigned long percent = 100;
+
+	rc = strict_strtoul(buf, 10, &percent);
+	if (rc)
+		return rc;
+
+	if (percent > 100 || percent == 0)
+		return -EINVAL;
+
+	if (!battery_core_info.func.func_set_full_level_dis_batt_chg) {
+		BATT_ERR("No set full level (disable battery charging only) function!");
+		return -ENOENT;
+	}
+
+	battery_core_info.func.func_set_full_level_dis_batt_chg(percent);
+
+	return count;
+}
+
 int htc_battery_charger_disable()
 {
 	int rc = 0;
@@ -529,6 +553,10 @@ static struct device_attribute htc_battery_attrs[] = {
 	HTC_BATTERY_ATTR(full_bat),
 	HTC_BATTERY_ATTR(over_vchg),
 	HTC_BATTERY_ATTR(batt_state),
+	HTC_BATTERY_ATTR(batt_overload),
+	HTC_BATTERY_ATTR(pj_exist),
+	HTC_BATTERY_ATTR(pj_status),
+	HTC_BATTERY_ATTR(pj_level),
 
 	__ATTR(batt_attr_text, S_IRUGO, htc_battery_show_batt_attr, NULL),
 	__ATTR(batt_power_meter, S_IRUGO, htc_battery_show_cc_attr, NULL),
@@ -539,6 +567,8 @@ static struct device_attribute htc_set_delta_attrs[] = {
 	__ATTR(delta, S_IWUSR | S_IWGRP, NULL, htc_battery_set_delta),
 	__ATTR(full_level, S_IWUSR | S_IWGRP, NULL,
 		htc_battery_set_full_level),
+	__ATTR(full_level_dis_batt_chg, S_IWUSR | S_IWGRP, NULL,
+		htc_battery_set_full_level_dis_batt_chg),
 	__ATTR(batt_debug_flag, S_IWUSR | S_IWGRP, NULL,
 		htc_battery_debug_flag),
 	__ATTR(charger_control, S_IWUSR | S_IWGRP, htc_battery_charger_stat,
@@ -561,6 +591,8 @@ static struct device_attribute htc_battery_rt_attrs[] = {
 	__ATTR(batt_vol_now, S_IRUGO, htc_battery_rt_attr_show, NULL),
 	__ATTR(batt_current_now, S_IRUGO, htc_battery_rt_attr_show, NULL),
 	__ATTR(batt_temp_now, S_IRUGO, htc_battery_rt_attr_show, NULL),
+	__ATTR(pj_exist_now, S_IRUGO, htc_battery_rt_attr_show, NULL),
+	__ATTR(pj_vol_now, S_IRUGO, htc_battery_rt_attr_show, NULL),
 };
 
 
@@ -747,6 +779,29 @@ static ssize_t htc_battery_show_property(struct device *dev,
 		i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",
 				battery_core_info.rep.overload);
 		break;
+	case PJ_EXIST:
+		i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",
+				battery_core_info.rep.pj_src);
+		break;
+	case PJ_STATUS:
+		
+		if (battery_core_info.rep.pj_full == 3)	{
+			if ((battery_core_info.rep.pj_level - battery_core_info.rep.pj_level_pre) >= 19)
+				BATT_LOG("level diff over 19, level:%d, pre_level:%d\n",
+					battery_core_info.rep.pj_level, battery_core_info.rep.pj_level_pre);
+			else
+				i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n", HTC_UI_PJ_FULL);
+		} else { 
+			if (battery_core_info.rep.pj_chg_status == 2 || battery_core_info.rep.charging_enabled)
+				i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n", HTC_UI_PJ_CHG);
+			else
+				i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n", HTC_UI_PJ_NOT_CHG);
+		}
+		break;
+	case PJ_LEVEL:
+		i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",
+				battery_core_info.rep.pj_level);
+		break;
 	default:
 		i = -EINVAL;
 	}
@@ -900,7 +955,10 @@ int htc_battery_core_update_changed(void)
 		((battery_core_info.rep.level != new_batt_info_rep.level) ||
 		(battery_core_info.rep.batt_vol != new_batt_info_rep.batt_vol) ||
 		(battery_core_info.rep.over_vchg != new_batt_info_rep.over_vchg) ||
-		(battery_core_info.rep.batt_temp != new_batt_info_rep.batt_temp))) {
+		(battery_core_info.rep.batt_temp != new_batt_info_rep.batt_temp) ||
+		(battery_core_info.rep.pj_full!= new_batt_info_rep.pj_full) ||
+		(battery_core_info.rep.pj_src!= new_batt_info_rep.pj_src) ||
+		(battery_core_info.rep.pj_chg_status!= new_batt_info_rep.pj_chg_status))) {
 		is_send_batt_uevent = 1;
 	}
 
@@ -994,8 +1052,8 @@ int htc_battery_core_update_changed(void)
 	mutex_unlock(&battery_core_info.info_lock);
 
 	BATT_LOG("ID=%d,level=%d,level_raw=%d,vol=%d,temp=%d,current=%d,"
-		"chg_src=%d,chg_en=%d,full_bat=%d,over_vchg=%d,"
-		"batt_state=%d,overload=%d,ui_chg_full=%d",
+		"chg_src=%d,chg_en=%d,pj_src=%d,pj_level=%d,full_bat=%d,"
+		"over_vchg=%d,batt_state=%d,overload=%d,ui_chg_full=%d",
 			battery_core_info.rep.batt_id,
 			battery_core_info.rep.level,
 			battery_core_info.rep.level_raw,
@@ -1004,6 +1062,8 @@ int htc_battery_core_update_changed(void)
 			battery_core_info.rep.batt_current,
 			battery_core_info.rep.charging_source,
 			battery_core_info.rep.charging_enabled,
+			battery_core_info.rep.pj_src,
+			battery_core_info.rep.pj_level,
 			battery_core_info.rep.full_bat,
 			battery_core_info.rep.over_vchg,
 			battery_core_info.rep.batt_state,
@@ -1076,6 +1136,9 @@ int htc_battery_core_register(struct device *dev,
 	if (htc_battery->func_set_full_level)
 		battery_core_info.func.func_set_full_level =
 					htc_battery->func_set_full_level;
+	if (htc_battery->func_set_full_level_dis_batt_chg)
+		battery_core_info.func.func_set_full_level_dis_batt_chg =
+					htc_battery->func_set_full_level_dis_batt_chg;
 	if (htc_battery->func_notify_pnpmgr_charging_enabled)
 		battery_core_info.func.func_notify_pnpmgr_charging_enabled =
 					htc_battery->func_notify_pnpmgr_charging_enabled;
@@ -1113,6 +1176,7 @@ int htc_battery_core_register(struct device *dev,
 	battery_core_info.rep.level_raw = 0;
 	battery_core_info.rep.full_bat = 1580000;
 	battery_core_info.rep.full_level = 100;
+	battery_core_info.rep.full_level_dis_batt_chg = 100;
 	
 	battery_core_info.rep.temp_fault = -1;
 	

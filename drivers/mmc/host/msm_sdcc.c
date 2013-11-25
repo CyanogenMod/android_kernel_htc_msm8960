@@ -64,6 +64,8 @@
 #include "msm_sdcc.h"
 #include "msm_sdcc_dml.h"
 #include <mach/msm_rtb_disable.h> 
+
+#include <linux/fs.h>
 #include <mach/board.h>
 
 #define DRIVER_NAME "msm-sdcc"
@@ -96,17 +98,11 @@ tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec); \
 #endif
 #define MAX_CONTINUOUS_TUNING_COUNT 10
 
-static int ac_charging = 0;
-static void msmsdcc_cable_notifier_func(int type);
-static struct t_usb_status_notifier usb_status_notifier = {
-	.name = "msmsdcc_ac_detect",
-	.func = msmsdcc_cable_notifier_func,
-};
-
 #if defined(CONFIG_DEBUG_FS)
 static void msmsdcc_dbg_createhost(struct msmsdcc_host *);
 static struct dentry *debugfs_dir;
 static struct dentry *debugfs_file;
+static struct dentry *debugfs_prealloc;
 static int  msmsdcc_dbg_init(void);
 #endif
 
@@ -149,6 +145,7 @@ static const u32 tuning_block_128[] = {
 	0xFFFFBBBB, 0xFFFF77FF, 0xFF7777FF, 0xEEDDBB77
 };
 
+unsigned int prealloc_size = 0;
 const int SD_detect_debounce_time = 50;
 #if SD_DEBOUNCE_DEBUG
 static ktime_t last_irq;
@@ -181,11 +178,6 @@ msmsdcc_print_status(struct msmsdcc_host *host, char *hdr, uint32_t status)
 	pr_debug("\n");
 }
 #endif
-
-static void msmsdcc_cable_notifier_func(int type)
-{
-	ac_charging = (type == CONNECT_TYPE_AC) ? 1: 0;
-}
 
 static char *mmc_type_str(unsigned int slot_type)
 {
@@ -864,7 +856,7 @@ static void msmsdcc_sps_complete_tlet(unsigned long data)
 		sps_pipe_handle = host->sps.cons.pipe_handle;
 	mrq = host->curr.mrq;
 
-	if (!mrq) {
+	if (!mrq || !mrq->data) {
 		spin_unlock_irqrestore(&host->lock, flags);
 		return;
 	}
@@ -5346,6 +5338,71 @@ static int msmsdcc_proc_speed_class(char *page, char **start, off_t off,
 	return sprintf(page, "%d", host->card->speed_class);
 }
 
+#define HTC_SECURE_MESSAGE_LEN	    128
+static int msmsdcc_proc_cam_control_read(char *page, char **start, off_t off,
+		int count, int *eof, void *data)
+{
+	mm_segment_t oldfs;
+	struct file *filp = NULL;
+	char mbuffer[HTC_SECURE_MESSAGE_LEN];
+	ssize_t nread;
+	char filename[32] = "";
+	int pnum = get_partition_num_by_name("control");
+
+	if (pnum < 0) {
+		pr_info("unknown partition number for misc partition\n");
+		return count;
+	}
+
+	sprintf(filename, "/dev/block/mmcblk0p%d", pnum);
+	filp = filp_open(filename, O_RDWR, 0);
+	if (IS_ERR(filp)) {
+		pr_info("unable to open file: %s\n", filename);
+		return PTR_ERR(filp);
+	}
+
+	filp->f_pos = 8;
+	oldfs = get_fs();
+	set_fs(get_ds());
+	nread = vfs_read(filp, mbuffer, HTC_SECURE_MESSAGE_LEN, &filp->f_pos);
+	set_fs(get_ds());
+
+	return sprintf(page, "%s", mbuffer);
+}
+
+static int msmsdcc_proc_cam_control_set(struct file *file, const char __user *buffer,
+		unsigned long count, void *dat)
+{
+	mm_segment_t oldfs;
+	char filename[32] = "";
+	int pnum = get_partition_num_by_name("control");
+	struct file *filp = NULL;
+	ssize_t nread;
+
+	if (pnum < 0) {
+		pr_info("unknown partition number for misc partition\n");
+		return count;
+	}
+
+	sprintf(filename, "/dev/block/mmcblk0p%d", pnum);
+
+	filp = filp_open(filename, O_RDWR, 0);
+	if (IS_ERR(filp)) {
+		pr_info("unable to open file: %s\n", filename);
+		return PTR_ERR(filp);
+	}
+
+	filp->f_pos = 8;
+	oldfs = get_fs();
+	set_fs(get_ds());
+	nread = vfs_write(filp, buffer, count, &filp->f_pos);
+	set_fs(oldfs);
+
+	if (filp)
+		filp_close(filp, NULL);
+	return count;
+}
+
 static int msmsdcc_proc_bkops_show(char *page, char **start, off_t off,
 		int count, int *eof, void *data)
 {
@@ -5359,18 +5416,27 @@ static int msmsdcc_proc_bkops_set(struct file *file, const char __user *buffer,
 		unsigned long count, void *data)
 {
 	int value;
-	struct mmc_host *host = (struct mmc_host*) data;
-	if (!host)
+	struct mmc_host *mmc = (struct mmc_host*) data;
+	unsigned long flags;
+	struct msmsdcc_host *host;
+	if (!mmc || !mmc->card)
 		return count;
+	host = mmc_priv(mmc);
 
 	sscanf(buffer, "%d", &value);
-	host->bkops_trigger = value;
+	spin_lock_irqsave(&mmc->lock, flags);
+	host->work_remain = value;
+	mmc->bkops_trigger = value;
 	pr_info("%s: %d\n", __func__, value);
+	if (mmc->card->need_sanitize)
+		mmc_card_set_need_sanitize(mmc->card);
+	mmc_card_set_need_bkops(mmc->card);
+	spin_unlock_irqrestore(&mmc->lock, flags);
 
 	return count;
 }
 
-static void mmc_bkops_alarm_timer_handler(struct alarm *alarm)
+static void msmsdcc_alarm_timer_handler(struct alarm *alarm)
 {
 	printk(KERN_ERR "[eMMC] %s()\n", __func__);
 
@@ -5686,9 +5752,9 @@ msmsdcc_probe(struct platform_device *pdev)
 	if (plat->bkops_support) {
 		mmc->caps2 |= MMC_CAP2_INIT_BKOPS | MMC_CAP2_BKOPS;
 		
-		alarm_init(&mmc->bkops_timer.bkops_alarm_timer,
-		ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP,
-		mmc_bkops_alarm_timer_handler);
+		alarm_init(&host->work_alarm_timer,
+			ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP,
+			msmsdcc_alarm_timer_handler);
 	}
 	if (plat->cache_support)
 		mmc->caps2 |= MMC_CAP2_CACHE_CTRL;
@@ -5706,6 +5772,9 @@ msmsdcc_probe(struct platform_device *pdev)
 	}
 
 	
+
+	if (plat->prealloc_size)
+		prealloc_size = plat->prealloc_size;
 
 	mmc->max_segs = msmsdcc_get_nr_sg(host);
 	mmc->max_blk_size = MMC_MAX_BLK_SIZE;
@@ -5913,6 +5982,16 @@ msmsdcc_probe(struct platform_device *pdev)
 		} else
 			pr_warning("%s: Failed to create emmc_bkops entry\n",
 				mmc_hostname(host->mmc));
+
+		host->cam_control = create_proc_entry("write_to_control", 0666, NULL);
+		if (host->cam_control) {
+			host->cam_control->read_proc = msmsdcc_proc_cam_control_read;
+			host->cam_control->write_proc = msmsdcc_proc_cam_control_set;
+			
+			host->cam_control->data = (void *) host->mmc;
+		} else
+			pr_warning("%s: Failed to create emmc_bkops entry\n",
+					mmc_hostname(host->mmc));
 	}
 	if(is_sd_platform(host->plat)) {
 		host->speed_class = create_proc_entry("sd_speed_class", 0444, NULL);
@@ -6000,6 +6079,8 @@ exit:
 	return ret;
 }
 
+extern atomic_t emmc_reboot;
+
 static void msmsdcc_shutdown(struct platform_device *pdev)
 {
 	struct mmc_host *mmc = mmc_get_drvdata(pdev);
@@ -6008,7 +6089,7 @@ static void msmsdcc_shutdown(struct platform_device *pdev)
 	if (!mmc)
 		return;
 	host = mmc_priv(mmc);
-	if (host && is_mmc_platform(host->plat) && mmc->card && mmc->card->cid.manfid == 0x90 && mmc->card->ext_csd.sectors == 15155200) {
+	if (host && is_mmc_platform(host->plat) && mmc->card && mmc->card->cid.manfid == HYNIX_MMC && mmc->card->ext_csd.sectors == 15155200) {
 		pr_info("%s: %s\n", mmc_hostname(mmc), __func__);
 		mmc_claim_host(mmc->card->host);
 		err = mmc_switch(mmc->card, EXT_CSD_CMD_SET_NORMAL,
@@ -6017,6 +6098,13 @@ static void msmsdcc_shutdown(struct platform_device *pdev)
 			pr_err("%s: switch cmd err %d\n", mmc_hostname(mmc), err);
 		mmc_release_host(mmc->card->host);
 		pr_info("%s: %s return\n", mmc_hostname(mmc), __func__);
+	}
+
+	if (host && is_mmc_platform(host->plat)) {
+		pr_info("%s: %s enter\n", mmc_hostname(mmc), __func__);
+		printk(KERN_INFO "%s: Lock eMMC\n", __func__);
+		atomic_set(&emmc_reboot, 1);
+		pr_info("%s: %s leave\n", mmc_hostname(mmc), __func__);
 	}
 }
 
@@ -6668,104 +6756,96 @@ static int msmsdcc_runtime_idle(struct device *dev)
 	return -EAGAIN;
 }
 
-#define EMMC_BKOPS_PRERUN_TIMER	180000
 static int msmsdcc_pm_prepare_suspend(struct device *dev)
 {
 	int err = 0;
-	long alarm_sec;
 	ktime_t interval;
 	ktime_t next_alarm;
 	struct timespec xtime;
 	struct mmc_host *mmc = dev_get_drvdata(dev);
 	struct msmsdcc_host *host = mmc_priv(mmc);
+	int complete = 0;
 
-	pr_info("%s: %s enter\n", mmc_hostname(host->mmc), __func__);
+	pr_info("%s: %s enter\n", mmc_hostname(mmc), __func__);
 #ifdef CONFIG_WIMAX
 	if (is_wimax_platform(host->plat) && mmc_wimax_get_status()) {
-		pr_info("[WIMAX] [MMC] %s: %s enter , return!\n", mmc_hostname(host->mmc), __func__);
+		pr_info("[WIMAX] [MMC] %s: %s enter , return!\n", mmc_hostname(mmc), __func__);
 		return err;
 	}
 #endif
 
-	if (!is_mmc_platform(host->plat) || !mmc->card || !mmc->card->ext_csd.bkops_en) {
-		if (is_mmc_platform(host->plat) && mmc->card) {
-			pr_info("%s: %s leave (bkops_en %d)\n", mmc_hostname(host->mmc), __func__, mmc->card->ext_csd.bkops_en);
-			if (mmc->bkops_trigger)
-				mmc->bkops_trigger = 0;
-		}
-		pr_info("%s: %s leave\n", mmc_hostname(host->mmc), __func__);
-		return err;
-	}
 	
-	if (!is_mmc_platform(host->plat))
+	if (!is_mmc_platform(host->plat) || !mmc->card || !mmc->card->ext_csd.bkops_en)
 		return 0;
-	mmc_claim_host(mmc);
 
-	pr_debug("%s: bkops_trigger %d need_bkops %d\n",
-		mmc_hostname(host->mmc), mmc->bkops_trigger, mmc->bkops_timer.need_bkops);
-	if (mmc->bkops_check_status && ac_charging)
-		mmc->long_bkops = 1;
-	else {
-		mmc->long_bkops = 0;
-		if (mmc->bkops_timer.need_bkops > 240000)
-			mmc->bkops_timer.need_bkops = 0;
+	if (!mmc_card_need_bkops(mmc->card) && !mmc_card_need_sanitize(mmc->card))
+		return 0;
+
+#ifdef CONFIG_MMC_BLOCK_DEFERRED_RESUME
+	if (mmc_bus_needs_resume(mmc)) {
+		mmc_claim_host(mmc);
+		mmc_resume_bus(mmc);
+		mmc_release_host(mmc);
 	}
-	mmc->bkops_alarm_set = 0;
-	if (mmc->bkops_trigger || mmc->bkops_timer.need_bkops) {
-		if (!mmc->bkops_timer.need_bkops) {
-			mmc->bkops_timer.need_bkops = mmc->long_bkops? 3600000 : mmc->bkops_trigger;
-			mmc->bkops_timer.bkops_start = 0;
-			mmc->bkops_trigger = 0;
+#endif
+
+	if (mmc_card_need_sanitize(mmc->card) && !mmc_card_doing_sanitize(mmc->card)) {
+		if (mmc_card_doing_bkops(mmc->card)) {
+			pr_info("%s: stop ongoing bkops\n", mmc_hostname(mmc));
+			mmc_card_stop_work(mmc->card, MMC_WORK_BKOPS, &complete);
 		}
-		if (mmc->bkops_timer.need_bkops >= 1000) {
-			if (!mmc_card_doing_bkops(mmc->card)) {
-				err = mmc_card_start_bkops(mmc);
-				if (!err)
-					mmc->bkops_started = 1;
-				else
-					mmc->bkops_started = 0;
-			} else {
-				mmc->bkops_started = 1;
-				pr_info("%s: bkops already start\n", mmc_hostname(host->mmc));
-			}
-		} else {
-			mmc->bkops_started = 0;
-			mmc->bkops_timer.need_bkops = 0;
+		if (!host->work_remain)
+			host->work_remain = MMC_WORK_TIME_SANITIZE;
+		else if (host->work_remain <= 3000) {
+			
+			host->work_remain = 0;
+			mmc_card_clr_need_sanitize(mmc->card);
+			return 0;
 		}
+		err = mmc_card_start_sanitize(mmc->card);
+	} else if (mmc_card_need_bkops(mmc->card) && !mmc_card_doing_bkops(mmc->card)) {
+		if (!host->work_remain)
+			host->work_remain = MMC_WORK_TIME_BKOPS;
+		else if (host->work_remain <= 3000) {
+			
+			host->work_remain = 0;
+			mmc_card_clr_need_bkops(mmc->card);
+			return 0;
+		}
+		err = mmc_card_start_bkops(mmc->card);
 	}
 
-	if (mmc->bkops_started) {
-		mmc->bkops_trigger = 0;
-		if (mmc->long_bkops)
-			alarm_sec = 30;
-		else
-			alarm_sec = ((u32)mmc->bkops_timer.need_bkops + 999) / 1000;
-		pr_info("%s: bkops remain %d, ac_charging %d, alarm_sec %li\n", mmc_hostname(host->mmc),
-				mmc->bkops_timer.need_bkops, ac_charging, alarm_sec);
-		interval = ktime_set(alarm_sec, 0);
-		next_alarm = ktime_add(alarm_get_elapsed_realtime(), interval);
+	if (err)
+		goto out;
 
-		alarm_start_range(&mmc->bkops_timer.bkops_alarm_timer,
+	pr_info("%s: work remaining time %u\n", mmc_hostname(mmc),
+			host->work_remain);
+	interval = ktime_set(host->work_remain / 1000,
+		(host->work_remain % 1000) * 1000000);
+	next_alarm = ktime_add(alarm_get_elapsed_realtime(), interval);
+
+	alarm_start_range(&host->work_alarm_timer,
 			next_alarm, ktime_add(next_alarm, ktime_set(0, 0)));
-		mmc->bkops_alarm_set = 1;
 
-		xtime = CURRENT_TIME;
-		mmc->bkops_timer.bkops_start = xtime.tv_sec * MSEC_PER_SEC +
-					xtime.tv_nsec / NSEC_PER_MSEC;
-	}
-	mmc_release_host(mmc);
-	pr_info("%s: %s leave err = %d\n", mmc_hostname(host->mmc), __func__, err);
+	xtime = CURRENT_TIME;
+	host->work_start_time =
+		xtime.tv_sec * MSEC_PER_SEC + xtime.tv_nsec / NSEC_PER_MSEC;
+out:
+	pr_info("%s: %s leave err = %d\n", mmc_hostname(mmc), __func__, err);
 	return err;
 }
 
 static void msmsdcc_pm_complete(struct device *dev)
 {
-	int err = 0;
-	unsigned long flags;
 	struct mmc_host *mmc = dev_get_drvdata(dev);
 	struct msmsdcc_host *host = mmc_priv(mmc);
+	u64 time_end;
+	u64 time_diff;
+	struct timespec xtime;
+	int complete = 0;
+	unsigned long flags;
 
-	pr_info("%s: %s enter\n", mmc_hostname(host->mmc), __func__);
+	pr_info("%s: %s enter\n", mmc_hostname(mmc), __func__);
 #ifdef CONFIG_WIMAX
 #ifndef WIMAX_RESUME_IRQ_IN_SYSTEM_RESUME
 		if (is_wimax_platform(host->plat) && mmc_wimax_get_status())
@@ -6773,49 +6853,54 @@ static void msmsdcc_pm_complete(struct device *dev)
 				wimax_enable_irq(host->mmc);
 #endif
 	if (is_wimax_platform(host->plat) && mmc_wimax_get_status()) {
-		pr_info("[WIMAX] [MMC] %s: %s enter, return!!\n", mmc_hostname(host->mmc), __func__);
+		pr_info("[WIMAX] [MMC] %s: %s enter, return!!\n", mmc_hostname(mmc), __func__);
 		return ;
 	}
 #endif
 	
-	if (!is_mmc_platform(host->plat))
+	if (!mmc->card || !is_mmc_platform(host->plat))
 		return;
 
-	if (is_mmc_platform(host->plat)) {
-		if (mmc->bkops_alarm_set) {
-			alarm_cancel(&mmc->bkops_timer.bkops_alarm_timer);
+	if (!mmc_card_doing_bkops(mmc->card) && !mmc_card_doing_sanitize(mmc->card))
+		return;
+
+	alarm_cancel(&host->work_alarm_timer);
+	xtime = CURRENT_TIME;
+	time_end = xtime.tv_sec * MSEC_PER_SEC + xtime.tv_nsec / NSEC_PER_MSEC;
+	if (time_end > host->work_start_time) {
+		time_diff = time_end - host->work_start_time;
+		
+		if (host->work_remain > time_diff + 3000)
+			host->work_remain -= time_diff;
+		else
+			host->work_remain = 0;
+		pr_info("%s: work remaining time %u, time_diff %llu\n",
+				mmc_hostname(mmc), host->work_remain,
+				time_diff);
+	}
+	if (mmc_card_doing_sanitize(mmc->card)) {
+		mmc_card_stop_work(mmc->card, MMC_WORK_SANITIZE, &complete);
+		
+		if (complete || !host->work_remain) {
 			spin_lock_irqsave(&mmc->lock, flags);
-			mmc->bkops_alarm_set = 0;
+			if (mmc_card_need_bkops(mmc->card))
+				host->work_remain = MMC_WORK_TIME_SHORT_BKOPS;
+			else
+				host->work_remain = 0;
+			mmc_card_clr_need_sanitize(mmc->card);
 			spin_unlock_irqrestore(&mmc->lock, flags);
 		}
-		if (mmc->bkops_started) {
-			msmsdcc_ungate_clock(host);
-			err = mmc_bkops_resume_task(mmc);
-			if (!err) {
-				spin_lock_irqsave(&mmc->lock, flags);
-				mmc->bkops_started = 0;
-				if (mmc_card_doing_bkops(mmc->card))
-					mmc_card_clr_doing_bkops(mmc->card);
-				spin_unlock_irqrestore(&mmc->lock, flags);
-				#if 0
-				if (mmc_bus_needs_resume(mmc)) {
-					spin_lock_irqsave(&mmc->lock, flags);
-					mmc->bus_resume_flags &= ~MMC_BUSRESUME_NEEDS_RESUME;
-					spin_unlock_irqrestore(&mmc->lock, flags);
-					err = msmsdcc_suspend(dev);
-					
-					if (err)
-						pr_info("%s: %s suspend_host fail\n", mmc_hostname(host->mmc), __func__);
-					else
-						pr_info("%s: %s suspend_host success\n", mmc_hostname(host->mmc), __func__);
-				}
-				#endif
-			} else
-				pr_info("%s: %s mmc_bkops_resume_task fail\n", mmc_hostname(host->mmc), __func__);
-
+	} else if (mmc_card_doing_bkops(mmc->card)) {
+		mmc_card_stop_work(mmc->card, MMC_WORK_BKOPS, &complete);
+		
+		if (complete || !host->work_remain) {
+			spin_lock_irqsave(&mmc->lock, flags);
+			host->work_remain = 0;
+			mmc_card_clr_need_bkops(mmc->card);
+			spin_unlock_irqrestore(&mmc->lock, flags);
 		}
 	}
-	pr_info("%s: %s leave\n", mmc_hostname(host->mmc), __func__);
+	pr_info("%s: %s leave\n", mmc_hostname(mmc), __func__);
 	return;
 }
 
@@ -6962,7 +7047,6 @@ static int __init msmsdcc_init(void)
 		return ret;
 	}
 #endif
-	htc_usb_register_notifier(&usb_status_notifier);
 	return platform_driver_register(&msmsdcc_driver);
 }
 
@@ -6971,6 +7055,7 @@ static void __exit msmsdcc_exit(void)
 	platform_driver_unregister(&msmsdcc_driver);
 
 #if defined(CONFIG_DEBUG_FS)
+	debugfs_remove(debugfs_prealloc);
 	debugfs_remove(debugfs_file);
 	debugfs_remove(debugfs_dir);
 #endif
@@ -7039,6 +7124,38 @@ static void msmsdcc_dbg_createhost(struct msmsdcc_host *host)
 	}
 }
 
+static int
+msmsdcc_prealloc_open(struct inode *inode, struct file *file)
+{
+	file->private_data = inode->i_private;
+	return 0;
+}
+
+static ssize_t msmsdcc_prealloc_write(struct file *file, const char __user *ubuf,
+		       size_t count, loff_t *ppos)
+{
+	sscanf(ubuf, "%u", &prealloc_size);
+	if (prealloc_size > 10 * 1024 * 1024)
+		prealloc_size = 10 * 1024 * 1024; 
+	return count;
+}
+
+static ssize_t msmsdcc_prealloc_read(struct file *filp, char __user *ubuf,
+				size_t count, loff_t *ppos)
+{
+	char buf[200];
+	int i;
+
+	i = sprintf(buf, "%u", prealloc_size);
+	return simple_read_from_buffer(ubuf, count, ppos, buf, i);
+}
+
+static const struct file_operations msmsdcc_prealloc_ops = {
+	.open	= msmsdcc_prealloc_open,
+	.write	= msmsdcc_prealloc_write,
+	.read	= msmsdcc_prealloc_read,
+};
+
 static int __init msmsdcc_dbg_init(void)
 {
 	int err;
@@ -7049,6 +7166,9 @@ static int __init msmsdcc_dbg_init(void)
 		debugfs_dir = NULL;
 		return err;
 	}
+	debugfs_prealloc = debugfs_create_file("file_prealloc_size",
+			0644, 0, 0,
+			&msmsdcc_prealloc_ops);
 
 	return 0;
 }

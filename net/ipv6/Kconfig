@@ -250,9 +250,4 @@ config IPV6_PIMSM_V2
 	  Support for IPv6 PIM multicast routing protocol PIM-SMv2.
 	  If unsure, say N.
 
-config HTC_NETWORK_MODIFY
-    tristate "HTC_NETWORK_MODIFY"
-	---help---
-	HTC_NETWORK_MODIFY
-
 endif # IPV6

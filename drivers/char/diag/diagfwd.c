@@ -1267,8 +1267,6 @@ int diagfwd_disconnect(void)
 	usb_diag_free_req(driver->legacy_ch);
 	if (driver->logging_mode == USB_MODE) {
 		driver->qxdmusb_drop = 1;
-		driver->in_busy_1 = 1;
-		driver->in_busy_2 = 1;
 		driver->in_busy_lpass_1 = 1;
 		driver->in_busy_lpass_2 = 1;
 		driver->in_busy_wcnss_1 = 1;

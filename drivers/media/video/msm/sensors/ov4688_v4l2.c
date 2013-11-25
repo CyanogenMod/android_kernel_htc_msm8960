@@ -1165,7 +1165,7 @@ int32_t ov4688_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 
 	pr_info("ov4688_power_down,sdata->htc_image=%d",sdata->htc_image);
 	if (!sdata->use_rawchip && (sdata->htc_image != HTC_CAMERA_IMAGE_YUSHANII_BOARD)) {
-		rc = msm_camio_clk_enable(CAMIO_CAM_MCLK_CLK);
+		rc = msm_camio_clk_enable(sdata,CAMIO_CAM_MCLK_CLK);
 		if (rc < 0) {
 			pr_info("%s: msm_camio_sensor_clk_on failed:%d\n",
 			 __func__, rc);
@@ -1198,7 +1198,7 @@ enable_sensor_power_up_failed:
 	else
 		sdata->camera_power_off();
 enable_power_on_failed:
-	msm_camio_clk_disable(CAMIO_CAM_MCLK_CLK);
+	msm_camio_clk_disable(sdata,CAMIO_CAM_MCLK_CLK);
 enable_mclk_failed:
 	return rc;
 }
@@ -1227,7 +1227,7 @@ int32_t ov4688_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 		pr_info("%s: msm_sensor_power_down failed\n", __func__);
 
 	if (!sdata->use_rawchip && (sdata->htc_image != HTC_CAMERA_IMAGE_YUSHANII_BOARD)) {
-		msm_camio_clk_disable(CAMIO_CAM_MCLK_CLK);
+		msm_camio_clk_disable(sdata,CAMIO_CAM_MCLK_CLK);
 		if (rc < 0)
 			pr_info("%s: msm_camio_sensor_clk_off failed:%d\n",
 				 __func__, rc);
@@ -1446,6 +1446,7 @@ static int ov4688_read_fuseid(struct sensor_cfg_data *cdata,
     cdata->af_value.VCM_TOP_MECH_MSB = otp[0x10];
     cdata->af_value.VCM_TOP_MECH_LSB = otp[0x11];
     cdata->af_value.VCM_VENDOR_ID_VERSION = otp[4];
+    cdata->sensor_ver = 0x00;
     pr_info("%s: OTP Module vendor = 0x%x\n",               __func__,  otp[0]);
     pr_info("%s: OTP LENS = 0x%x\n",                        __func__,  otp[1]);
     pr_info("%s: OTP Sensor Version = 0x%x\n",              __func__,  otp[2]);
@@ -1792,7 +1793,7 @@ void ov4688_start_stream(struct msm_sensor_ctrl_t *s_ctrl)
 int ov4688_write_hdr_outdoor_flag(struct msm_sensor_ctrl_t *s_ctrl, uint8_t is_outdoor)
 {
     int indoor_line_length, outdoor_line_length;
-    indoor_line_length = 2730;
+    indoor_line_length = 3000;
     outdoor_line_length = 1760;
 
     if (is_outdoor)

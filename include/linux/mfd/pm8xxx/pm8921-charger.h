@@ -106,15 +106,29 @@ struct pm8921_charger_platform_data {
 	int				wlc_tx_gpio;
 	int				cable_in_irq;
 	int				cable_in_gpio;
+	int				pj_in_gpio;
+	int				pj_in_irq;
+	int				pj_vol_mpp;
+	int				pj_vol_mpp_sys;
+	int				pj_adc_amux;
+	int				pj_to_batt_gpio;
+	int				batt_to_pj_gpio;
+	int				pj_to_batt_gpio_ext;
+	int				batt_to_pj_gpio_ext;
+	unsigned int	pj_full_vol;
+	int				is_aicl_enabled;
 	int				is_embeded_batt;
 	int				ichg_threshold_ua;
 	int				ichg_regulation_thr_ua;
+	int				regulate_vin_min_thr_mv;
+	int				lower_vin_min;
 	int				eoc_ibat_thre_ma;
 	enum pm8921_chg_cold_thr	cold_thr;
 	enum pm8921_chg_hot_thr		hot_thr;
 	int				rconn_mohm;
 	enum pm8921_chg_led_src_config	led_src_config;
 	struct ext_usb_chg_pm8921	*ext_usb;
+	void (*get_power_jacket_status) (int *full, int *status, int *exist);
 };
 
 enum pm8921_charger_source {
@@ -181,6 +195,22 @@ int pm8921_get_batt_voltage(int *result);
 
 int pm8921_set_chg_ovp(int is_ovp);
 
+void pm8921_get_pj_voltage(int *result);
+
+void pm8921_get_pj_exist(int *result);
+
+int pm8921_set_pj_chg_control(int pj_to_batt,int batt_to_pj);
+
+int pm8921_get_pj_chg_control(void);
+
+int pm8921_pj_mpp_unconfig(void);
+
+int pm8921_pj_exist_detect(void);
+
+int pm8921_is_pj_enable(void);
+
+int pm8921_is_aicl_enable(void);
+
 int pm8921_get_batt_temperature(int *result);
 
 int pm8921_get_batt_id(int *result);
@@ -192,6 +222,8 @@ int pm8921_is_batt_temp_fault_disable_chg(int *result);
 int pm8921_is_pwrsrc_under_rating(int *result);
 
 int pm8921_is_batt_full(int *result);
+
+ int pm8921_is_pj_full(int *result);
 
 int pm8921_is_chg_safety_timer_timeout(int *result);
 
@@ -313,6 +345,47 @@ static inline int pm8921_set_chg_ovp(int is_ovp)
 {
 	return -ENXIO;
 }
+
+static inline void pm8921_get_pj_voltage(int *result)
+{
+	return -ENXIO;
+}
+
+static inline void pm8921_get_pj_exist(int *result)
+{
+	return -ENXIO;
+}
+
+static inline int pm8921_set_pj_chg_control(int pj_to_batt,int batt_to_pj)
+{
+	return -ENXIO;
+}
+
+static inline int pm8921_get_pj_chg_control(void)
+{
+	return -ENXIO;
+}
+
+static inline int pm8921_pj_mpp_unconfig(void)
+{
+	return -ENXIO;
+}
+
+static inline int pm8921_pj_exist_detect(void)
+{
+	return -ENXIO;
+}
+
+static inline int pm8921_is_pj_enable(void)
+{
+	return -ENXIO;
+}
+
+static inline int pm8921_is_aicl_enable(void)
+{
+	return -ENXIO;
+}
+
 static inline int pm8921_get_batt_temperature(int *result)
 {
 	return -ENXIO;
@@ -334,6 +407,10 @@ static inline int pm8921_is_pwrsrc_under_rating(int *result)
 	return -ENXIO;
 }
 static inline int pm8921_is_batt_full(int *result)
+{
+	return -ENXIO;
+}
+static inline int pm8921_is_pj_full(int *result)
 {
 	return -ENXIO;
 }

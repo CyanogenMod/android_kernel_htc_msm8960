@@ -1176,6 +1176,7 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 	if (!ret) {
 		pr_err("%s: ADM cmd Route failed for port %d\n",
 					__func__, port_id[0]);
+		HTC_Q6_BUG();
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
@@ -1416,6 +1417,7 @@ int adm_close(int port_id)
 		if (!ret) {
 			pr_err("%s: ADM cmd Route failed for port %d\n",
 						__func__, port_id);
+			HTC_Q6_BUG();
 			ret = -EINVAL;
 			goto fail_cmd;
 		}

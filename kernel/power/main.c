@@ -509,7 +509,7 @@ perflock_show(struct kobject *kobj, struct kobj_attribute *attr,
 	if (is_perf_lock_active(&user_cpu_perf_lock) != 0)
 		perf_enable |= (1 << PERF_LOCK_INVALID);
 
-	return sprintf(buf, "%d\n", perf_enable);
+	return sprintf(buf, "%d", perf_enable);
 }
 
 static inline void user_cpufreq_perf_lock(int level, int val)
@@ -626,7 +626,7 @@ cpufreq_ceiling_show(struct kobject *kobj, struct kobj_attribute *attr,
 	if (is_perf_lock_active(&user_cpu_ceiling_lock) != 0)
 		ceiling_enable |= (1 << PERF_LOCK_INVALID);
 
-	return sprintf(buf, "%d\n", ceiling_enable);
+	return sprintf(buf, "%d", ceiling_enable);
 }
 
 static inline void user_cpufreq_ceiling_lock(int level, int val)
@@ -735,7 +735,7 @@ cpunum_floor_show(struct kobject *kobj, struct kobj_attribute *attr,
 	else
 	    i++;
 
-	return sprintf(buf, "%d\n", i);
+	return sprintf(buf, "%d", i);
 }
 
 static ssize_t
@@ -774,7 +774,7 @@ cpunum_ceiling_show(struct kobject *kobj, struct kobj_attribute *attr,
 	else
 	    i++;
 
-	return sprintf(buf, "%d\n", i);
+	return sprintf(buf, "%d", i);
 }
 
 static ssize_t

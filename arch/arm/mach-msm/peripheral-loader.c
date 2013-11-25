@@ -343,7 +343,7 @@ void *pil_get(const char *name)
 	struct pil_device *pil;
 	struct pil_device *pil_d;
 	void *retval;
-#ifdef CONFIG_MSM8960_ONLY
+#if defined(CONFIG_MSM8960_ONLY) || defined(CONFIG_MSM8930_ONLY)
 	static int modem_initialized = 0;
 	int loop_count = 0;
 #endif
@@ -365,7 +365,7 @@ void *pil_get(const char *name)
 		goto err_depends;
 	}
 
-#ifdef CONFIG_MSM8960_ONLY
+#if defined(CONFIG_MSM8960_ONLY) || defined(CONFIG_MSM8930_ONLY)
 	if (!strcmp("modem", name)) {
 		while (unlikely(!modem_initialized && strcmp("rmt_storage", current->comm) && loop_count++ < 10)) {
 			
@@ -378,7 +378,7 @@ void *pil_get(const char *name)
 	if (!pil->count) {
 		if (!strcmp("modem", name)) {
 			printk("%s: %s(%d) for %s\n", __func__, current->comm, current->pid, name);
-#ifdef CONFIG_MSM8960_ONLY
+#if defined(CONFIG_MSM8960_ONLY) || defined(CONFIG_MSM8930_ONLY)
 			modem_initialized = 1;
 #endif
 		}
@@ -429,13 +429,13 @@ void pil_put(void *peripheral_handle)
 	if (WARN(!pil->count, "%s: %s: Reference count mismatch\n",
 			pil->desc->name, __func__))
 		goto err_out;
-#ifdef CONFIG_MACH_DUMMY
+#ifdef CONFIG_MACH_VILLEC2
 	if (pil->count == 1)
 		goto unlock;
 #endif
 	if (!--pil->count)
 		pil_shutdown(pil);
-#ifdef CONFIG_MACH_DUMMY
+#ifdef CONFIG_MACH_VILLEC2
 unlock:
 #endif
 	mutex_unlock(&pil->lock);

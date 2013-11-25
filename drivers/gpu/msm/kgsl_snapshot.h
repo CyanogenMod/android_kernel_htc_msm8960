@@ -44,6 +44,7 @@ struct kgsl_snapshot_section_header {
 #define KGSL_SNAPSHOT_SECTION_DEBUG        0x0901
 #define KGSL_SNAPSHOT_SECTION_DEBUGBUS     0x0A01
 #define KGSL_SNAPSHOT_SECTION_GPU_OBJECT   0x0B01
+#define KGSL_SNAPSHOT_SECTION_MEMLIST      0x0E01
 
 #define KGSL_SNAPSHOT_SECTION_END          0xFFFF
 
@@ -85,6 +86,12 @@ struct kgsl_snapshot_rb {
 	int wptr;   
 	int rptr;   
 	int count;  
+} __packed;
+
+struct kgsl_snapshot_replay_mem_list {
+	int num_entries;
+	
+	__u32 ptbase;
 } __packed;
 
 struct kgsl_snapshot_ib {

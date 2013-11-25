@@ -111,6 +111,40 @@ int __init parse_tag_skuid(const struct tag *tags)
 }
 __tagtable(ATAG_SKUID, parse_tag_skuid);
 
+#if 1	
+static unsigned g_htc_rfid;
+unsigned htc_get_rfid(void)
+{
+        return g_htc_rfid;
+}
+EXPORT_SYMBOL(htc_get_rfid);
+
+#define ATAG_RFID 0x5A5AA5A5
+int __init parse_tag_rfid(const struct tag *tags)
+{
+	int rfid = 0, find = 0;
+	struct tag *t = (struct tag *)tags;
+
+	printk(KERN_INFO "[J] parse_tag_rfnfcid: +rfid = 0x%x\n", rfid);
+
+	for (; t->hdr.size; t = tag_next(t)) {
+		if (t->hdr.tag == ATAG_RFID) {
+			printk(KERN_DEBUG "[J] find the rfid tag\n");
+			find = 1;
+			break;
+		}
+	}
+
+	if (find){
+		rfid = t->u.revision.rev;
+		g_htc_rfid = rfid;
+	}
+	printk(KERN_INFO "[J] parse_tag_rfnfcid: -rfid = 0x%x\n", rfid);
+	return rfid;
+}
+__tagtable(ATAG_RFID, parse_tag_rfid);
+#endif
+
 
 unsigned int als_kadc;
 EXPORT_SYMBOL(als_kadc);
@@ -660,6 +694,19 @@ unsigned int get_tamper_sf(void)
 }
 EXPORT_SYMBOL(get_tamper_sf);
 
+static int atsdebug = 0;
+int __init check_atsdebug(char *s)
+{
+	atsdebug = simple_strtoul(s, 0, 10);
+	return 1;
+}
+__setup("ro.atsdebug=", check_atsdebug);
+
+unsigned int get_atsdebug(void)
+{
+	return atsdebug;
+}
+
 static int ls_setting = 0;
 #define FAKE_ID 2
 #define REAL_ID 1
@@ -699,3 +746,18 @@ int get_wifi_setting(void)
 	return wifi_setting;
 }
 EXPORT_SYMBOL(get_wifi_setting);
+
+static char android_cid[16] = {0};
+static int __init board_cid_check(char *cid)
+{
+	pr_info("%s: set cid no to %s\r\n", __func__, cid);
+	strncpy(android_cid, cid, sizeof(android_cid)/sizeof(android_cid[0]) - 1);
+	return 1;
+}
+__setup("androidboot.cid=", board_cid_check);
+
+char *board_cid(void)
+{
+	return android_cid;
+}
+EXPORT_SYMBOL(board_cid);

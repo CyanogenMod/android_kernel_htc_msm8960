@@ -1304,8 +1304,10 @@ struct block_device *lookup_bdev(const char *pathname)
 		return ERR_PTR(-EINVAL);
 
 	error = kern_path(pathname, LOOKUP_FOLLOW, &path);
-	if (error)
+	if (error) {
+		pr_info("%s kern_path err = %d\n", __func__, error);
 		return ERR_PTR(error);
+	}
 
 	inode = path.dentry->d_inode;
 	error = -ENOTBLK;

@@ -46,7 +46,7 @@ config MMC_PARANOID_SD_INIT
 	  if you are experiencing issues with SD detection.
 
 config HTC_FORCE_SDIO_DRIVING_STRENGTH
-	depends on BCMDHD_4335
+	depends on BCMDHD_4335 || BCMDHD_4335_MCC
 	int "Force to use fix driving strength of SDIO card (HTC)"
 	range 1 4
 	default 2

@@ -195,6 +195,10 @@ int set_restart_action(unsigned int reason, const char *msg)
 }
 EXPORT_SYMBOL(set_restart_action);
 
+#ifdef CONFIG_QSC_MODEM
+void dump_uart_ringbuffer(void);
+#endif
+
 int set_restart_to_oem(unsigned int code, const char *msg)
 {
 	char oem_msg[SZ_DIAG_ERR_MSG] = "";
@@ -203,6 +207,13 @@ int set_restart_to_oem(unsigned int code, const char *msg)
 		sprintf(oem_msg, "oem-%x", code);
 	else
 		strncpy(oem_msg, msg, (strlen(msg) >= SZ_DIAG_ERR_MSG)? (SZ_DIAG_ERR_MSG - 1): strlen(msg));
+
+#ifdef CONFIG_QSC_MODEM
+	if (code == 0x93)
+	{
+		dump_uart_ringbuffer();
+	}
+#endif
 
 	
 	if ((code >= 0x93) && (code <= 0x98))

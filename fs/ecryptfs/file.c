@@ -33,16 +33,6 @@
 #include <linux/fs_stack.h>
 #include "ecryptfs_kernel.h"
 
-/**
- * ecryptfs_read_update_atime
- *
- * generic_file_read updates the atime of upper layer inode.  But, it
- * doesn't give us a chance to update the atime of the lower layer
- * inode.  This function is a wrapper to generic_file_read.  It
- * updates the atime of the lower level inode if generic_file_read
- * returns without any errors. This is to be used only for file reads.
- * The function to be used for directory reads is ecryptfs_read.
- */
 static ssize_t ecryptfs_read_update_atime(struct kiocb *iocb,
 				const struct iovec *iov,
 				unsigned long nr_segs, loff_t pos)
@@ -52,10 +42,6 @@ static ssize_t ecryptfs_read_update_atime(struct kiocb *iocb,
 	struct file *file = iocb->ki_filp;
 
 	rc = generic_file_aio_read(iocb, iov, nr_segs, pos);
-	/*
-	 * Even though this is a async interface, we need to wait
-	 * for IO to finish to update atime
-	 */
 	if (-EIOCBQUEUED == rc)
 		rc = wait_on_sync_kiocb(iocb);
 	if (rc >= 0) {
@@ -74,7 +60,6 @@ struct ecryptfs_getdents_callback {
 	int entries_written;
 };
 
-/* Inspired by generic filldir in fs/readdir.c */
 static int
 ecryptfs_filldir(void *dirent, const char *lower_name, int lower_namelen,
 		 loff_t offset, u64 ino, unsigned int d_type)
@@ -103,12 +88,6 @@ out:
 	return rc;
 }
 
-/**
- * ecryptfs_readdir
- * @file: The eCryptfs directory file
- * @dirent: Directory entry handle
- * @filldir: The filldir callback function
- */
 static int ecryptfs_readdir(struct file *file, void *dirent, filldir_t filldir)
 {
 	int rc;
@@ -161,23 +140,12 @@ static int ecryptfs_file_mmap(struct file *file, struct vm_area_struct *vma)
 
 struct kmem_cache *ecryptfs_file_info_cache;
 
-/**
- * ecryptfs_open
- * @inode: inode speciying file to open
- * @file: Structure to return filled in
- *
- * Opens the file specified by inode.
- *
- * Returns zero on success; non-zero otherwise
- */
 static int ecryptfs_open(struct inode *inode, struct file *file)
 {
 	int rc = 0;
 	struct ecryptfs_crypt_stat *crypt_stat = NULL;
 	struct ecryptfs_mount_crypt_stat *mount_crypt_stat;
 	struct dentry *ecryptfs_dentry = file->f_path.dentry;
-	/* Private value of ecryptfs_dentry allocated in
-	 * ecryptfs_lookup() */
 	struct dentry *lower_dentry;
 	struct ecryptfs_file_info *file_info;
 
@@ -192,7 +160,7 @@ static int ecryptfs_open(struct inode *inode, struct file *file)
 		rc = -EPERM;
 		goto out;
 	}
-	/* Released in ecryptfs_release or end of function if failure */
+	
 	file_info = kmem_cache_zalloc(ecryptfs_file_info_cache, GFP_KERNEL);
 	ecryptfs_set_file_private(file, file_info);
 	if (!file_info) {
@@ -206,7 +174,7 @@ static int ecryptfs_open(struct inode *inode, struct file *file)
 	mutex_lock(&crypt_stat->cs_mutex);
 	if (!(crypt_stat->flags & ECRYPTFS_POLICY_APPLIED)) {
 		ecryptfs_printk(KERN_DEBUG, "Setting flags for stat...\n");
-		/* Policy code enabled in future release */
+		
 		crypt_stat->flags |= (ECRYPTFS_POLICY_APPLIED
 				      | ECRYPTFS_ENCRYPTED);
 	}

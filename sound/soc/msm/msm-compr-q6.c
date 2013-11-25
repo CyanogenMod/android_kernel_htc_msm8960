@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,6 +51,7 @@
 #define COMPRE_OUTPUT_METADATA_SIZE	(sizeof(struct output_meta_data_st))
 
 struct wake_lock compr_lpa_wakelock;
+struct wake_lock compr_lpa_q6_cb_wakelock;
 
 struct snd_msm {
 	struct msm_audio *prtd;
@@ -135,7 +136,7 @@ static void compr_event_handler(uint32_t opcode,
 	int i = 0;
 	int time_stamp_flag = 0;
 	int buffer_length = 0;
-	wake_lock_timeout(&compr_lpa_wakelock, 1.5 * HZ);
+	wake_lock_timeout(&compr_lpa_q6_cb_wakelock, 1.5 * HZ);
 
 	
 	switch (opcode) {
@@ -502,8 +503,8 @@ static int msm_compr_trigger(struct snd_pcm_substream *substream, int cmd)
 	struct compr_audio *compr = runtime->private_data;
 	struct msm_audio *prtd = &compr->prtd;
 
-	pr_debug("[%p][AUD] %s, cmd %d, 3 sec wake lock\n", prtd,__func__, cmd);
-	wake_lock_timeout(&compr_lpa_wakelock, 3 * HZ);
+	pr_debug("[%p][AUD] %s, cmd %d, 5 sec wake lock\n", prtd,__func__, cmd);
+	wake_lock_timeout(&compr_lpa_wakelock, 5 * HZ);
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 		prtd->pcm_irq_pos = 0;
@@ -605,9 +606,6 @@ static int msm_compr_open(struct snd_pcm_substream *substream)
 	}
 	prtd = &compr->prtd;
 	prtd->substream = substream;
-	
-	prtd->audio_client->perf_mode = false;
-	
 	prtd->audio_client = q6asm_audio_client_alloc(
 				(app_cb)compr_event_handler, compr);
 	if (!prtd->audio_client) {
@@ -615,7 +613,7 @@ static int msm_compr_open(struct snd_pcm_substream *substream)
 		kfree(prtd);
 		return -ENOMEM;
 	}
-
+	prtd->audio_client->perf_mode = false;
 	pr_info("[%p] %s: session ID %d\n", prtd, __func__, prtd->audio_client->session);
 
 	prtd->session_id = prtd->audio_client->session;
@@ -994,18 +992,17 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 	uint32_t eos_flush_check;
 	
 
-	wake_lock_timeout(&compr_lpa_wakelock, 3 * HZ);
+	wake_lock_timeout(&compr_lpa_wakelock, 5 * HZ);
 	switch (cmd) {
 	case SNDRV_COMPRESS_TSTAMP: {
 		struct snd_compr_tstamp tstamp;
 		
 
 		memset(&tstamp, 0x0, sizeof(struct snd_compr_tstamp));
-		timestamp = q6asm_get_session_time(prtd->audio_client);
-		if (timestamp < 0) {
-			pr_err("[%p] %s: Get Session Time return value =%lld\n",
-				prtd, __func__, timestamp);
-			return -EAGAIN;
+		rc = q6asm_get_session_time(prtd->audio_client, &timestamp);
+		if (rc < 0) {
+			pr_err("[%p] %s: fail to get session tstamp\n", prtd, __func__);
+			return rc;
 		}
 		temp = (timestamp * 2 * runtime->channels);
 		temp = temp * (runtime->rate/1000);
@@ -1280,6 +1277,9 @@ static int __init msm_soc_platform_init(void)
 	init_waitqueue_head(&the_locks.write_wait);
 	init_waitqueue_head(&the_locks.read_wait);
 	init_waitqueue_head(&the_locks.flush_wait);
+
+	wake_lock_init(&compr_lpa_q6_cb_wakelock, WAKE_LOCK_SUSPEND,
+				"compr_lpa_q6_cb");
 
 	wake_lock_init(&compr_lpa_wakelock, WAKE_LOCK_SUSPEND,
 				"compr_lpa");

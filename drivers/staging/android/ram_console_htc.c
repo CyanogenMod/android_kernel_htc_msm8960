@@ -703,6 +703,13 @@ void bldr_log_parser(char *bldr_log, char *bldr_log_buf, unsigned long bldr_log_
 	int terminal_pattern_len=strlen(terminal_pattern);
 	int specific_pattern_len=strlen(specific_pattern);
 
+	if (!get_tamper_sf()) {
+		memcpy(bldr_log_buf, bldr_log, bldr_log_size);
+		*bldr_log_buf_size = bldr_log_size;
+		printk(KERN_INFO "[K] bldr_log_parser: size %ld\n", *bldr_log_buf_size);
+		return;
+	}
+
 	for(i=0; i<bldr_log_size; i++) 
 	{
 		bool terminal_match = true;
@@ -741,12 +748,6 @@ void bldr_log_parser(char *bldr_log, char *bldr_log_buf, unsigned long bldr_log_
 				bldr_log_buf_ptr +=(line_length-terminal_pattern_len-specific_pattern_len);
 				memcpy(bldr_log_buf_ptr, terminal_pattern, terminal_pattern_len);
 				bldr_log_buf_ptr +=terminal_pattern_len;
-			}
-			else
-			{
-				
-				memcpy(bldr_log_buf_ptr, bldr_log_ptr, line_length);
-				bldr_log_buf_ptr +=line_length;
 			}
 
 			bldr_log_ptr+=line_length;

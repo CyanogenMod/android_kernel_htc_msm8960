@@ -56,8 +56,10 @@
 #define MSM_USB_BASE (hcd->regs)
 #define USB_REG_START_OFFSET 0x90
 #define USB_REG_END_OFFSET 0x250
+#if 0
 void (*set_htc_monitor_resume_state_fp)(void) = NULL;
 EXPORT_SYMBOL(set_htc_monitor_resume_state_fp);
+#endif
 
 static const struct usb_device_id usb1_1[] = {
 	{ USB_DEVICE(0x5c6, 0x9048),
@@ -1565,8 +1567,8 @@ while (!kthread_should_stop()) {
 	
 	now = ktime_get();
 	mdiff = ktime_to_us(ktime_sub(now,ehci->last_susp_resume));
-	if (mdiff < 5000) {
-		usleep_range(5000, 5000);
+	if (mdiff < 10000) {
+		usleep_range(10000, 10000);
 
 		
 		pr_info("%s[%d] usleep_range 5000 end", __func__, __LINE__);
@@ -1884,11 +1886,13 @@ static irqreturn_t msm_hsic_wakeup_irq(int irq, void *data)
 	
 	LOG_WITH_TIMESTAMP("%s: hsic remote wakeup interrupt cnt: %u ",
 			__func__, mehci->wakeup_int_cnt);
+#if 0
 	
 	if ( set_htc_monitor_resume_state_fp ) {
 		set_htc_monitor_resume_state_fp();
 	}
 	
+#endif
 	
 
 	wake_lock(&mehci->wlock);
@@ -2421,11 +2425,6 @@ static int __devexit ehci_hsic_msm_remove(struct platform_device *pdev)
 		if (mdm_is_in_restart && usage_count != 0) {
 			pr_info("%s[%d] !!! usage_count:%d is not 0 !!!\n", __func__, __LINE__, usage_count);
 			atomic_set(&(pdev->dev.power.usage_count), 0);
-
-			if (get_radio_flag() & RADIO_FLAG_USB_UPLOAD) {
-				
-				schedule_delayed_work_on(0, &dbg_hsic_usage_count_delay_work, msecs_to_jiffies(300000));
-			}
 		}
 	}
 	#endif

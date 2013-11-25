@@ -298,7 +298,7 @@ static unsigned int get_cpufreq_ceiling_speed(void)
 {
 	unsigned long irqflags;
 	struct perf_lock *lock;
-	unsigned int perf_level = 0;
+	unsigned int perf_level = PERF_LOCK_HIGHEST;
 
 	
 	if (list_empty(&active_cpufreq_ceiling_locks))
@@ -306,11 +306,10 @@ static unsigned int get_cpufreq_ceiling_speed(void)
 
 	spin_lock_irqsave(&list_lock, irqflags);
 	list_for_each_entry(lock, &active_cpufreq_ceiling_locks, link) {
-		if (lock->level > perf_level)
+		if (lock->level < perf_level)
 			perf_level = lock->level;
 	}
 	spin_unlock_irqrestore(&list_lock, irqflags);
-
 	return cpufreq_ceiling_acpu_table[perf_level];
 }
 

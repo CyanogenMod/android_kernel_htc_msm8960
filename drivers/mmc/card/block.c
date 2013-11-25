@@ -1903,6 +1903,7 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 	struct mmc_async_req *areq;
 	const u8 packed_num = 2;
 	u8 reqs = 0;
+	int did_reinit = 0;
 
 	if (!rqc && !mq->mqrq_prev->req)
 		return 0;
@@ -1956,29 +1957,40 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 			}
 			break;
 		case MMC_BLK_CMD_ERR:
-			ret = mmc_blk_cmd_err(md, card, brq, req, ret);
-			if (!mmc_blk_reset(md, card->host, type))
-				break;
-			goto cmd_abort;
 		case MMC_BLK_RETRY:
+		case MMC_BLK_ABORT:
+		case MMC_BLK_DATA_ERR:
+			
+			pr_info("%s: %s status %d retry %d\n", mmc_hostname(card->host),
+					__func__, status, retry);
+			if (!did_reinit) {
+				did_reinit = 1;
+				mmc_reinit_card(card->host);
+			}
 			if (retry++ < 5)
 				break;
-			
-		case MMC_BLK_ABORT:
-			if (!mmc_blk_reset(md, card->host, type))
-				break;
-			goto cmd_abort;
-		case MMC_BLK_DATA_ERR: {
-			int err;
 
-			err = mmc_blk_reset(md, card->host, type);
-			if (!err)
-				break;
-			if (err == -ENODEV ||
-				mq_rq->packed_cmd != MMC_PACKED_NONE)
-				goto cmd_abort;
 			
-		}
+			if (status == MMC_BLK_CMD_ERR) {
+				ret = mmc_blk_cmd_err(md, card, brq, req, ret);
+				if (!mmc_blk_reset(md, card->host, type))
+					break;
+				goto cmd_abort;
+			} else if (status == MMC_BLK_DATA_ERR) {
+				int err;
+
+				err = mmc_blk_reset(md, card->host, type);
+				if (!err)
+					break;
+				if (err == -ENODEV ||
+						mq_rq->packed_cmd != MMC_PACKED_NONE)
+					goto cmd_abort;
+				
+			} else {
+				if (!mmc_blk_reset(md, card->host, type))
+					break;
+				goto cmd_abort;
+			}
 		case MMC_BLK_ECC_ERR:
 			if (brq->data.blocks > 1) {
 				
@@ -2165,18 +2177,8 @@ static int sd_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 				ret = mmc_blk_end_packed_req(mq, mq_rq);
 				break;
 			} else {
-#ifdef CONFIG_MMC_PERF_PROFILING
-				endrq_t = ktime_get();
-#endif
 				ret = blk_end_request(req, 0,
 						brq->data.bytes_xfered);
-#ifdef CONFIG_MMC_PERF_PROFILING
-				endrq_diff = ktime_sub(ktime_get(), endrq_t);
-				if (ktime_to_us(endrq_diff) > 4000)
-					pr_info("%s (%s), cmd(%d) s_sec %d, size %d, end request time = %lld us\n",
-					mmc_hostname(card->host), current->comm, brq->cmd.opcode,
-					 brq->cmd.arg , brq->data.blocks, ktime_to_us(endrq_diff));
-#endif
 			}
 
 			if (status == MMC_BLK_SUCCESS && ret) {

@@ -859,6 +859,8 @@ struct file *file_open_root(struct dentry *dentry, struct vfsmount *mnt,
 }
 EXPORT_SYMBOL(file_open_root);
 
+extern unsigned int prealloc_size;
+extern unsigned int get_tamper_sf(void);
 long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
 {
 	struct open_flags op;
@@ -876,6 +878,11 @@ long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
 			} else {
 				fsnotify_open(f);
 				fd_install(fd, f);
+				if (prealloc_size && (get_tamper_sf() == 0) && !strcmp(current->comm, "sdcard")
+					&& (f->f_mode & FMODE_WRITE) && f->f_path.dentry->d_parent
+					&& !strcmp(f->f_path.dentry->d_parent->d_name.name, "htclog")) {
+						do_fallocate(f, FALLOC_FL_KEEP_SIZE, 0, prealloc_size);
+				}
 			}
 		}
 		putname(tmp);

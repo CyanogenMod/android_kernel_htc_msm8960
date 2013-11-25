@@ -113,6 +113,8 @@ static inline void prefetch(const void *ptr)
 
 #endif
 
+#define HAVE_ARCH_PICK_MMAP_LAYOUT
+
 #endif
 
 #endif 

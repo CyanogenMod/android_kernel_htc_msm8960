@@ -32,6 +32,14 @@ config SENSORS_AK8963
           If you say yes here you get support for Asahi Kasei's
           orientation sensor AK8963.
 
+config SENSORS_AK8963_NST
+        tristate "AK8963 compass support with Magnetic Filed Uncalibrated"
+        default n
+        depends on I2C
+        help
+          If you say yes here you get support for Asahi Kasei's
+          orientation sensor AK8963 with Magnetic Filed Uncalibrated.
+
 config SENSORS_PANASONIC_GYRO
 	tristate "PANASONIC GYRO sensor support"
 	depends on I2C=y
@@ -49,6 +57,33 @@ config SENSORS_R3GD20
           accelerometer will be called r3gd20.
 
           Say Y here if you have a device containing r3gd20 chip.
+
+config SENSORS_LSM330_ACC
+        tristate "ST LSM330 3-axis accelerometer"
+        depends on I2C=y
+        default n
+        help
+          This driver provides support for the LSM330 chip which is a
+          3-axis accelerometer.
+
+          This driver can also be built as modules.  If so, the module for
+          accelerometer will be called lsm330.
+
+          Say Y here if you have a device containing lsm330 chip.
+
+config SENSORS_LSM330_GYRO
+        tristate "ST LSM330 3-axis gyroscope"
+        depends on I2C=y
+        default n
+        help
+          This driver provides support for the LSM330 chip which is a
+          3-axis gyroscope.
+
+          This driver can also be built as modules.  If so, the module for
+          accelerometer will be called LSM330.
+
+          Say Y here if you have a device containing LSM330 chip.
+
 
 config TPS65200
         tristate "tps65200 Driver"
@@ -68,14 +103,14 @@ config BOSCH_BMA250
 	  If you say yes here you get support for Bosch Sensortec's
 	  acceleration sensors BMA250.
 
-config BMA250_ENABLE_INT1
+config BOSCH_BMA250_ENABLE_INT1
 	tristate "BMA250 acceleration sensor interrupt INT1 support"
 	depends on BOSCH_BMA250=y
         help
 	  If you say yes here you get INT1 support for Bosch Sensortec's
 	  acceleration sensors BMA250.
 
-config BMA250_ENABLE_INT2
+config BOSCH_BMA250_ENABLE_INT2
 	tristate "BMA250 acceleration sensor interrupt INT2 support"
 	depends on BOSCH_BMA250=y
 	help
@@ -212,8 +247,14 @@ config CIR_ALWAYS_READY
 	help
 	  Enable CIR Always Ready
 
+config R3GD20_NEW_SENSOR_TYPE
+        bool "R3GD20 New Sensor type"
+	default n
+	help
+	  Enable R3GD20 New Sensor type
+
 config SIG_MOTION
-        bool "BMA250 Significant Motion"
+	bool "BMA250 Significant Motion"
 	default n
 	help
 	  Enable BMA250 Significant Motion feature

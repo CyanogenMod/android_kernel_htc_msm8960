@@ -411,6 +411,8 @@ static long htc_diag_ioctl(struct file *file, unsigned int cmd, unsigned long ar
 #if defined(CONFIG_MACH_VIGOR) || defined(CONFIG_ARCH_APQ8064)
 		htc_usb_enable_function(DIAG_MDM, tmp_value);
 #endif
+		
+		htc_usb_enable_function("acm", 0);
 		htc_usb_enable_function(DIAG_LEGACY, tmp_value);
 
 		if (tmp_value) {

@@ -1202,6 +1202,11 @@ struct super_block {
 
 	
 	int s_readonly_remount;
+
+#ifdef CONFIG_ASYNC_FSYNC
+	#define FLAG_ASYNC_FSYNC	0x1
+	unsigned int fsync_flags;
+#endif
 };
 
 extern void prune_icache_sb(struct super_block *sb, int nr_to_scan);

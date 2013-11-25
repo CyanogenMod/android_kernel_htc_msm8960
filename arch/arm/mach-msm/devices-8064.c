@@ -471,6 +471,20 @@ static struct resource resources_qup_spi_gsbi1[] = {
 		.end    = APQ8064_GSBI1_QUP_IRQ,
 		.flags  = IORESOURCE_IRQ,
 	},
+#ifdef CONFIG_FPR_SPI_DMA_GSBI1
+    {
+        .name = "spidm_channels",
+        .start = 2,
+        .end   = 3,
+        .flags = IORESOURCE_DMA,
+    },
+    {
+        .name = "spidm_crci",
+        .start = 12,
+        .end = 13,
+        .flags = IORESOURCE_DMA,
+    },
+#endif
 };
 
 struct platform_device apq8064_device_qup_spi_gsbi1 = {
@@ -499,6 +513,20 @@ static struct resource resources_qup_spi_gsbi5[] = {
 		.end    = GSBI5_QUP_IRQ,
 		.flags  = IORESOURCE_IRQ,
 	},
+#ifdef CONFIG_FPR_SPI_DMA_GSBI5
+    {
+        .name = "spidm_channels",
+        .start = 6,
+        .end   = 7,
+        .flags = IORESOURCE_DMA,
+    },
+    {
+        .name = "spidm_crci",
+        .start = 9,
+        .end = 10,
+        .flags = IORESOURCE_DMA,
+    },
+#endif
 };
 
 struct platform_device apq8064_device_qup_spi_gsbi5 = {
@@ -2425,7 +2453,7 @@ static uint16_t msm_mpm_bypassed_apps_irqs[] __initdata = {
 	RIVA_APPS_WLAN_SMSM_IRQ,
 	RIVA_APPS_WLAN_RX_DATA_AVAIL_IRQ,
 	RIVA_APPS_WLAN_DATA_XFER_DONE_IRQ,
-#if defined (CONFIG_MACH_M7_UL) || defined (CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY)
+#if defined (CONFIG_MACH_M7_UL) || defined (CONFIG_MACH_M7_WLS) || defined(CONFIG_MACH_M7_WLV) || defined(CONFIG_MACH_M7_DCG) || defined(CONFIG_MACH_M7_DUG) || defined(CONFIG_MACH_DUMMY)
 	INT_KEY_HP,
 #endif
 };

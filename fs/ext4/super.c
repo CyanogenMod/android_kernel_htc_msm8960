@@ -430,7 +430,7 @@ static void ext4_handle_error(struct super_block *sb)
 			sb->s_id);
 
 #ifdef CONFIG_EXT4_E2FSCK_RECOVER
-	if (test_opt(sb, ERRORS_RO))
+	if (test_opt(sb, ERRORS_RO) && strncmp(sb->s_id, "dm-", 3))
 		ext4_e2fsck(sb);
 #endif
 }

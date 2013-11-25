@@ -63,7 +63,8 @@ static int mmc_queue_thread(void *d)
 		spin_unlock_irq(q->queue_lock);
 
 		if (req || mq->mqrq_prev->req) {
-			if (mmc_card_doing_bkops(mq->card))
+			if (mmc_card_doing_bkops(mq->card)
+				|| mmc_card_doing_sanitize(mq->card))
 				mmc_interrupt_bkops(mq->card);
 
 			set_current_state(TASK_RUNNING);
@@ -112,9 +113,6 @@ static int sd_queue_thread(void *d)
 		spin_unlock_irq(q->queue_lock);
 
 		if (req || mq->mqrq_prev->req) {
-			if (mmc_card_doing_bkops(mq->card))
-				mmc_interrupt_bkops(mq->card);
-
 			set_current_state(TASK_RUNNING);
 			mq->issue_fn(mq, req);
 		} else {

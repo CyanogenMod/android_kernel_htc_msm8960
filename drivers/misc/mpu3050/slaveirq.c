@@ -40,6 +40,7 @@
 #include <linux/slab.h>
 #include <linux/input.h>
 
+#include <linux/wakelock.h>
 #include "mpu.h"
 #include "slaveirq.h"
 #include "mldl_cfg.h"
@@ -756,6 +757,7 @@ struct slaveirq_dev_data {
 	struct input_dev *input;
 #ifdef CONFIG_CIR_ALWAYS_READY
 	struct input_dev *input_cir;
+	struct wake_lock cir_always_ready_wake_lock;
 #endif
 };
 
@@ -898,6 +900,7 @@ static void bma250_irq_work_func(struct work_struct *work)
     struct slaveirq_dev_data *bma250 = container_of((struct work_struct *)work,
 	    struct slaveirq_dev_data, bma_irq_work);
 
+    wake_lock_timeout(&(bma250->cir_always_ready_wake_lock), 1*HZ);
     input_report_rel(bma250->input_cir,
 	    SLOP_INTERRUPT,
 	    SLOPE_INTERRUPT_X_NEGATIVE_HAPPENED);
@@ -919,7 +922,8 @@ static irqreturn_t bma250_irq_handler(int irq, void *handle)
 
     struct slaveirq_dev_data *data = handle;
 
-    disable_irq_nosync(data->irq);
+    if (data)
+        disable_irq_nosync(data->irq);
 
     if (data == NULL)
 	return IRQ_HANDLED;
@@ -1012,6 +1016,7 @@ int slaveirq_init(struct i2c_adapter *slave_adapter,
 		    "bma250", data);
 	    enable_irq_wake(data->irq); 
 
+	    wake_lock_init(&(data->cir_always_ready_wake_lock), WAKE_LOCK_SUSPEND, "cir_always_ready");
 #endif
 	}else
 	    res = request_irq(data->irq, slaveirq_handler, IRQF_TRIGGER_RISING,

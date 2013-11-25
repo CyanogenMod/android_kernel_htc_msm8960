@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1225,12 +1225,51 @@ static const struct snd_kcontrol_new tabla_snd_controls[] = {
 				   tabla_get_compander, tabla_set_compander),
 };
 
+static int msm_slim_bw_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = 0;
+	return 0;
+}
+
+static int msm_slim_bw_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct wcd9xxx* tabla;
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	int flag = ucontrol->value.integer.value[0];
+	codec->control_data = dev_get_drvdata(codec->dev->parent);
+	tabla = codec->control_data;
+	pr_info("%s: flag: %d\n", __func__, flag);
+
+	if (flag) {
+		if ((tabla != NULL) &&
+		    (tabla->dev != NULL) &&
+		    (tabla->dev->parent != NULL))
+			pm_runtime_get_sync(tabla->dev->parent);
+		pr_info("%s: PM_Voting:true\n", __func__);
+		if (tabla && tabla->slim) slim_reservemsg_bw (tabla->slim, 24576000,true);
+	} else {
+		if (tabla && tabla->slim) slim_reservemsg_bw (tabla->slim, 0,true);
+		if ((tabla != NULL) &&
+		    (tabla->dev != NULL) &&
+		    (tabla->dev->parent != NULL)) {
+			pr_info("%s: PM_Voting:false\n", __func__);
+			pm_runtime_mark_last_busy(tabla->dev->parent);
+			pm_runtime_put(tabla->dev->parent);
+		}
+	}
+	return 0;
+}
+
 static const struct snd_kcontrol_new tabla_1_x_snd_controls[] = {
 	SOC_SINGLE("MICBIAS4 CAPLESS Switch", TABLA_1_A_MICB_4_CTL, 4, 1, 1),
 };
 
 static const struct snd_kcontrol_new tabla_2_higher_snd_controls[] = {
 	SOC_SINGLE("MICBIAS4 CAPLESS Switch", TABLA_2_A_MICB_4_CTL, 4, 1, 1),
+	SOC_SINGLE_EXT("SLIM BW Set", SND_SOC_NOPM, 0, 1, 0,
+				msm_slim_bw_get, msm_slim_bw_put),
 };
 
 static const char *rx_mix1_text[] = {
@@ -3886,8 +3925,10 @@ static int tabla_startup(struct snd_pcm_substream *substream,
 		 substream->name, substream->stream);
 	if ((tabla_core != NULL) &&
 	    (tabla_core->dev != NULL) &&
-	    (tabla_core->dev->parent != NULL))
+	    (tabla_core->dev->parent != NULL)) {
 		pm_runtime_get_sync(tabla_core->dev->parent);
+		pr_info("%s: PM_Voting:true\n", __func__);
+	}
 
 	return 0;
 }
@@ -3916,6 +3957,7 @@ static void tabla_shutdown(struct snd_pcm_substream *substream,
 	    (tabla_core->dev != NULL) &&
 	    (tabla_core->dev->parent != NULL) &&
 	    (active == 0)) {
+		pr_info("%s: PM_Voting:false\n", __func__);
 		pm_runtime_mark_last_busy(tabla_core->dev->parent);
 		pm_runtime_put(tabla_core->dev->parent);
 	}
@@ -4675,6 +4717,7 @@ static int tabla_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 		if (event == SND_SOC_DAPM_POST_PMD && (tabla != NULL) &&
 		    (tabla->dev != NULL) &&
 		    (tabla->dev->parent != NULL)) {
+			pr_info("%s: PM_Voting:false\n", __func__);
 			pm_runtime_mark_last_busy(tabla->dev->parent);
 			pm_runtime_put(tabla->dev->parent);
 		}
@@ -4756,6 +4799,7 @@ static int tabla_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 			if ((tabla != NULL) &&
 			    (tabla->dev != NULL) &&
 			    (tabla->dev->parent != NULL)) {
+				pr_info("%s: PM_Voting:false\n", __func__);
 				pm_runtime_mark_last_busy(tabla->dev->parent);
 				pm_runtime_put(tabla->dev->parent);
 			}
@@ -4782,6 +4826,7 @@ static int tabla_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 		if (event == SND_SOC_DAPM_POST_PMD && (tabla != NULL) &&
 		    (tabla->dev != NULL) &&
 		    (tabla->dev->parent != NULL)) {
+			pr_info("%s: PM_Voting:false\n", __func__);
 			pm_runtime_mark_last_busy(tabla->dev->parent);
 			pm_runtime_put(tabla->dev->parent);
 		}
@@ -4852,6 +4897,7 @@ static int tabla_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 			if ((tabla != NULL) &&
 			    (tabla->dev != NULL) &&
 			    (tabla->dev->parent != NULL)) {
+				pr_info("%s: PM_Voting:false\n", __func__);
 				pm_runtime_mark_last_busy(tabla->dev->parent);
 				pm_runtime_put(tabla->dev->parent);
 			}

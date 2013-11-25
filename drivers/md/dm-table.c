@@ -392,6 +392,7 @@ int dm_get_device(struct dm_target *ti, const char *path, fmode_t mode,
 	BUG_ON(!t);
 
 	if (sscanf(path, "%u:%u%c", &major, &minor, &dummy) == 2) {
+		pr_info("%s get existing dm-device\n", __func__);
 		
 		dev = MKDEV(major, minor);
 		if (MAJOR(dev) != major || MINOR(dev) != minor)
@@ -399,9 +400,12 @@ int dm_get_device(struct dm_target *ti, const char *path, fmode_t mode,
 	} else {
 		
 		struct block_device *bdev = lookup_bdev(path);
+		pr_info("%s create new dm-device\n", __func__);
 
-		if (IS_ERR(bdev))
+		if (IS_ERR(bdev)) {
+			pr_info("%s create new dm-device error\n", __func__);
 			return PTR_ERR(bdev);
+		}
 		dev = bdev->bd_dev;
 		bdput(bdev);
 	}
@@ -417,6 +421,7 @@ int dm_get_device(struct dm_target *ti, const char *path, fmode_t mode,
 
 		if ((r = open_dev(dd, dev, t->md))) {
 			kfree(dd);
+			pr_info("%s open_dev fail, rc = %d\n", __func__, r);
 			return r;
 		}
 

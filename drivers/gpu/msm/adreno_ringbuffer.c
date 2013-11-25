@@ -54,7 +54,7 @@ adreno_ringbuffer_waitspace(struct adreno_ringbuffer *rb,
 	unsigned long wait_time;
 	unsigned long wait_timeout = msecs_to_jiffies(ADRENO_IDLE_TIMEOUT);
 	unsigned long wait_time_part;
-	unsigned int prev_reg_val[ft_detect_regs_count];
+	unsigned int prev_reg_val[FT_DETECT_REGS_COUNT];
 
 	memset(prev_reg_val, 0, sizeof(prev_reg_val));
 
@@ -539,6 +539,9 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	if (KGSL_MEMSTORE_GLOBAL != context_id)
 		total_sizedwords += 3; 
 
+	if (flags & KGSL_CMD_FLAGS_EOF)
+		total_sizedwords += 2;
+
 	ringcmds = adreno_ringbuffer_allocspace(rb, context, total_sizedwords);
 	if (!ringcmds)
 		return -ENOSPC;
@@ -790,10 +793,8 @@ static bool _parse_ibs(struct kgsl_device_private *dev_priv,
 	int dwords_left = sizedwords; 
 	struct kgsl_mem_entry *entry;
 
-	spin_lock(&dev_priv->process_priv->mem_lock);
 	entry = kgsl_sharedmem_find_region(dev_priv->process_priv,
 					   gpuaddr, sizedwords * sizeof(uint));
-	spin_unlock(&dev_priv->process_priv->mem_lock);
 	if (entry == NULL) {
 		KGSL_CMD_ERR(dev_priv->device,
 			     "no mapping for gpuaddr: 0x%08x\n", gpuaddr);
@@ -1027,8 +1028,9 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 	}
 
 done:
-	kgsl_trace_issueibcmds(device, context->id, ibdesc, numibs,
-		*timestamp, flags, ret, drawctxt->type);
+	kgsl_trace_issueibcmds(device, context ? context->id : 0, ibdesc,
+		numibs, *timestamp, flags, ret,
+		drawctxt ? drawctxt->type : 0);
 
 	kfree(link);
 	return ret;

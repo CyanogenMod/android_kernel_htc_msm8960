@@ -15,8 +15,3 @@ config PACKET
 
 	  If unsure, say Y.
 
-config HTC_NETWORK_MODIFY
-    tristate "HTC_NETWORK_MODIFY"
-	---help---
-	HTC_NETWORK_MODIFY
-

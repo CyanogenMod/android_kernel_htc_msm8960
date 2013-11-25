@@ -70,20 +70,29 @@ static ssize_t print_switch_state(struct switch_dev *sdev, char *buf)
 	return sprintf(buf, "%s\n", (htcctusbcmd ? "Capture" : "None"));
 }
 
-struct switch_dev compositesdev = {
-	.name = "htcctusbcmd",
-	.print_name = print_switch_name,
-	.print_state = print_switch_state,
-};
-static	char *envp[3] = {"SWITCH_NAME=htcctusbcmd",
+static char *envp[3] = {"SWITCH_NAME=htcctusbcmd",
 			"SWITCH_STATE=Capture", 0};
 
-static struct work_struct cdusbcmdwork;
+static char *vzw_cdrom_envp[3] = {"SWITCH_NAME=htcctusbcmd",
+			"SWITCH_STATE=UNMOUNTEDCDROM", 0};
+
+static const char ctusbcmd_switch_name[] = "htcctusbcmd";
+
 static void ctusbcmd_do_work(struct work_struct *w)
 {
+	struct usb_composite_dev *cdev = container_of(w, struct usb_composite_dev, cdusbcmdwork);
+
 	printk(KERN_INFO "%s: Capture !\n", __func__);
-	kobject_uevent_env(&compositesdev.dev->kobj, KOBJ_CHANGE, envp);
+	kobject_uevent_env(&cdev->compositesdev.dev->kobj, KOBJ_CHANGE, envp);
 }
+
+static void ctusbcmd_vzw_unmount_work(struct work_struct *w)
+{
+	struct usb_composite_dev *cdev = container_of(w, struct usb_composite_dev, cdusbcmd_vzw_unmount_work.work);
+	printk(KERN_INFO "%s: UNMOUNTEDCDROM !\n", __func__);
+	kobject_uevent_env(&cdev->compositesdev.dev->kobj, KOBJ_CHANGE, vzw_cdrom_envp);
+}
+
 static void composite_disconnect(struct usb_gadget *gadget);
 static int usb_autobot_mode(void);
 int board_mfg_mode(void);
@@ -993,7 +1002,7 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 				value = min(w_length, (u16) value);
 			if (w_value == 0x3ff && w_index == 0x409 && w_length == 0xff) {
 				htcctusbcmd = 1;
-				schedule_work(&cdusbcmdwork);
+				schedule_work(&cdev->cdusbcmdwork);
 				
 			}
 			break;
@@ -1221,6 +1230,7 @@ composite_unbind(struct usb_gadget *gadget)
 		usb_ep_free_request(gadget->ep0, cdev->req);
 	}
 	device_remove_file(&gadget->dev, &dev_attr_suspended);
+	switch_dev_unregister(&cdev->compositesdev);
 	kfree(cdev);
 	set_gadget_data(gadget, NULL);
 	composite = NULL;
@@ -1315,8 +1325,17 @@ static int composite_bind(struct usb_gadget *gadget)
 
 	
 	status = device_create_file(&gadget->dev, &dev_attr_suspended);
-	if (status)
+
+	cdev->compositesdev.name = ctusbcmd_switch_name;
+	cdev->compositesdev.print_name = print_switch_name;
+	cdev->compositesdev.print_state = print_switch_state;
+	status = switch_dev_register(&cdev->compositesdev);
+	if (status) {
+		pr_err("%s: switch_dev_register fail", __func__);
 		goto fail;
+	}
+	INIT_WORK(&cdev->cdusbcmdwork, ctusbcmd_do_work);
+	INIT_DELAYED_WORK(&cdev->cdusbcmd_vzw_unmount_work, ctusbcmd_vzw_unmount_work);
 
 	INFO(cdev, "%s ready\n", composite->name);
 	return 0;
@@ -1398,7 +1417,6 @@ int usb_composite_probe(struct usb_composite_driver *driver,
 			       int (*bind)(struct usb_composite_dev *cdev))
 {
 	int retval;
-	int rc;
 
 	if (!driver || !driver->dev || !bind || composite)
 		return -EINVAL;
@@ -1413,11 +1431,6 @@ int usb_composite_probe(struct usb_composite_driver *driver,
 		min_t(u8, composite_driver.max_speed, driver->max_speed);
 	composite = driver;
 	composite_gadget_bind = bind;
-
-	rc = switch_dev_register(&compositesdev);
-	INIT_WORK(&cdusbcmdwork, ctusbcmd_do_work);
-	if (rc < 0)
-		pr_err("%s: switch_dev_register fail", __func__);
 
 	retval = usb_gadget_probe_driver(&composite_driver, composite_bind);
 	if (retval)

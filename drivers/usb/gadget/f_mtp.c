@@ -94,7 +94,6 @@ struct mtp_dev {
 	uint64_t read_count;
 
 	struct list_head rx_idle;
-	struct list_head rx_busy;
 	struct list_head rx_done;
 	struct list_head tx_idle;
 	struct list_head intr_idle;
@@ -404,23 +403,6 @@ static struct usb_request
 	return req;
 }
 
-static struct usb_request
-*mtp_req_get_newest(struct mtp_dev *dev, struct list_head *head)
-{
-	unsigned long flags;
-	struct usb_request *req;
-
-	spin_lock_irqsave(&dev->lock, flags);
-	if (list_empty(head)) {
-		req = 0;
-	} else {
-		req = list_entry(head->prev, struct usb_request, list);
-		list_del(&req->list);
-	}
-	spin_unlock_irqrestore(&dev->lock, flags);
-	return req;
-}
-
 static void mtp_complete_in(struct usb_ep *ep, struct usb_request *req)
 {
 	struct mtp_dev *dev = _mtp_dev;
@@ -437,17 +419,6 @@ static void mtp_complete_out(struct usb_ep *ep, struct usb_request *req)
 {
 	struct mtp_dev *dev = _mtp_dev;
 	struct usb_composite_dev *cdev = dev->cdev;
-	struct usb_request *busy_req;
-
-	
-	busy_req = mtp_req_get(dev, &dev->rx_busy);
-
-	if (busy_req) {
-		DBG(cdev, "%s: %p rx_busy dropped status: %d\n",
-				__func__, busy_req, busy_req->status);
-	} else {
-		ERROR(cdev, "%s: (null) was found in rx_busy\n", __func__);
-	}
 
 	if (req->status != 0) {
 		dev->state = STATE_ERROR;
@@ -549,7 +520,7 @@ static ssize_t mtp_read(struct file *fp, char __user *buf,
 {
 	struct mtp_dev *dev = fp->private_data;
 	struct usb_composite_dev *cdev = dev->cdev;
-	struct usb_request *req, *tmp_req = NULL, *busy_req = NULL;
+	struct usb_request *req;
 	int xfer, r = 0, ret = 0, file_xfer_zlp_flag = 0;
 
 	DBG(cdev, "mtp_read(%d)\n", count);
@@ -591,10 +562,7 @@ static ssize_t mtp_read(struct file *fp, char __user *buf,
 
 	while (count > 0) {
 		if (dev->state == STATE_CANCELED) {
-			list_for_each_entry_safe(req, tmp_req, &dev->rx_busy, list) {
-				DBG(cdev, "%s: dequeue request(%p)\n", __func__, req);
-				ret = usb_ep_dequeue(dev->ep_out, req);
-			}
+			usb_ep_nuke(dev->ep_out);
 			while ((req = mtp_req_get(dev, &dev->rx_done)))
 				mtp_req_put(dev, &dev->rx_idle, req);
 			dev->read_count = 0;
@@ -610,16 +578,8 @@ requeue_req:
 			#endif
 			req->length = MTP_BULK_BUFFER_SIZE;
 			DBG(cdev, "%s: queue request(%p) on %s\n", __func__, req, dev->ep_out->name);
-			mtp_req_put(dev, &dev->rx_busy, req);
 			ret = usb_ep_queue(dev->ep_out, req, GFP_ATOMIC);
 			if (ret < 0) {
-				busy_req = mtp_req_get_newest(dev, &dev->rx_busy);
-				if (busy_req != req || req == NULL) {
-					ERROR(cdev, "%s: rx_busy->req: %p, req:%p\n",
-						__func__, busy_req, req);
-					r = -EIO;
-					goto done;
-				}
 				INFO(cdev, "%s: failed to queue req %p (%d)\n", __func__, req, ret);
 				r = -EIO;
 				mtp_req_put(dev, &dev->rx_idle, req);
@@ -904,7 +864,7 @@ static void receive_file_work(struct work_struct *data)
 	struct mtp_dev *dev = container_of(data, struct mtp_dev,
 						receive_file_work);
 	struct usb_composite_dev *cdev = dev->cdev;
-	struct usb_request *req = NULL, *tmp_req = NULL, *busy_req = NULL;
+	struct usb_request *req = NULL;
 	struct file *filp;
 	loff_t offset;
 	int64_t count;
@@ -928,14 +888,11 @@ static void receive_file_work(struct work_struct *data)
 
 	while (count > 0) {
 		if (dev->state == STATE_CANCELED) {
-			r = -ECANCELED;
-			times = 0;
-			list_for_each_entry_safe(req, tmp_req, &dev->rx_busy, list) {
-				INFO(cdev, "%s: #%d dequeue request(%p)\n", __func__, times++, req);
-				ret = usb_ep_dequeue(dev->ep_out, req);
-			}
+			usb_ep_nuke(dev->ep_out);
 			while ((req = mtp_req_get(dev, &dev->rx_done)))
 				mtp_req_put(dev, &dev->rx_idle, req);
+			r = -ECANCELED;
+			times = 0;
 			break;
 		}
 
@@ -947,18 +904,8 @@ requeue_req:
 			#endif
 			req->length = MTP_BULK_BUFFER_SIZE;
 			DBG(cdev, "%s: queue request(%p) on %s\n", __func__, req, dev->ep_out->name);
-			mtp_req_put(dev, &dev->rx_busy, req);
 			ret = usb_ep_queue(dev->ep_out, req, GFP_ATOMIC);
 			if (ret < 0) {
-				busy_req = mtp_req_get_newest(dev, &dev->rx_busy);
-				if (busy_req != req) {
-					ERROR(cdev, "%s: rx_busy->req: %p, req:%p\n",
-						__func__, busy_req, req);
-				} else if (req == NULL) {
-					ERROR(cdev, "%s: req = null from usb_ep_queue\n", __func__);
-					r = -EIO;
-					goto done;
-				}
 				DBG(cdev, "%s: failed to queue req %p (%d)\n", __func__, req, ret);
 				r = -EIO;
 				mtp_req_put(dev, &dev->rx_idle, req);
@@ -1222,6 +1169,11 @@ static int mtp_release(struct inode *ip, struct file *fp)
 		DBG(cdev, "%s: set state as STATE_CANCELED to flush read job\n", __func__);
 		dev->state = STATE_CANCELED;
 		return 0;
+	} else if (dev->state == STATE_OFFLINE) {
+		DBG(cdev, "%s: already offline. Dont need to put done to idle\n", __func__);
+		dev->read_count = 0;
+		mtp_unlock(&dev->read_excl);
+		return 0;
 	}
 
 	
@@ -1260,6 +1212,7 @@ static int mtp_ctrlrequest(struct usb_composite_dev *cdev,
 	u16	w_value = le16_to_cpu(ctrl->wValue);
 	u16	w_length = le16_to_cpu(ctrl->wLength);
 	unsigned long	flags;
+	int	id;
 
 	VDBG(cdev, "mtp_ctrlrequest "
 			"%02x.%02x v%04x i%04x l%u\n",
@@ -1291,7 +1244,9 @@ static int mtp_ctrlrequest(struct usb_composite_dev *cdev,
 		DBG(cdev, "class request: %d index: %d value: %d length: %d\n",
 			ctrl->bRequest, w_index, w_value, w_length);
 
-		if (ctrl->bRequest == MTP_REQ_CANCEL && w_index == 0
+		id = mtp_interface_desc.bInterfaceNumber;
+		if (ctrl->bRequest == MTP_REQ_CANCEL
+				&& (w_index == 0 || w_index == id)
 				&& w_value == 0) {
 			DBG(cdev, "MTP_REQ_CANCEL\n");
 
@@ -1392,15 +1347,14 @@ static void
 mtp_function_unbind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct mtp_dev	*dev = func_to_mtp(f);
-	struct usb_request *req = NULL, *tmp_req = NULL;
+	struct usb_request *req = NULL;
 
 	while ((req = mtp_req_get(dev, &dev->tx_idle)))
 		mtp_request_free(req, dev->ep_in);
+
 	
-	list_for_each_entry_safe(req, tmp_req, &dev->rx_busy, list) {
-		DBG(dev->cdev, "%s: dequeue request(%p)\n", __func__, req);
-		usb_ep_dequeue(dev->ep_out, req);
-	}
+	usb_ep_nuke(dev->ep_out);
+
 	while ((req = mtp_req_get(dev, &dev->rx_idle))) {
 		DBG(dev->cdev, "%s: rx_idle release (%p)\n", __func__, req);
 		mtp_request_free(req, dev->ep_out);
@@ -1539,6 +1493,7 @@ static int mtp_bind_config(struct usb_configuration *c, bool ptp_config)
 	dev->function.unbind = mtp_function_unbind;
 	dev->function.set_alt = mtp_function_set_alt;
 	dev->function.disable = mtp_function_disable;
+	dev->function.suspend = mtp_function_disable;
 
 	return usb_add_function(c, &dev->function);
 }
@@ -1559,7 +1514,6 @@ static int mtp_setup(void)
 	atomic_set(&dev->open_excl, 0);
 	atomic_set(&dev->ioctl_excl, 0);
 	INIT_LIST_HEAD(&dev->rx_idle);
-	INIT_LIST_HEAD(&dev->rx_busy);
 	INIT_LIST_HEAD(&dev->rx_done);
 	INIT_LIST_HEAD(&dev->tx_idle);
 	INIT_LIST_HEAD(&dev->intr_idle);

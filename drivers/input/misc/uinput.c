@@ -40,6 +40,12 @@
 #include <linux/input/mt.h>
 #include "../input-compat.h"
 
+#ifdef CONFIG_FPR_SPI
+extern int fpr_sensor;
+extern int COF_enable;
+extern int fp_mount;
+#endif
+
 static int uinput_dev_event(struct input_dev *dev, unsigned int type, unsigned int code, int value)
 {
 	struct uinput_device	*udev = input_get_drvdata(dev);
@@ -408,6 +414,9 @@ static int uinput_setup_device(struct uinput_device *udev, const char __user *bu
 static inline ssize_t uinput_inject_event(struct uinput_device *udev, const char __user *buffer, size_t count)
 {
 	struct input_event ev;
+#ifdef CONFIG_FPR_SPI
+    char fprkey[] = "Validity_Navigation_Sensor";
+#endif
 
 	if (count < input_event_size())
 		return -EINVAL;
@@ -415,6 +424,20 @@ static inline ssize_t uinput_inject_event(struct uinput_device *udev, const char
 	if (input_event_from_user(buffer, &ev))
 		return -EFAULT;
 
+#ifdef CONFIG_FPR_SPI
+        if(fp_mount && strcmp(fprkey, udev->dev->name) == 0)
+        {
+            switch(ev.code)
+            {
+                case 0xfc:
+                    return -EINVAL;
+                    break;
+                default:
+                    break;
+            }
+            printk("vfsspi: uinput_inject_event name = %s type = %d code = %d value =%d\n",udev->dev->name, ev.type, ev.code, ev.value);
+        }
+#endif
 	input_event(udev->dev, ev.type, ev.code, ev.value);
 
 	return input_event_size();

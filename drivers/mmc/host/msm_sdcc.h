@@ -421,6 +421,7 @@ struct msmsdcc_host {
 	struct proc_dir_entry *burst_proc;
 	struct proc_dir_entry *bkops_proc;
 	struct proc_dir_entry *speed_class;
+	struct proc_dir_entry *cam_control;
 
 #ifdef CONFIG_WIFI_MMC
     bool is_runtime_resumed;
@@ -432,6 +433,13 @@ struct msmsdcc_host {
 	unsigned int cont_tuning_cnt;
 	
 
+#define MMC_WORK_TIME_BKOPS		240000
+#define MMC_WORK_TIME_SHORT_BKOPS		60000
+#define MMC_WORK_TIME_SANITIZE	240000
+	
+	unsigned int work_remain;
+	u64	work_start_time;
+	struct alarm work_alarm_timer;
 };
 
 #define MSMSDCC_VERSION_MASK	0xFFFF

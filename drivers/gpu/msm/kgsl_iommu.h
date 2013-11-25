@@ -113,6 +113,7 @@ struct kgsl_iommu {
 	struct kgsl_iommu_register_list *iommu_reg_list;
 	struct remote_iommu_petersons_spinlock *sync_lock_vars;
 	struct kgsl_memdesc sync_lock_desc;
+	unsigned int sync_lock_offset;
 	bool sync_lock_initialized;
 };
 

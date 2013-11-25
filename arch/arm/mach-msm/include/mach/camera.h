@@ -106,6 +106,7 @@ enum vfe_resp_msg {
 	VFE_MSG_V2X_CAPTURE,
 	VFE_MSG_OUTPUT_PRIMARY,
 	VFE_MSG_OUTPUT_SECONDARY,
+	VFE_MSG_OUTPUT_TERTIARY1,
 };
 
 enum vpe_resp_msg {
@@ -126,14 +127,6 @@ enum msm_stereo_state {
 	STEREO_RAW_SNAP_STARTED,
 };
 
-enum msm_ispif_intftype {
-	PIX0,
-	RDI0,
-	PIX1,
-	RDI1,
-	PIX2,
-	RDI2,
-};
 
 enum msm_ispif_vc {
 	VC0,
@@ -655,8 +648,8 @@ int msm_camio_enable(struct platform_device *dev);
 int msm_camio_vpe_clk_enable(uint32_t);
 int msm_camio_vpe_clk_disable(void);
 
-int  msm_camio_clk_enable(enum msm_camio_clk_type clk);
-int  msm_camio_clk_disable(enum msm_camio_clk_type clk);
+int  msm_camio_clk_enable(struct msm_camera_sensor_info* sinfo,enum msm_camio_clk_type clk);
+int  msm_camio_clk_disable(struct msm_camera_sensor_info* sinfo,enum msm_camio_clk_type clk);
 int  msm_camio_clk_config(uint32_t freq);
 void msm_camio_clk_rate_set(int rate);
 int msm_camio_vfe_clk_rate_set(int rate);

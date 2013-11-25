@@ -127,9 +127,6 @@ extern int board_mfg_mode(void);
 #ifdef CONFIG_APQ8064_ONLY 
 extern unsigned long acpuclk_krait_power_collapse(void);
 #endif
-#if defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY)
-extern int dlp_ext_buck_en(int);
-#endif
 #define CPU_FOOT_PRINT_MAGIC				0xACBDFE00
 #define CPU_FOOT_PRINT_MAGIC_SPC			0xACBDAA00
 #define CPU_FOOT_PRINT_BASE_CPU0_VIRT		(CPU_FOOT_PRINT_BASE + 0x0)
@@ -1182,9 +1179,6 @@ static int msm_pm_enter(suspend_state_t state)
 	uint64_t xo_shutdown_time, vdd_min_time;
 	int collapsed;
 
-#if defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY)
-	dlp_ext_buck_en(0);
-#endif
 	if (MSM_PM_DEBUG_SUSPEND & msm_pm_debug_mask)
 		pr_info("%s\n", __func__);
 
@@ -1359,10 +1353,6 @@ static int msm_pm_enter(suspend_state_t state)
 
 
 enter_exit:
-
-#if defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY)
-	dlp_ext_buck_en(1);
-#endif
 	if (MSM_PM_DEBUG_SUSPEND & msm_pm_debug_mask)
 		pr_info("%s: return\n", __func__);
 

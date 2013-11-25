@@ -598,6 +598,21 @@ int inet_stream_connect(struct socket *sock, struct sockaddr *uaddr,
 	timeo = sock_sndtimeo(sk, flags & O_NONBLOCK);
 
 	if ((1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV)) {
+
+#ifdef CONFIG_HTC_NETWORK_MODIFY
+		if (IS_ERR(sk->sk_wq) || (!sk->sk_wq)) {
+			printk(KERN_ERR "[NET] sk->sk_wq is NULL in %s!\n", __func__);
+			if (sk->sk_state)
+				printk(KERN_ERR "[NET]sk_state=%d\n",sk->sk_state);
+			if (sk->__sk_common.skc_daddr)
+				printk(KERN_ERR "[NET]skc_daddr=0x%08X\n",sk->__sk_common.skc_daddr);
+			if (sk->__sk_common.skc_rcv_saddr)
+				printk(KERN_ERR "[NET]skc_rcv_saddr=0x%08X\n",sk->__sk_common.skc_rcv_saddr);
+
+			goto out;
+		}
+#endif
+
 		
 		if (!timeo || !inet_wait_for_connect(sk, timeo))
 			goto out;
@@ -1474,7 +1489,7 @@ static const struct net_protocol udp_protocol = {
 
 static const struct net_protocol icmp_protocol = {
 	.handler =	icmp_rcv,
-	.err_handler =	ping_err,
+	.err_handler =	ping_v4_err,
 	.no_policy =	1,
 	.netns_ok =	1,
 };

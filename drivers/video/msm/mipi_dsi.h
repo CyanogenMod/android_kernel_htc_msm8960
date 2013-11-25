@@ -381,4 +381,10 @@ void mipi_dsi_wait4video_done(void);
 void update_lane_config(struct msm_panel_info *pinfo);
 #endif
 
+#ifdef CONFIG_FB_MSM_ESD_WORKAROUND
+uint32 mipi_dsi_cmd_bta_sw_trigger_status(void);
+uint32 mipi_dsi_read_power_mode(void);
+extern bool video_mode;
+#endif
+
 #endif 

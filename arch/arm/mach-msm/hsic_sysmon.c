@@ -318,6 +318,9 @@ hsic_sysmon_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	int				ret = -ENOMEM;
 	__u8				ifc_num;
 
+#ifdef CONFIG_BUILD_EDIAG
+        return -ENODEV;
+#endif
 	pr_debug("id:%lu", id->driver_info);
 
 	ifc_num = ifc->cur_altsetting->desc.bInterfaceNumber;

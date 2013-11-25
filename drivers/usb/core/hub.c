@@ -2043,6 +2043,7 @@ static int check_port_resume_type(struct usb_device *udev,
 		struct usb_hub *hub, int port1,
 		int status, unsigned portchange, unsigned portstatus)
 {
+	struct usb_hcd *hcd = bus_to_hcd(udev->bus);
 	
 	if (status || port_is_suspended(hub, portstatus) ||
 			!port_is_power_on(hub, portstatus) ||
@@ -2052,7 +2053,7 @@ static int check_port_resume_type(struct usb_device *udev,
 	}
 
 	else if (!(portstatus & USB_PORT_STAT_ENABLE) && !udev->reset_resume) {
-		if (udev->persist_enabled)
+		if (udev->persist_enabled && strstr(hcd->product_desc, "HSIC"))
 			udev->reset_resume = 1;
 		else
 			status = -ENODEV;

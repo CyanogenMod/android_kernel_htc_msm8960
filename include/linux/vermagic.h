@@ -1,6 +1,5 @@
 #include <generated/utsrelease.h>
 
-/* Simply sanity version stamp for modules. */
 #ifdef CONFIG_SMP
 #define MODULE_VERMAGIC_SMP "SMP "
 #else

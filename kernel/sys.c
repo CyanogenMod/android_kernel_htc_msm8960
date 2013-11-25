@@ -45,6 +45,7 @@
 #include <linux/syscalls.h>
 #include <linux/kprobes.h>
 #include <linux/user_namespace.h>
+#include <htc_debug/stability/dirty_file_detector.h>
 
 #include <linux/kmsg_dump.h>
 #include <generated/utsrelease.h>
@@ -303,6 +304,9 @@ void kernel_restart(char *cmd)
 		printk(KERN_EMERG "Restarting system.\n");
 	else
 		printk(KERN_EMERG "Restarting system with command '%s'.\n", cmd);
+#ifdef CONFIG_DIRTY_SYSTEM_DETECTOR
+	printk(KERN_EMERG "%s: system_dirty=%d\n", __func__, is_system_dirty());
+#endif
 	kmsg_dump(KMSG_DUMP_RESTART);
 	machine_restart(cmd);
 }

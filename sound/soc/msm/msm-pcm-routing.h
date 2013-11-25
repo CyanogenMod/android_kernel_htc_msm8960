@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -63,7 +63,8 @@ enum {
 	MSM_FRONTEND_DAI_VOICE_STUB,
 	MSM_FRONTEND_DAI_VOLTE,
 	MSM_FRONTEND_DAI_VOICE2,
-   MSM_FRONTEND_DAI_VOICE2_STUB,
+    MSM_FRONTEND_DAI_VOICE2_STUB,
+    MSM_FRONTEND_DAI_VOLTE_STUB,
 	MSM_FRONTEND_DAI_MAX,
 };
 

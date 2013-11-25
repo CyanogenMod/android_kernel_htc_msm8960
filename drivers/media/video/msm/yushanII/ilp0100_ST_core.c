@@ -30,6 +30,8 @@
 bool_t		PllLocked		=	0;
 uint32_t 	SpiWin0BaseAddr	=	0x00000000;
 
+#define FW_STATE_CHECK_TIMEOUT_COUNT		20000 
+
 
 ilp0100_error Ilp0100_init(const Ilp0100_structInit Init, Ilp0100_structInitFirmware InitFirmware, const Ilp0100_structSensorParams SensorParams)
 {
@@ -1317,6 +1319,8 @@ ilp0100_error Ilp0100_core_defineMode(const Ilp0100_structFrameFormat FrameForma
 	uint32_t InterruptId;
 	uint8_t InputNbStatusLines;
 	uint8_t ILPSOFLines,LinesCnvtToSOF;
+	uint32_t Timeout; 
+
 
 	ILP0100_LOG_FUNCTION_START((void*)&FrameFormat);
 	
@@ -1445,8 +1449,16 @@ ilp0100_error Ilp0100_core_defineMode(const Ilp0100_structFrameFormat FrameForma
 	if(ModeStatus!=HIF_ModeStatus_e_STREAM)
 	{
 		
+		Timeout = 0; 
 		while(ModeStatus!=HIF_ModeStatus_e_IDLE )
 		{
+			
+			if((++Timeout)>FW_STATE_CHECK_TIMEOUT_COUNT)
+			{
+				pr_err("%s failed to change state to HIF_ModeStatus_e_IDLE", __func__);
+				return ILP0100_ERROR;
+			}
+			
 			ILP0100_DEBUG_LOG("Checking Firmware to be in IDLE Mode");
 			Ret|= Ilp0100_core_readRegister((uint16_t)SPI_BASE_ADD_0+HIF_SystemandStatus_e_ModeStatus, 1, (uint8_t*)&ModeStatus);
 		}

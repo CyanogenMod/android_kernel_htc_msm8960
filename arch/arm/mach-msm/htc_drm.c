@@ -53,13 +53,14 @@
 #define HTCDRM_IOCTL_WIDEVINE	0x2563
 #define HTCDRM_IOCTL_DISCRETIX	0x2596
 #define HTCDRM_IOCTL_CPRM   	0x2564
+#define HTCDRM_IOCTL_GDRIVE		0x2568
 
 #define DEVICE_ID_LEN			32
 #define WIDEVINE_KEYBOX_LEN		128
 #define CPRM_KEY_LEN		    188
 
 #define HTC_DRM_DEBUG	0
-#define TAG "[SEC] "
+#define TAG "[HTCDRM] "
 #undef PDEBUG
 #if HTC_DRM_DEBUG
 #define PDEBUG(fmt, args...) printk(KERN_DEBUG TAG "[D] %s(%i, %s): " fmt "\n", \
@@ -100,6 +101,12 @@ enum {
 		HTC_OEMCRYPTO_IDENTIFY_DEVICE,
 		HTC_OEMCRYPTO_GET_RANDOM,
 		HTC_OEMCRYPTO_IS_KEYBOX_VALID,
+};
+
+enum {
+	HTC_GDRIVE_GET_VOUCHER = 1,
+	HTC_GDRIVE_CREATE_VOUCHER_SIGNATURE,
+	HTC_GDRIVE_REDEEM_UPDATE,
 };
 
 #if !defined(CONFIG_ARCH_MSM7X30) && !defined(CONFIG_ARCH_MSM7X27A)
@@ -1007,6 +1014,90 @@ static long htcdrm_discretix_ioctl(struct file *file, unsigned int command, unsi
 	return 0;
 }
 #endif
+static long htcdrm_gdrive_ioctl(struct file *file, unsigned int command, unsigned long arg) {
+
+	htc_drm_msg_s hmsg;
+	unsigned char *in_buf = NULL, *out_buf = NULL;
+	int ret = 0;
+	int ii;
+
+	PDEBUG("%s entry(%d)", __func__, __LINE__);
+	if (copy_from_user(&hmsg, (void __user *)arg, sizeof(hmsg))) {
+		PERR("copy_from_user error (msg)");
+		return -EFAULT;
+	}
+	switch(hmsg.func) {
+		case HTC_GDRIVE_GET_VOUCHER:
+			if ((hmsg.resp_buf == NULL) || !hmsg.resp_len) {
+				PERR("invalid arguments");
+				return -EFAULT;
+			}
+			out_buf = kmalloc(hmsg.resp_len, GFP_KERNEL);
+			if (!out_buf) {
+				PERR("Alloc memory fail");
+				return -ENOMEM;
+			}
+			ret = secure_access_item(0, ITEM_GDRIVE_DATA, hmsg.resp_len, out_buf);
+			if (ret)
+				PERR("get GDrive voucher failed (%d)", ret);
+			else {
+				
+				if (copy_to_user((void __user *)hmsg.resp_buf, out_buf, *(unsigned int *)(out_buf) + 4)) {
+					PERR("copy_to_user error (gdrive voucher)");
+					ret = -EFAULT;
+				}
+				kfree(out_buf);
+			}
+			break;
+		case HTC_GDRIVE_CREATE_VOUCHER_SIGNATURE:
+			PDEBUG("%s entry(%d)", __func__, __LINE__);
+			if ((hmsg.resp_buf == NULL) || !hmsg.resp_len) {
+				PERR("invalid arguments");
+				return -EFAULT;
+			}
+			if ((in_buf = kmalloc(hmsg.req_len, GFP_KERNEL)) == NULL) {
+				PERR("Alloc memory fail");
+				return -ENOMEM;
+			}
+			if ((out_buf = kmalloc(hmsg.resp_len, GFP_KERNEL)) == NULL) {
+				PERR("Alloc memory fail");
+				return -ENOMEM;
+			}
+			if (copy_from_user(in_buf, (void __user *)hmsg.req_buf, hmsg.req_len)) {
+				PERR("copy_from_user error (msg)");
+				kfree(in_buf);
+				kfree(out_buf);
+				return -EFAULT;
+			}
+			for (ii = 0; ii < hmsg.req_len; ii++) {
+				PDEBUG("%02x", in_buf[ii]);
+			}
+			ret = secure_access_item(1, ITEM_VOUCHER_SIG_DATA, hmsg.req_len, in_buf);
+			if (ret)
+				PERR("put GDrive data fail (%d)", ret);
+			else {
+				PDEBUG("Read data from TZ start\n");
+				ret = secure_access_item(0, ITEM_VOUCHER_SIG_DATA, hmsg.resp_len, out_buf);
+				if (ret)
+					PERR("get voucher signature fail (%d)", ret);
+				else
+					if (copy_to_user((void __user *)hmsg.resp_buf, out_buf, hmsg.resp_len)) {
+						PERR("copy_to_user error (gdrive voucher)");
+						ret = -EFAULT;
+					}
+			}
+			kfree(in_buf);
+			kfree(out_buf);
+			break;
+		case HTC_GDRIVE_REDEEM_UPDATE:
+			break;
+		default:
+			PERR("command error");
+			return -EFAULT;
+	}
+	return ret;
+}
+
 static long htcdrm_ioctl(struct file *file, unsigned int command, unsigned long arg)
 {
 	htc_drm_msg_s hmsg;
@@ -1178,6 +1269,9 @@ static long htcdrm_ioctl(struct file *file, unsigned int command, unsigned long 
             }
         }
         break;
+	case HTCDRM_IOCTL_GDRIVE:
+		ret = htcdrm_gdrive_ioctl(file, command, arg);
+		break;
 
 	default:
 		PERR("command error");

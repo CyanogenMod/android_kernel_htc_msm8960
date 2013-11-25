@@ -27,6 +27,7 @@
 #include <linux/iopoll.h>
 #include <linux/platform_device.h>
 #include <linux/iopoll.h>
+#include <mach/debug_display.h>
 
 #include <asm/system.h>
 #include <asm/mach-types.h>
@@ -65,6 +66,7 @@ enum {
 };
 
 struct dcs_cmd_list	cmdlist;
+void mipi_dsi_status(void);
 
 #ifdef CONFIG_FB_MSM_MDP40
 void mipi_dsi_mdp_stat_inc(int which)
@@ -1271,6 +1273,14 @@ int mipi_dsi_cmds_rx_new(struct dsi_buf *tp, struct dsi_buf *rp,
 	struct dsi_cmd_desc *cmds;
 	int cnt, len, diff, pkt_size;
 	char cmd;
+#ifdef CONFIG_FB_MSM_ESD_WORKAROUND
+	uint32 dsi_ctrl = 0x0;
+
+	if (video_mode) {
+		dsi_ctrl = MIPI_INP(MIPI_DSI_BASE + 0x0000);
+		MIPI_OUTP(MIPI_DSI_BASE + 0x0000, dsi_ctrl | 0x04); 
+	}
+#endif
 
 	if (req->flags & CMD_REQ_NO_MAX_PKT_SIZE) {
 		
@@ -1348,9 +1358,15 @@ int mipi_dsi_cmds_rx_new(struct dsi_buf *tp, struct dsi_buf *rp,
 		break;
 	}
 
+#ifdef CONFIG_FB_MSM_ESD_WORKAROUND
+	if (video_mode)
+		MIPI_OUTP(MIPI_DSI_BASE + 0x0000, dsi_ctrl); 
+#endif
+
 	return rp->len;
 }
 
+int dsi_cmd_dma_cnt;
 int mipi_dsi_cmd_dma_tx(struct dsi_buf *tp)
 {
 	unsigned long flags;
@@ -1390,9 +1406,14 @@ int mipi_dsi_cmd_dma_tx(struct dsi_buf *tp)
 	wmb();
 	spin_unlock_irqrestore(&dsi_mdp_lock, flags);
 
+	dsi_cmd_dma_cnt++;
 	if (!wait_for_completion_timeout(&dsi_dma_comp,
 					msecs_to_jiffies(200))) {
-		pr_err("%s: dma timeout error\n", __func__);
+		pr_err("%s: dma timeout error cnt=%d\n", __func__, dsi_cmd_dma_cnt);
+		if (dsi_cmd_dma_cnt > 5) {
+			mipi_dsi_status();
+			mipi_dsi_sw_reset();
+		}
 	}
 
 	dma_unmap_single(&dsi_dev, tp->dmap, tp->len, DMA_TO_DEVICE);
@@ -1438,6 +1459,8 @@ void mipi_dsi_cmd_mdp_busy(void)
 {
 	unsigned long flags;
 	int need_wait = 0;
+	int timeoutResult = 0;
+	static int cnt = 0;
 
 	pr_debug("%s: start pid=%d\n",
 				__func__, current->pid);
@@ -1450,7 +1473,15 @@ void mipi_dsi_cmd_mdp_busy(void)
 		
 		pr_debug("%s: pending pid=%d\n",
 				__func__, current->pid);
-		wait_for_completion(&dsi_mdp_comp);
+		timeoutResult = wait_for_completion_timeout(&dsi_mdp_comp, HZ/10);
+		if (!timeoutResult) {
+			PR_DISP_WARN("%s:wait_for_completion\n",__func__);
+			if (cnt > 2)
+				PR_DISP_WARN("%s:still timeout\n",__func__);
+			cnt++;
+		} else {
+			cnt = 0;
+		}
 	}
 	pr_debug("%s: done pid=%d\n",
 				__func__, current->pid);
@@ -1652,7 +1683,7 @@ void mipi_dsi_status(void)
 
 	if (status & 0x80000000) {
 		MIPI_OUTP(MIPI_DSI_BASE + 0x0004, status);
-		pr_debug("%s: status=%x\n", __func__, status);
+		pr_info("%s: status=%x\n", __func__, status);
 	}
 }
 
@@ -1703,6 +1734,7 @@ irqreturn_t mipi_dsi_isr(int irq, void *ptr)
 		complete(&dsi_dma_comp);
 		dsi_ctrl_lock = FALSE;
 		mipi_dsi_disable_irq_nosync(DSI_CMD_TERM);
+		dsi_cmd_dma_cnt = 0;
 		spin_unlock(&dsi_mdp_lock);
 	}
 

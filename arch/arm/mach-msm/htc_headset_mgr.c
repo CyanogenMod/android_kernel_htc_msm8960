@@ -260,6 +260,10 @@ int headset_notifier_register(struct headset_notifier *notifier)
 		HS_LOG("Register 1WIRE_REPORT_TYPE notifier");
 		hs_mgr_notifier.hs_1wire_report_type = notifier->func;
 		break;
+	case HEADSET_REG_1WIRE_OPEN:
+		HS_LOG("Register HEADSET_REG_1WIRE_OPEN notifier");
+		hs_mgr_notifier.hs_1wire_open = notifier->func;
+		break;
 	case HEADSET_REG_HS_INSERT:
 		HS_LOG("Register HS_INSERT notifier");
 		hs_mgr_notifier.hs_insert = notifier->func;
@@ -2009,7 +2013,7 @@ static int htc_headset_mgr_resume(struct platform_device *pdev)
 {
 	HS_DBG();
 	if (hi->one_wire_mode == 1)
-		hs_notify_key_irq();
+		hs_mgr_notifier.hs_1wire_open();
 	return 0;
 }
 

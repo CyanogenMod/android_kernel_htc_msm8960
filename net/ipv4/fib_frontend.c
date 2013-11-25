@@ -49,7 +49,6 @@
 #define FIB_IPTABLES_DEBUG 1
 #endif
 
-
 #ifndef CONFIG_IP_MULTIPLE_TABLES
 
 static int __net_init fib4_rules_init(struct net *net)

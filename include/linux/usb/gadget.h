@@ -130,6 +130,8 @@ struct usb_ep_ops {
 
 	int (*fifo_status) (struct usb_ep *ep);
 	void (*fifo_flush) (struct usb_ep *ep);
+
+	void (*nuke) (struct usb_ep *ep);
 };
 
 struct usb_ep {
@@ -286,6 +288,11 @@ static inline void usb_ep_fifo_flush(struct usb_ep *ep)
 		ep->ops->fifo_flush(ep);
 }
 
+static inline void usb_ep_nuke(struct usb_ep *ep)
+{
+	if (ep->ops->nuke)
+		ep->ops->nuke(ep);
+}
 
 
 struct usb_dcd_config_params {

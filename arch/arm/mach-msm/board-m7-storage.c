@@ -214,6 +214,7 @@ static struct mmc_platform_data sdc1_data = {
 	.mpm_sdiowakeup_int = MSM_MPM_PIN_SDC1_DAT1,
 	.msm_bus_voting_data = &sps_to_ddr_bus_voting_data,
 	.bkops_support = 1,
+	.prealloc_size = 6 * 1024 * 1024,
 };
 static struct mmc_platform_data *m7_sdc1_pdata = &sdc1_data;
 #else

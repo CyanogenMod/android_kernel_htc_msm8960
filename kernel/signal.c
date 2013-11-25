@@ -37,6 +37,7 @@
 #include <asm/unistd.h>
 #include <asm/siginfo.h>
 #include <asm/cacheflush.h>
+#include <htc_debug/stability/send_signal_debug.h>
 #include "audit.h"	
 
 static struct dying_pid dying_pid_buf[MAX_DYING_PROC_COUNT];
@@ -505,16 +506,10 @@ int dequeue_signal(struct task_struct *tsk, sigset_t *mask, siginfo_t *info)
 	return signr;
 }
 
-void signal_wake_up(struct task_struct *t, int resume)
+void signal_wake_up_state(struct task_struct *t, unsigned int state)
 {
-	unsigned int mask;
-
 	set_tsk_thread_flag(t, TIF_SIGPENDING);
-
-	mask = TASK_INTERRUPTIBLE;
-	if (resume)
-		mask |= TASK_WAKEKILL;
-	if (!wake_up_state(t, mask))
+	if (!wake_up_state(t, state | TASK_INTERRUPTIBLE))
 		kick_process(t);
 }
 
@@ -620,7 +615,7 @@ static void ptrace_trap_notify(struct task_struct *t)
 	assert_spin_locked(&t->sighand->siglock);
 
 	task_set_jobctl_pending(t, JOBCTL_TRAP_NOTIFY);
-	signal_wake_up(t, t->jobctl & JOBCTL_LISTENING);
+	ptrace_signal_wake_up(t, t->jobctl & JOBCTL_LISTENING);
 }
 
 static int prepare_signal(int sig, struct task_struct *p, bool force)
@@ -838,46 +833,12 @@ int dying_processors_read_proc(char *page, char **start, off_t off,
 	return p - page;
 }
 
-#ifdef CONFIG_MSM_SEND_SIGNAL_DEBUG
-#define process_attr(_name) \
-static struct kobj_attribute _name##_attr = {	\
-	.attr	= {				\
-		.name = __stringify(_name),	\
-		.mode = 0644,			\
-	},					\
-	.show	= _name##_show,			\
-	.store	= _name##_store,		\
-}
-
-struct kobject *process_kobj;
-
-static DEFINE_RWLOCK(task_comm_lock);
-static LIST_HEAD(task_comm_list);
-
-struct task_comm {
-	struct list_head list;
-	char comm[TASK_COMM_LEN];
-};
-#endif
-
 static int send_signal(int sig, struct siginfo *info, struct task_struct *t,
 			int group)
 {
 	int from_ancestor_ns = 0;
-#ifdef CONFIG_MSM_SEND_SIGNAL_DEBUG
-	struct task_comm *tc;
-
-	if (t->comm) {
-		read_lock(&task_comm_lock);
-		list_for_each_entry(tc, &task_comm_list, list) {
-			if (sig != SIGCHLD && (!strcmp(t->comm, tc->comm)) ) {
-				printk("%s: %s(%d) send signal %d to %s(%d)\n", __func__
-					, current->comm, current->pid, sig, t->comm, t->pid);
-				dump_stack();
-			}
-		}
-		read_unlock(&task_comm_lock);
-	}
+#ifdef CONFIG_HTC_DEBUG_SEND_SIGNAL
+	send_signal_debug_dump(sig, t);
 #endif
 
 	if (sig == SIGKILL) {
@@ -1462,6 +1423,7 @@ static void ptrace_stop(int exit_code, int why, int clear_code, siginfo_t *info)
 		if (gstop_done)
 			do_notify_parent_cldstop(current, false, why);
 
+		
 		__set_current_state(TASK_RUNNING);
 		if (clear_code)
 			current->exit_code = 0;
@@ -2073,62 +2035,6 @@ SYSCALL_DEFINE4(rt_sigtimedwait, const sigset_t __user *, uthese,
 	return ret;
 }
 
-#ifdef CONFIG_MSM_SEND_SIGNAL_DEBUG
-static ssize_t task_comm_list_store(struct kobject *kobj, struct kobj_attribute *attr,
-			   const char *buf, size_t n)
-{
-	struct task_comm *tc, *tc1;
-
-	if(n > 0 && n < TASK_COMM_LEN) {
-		tc1 = kmalloc(sizeof(struct task_comm), GFP_KERNEL);
-		memcpy(tc1->comm, buf, n);
-		tc1->comm[n-1] = '\0';
-
-		write_lock(&task_comm_lock);
-		list_for_each_entry(tc, &task_comm_list, list) {
-			if (!strcmp(tc->comm, tc1->comm)) {
-				write_unlock(&task_comm_lock);
-				kfree(tc1);
-				printk("%s: %s is existed, so ignore it.\n", __func__, tc->comm);
-				return n;
-			}
-		}
-
-		list_add_tail(&tc1->list, &task_comm_list);
-		write_unlock(&task_comm_lock);
-		printk("%s: Add %s to monitor list tail successfully\n", __func__, tc1->comm);
-	}
-
-	return n;
-}
-
-static ssize_t task_comm_list_show(struct kobject *kobj, struct kobj_attribute *attr,
-			  char *buf)
-{
-	struct task_comm *tc;
-	char *s = buf;
-
-	read_lock(&task_comm_lock);
-	list_for_each_entry(tc, &task_comm_list, list) {
-		s += sprintf(s, "%s\n", tc->comm);
-	}
-	read_unlock(&task_comm_lock);
-
-	return (s - buf);
-}
-
-process_attr(task_comm_list);
-
-static struct attribute *g[] = {
-	&task_comm_list_attr.attr,
-	NULL,
-};
-
-static struct attribute_group attr_group = {
-	.attrs = g,
-};
-#endif
-
 SYSCALL_DEFINE2(kill, pid_t, pid, int, sig)
 {
 	struct siginfo info;
@@ -2502,19 +2408,6 @@ void __init signals_init(void)
 {
 	sigqueue_cachep = KMEM_CACHE(sigqueue, SLAB_PANIC);
 }
-
-#ifdef CONFIG_MSM_SEND_SIGNAL_DEBUG
-static int __init track_process_init(void)
-{
-	process_kobj = kobject_create_and_add("process", NULL);
-	if (!process_kobj)
-		return -ENOMEM;
-	else
-		return sysfs_create_group(process_kobj, &attr_group);
-}
-
-core_initcall(track_process_init);
-#endif
 
 #ifdef CONFIG_KGDB_KDB
 #include <linux/kdb.h>

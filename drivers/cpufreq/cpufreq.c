@@ -353,15 +353,21 @@ static ssize_t store_##file_name					\
 (struct cpufreq_policy *policy, const char *buf, size_t count)		\
 {									\
 	unsigned int ret = -EINVAL;					\
+	unsigned int freq = 0;						\
 	struct cpufreq_policy new_policy;				\
 									\
 	ret = cpufreq_get_policy(&new_policy, policy->cpu);		\
 	if (ret)							\
 		return -EINVAL;						\
 									\
-	ret = sscanf(buf, "%u", &new_policy.object);			\
+	ret = sscanf(buf, "%u", &freq);					\
 	if (ret != 1)							\
 		return -EINVAL;						\
+	if (freq < new_policy.cpuinfo.min_freq)				\
+		freq = new_policy.cpuinfo.min_freq;			\
+	if (freq > new_policy.cpuinfo.max_freq)				\
+		freq = new_policy.cpuinfo.max_freq;			\
+	new_policy.object = freq;					\
 									\
 	ret = __cpufreq_set_policy(policy, &new_policy);		\
 	policy->user_policy.object = policy->object;			\

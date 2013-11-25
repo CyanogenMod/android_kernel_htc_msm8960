@@ -280,8 +280,12 @@ static int sysmon_probe(struct platform_device *pdev)
 	case TRANSPORT_HSIC:
 		if (pdev->id < SMD_NUM_TYPE)
 			return -EINVAL;
-
+#if defined(CONFIG_BUILD_EDIAG)
+		pr_info("SYSMON is supposed to be used as char dev with specific purpose.\n");
+		ret = -ENODEV;
+#else
 		ret = hsic_sysmon_open(HSIC_SYSMON_DEV_EXT_MODEM);
+#endif
 		if (ret) {
 			pr_err("HSIC open failed\n");
 			return ret;

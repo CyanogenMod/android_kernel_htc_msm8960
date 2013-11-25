@@ -287,11 +287,59 @@ config MACH_JET
 	help
 	  Support for the HTC Jet
 
+config MACH_JEWEL_DD
+        depends on ARCH_MSM8960
+        bool "Jel_dd"
+        help
+          Support for the HTC Jewel_DD
+
 config MACH_VALENTE_WX
 	depends on ARCH_MSM8960
 	bool "Valente#WX"
 	help
 	  Support for the HTC Valente#WX
+
+config MACH_VALENTE_WX_C9
+	depends on ARCH_MSM8960
+	bool "Valente#WX_C9"
+	help
+	  Support for the HTC Valente#WX_C9
+
+config MACH_K2_CL
+	depends on ARCH_MSM8930
+	bool "K2_CL"
+	help
+	  Support for the HTC K2_#CL
+
+config MACH_K2_PLC_CL
+	depends on ARCH_MSM8930
+	bool "K2_PLC_CL"
+	help
+	  Support for the HTC K2_PLC#CL
+
+config MACH_K2_U
+	depends on ARCH_MSM8930
+	bool "K2_U"
+	help
+	  Support for the HTC K2_U
+
+config MACH_K2_UL
+	depends on ARCH_MSM8930
+	bool "K2_UL"
+	help
+	  Support for the HTC K2_UL
+
+config MACH_EVITA_UTL
+        depends on ARCH_MSM8960
+        bool "Evita#UTL"
+        help
+          Support for the HTC Evita#UTL
+
+config MACH_OPERAUL
+	depends on ARCH_MSM8930
+	bool "OPERAUL"
+	help
+	  Support for the HTC OPERAUL
 
 config ARCH_FSM9XXX
 	bool "FSM9XXX"
@@ -1108,6 +1156,12 @@ config HTC_ONMODE_CHARGING
 	help
 		support on mode charing icon
 
+config BUILD_EDIAG
+        bool "Build in embedded diag fixes"
+        default n
+        help
+          For embedded diag we need to do some additional fixes.
+
 config HTC_FD_MONITOR
 	bool "fd operation monitor mechanism"
 	default n
@@ -1410,12 +1464,6 @@ config MSM_SMD_DEBUG
 	help
 	  Support for debugging the SMD for communication
 	  between the ARM9 and ARM11
-
-config MSM_SEND_SIGNAL_DEBUG
-        bool "MSM send_signal debug support"
-        help
-          This option enables kernel debug log and dump_stack
-          if any processes send signal to assinged processes
 
 config MSM_SDIO_AL
 	depends on ((ARCH_MSM7X30 || MACH_MSM8X60_FUSN_FFA || MACH_TYPE_MSM8X60_FUSION) && HAS_WAKELOCK)
@@ -2404,6 +2452,18 @@ config MSM8930_ONLY
 		help
 		 Help to separate MSM8930 code from other ARCH
 
+config AUDIO_LOW_LATENCY
+		default n
+		bool "For AUDIO_LOW_LATENCY only"
+		help
+		 Help to separate the AUDIO_LOW_LATENCY from other board config
+
+config AUDIO_24BIT
+		default n
+		bool "For AUDIO_24BIT only"
+		help
+		 Help to separate the AUDIO_24BIT from other board config
+
 config MSM_QDSP6_APR
 	bool "Audio QDSP6 APR support"
 	depends on MSM_SMD
@@ -2512,6 +2572,7 @@ config MSM_OCMEM
 
 config MSM_RTB
 	bool "Register tracing"
+	depends on (!METRICO_TP || METRICO_TP!=y)
 	help
 	  Add support for logging different events to a small uncached
 	  region. This is designed to aid in debugging reset cases where the
@@ -2616,6 +2677,14 @@ config MSM_L2_ERP_2BIT_PANIC
 	  For production builds, it may be acceptable to say 'N' here, since
 	  an uncorrectable error might not necessarily cause further problems.
 
+config IGNORE_L2_FALSE_ALRAM
+	bool "Ignore harmless L2 port error"
+	depends on MSM_CACHE_ERP
+	default y
+	help
+	  L2 cache will sometimes generate port error which is consider harmless.
+	  Ignore the error if trigger rate is low.
+
 config MSM_DCVS
 	bool "Use MSM DCVS for CPU/GPU Frequency control"
 	depends on MSM_SCM
@@ -2640,6 +2709,13 @@ config ACPU_CUSTOM_FREQ_SUPPORT
 	default n
 	help
 	  Adds support for custom frequency table adjustments.
+
+config ACPU_SPEED_BIN_FREQ_SUPPORT
+	bool "Custom speed bin frequency setting"
+	default n
+	depends on ACPU_CUSTOM_FREQ_SUPPORT
+	help
+	  Add support for adjusting ACPU frequency table according to ACPU speed bin.
 
 config ACPU_MAX_FREQ
 	int "Maximum supported frequency"
@@ -2666,6 +2742,12 @@ config MSM_HSIC_SYSMON
 	  over HSIC. This driver allows the local system monitor to
 	  communicate with the remote system monitor interface.
 
+config MSM_HSIC_SYSMON_TTY_DEV
+	tristate "MSM HSIC system monitor TTY device"
+	depends on USB && MSM_HSIC_SYSMON
+	help
+	 Add support for using SYSMON interface for specific purpose
+
 config MSM_HSIC_SYSMON_TEST
 	tristate "MSM HSIC system monitor bridge test"
 	depends on USB && MSM_HSIC_SYSMON && DEBUG_FS
@@ -2687,6 +2769,24 @@ config MACH_DELUXE_J
         help
           Support for the HTC APQ8064 DELUXE_J.
 
+config MACH_DELUXE_UB1
+        depends on ARCH_APQ8064
+        bool "APQ8064 DELUXE_UB1"
+        help
+          Support for the HTC APQ8064 DELUXE_UB1.
+
+config MACH_DELUXE_U
+        depends on ARCH_APQ8064
+        bool "APQ8064 DELUXE_U"
+        help
+          Support for the HTC APQ8064 DELUXE_U.
+
+config MACH_DELUXE_UL
+        depends on ARCH_APQ8064
+        bool "APQ8064 DELUXE_UL"
+        help
+          Support for the HTC APQ8064 DELUXE_UL.
+
 config MACH_IMPRESSION_J
         depends on ARCH_APQ8064
         bool "APQ8064 IMPRESSION_J"
@@ -2699,11 +2799,47 @@ config MACH_M7_UL
         help
           Support for the HTC APQ8064 M7_UL.
 
+config MACH_M7_U
+        depends on ARCH_APQ8064
+        bool "APQ8064 M7_U"
+        help
+          Support for the HTC APQ8064 M7_U.
+
+config MACH_M7_WLS
+        depends on ARCH_APQ8064
+        bool "APQ8064 M7_WLS"
+        help
+          Support for the HTC APQ8064 M7_WLS.
+
+config MACH_M7_WLV
+        depends on ARCH_APQ8064
+        bool "APQ8064 M7_WLV"
+        help
+          Support for the HTC APQ8064 M7_WLV.
+
+config MACH_M7_DCG
+        depends on ARCH_APQ8064
+        bool "APQ8064 M7_DCG"
+        help
+          Support for the HTC APQ8064 M7_DCG.
+
+config MACH_M7_DUG
+        depends on ARCH_APQ8064
+        bool "APQ8064 M7_DUG"
+        help
+          Support for the HTC APQ8064 M7_DUG.
+
 config QSC_MODEM
         default n
         bool "QMC QSC MODEM"
         help
           Support for the QMC QSC Modem.
+
+config MACH_VILLEC2
+        depends on ARCH_MSM8X60
+        bool "VILLEC2"
+        help
+          Support for the HTC VILLEC2 device.
 
 config HTC_HEADSET_ONE_WIRE
 	tristate "HTC 1-wire headset detection driver"
@@ -2765,5 +2901,11 @@ config QUALCOMM_WLAN_PXO
 	bool "Use PXO for WLAN clock source"
 	help
 	  Use PXO for clock source of WLAN chip
+
+config IOEXTENDER
+        default n
+        bool "Enable IOEXTENDER feature"
+	help
+	 To support IOEXTENDER feature
 endif
 

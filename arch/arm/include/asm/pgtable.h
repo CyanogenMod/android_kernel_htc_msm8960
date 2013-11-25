@@ -251,6 +251,7 @@ static inline pte_t pte_modify(pte_t pte, pgprot_t newprot)
 #include <asm-generic/pgtable.h>
 
 #define HAVE_ARCH_UNMAPPED_AREA
+#define HAVE_ARCH_UNMAPPED_AREA_TOPDOWN
 
 #define io_remap_pfn_range(vma,from,pfn,size,prot) \
 	remap_pfn_range(vma,from,pfn,size,prot)

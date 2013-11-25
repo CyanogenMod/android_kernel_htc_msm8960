@@ -357,8 +357,7 @@ int mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
 		  set;
 		cmd.flags = MMC_CMD_AC;
 #if 1
-	if (index == EXT_CSD_BKOPS_START 
-)
+	if (index == EXT_CSD_BKOPS_START || index == EXT_CSD_SANITIZE_START)
 		cmd.flags |= MMC_RSP_SPI_R1 | MMC_RSP_R1;
 	else
 		cmd.flags = MMC_RSP_SPI_R1B | MMC_RSP_R1B | MMC_CMD_AC;
@@ -425,48 +424,6 @@ int mmc_send_status(struct mmc_card *card, u32 *status)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mmc_send_status);
-
-int mmc_bkops(struct mmc_card *card, int start)
-{
-	int err;
-	int retry = 3;
-	struct mmc_command cmd = {0};
-	BUG_ON(!card);
-	BUG_ON(!card->host);
-
-	if (start) {
-		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
-				EXT_CSD_BKOPS_START, 1, 0);
-		if (err)
-			printk(KERN_ERR "%s : %s start bkops fail err = %d\n",
-				mmc_hostname(card->host), __func__, err);
-		else
-			printk(KERN_DEBUG "%s : %s start bkops!!\n",
-				mmc_hostname(card->host), __func__);
-	} else {
-
-		do {
-			cmd.opcode = card->ext_csd.hpi_cmd;
-			if (cmd.opcode == MMC_SEND_STATUS) {
-				cmd.arg = (card->rca << 16 | 0x1);
-				cmd.flags = MMC_RSP_SPI_R2 | MMC_RSP_R1 | MMC_CMD_AC;
-			} else {
-				cmd.arg =  (card->rca << 16 | 0x1);
-				cmd.flags = MMC_RSP_SPI_R1B | MMC_RSP_R1B | MMC_CMD_AC;
-			}
-			err = mmc_wait_for_cmd(card->host, &cmd, MMC_CMD_RETRIES);
-		} while (err && retry--);
-
-		if (err || !retry) {
-			printk(KERN_DEBUG "%s : %s stop bkops fail retry %d\n",
-			mmc_hostname(card->host), __func__, retry);
-		} else {
-			printk(KERN_DEBUG "%s : %s stop bkops\n",
-			mmc_hostname(card->host), __func__);
-		}
-	}
-	return err;
-}
 
 int mmc_set_block_length(struct mmc_card *card, u32 length)
 {

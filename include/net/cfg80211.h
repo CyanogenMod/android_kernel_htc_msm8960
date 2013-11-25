@@ -1330,6 +1330,9 @@ u16 cfg80211_calculate_bitrate(struct rate_info *rate);
 #endif
 
 
+void cfg80211_stop_ap(struct net_device *netdev, gfp_t gfp);
+
+
 
 #define wiphy_printk(level, wiphy, format, args...)		\
 	dev_printk(level, &(wiphy)->dev, format, ##args)

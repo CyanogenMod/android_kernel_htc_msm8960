@@ -10,6 +10,7 @@
  * published by the Free Software Foundation.
  *
  */
+#include <asm/asm_code_footprint.h>
 
 #define ATAG_CORE 0x54410001
 #define ATAG_CORE_SIZE ((2*4 + 3*4) >> 2)
@@ -100,6 +101,7 @@ __mmap_switched:
 	str	r2, [r6]			@ Save atags pointer
 	bic	r4, r0, #CR_A			@ Clear 'A' bit
 	stmia	r7, {r0, r4}			@ Save control register values
+	ASM_CODE_FOOTPRINT
 	b	start_kernel
 ENDPROC(__mmap_switched)
 

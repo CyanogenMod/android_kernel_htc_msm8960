@@ -1456,7 +1456,6 @@ static struct leaf *leaf_walk_rcu(struct tnode *p, struct rt_trie_node *c)
 		printk(KERN_DEBUG "[NET][WARN] p is illegal in %s \n", __func__);
 		return NULL; 
 	}
-	printk(KERN_DEBUG "[NET]%s+\n", __func__);
 
 	do {
 		t_key idx;
@@ -1482,7 +1481,6 @@ static struct leaf *leaf_walk_rcu(struct tnode *p, struct rt_trie_node *c)
 
 			if (IS_LEAF(c)) {
 				prefetch(rcu_dereference_rtnl(p->child[idx]));
-				printk(KERN_DEBUG "[NET]%s-,1\n", __func__);
 				return (struct leaf *) c;
 			}
 
@@ -1495,7 +1493,6 @@ static struct leaf *leaf_walk_rcu(struct tnode *p, struct rt_trie_node *c)
 		c = (struct rt_trie_node *) p;
 	} while ((p = node_parent_rcu(c)) != NULL);
 
-	printk(KERN_DEBUG "[NET]%s-,2\n", __func__);
 	return NULL; 
 }
 
@@ -2145,7 +2142,6 @@ static struct leaf *fib_route_get_idx(struct fib_route_iter *iter, loff_t pos)
 {
 	struct leaf *l = NULL;
 	struct trie *t = iter->main_trie;
-	printk(KERN_DEBUG "[NET]%s+\n", __func__);
 
 	
 	if (iter->pos > 0 && pos >= iter->pos && (l = fib_find_node(t, iter->key)))
@@ -2165,7 +2161,6 @@ static struct leaf *fib_route_get_idx(struct fib_route_iter *iter, loff_t pos)
 	else
 		iter->pos = 0;		
 
-	printk(KERN_DEBUG "[NET]%s-\n", __func__);
 	return l;
 }
 
@@ -2175,7 +2170,6 @@ static void *fib_route_seq_start(struct seq_file *seq, loff_t *pos)
 	struct fib_route_iter *iter = seq->private;
 	struct fib_table *tb;
 
-	printk(KERN_DEBUG  "[NET]%s\n", __func__);
 
 	rcu_read_lock();
 	tb = fib_get_table(seq_file_net(seq), RT_TABLE_MAIN);
@@ -2195,7 +2189,6 @@ static void *fib_route_seq_next(struct seq_file *seq, void *v, loff_t *pos)
 	struct fib_route_iter *iter = seq->private;
 	struct leaf *l = v;
 
-	printk(KERN_DEBUG  "[NET]%s+\n", __func__);
 	++*pos;
 	if (v == SEQ_START_TOKEN) {
 		iter->pos = 0;
@@ -2210,14 +2203,12 @@ static void *fib_route_seq_next(struct seq_file *seq, void *v, loff_t *pos)
 	else
 		iter->pos = 0;
 
-	printk(KERN_DEBUG "[NET]%s-\n", __func__);
 	return l;
 }
 
 static void fib_route_seq_stop(struct seq_file *seq, void *v)
 	__releases(RCU)
 {
-	printk(KERN_DEBUG  "[NET]%s\n", __func__);
 	rcu_read_unlock();
 }
 

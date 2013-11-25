@@ -23,12 +23,6 @@
 
 #include "ecryptfs_kernel.h"
 
-/**
- * ecryptfs_dump_auth_tok - debug function to print auth toks
- *
- * This function will print the contents of an ecryptfs authentication
- * token.
- */
 void ecryptfs_dump_auth_tok(struct ecryptfs_auth_tok *auth_tok)
 {
 	char salt[ECRYPTFS_SALT_SIZE * 2 + 1];
@@ -88,13 +82,6 @@ void ecryptfs_dump_auth_tok(struct ecryptfs_auth_tok *auth_tok)
 	}
 }
 
-/**
- * ecryptfs_dump_hex - debug hex printer
- * @data: string of bytes to be printed
- * @bytes: number of bytes to print
- *
- * Dump hexadecimal representation of char array
- */
 void ecryptfs_dump_hex(char *data, int bytes)
 {
 	int i = 0;

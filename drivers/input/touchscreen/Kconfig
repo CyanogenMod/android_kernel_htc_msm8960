@@ -1017,4 +1017,10 @@ config TOUCHSCREEN_MAX1187X
 
           If unsure, say N.
 
+config TOUCHSCREEN_HIMAX
+        tristate "HIMAX HM852xD serious i2c touchscreen"
+		depends on I2C
+		help
+		This enables support for HIMAX HM852xD over I2C based touchscreens.
+
 endif

@@ -786,6 +786,11 @@ int mdp4_dsi_video_off(struct platform_device *pdev)
 	mutex_lock(&mfd->dma->ov_mutex);
 	vctrl = &vsync_ctrl_db[cndx];
 	pipe = vctrl->base_pipe;
+	if (pipe == NULL) {
+		pr_err("%s: NO base pipe\n", __func__);
+		mutex_unlock(&mfd->dma->ov_mutex);
+		return ret;
+	}
 
 	mdp4_dsi_video_wait4vsync(cndx);
 
@@ -825,8 +830,10 @@ int mdp4_dsi_video_off(struct platform_device *pdev)
 
 			
 			pipe = vctrl->base_pipe;
-			mdp4_mixer_stage_down(pipe, 1);
-			mdp4_overlay_pipe_free(pipe, 1);
+			if (pipe) {
+				mdp4_mixer_stage_down(pipe, 1);
+				mdp4_overlay_pipe_free(pipe, 1);
+			}
 			vctrl->base_pipe = NULL;
 		} else {
 			

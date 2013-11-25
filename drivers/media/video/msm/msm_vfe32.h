@@ -56,6 +56,8 @@
 
 #define VFE_CHROMA_UPSAMPLE_INTERPOLATED 0
 
+#define VFE_WM_OFFSET 6
+
 #define VFE_DISABLE_ALL_IRQS 0
 #define VFE_CLEAR_ALL_IRQS   0xffffffff
 
@@ -82,6 +84,12 @@
 #define VFE_IRQ_STATUS0_ASYNC_TIMER1  0x20000000  
 #define VFE_IRQ_STATUS0_ASYNC_TIMER2  0x40000000  
 #define VFE_IRQ_STATUS0_ASYNC_TIMER3  0x80000000  
+
+#define VFE_IRQ_STATUS1_RDI0_REG_UPDATE_MASK  0x4000000 
+#define VFE_IRQ_STATUS1_RDI1_REG_UPDATE_MASK  0x8000000 
+
+#define VFE_IRQ_STATUS1_RDI0_REG_UPDATE  0x84000000 
+#define VFE_IRQ_STATUS1_RDI1_REG_UPDATE  0x88000000 
 
 #define VFE_IMASK_WHILE_STOPPING_0  0xF0000000
 #define VFE_IMASK_WHILE_STOPPING_1  0x00800000
@@ -190,6 +198,9 @@ enum vfe_output_state {
 #define V32_AXI_CFG_LEN           47
 #define V32_AXI_BUS_FMT_OFF    1
 #define V32_AXI_BUS_FMT_LEN    4
+
+#define V32_AXI_WM_CFG_OFF 5
+#define V32_AXI_WM_CFG_LEN 6
 
 #define V32_FRAME_SKIP_OFF        0x00000504
 #define V32_FRAME_SKIP_LEN        32
@@ -789,6 +800,7 @@ struct vfe32_frame_extra {
 #define VFE_IRQ_STATUS_1                0x00000030
 #define VFE_IRQ_COMP_MASK               0x00000034
 #define VFE_BUS_CMD                     0x00000038
+
 #define VFE_BUS_PING_PONG_STATUS        0x00000180
 #define VFE_AXI_CMD                     0x000001D8
 #define VFE_AXI_STATUS        0x000001DC
@@ -859,6 +871,7 @@ struct vfe32_frame_extra {
 #define VFE32_OUTPUT_MODE_PRIMARY_ALL_CHNLS	BIT(7)
 #define VFE32_OUTPUT_MODE_SECONDARY		BIT(8)
 #define VFE32_OUTPUT_MODE_SECONDARY_ALL_CHNLS	BIT(9)
+#define VFE32_OUTPUT_MODE_TERTIARY1		BIT(10)
 
 struct vfe_stats_control {
 	uint8_t  ackPending;
@@ -886,6 +899,7 @@ struct axi_ctrl_t {
 
 struct vfe32_ctrl_type {
 	uint16_t operation_mode;     
+	uint16_t rdi_mode;
 	struct vfe32_output_path outpath;
 
 	uint32_t vfeImaskCompositePacked;
@@ -908,6 +922,8 @@ struct vfe32_ctrl_type {
 	void *extdata;
 
 	int8_t start_ack_pending;
+	int8_t rdi0_start_ack_pending;
+	int8_t restart_rdi0_pending;
 	int8_t stop_ack_pending;
 	int8_t reset_ack_pending;
 	int8_t update_ack_pending;
@@ -931,6 +947,7 @@ struct vfe32_ctrl_type {
 	uint32_t sync_timer_number;
 
 	uint32_t vfeFrameId;
+	uint32_t rdi0FrameId;
 	uint32_t output1Pattern;
 	uint32_t output1Period;
 	uint32_t output2Pattern;
@@ -955,6 +972,8 @@ struct vfe32_ctrl_type {
 	uint32_t frame_skip_pattern;
 	uint32_t snapshot_frame_cnt;
 	vfe_camera_mode_type vfe_camera_mode; 
+	uint32_t rdi0_ping_addr; 
+	uint32_t rdi0_pong_addr; 
 };
 
 #define statsAeNum      0

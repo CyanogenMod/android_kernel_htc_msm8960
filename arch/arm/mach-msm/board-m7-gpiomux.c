@@ -230,7 +230,7 @@ static struct gpiomux_setting wcnss_5wire_active_cfg = {
 
 static struct gpiomux_setting slimbus = {
 	.func = GPIOMUX_FUNC_1,
-	.drv = GPIOMUX_DRV_6MA,
+	.drv = GPIOMUX_DRV_16MA,
 	.pull = GPIOMUX_PULL_KEEPER,
 };
 

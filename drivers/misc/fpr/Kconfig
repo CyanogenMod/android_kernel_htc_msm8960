@@ -4,8 +4,18 @@
 #
 menu "Vadality finger printer SPI driver"
 config FPR_SPI
-	bool "SPI driver for finger print"
+	bool "SPI driver for fingerprint"
     default n
 	help
          SPI driver for finger print
+config FPR_SPI_DMA_GSBI1
+	bool "Enable GSBI1 SPI DMA for fingerprint"
+    default n
+	help
+         Enable GSBI1 SPI DMA for fingerprint
+config FPR_SPI_DMA_GSBI5
+	bool "Enable GSBI5 SPI DMA for fingerprint"
+    default n
+	help
+         Enable GSBI5 SPI DMA for fingerprint
 endmenu

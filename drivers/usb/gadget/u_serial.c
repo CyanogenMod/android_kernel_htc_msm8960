@@ -306,6 +306,8 @@ static int gs_start_tx(struct gs_port *port)
 		prev_len = req->length;
 		port->nbytes_from_tty += req->length;
 
+		port->write_started++;
+
 	}
 
 	if (do_tty_wake && port->port_tty)
@@ -572,9 +574,6 @@ static int gs_open(struct tty_struct *tty, struct file *file)
 	struct gs_port	*port;
 	int		status;
 
-	if (port_num < 0 || port_num >= n_ports)
-		return -ENXIO;
-
 	do {
 		mutex_lock(&ports[port_num].lock);
 		port = ports[port_num].port;
@@ -641,8 +640,6 @@ static int gs_open(struct tty_struct *tty, struct file *file)
 
 	port->open_count = 1;
 	port->openclose = false;
-
-	tty->low_latency = 1;
 
 	
 	if (port->port_usb) {
@@ -825,6 +822,9 @@ static void gs_unthrottle(struct tty_struct *tty)
 {
 	struct gs_port		*port = tty->driver_data;
 	unsigned long		flags;
+
+	if (!port)
+		return;
 
 	spin_lock_irqsave(&port->port_lock, flags);
 	if (port->port_usb) {
@@ -1139,7 +1139,6 @@ int gserial_setup(struct usb_gadget *g, unsigned count)
 	
 	status = tty_register_driver(gs_tty_driver);
 	if (status) {
-		put_tty_driver(gs_tty_driver);
 		pr_err("%s: cannot register, err %d\n",
 				__func__, status);
 		goto fail;

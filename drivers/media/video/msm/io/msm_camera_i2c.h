@@ -51,7 +51,7 @@ enum msm_camera_i2c_cmd_type {
 	MSM_CAMERA_I2C_CMD_POLL_EQUAL,
 	MSM_CAMERA_I2C_CMD_POLL_NOT_EQUAL,
 	MSM_CAMERA_I2C_CMD_POLL_LESS,
-
+	MSM_CAMERA_I2C_CMD_WRITE_BURST,
 };
 
 struct msm_camera_i2c_reg_conf {
@@ -60,6 +60,8 @@ struct msm_camera_i2c_reg_conf {
 	enum msm_camera_i2c_data_type dt;
 	enum msm_camera_i2c_cmd_type cmd_type;
 	int16_t mask;
+    uint8_t* burst_data;
+    uint16_t burst_count;	
 };
 
 struct msm_camera_i2c_conf_array {

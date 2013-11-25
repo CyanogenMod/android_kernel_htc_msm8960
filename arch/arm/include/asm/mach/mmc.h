@@ -146,6 +146,7 @@ struct mmc_platform_data {
 	bool disable_cmd23;
 	u32 cpu_dma_latency;
 	struct msm_mmc_bus_voting_data *msm_bus_voting_data;
+	unsigned int prealloc_size;
 };
 
 #endif

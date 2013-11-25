@@ -38,16 +38,6 @@ static int ecryptfs_hash_bits;
 static u32 ecryptfs_msg_counter;
 static struct ecryptfs_msg_ctx *ecryptfs_msg_ctx_arr;
 
-/**
- * ecryptfs_acquire_free_msg_ctx
- * @msg_ctx: The context that was acquired from the free list
- *
- * Acquires a context element from the free list and locks the mutex
- * on the context.  Sets the msg_ctx task to current.  Returns zero on
- * success; non-zero on error or upon failure to acquire a free
- * context element.  Must be called with ecryptfs_msg_ctx_lists_mux
- * held.
- */
 static int ecryptfs_acquire_free_msg_ctx(struct ecryptfs_msg_ctx **msg_ctx)
 {
 	struct list_head *p;
@@ -75,12 +65,6 @@ out:
 	return rc;
 }
 
-/**
- * ecryptfs_msg_ctx_free_to_alloc
- * @msg_ctx: The context to move from the free list to the alloc list
- *
- * Must be called with ecryptfs_msg_ctx_lists_mux held.
- */
 static void ecryptfs_msg_ctx_free_to_alloc(struct ecryptfs_msg_ctx *msg_ctx)
 {
 	list_move(&msg_ctx->node, &ecryptfs_msg_ctx_alloc_list);
@@ -88,12 +72,6 @@ static void ecryptfs_msg_ctx_free_to_alloc(struct ecryptfs_msg_ctx *msg_ctx)
 	msg_ctx->counter = ++ecryptfs_msg_counter;
 }
 
-/**
- * ecryptfs_msg_ctx_alloc_to_free
- * @msg_ctx: The context to move from the alloc list to the free list
- *
- * Must be called with ecryptfs_msg_ctx_lists_mux held.
- */
 void ecryptfs_msg_ctx_alloc_to_free(struct ecryptfs_msg_ctx *msg_ctx)
 {
 	list_move(&(msg_ctx->node), &ecryptfs_msg_ctx_free_list);
@@ -103,18 +81,6 @@ void ecryptfs_msg_ctx_alloc_to_free(struct ecryptfs_msg_ctx *msg_ctx)
 	msg_ctx->state = ECRYPTFS_MSG_CTX_STATE_FREE;
 }
 
-/**
- * ecryptfs_find_daemon_by_euid
- * @euid: The effective user id which maps to the desired daemon id
- * @user_ns: The namespace in which @euid applies
- * @daemon: If return value is zero, points to the desired daemon pointer
- *
- * Must be called with ecryptfs_daemon_hash_mux held.
- *
- * Search the hash list for the given user id.
- *
- * Returns zero if the user id exists in the list; non-zero otherwise.
- */
 int ecryptfs_find_daemon_by_euid(struct ecryptfs_daemon **daemon, uid_t euid,
 				 struct user_namespace *user_ns)
 {
@@ -134,18 +100,6 @@ out:
 	return rc;
 }
 
-/**
- * ecryptfs_spawn_daemon - Create and initialize a new daemon struct
- * @daemon: Pointer to set to newly allocated daemon struct
- * @euid: Effective user id for the daemon
- * @user_ns: The namespace in which @euid applies
- * @pid: Process id for the daemon
- *
- * Must be called ceremoniously while in possession of
- * ecryptfs_sacred_daemon_hash_mux
- *
- * Returns zero on success; non-zero otherwise
- */
 int
 ecryptfs_spawn_daemon(struct ecryptfs_daemon **daemon, uid_t euid,
 		      struct user_namespace *user_ns, struct pid *pid)
@@ -173,12 +127,6 @@ out:
 	return rc;
 }
 
-/**
- * ecryptfs_exorcise_daemon - Destroy the daemon struct
- *
- * Must be called ceremoniously while in possession of
- * ecryptfs_daemon_hash_mux and the daemon's own mux.
- */
 int ecryptfs_exorcise_daemon(struct ecryptfs_daemon *daemon)
 {
 	struct ecryptfs_msg_ctx *msg_ctx, *msg_ctx_tmp;
@@ -215,17 +163,6 @@ out:
 	return rc;
 }
 
-/**
- * ecryptfs_process_quit
- * @euid: The user ID owner of the message
- * @user_ns: The namespace in which @euid applies
- * @pid: The process ID for the userspace program that sent the
- *       message
- *
- * Deletes the corresponding daemon for the given euid and pid, if
- * it is the registered that is requesting the deletion. Returns zero
- * after deleting the desired daemon; non-zero otherwise.
- */
 int ecryptfs_process_quit(uid_t euid, struct user_namespace *user_ns,
 			  struct pid *pid)
 {
@@ -246,30 +183,6 @@ out_unlock:
 	return rc;
 }
 
-/**
- * ecryptfs_process_reponse
- * @msg: The ecryptfs message received; the caller should sanity check
- *       msg->data_len and free the memory
- * @pid: The process ID of the userspace application that sent the
- *       message
- * @seq: The sequence number of the message; must match the sequence
- *       number for the existing message context waiting for this
- *       response
- *
- * Processes a response message after sending an operation request to
- * userspace. Some other process is awaiting this response. Before
- * sending out its first communications, the other process allocated a
- * msg_ctx from the ecryptfs_msg_ctx_arr at a particular index. The
- * response message contains this index so that we can copy over the
- * response message into the msg_ctx that the process holds a
- * reference to. The other process is going to wake up, check to see
- * that msg_ctx->state == ECRYPTFS_MSG_CTX_STATE_DONE, and then
- * proceed to read off and process the response message. Returns zero
- * upon delivery to desired context element; non-zero upon delivery
- * failure or error.
- *
- * Returns zero on success; non-zero otherwise
- */
 int ecryptfs_process_response(struct ecryptfs_message *msg, uid_t euid,
 			      struct user_namespace *user_ns, struct pid *pid,
 			      u32 seq)
@@ -368,16 +281,6 @@ out:
 	return rc;
 }
 
-/**
- * ecryptfs_send_message_locked
- * @data: The data to send
- * @data_len: The length of data
- * @msg_ctx: The message context allocated for the send
- *
- * Must be called with ecryptfs_daemon_hash_mux held.
- *
- * Returns zero on success; non-zero otherwise
- */
 static int
 ecryptfs_send_message_locked(char *data, int data_len, u8 msg_type,
 			     struct ecryptfs_msg_ctx **msg_ctx)
@@ -413,16 +316,6 @@ out:
 	return rc;
 }
 
-/**
- * ecryptfs_send_message
- * @data: The data to send
- * @data_len: The length of data
- * @msg_ctx: The message context allocated for the send
- *
- * Grabs ecryptfs_daemon_hash_mux.
- *
- * Returns zero on success; non-zero otherwise
- */
 int ecryptfs_send_message(char *data, int data_len,
 			  struct ecryptfs_msg_ctx **msg_ctx)
 {
@@ -435,17 +328,6 @@ int ecryptfs_send_message(char *data, int data_len,
 	return rc;
 }
 
-/**
- * ecryptfs_wait_for_response
- * @msg_ctx: The context that was assigned when sending a message
- * @msg: The incoming message from userspace; not set if rc != 0
- *
- * Sleeps until awaken by ecryptfs_receive_message or until the amount
- * of time exceeds ecryptfs_message_wait_timeout.  If zero is
- * returned, msg will point to a valid message from userspace; a
- * non-zero value is returned upon failure to receive a message or an
- * error occurs. Callee must free @msg on success.
- */
 int ecryptfs_wait_for_response(struct ecryptfs_msg_ctx *msg_ctx,
 			       struct ecryptfs_message **msg)
 {

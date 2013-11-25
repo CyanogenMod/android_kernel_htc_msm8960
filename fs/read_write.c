@@ -19,6 +19,9 @@
 
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
+#include <mach/board_htc.h>
+#include <htc_debug/stability/dirty_file_detector.h>
+#include <mach/restart.h>
 
 const struct file_operations generic_ro_fops = {
 	.llseek		= generic_file_llseek,
@@ -440,8 +443,27 @@ SYSCALL_DEFINE3(write, unsigned int, fd, const char __user *, buf,
 	struct file *file;
 	ssize_t ret = -EBADF;
 	int fput_needed;
+#ifdef CONFIG_DIRTY_SYSTEM_DETECTOR
+	struct mount *mnt;
+#endif
 
 	file = fget_light(fd, &fput_needed);
+
+#ifdef CONFIG_DIRTY_SYSTEM_DETECTOR
+	
+	
+	if (!get_tamper_sf() && file != NULL) {
+		if (!strstr(hashed_command_line, "androidboot.mode=recovery")
+				&& strcmp("htcunzip", current->comm)) {
+			mnt = real_mount(file->f_path.mnt);
+			if (!strcmp("system",  mnt->mnt_mountpoint->d_name.name)) {
+				printk("%s to /system partition: file(%s)\n", __func__, file->f_path.dentry->d_name.name);
+				mark_system_dirty(file->f_path.dentry->d_name.name);
+			}
+		}
+	}
+#endif
+
 	if (file) {
 		struct timer_list timer;
 		loff_t pos = file_pos_read(file);

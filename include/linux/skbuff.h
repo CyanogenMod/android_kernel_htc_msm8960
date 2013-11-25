@@ -451,6 +451,10 @@ static inline struct skb_shared_hwtstamps *skb_hwtstamps(struct sk_buff *skb)
 
 static inline int skb_queue_empty(const struct sk_buff_head *list)
 {
+#ifdef CONFIG_HTC_NETWORK_MODIFY
+    if ((list->next != (struct sk_buff *)list) && (list->qlen == 0)) WARN_ON(1);
+    if ((list->next == (struct sk_buff *)list) && (list->qlen > 0)) WARN_ON(1);
+#endif
 	return list->next == (struct sk_buff *)list;
 }
 

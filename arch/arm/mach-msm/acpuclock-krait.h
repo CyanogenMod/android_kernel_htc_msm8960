@@ -100,7 +100,11 @@ struct l2_level {
 };
 
 struct acpu_level {
+#ifdef CONFIG_ACPU_CUSTOM_FREQ_SUPPORT
+	unsigned int use_for_scaling;
+#else
 	const int use_for_scaling;
+#endif
 	const struct core_speed speed;
 	const unsigned int l2_level;
 	int vdd_core;

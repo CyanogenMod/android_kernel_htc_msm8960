@@ -338,6 +338,7 @@ struct msm_camera_sensor_platform_info {
 	void *privacy_light_info;
 	enum sensor_mount_angle sensor_mount_angle; 
 	bool ews_enable;
+	bool board_control_reset_pin;
 	
 };
 
@@ -425,6 +426,7 @@ struct msm_camera_sensor_info {
 	struct msm_camera_gpio_conf *gpio_conf;
 	int (*camera_power_on)(void);
 	int (*camera_power_off)(void);
+
 	void (*camera_yushanii_probed)(enum htc_camera_image_type_board);
 	enum htc_camera_image_type_board htc_image;	
 	int use_rawchip;
@@ -449,7 +451,8 @@ struct msm_camera_sensor_info {
 #endif
 	
 	int sensor_cut;
-
+	int dual_camera; 
+    struct clk* main_clk;
 };
 
 struct msm_camera_board_info {

@@ -122,6 +122,7 @@ struct htc_battery_platform_data {
 	struct htc_charger icharger;
 	int (*get_thermal_sensor_temp)(int sensor_num, unsigned long *temp);
 	int (*notify_pnpmgr_charging_enabled)(int charging_enabled);
+	int shutdown_voltage_critiria_setting;
 };
 
 enum {
@@ -129,5 +130,7 @@ enum {
 	BATT_ALARM_NORMAL_MODE,
 	BATT_ALARM_CRITICAL_MODE,
 };
+
+void get_pj_status(int *is_full, int *status, int *exist);
 
 #endif

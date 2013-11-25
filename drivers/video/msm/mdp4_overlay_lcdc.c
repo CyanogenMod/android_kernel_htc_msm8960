@@ -577,8 +577,11 @@ int mdp4_lcdc_on(struct platform_device *pdev)
 		if (ptype < 0)
 			printk(KERN_INFO "%s: format2type failed\n", __func__);
 		pipe = mdp4_overlay_pipe_alloc(ptype, MDP4_MIXER0);
-		if (pipe == NULL)
+		if (pipe == NULL){
 			printk(KERN_INFO "%s: pipe_alloc failed\n", __func__);
+			mutex_unlock(&mfd->dma->ov_mutex);
+			return -EINVAL;
+		}
 		pipe->pipe_used++;
 		pipe->mixer_stage  = MDP4_MIXER_STAGE_BASE;
 		pipe->mixer_num  = MDP4_MIXER0;
@@ -755,7 +758,11 @@ int mdp4_lcdc_off(struct platform_device *pdev)
 	mutex_lock(&mfd->dma->ov_mutex);
 	vctrl = &vsync_ctrl_db[cndx];
 	pipe = vctrl->base_pipe;
-
+	if(pipe == NULL){
+		printk(KERN_INFO "%s: the pipe is null\n", __func__);
+		mutex_unlock(&mfd->dma->ov_mutex);
+		return -EINVAL;
+	}
 	mdp4_lcdc_wait4vsync(cndx);
 
 	atomic_set(&vctrl->vsync_resume, 0);
