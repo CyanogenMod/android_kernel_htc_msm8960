@@ -30,6 +30,7 @@
 #define ETH_DATA_LEN	1500		
 #define ETH_FRAME_LEN	1514		
 #define ETH_FCS_LEN	4		
+#define ETH_FRAME_LEN_MAX       9014    
 
 
 #define ETH_P_LOOP	0x0060		

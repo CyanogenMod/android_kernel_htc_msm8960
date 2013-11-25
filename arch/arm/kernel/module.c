@@ -26,6 +26,12 @@
 #include <asm/unwind.h>
 
 #ifdef CONFIG_XIP_KERNEL
+/*
+ * The XIP kernel text is mapped in the module area for modules and
+ * some other stuff to work without any indirect relocations.
+ * MODULES_VADDR is redefined here and not in asm/memory.h to avoid
+ * recompiling the whole kernel when CONFIG_XIP_KERNEL is turned on/off.
+ */
 #undef MODULES_VADDR
 #define MODULES_VADDR	(((unsigned long)_etext + ~PMD_MASK) & PMD_MASK)
 #endif
@@ -79,7 +85,7 @@ apply_relocate(Elf32_Shdr *sechdrs, const char *strtab, unsigned int symindex,
 
 		switch (ELF32_R_TYPE(rel->r_info)) {
 		case R_ARM_NONE:
-			
+			/* ignore */
 			break;
 
 		case R_ARM_ABS32:
@@ -111,6 +117,10 @@ apply_relocate(Elf32_Shdr *sechdrs, const char *strtab, unsigned int symindex,
 			break;
 
 	       case R_ARM_V4BX:
+		       /* Preserve Rm and the condition code. Alter
+			* other bits to re-code instruction as
+			* MOV PC,Rm.
+			*/
 		       *(u32 *)loc &= 0xf000000f;
 		       *(u32 *)loc |= 0x01a0f000;
 		       break;
@@ -141,6 +151,19 @@ apply_relocate(Elf32_Shdr *sechdrs, const char *strtab, unsigned int symindex,
 			upper = *(u16 *)loc;
 			lower = *(u16 *)(loc + 2);
 
+			/*
+			 * 25 bit signed address range (Thumb-2 BL and B.W
+			 * instructions):
+			 *   S:I1:I2:imm10:imm11:0
+			 * where:
+			 *   S     = upper[10]   = offset[24]
+			 *   I1    = ~(J1 ^ S)   = offset[23]
+			 *   I2    = ~(J2 ^ S)   = offset[22]
+			 *   imm10 = upper[9:0]  = offset[21:12]
+			 *   imm11 = lower[10:0] = offset[11:1]
+			 *   J1    = lower[13]
+			 *   J2    = lower[11]
+			 */
 			sign = (upper >> 10) & 1;
 			j1 = (lower >> 13) & 1;
 			j2 = (lower >> 11) & 1;
@@ -152,6 +175,15 @@ apply_relocate(Elf32_Shdr *sechdrs, const char *strtab, unsigned int symindex,
 				offset -= 0x02000000;
 			offset += sym->st_value - loc;
 
+			/*
+			 * For function symbols, only Thumb addresses are
+			 * allowed (no interworking).
+			 *
+			 * For non-function symbols, the destination
+			 * has no specific ARM/Thumb disposition, so
+			 * the branch is resolved under the assumption
+			 * that interworking is not required.
+			 */
 			if ((ELF32_ST_TYPE(sym->st_info) == STT_FUNC &&
 				!(offset & 1)) ||
 			    offset <= (s32)0xff000000 ||
@@ -178,6 +210,16 @@ apply_relocate(Elf32_Shdr *sechdrs, const char *strtab, unsigned int symindex,
 			upper = *(u16 *)loc;
 			lower = *(u16 *)(loc + 2);
 
+			/*
+			 * MOVT/MOVW instructions encoding in Thumb-2:
+			 *
+			 * i	= upper[10]
+			 * imm4	= upper[3:0]
+			 * imm3	= lower[14:12]
+			 * imm8	= lower[7:0]
+			 *
+			 * imm16 = imm4:i:imm3:imm8
+			 */
 			offset = ((upper & 0x000f) << 12) |
 				((upper & 0x0400) << 1) |
 				((lower & 0x7000) >> 4) | (lower & 0x00ff);
@@ -254,8 +296,6 @@ int module_finalize(const Elf32_Ehdr *hdr, const Elf_Shdr *sechdrs,
 			maps[ARM_SEC_EXIT].unw_sec = s;
 		else if (strcmp(".ARM.exidx.devexit.text", secname) == 0)
 			maps[ARM_SEC_DEVEXIT].unw_sec = s;
-		else if (strcmp(".ARM.exidx.text.unlikely", secname) == 0)  
-			maps[ARM_SEC_UNLIKELY].unw_sec = s;
 		else if (strcmp(".init.text", secname) == 0)
 			maps[ARM_SEC_INIT].txt_sec = s;
 		else if (strcmp(".devinit.text", secname) == 0)
@@ -266,8 +306,6 @@ int module_finalize(const Elf32_Ehdr *hdr, const Elf_Shdr *sechdrs,
 			maps[ARM_SEC_EXIT].txt_sec = s;
 		else if (strcmp(".devexit.text", secname) == 0)
 			maps[ARM_SEC_DEVEXIT].txt_sec = s;
-		else if (strcmp(".text.unlikely", secname) == 0)  
-			maps[ARM_SEC_UNLIKELY].txt_sec = s;
 	}
 
 	for (i = 0; i < ARM_SEC_MAX; i++)

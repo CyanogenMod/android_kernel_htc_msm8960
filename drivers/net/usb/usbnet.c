@@ -46,9 +46,6 @@
 			(RX_MAX_QUEUE_MEMORY/(dev)->rx_urb_size) : 4)
 #define	TX_QLEN(dev) (((dev)->udev->speed == USB_SPEED_HIGH) ? \
 			(RX_MAX_QUEUE_MEMORY/(dev)->hard_mtu) : 4)
-#define TX_SMALL_QUEUE_MEMORY (4 * 1518)
-#define TX_QLEN_SMALL(dev) (((dev)->udev->speed == USB_SPEED_HIGH) ? \
-			(TX_SMALL_QUEUE_MEMORY/(dev)->hard_mtu) : 4)
 
 #define TX_TIMEOUT_JIFFIES	(5*HZ)
 
@@ -71,20 +68,6 @@ MODULE_PARM_DESC (msg_level, "Override default message level");
 
 static bool enable_tx_rx_debug = false;
 static bool	usb_pm_debug_enabled = false;
-
-#define TX_DT_TP_L0_INTERVAL 5000
-#define TX_DT_TP_L1_INTERVAL 200
-#define TX_DT_TP_L2_INTERVAL 200
-#define TX_DT_TP_L1_TIME 30000
-#define TX_DT_TP_MIN_SIZE (10*1024)
-#define TX_DT_TP_L1_SIZE (40*1024)
-static struct timer_list	tx_throttle_timer;
-static bool enable_trottle = false;
-static unsigned long current_tx_bytes = 0;
-static unsigned long previous_tx_bytes = 0;
-static unsigned int tx_throttle_counter = 0;
-static unsigned int tx_throttle_level = 0;
-static unsigned long tx_throttle_limited_size = 2048;
 
 
 int usbnet_get_endpoints(struct usbnet *dev, struct usb_interface *intf)
@@ -1146,22 +1129,8 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
 	case 0:
 		net->trans_start = jiffies;
 		__usbnet_queue_skb(&dev->txq, skb, tx_start);
-		
-		if ( enable_trottle == false )
-		{
-			
-			if (dev->txq.qlen >= TX_QLEN (dev))
-				netif_stop_queue (net);
-		}
-		else
-		{
-			current_tx_bytes += length;
-			if (dev->txq.qlen >= TX_QLEN_SMALL (dev) || (current_tx_bytes > tx_throttle_limited_size))
-			{
-				netif_stop_queue (net);
-			}
-		}
-		
+		if (dev->txq.qlen >= TX_QLEN (dev))
+			netif_stop_queue (net);
 	}
 	spin_unlock_irqrestore (&dev->txq.lock, flags);
 
@@ -1251,21 +1220,8 @@ static void usbnet_bh (unsigned long param)
 			if (dev->rxq.qlen < qlen)
 				queue_work(usbnet_wq, &dev->bh_w);
 		}
-		
-		if ( enable_trottle == false )
-		{
-			
-			if (dev->txq.qlen < TX_QLEN (dev))
-				netif_wake_queue (dev->net);
-		}
-		else
-		{
-			if (dev->txq.qlen < TX_QLEN_SMALL (dev) && (current_tx_bytes <= tx_throttle_limited_size))
-			{
-				netif_wake_queue (dev->net);
-			}
-		}
-		
+		if (dev->txq.qlen < TX_QLEN (dev))
+			netif_wake_queue (dev->net);
 	}
 }
 
@@ -1278,137 +1234,6 @@ static void usbnet_bh_w(struct work_struct *work)
 	usbnet_bh(param);
 }
 
-static void usbnet_tx_dt (unsigned long param)
-{
-	struct usbnet		*dev = (struct usbnet *) param;
-	unsigned long		tp;
-
-	switch (tx_throttle_level) {
-	case 0:
-		tp = ((dev->net->stats.tx_bytes-previous_tx_bytes)/TX_DT_TP_L0_INTERVAL)*1000;
-
-		if  ( enable_tx_rx_debug )
-			netdev_info(dev->net, "[RMNET_D]> previous tx bytes: %lu, current tx bytes: %lu, tp: %lu\n", previous_tx_bytes, (dev->net->stats.tx_bytes), tp);
-
-		current_tx_bytes = 0;
-		previous_tx_bytes = dev->net->stats.tx_bytes;
-
-		if ( tp < TX_DT_TP_MIN_SIZE ) {
-			netdev_info(dev->net, "[RMNET_D]> current tp less than: %d, not enable DT\n", TX_DT_TP_MIN_SIZE);
-			tx_throttle_timer.expires = jiffies + msecs_to_jiffies(TX_DT_TP_L0_INTERVAL);
-		}
-		else if ( tp < TX_DT_TP_L1_SIZE )
-		{
-			netdev_info(dev->net, "[RMNET_D]> enable DT, migrate to level 2\n");
-			tx_throttle_limited_size = TX_DT_TP_MIN_SIZE/(1000/TX_DT_TP_L2_INTERVAL);
-			enable_trottle = true;
-			tx_throttle_level = 2;
-			tx_throttle_timer.expires = jiffies + msecs_to_jiffies(TX_DT_TP_L2_INTERVAL);
-		}
-		else
-		{
-			netdev_info(dev->net, "[RMNET_D]> enable DT, migrate to level 1\n");
-			tx_throttle_limited_size = (tp/2)/(1000/TX_DT_TP_L1_INTERVAL);
-			enable_trottle = true;
-			tx_throttle_level = 1;
-			tx_throttle_timer.expires = jiffies + msecs_to_jiffies(TX_DT_TP_L1_INTERVAL);
-		}
-		add_timer(&tx_throttle_timer);
-		break;
-	case 1:
-		tp = ((dev->net->stats.tx_bytes-previous_tx_bytes)/TX_DT_TP_L1_INTERVAL)*1000;
-		if  ( enable_tx_rx_debug )
-			netdev_info(dev->net, "[RMNET_D]> previous tx bytes: %lu, current tx bytes: %lu, tp: %lu\n", previous_tx_bytes, (dev->net->stats.tx_bytes), tp);
-
-		current_tx_bytes = 0;
-		previous_tx_bytes = dev->net->stats.tx_bytes;
-		netif_wake_queue (dev->net);
-
-		tx_throttle_counter++;
-		if ( tx_throttle_counter > (TX_DT_TP_L1_TIME/TX_DT_TP_L1_INTERVAL) ) {
-			netdev_info(dev->net, "[RMNET_D]> tx_throttle_counter: %d reach time: %d, migrate to level 2\n", tx_throttle_counter,TX_DT_TP_L1_INTERVAL);
-			tx_throttle_level = 2;
-			tx_throttle_limited_size = TX_DT_TP_MIN_SIZE/(1000/TX_DT_TP_L2_INTERVAL);
-			tx_throttle_timer.expires = jiffies + msecs_to_jiffies(TX_DT_TP_L2_INTERVAL);
-		}
-		else
-		{
-			tx_throttle_timer.expires = jiffies + msecs_to_jiffies(TX_DT_TP_L1_INTERVAL);
-		}
-		add_timer(&tx_throttle_timer);
-		break;
-	case 2:
-		tp = ((dev->net->stats.tx_bytes-previous_tx_bytes)/TX_DT_TP_L2_INTERVAL)*1000;
-		if  ( enable_tx_rx_debug )
-			netdev_info(dev->net, "[RMNET_D]> previous tx bytes: %lu, current tx bytes: %lu, tp: %lu\n", previous_tx_bytes, (dev->net->stats.tx_bytes), tp);
-
-		current_tx_bytes = 0;
-		previous_tx_bytes = dev->net->stats.tx_bytes;
-		netif_wake_queue(dev->net);
-
-		tx_throttle_timer.expires = jiffies + msecs_to_jiffies(TX_DT_TP_L2_INTERVAL);
-		add_timer(&tx_throttle_timer);
-		break;
-	default:
-		netdev_info(dev->net,"[RMNET_D]> Invalid level.\n");
-	}
-}
-
-static ssize_t usbnet_show(struct device *dev, struct device_attribute *attr, char *buf)
-{
-	struct net_device	*ndev = to_net_dev(dev);
-	struct usbnet		*unet = netdev_priv(ndev);
-
-	netdev_info(unet->net,"[RMNET_D]> %s\n",__func__);
-
-	return sprintf(buf, "enable=%d, level=%d\n", enable_trottle, tx_throttle_level);
-}
-
-static ssize_t usbnet_store(struct device *dev, struct device_attribute *attr, const char * buf, size_t count)
-{
-	int value;
-	struct net_device	*ndev = to_net_dev(dev);
-	struct usbnet		*unet = netdev_priv(ndev);
-	static int previous_value = 0;
-
-	if (sscanf(buf, "%d", &value) != 1)
-		return -EINVAL;
-
-	if (value == previous_value)
-		return count;
-	else
-		previous_value = value;
-
-	netdev_info(unet->net,"[RMNET_D]> %s enable=%d\n", __func__, value);
-
-	switch (value) {
-	case 0:
-		
-		del_timer_sync (&tx_throttle_timer);
-		tx_throttle_level = 0;
-		tx_throttle_counter = 0;
-		enable_trottle = false;
-		break;
-	case 1:
-		
-		tx_throttle_level = 0;
-		tx_throttle_counter = 0;
-		current_tx_bytes = 0;
-		previous_tx_bytes = unet->net->stats.tx_bytes;
-		init_timer(&tx_throttle_timer);
-		tx_throttle_timer.function = usbnet_tx_dt;
-		tx_throttle_timer.data = (unsigned long) unet;
-		tx_throttle_timer.expires = jiffies + msecs_to_jiffies(TX_DT_TP_L0_INTERVAL);
-		add_timer(&tx_throttle_timer);
-		break;
-	default:
-		netdev_info(unet->net,"[RMNET_D]> Invalid parameter.\n");
-	}
-
-	return count;
-}
-
-static DEVICE_ATTR(throttle, S_IRUSR | S_IWUSR, usbnet_show, usbnet_store);
 
 
 void usbnet_disconnect (struct usb_interface *intf)
@@ -1435,11 +1260,6 @@ void usbnet_disconnect (struct usb_interface *intf)
 		   intf->dev.driver->name,
 		   xdev->bus->bus_name, xdev->devpath,
 		   dev->driver_info->description);
-	
-
-	
-	netdev_info(dev->net, "[RMNET_D]> remove device flag file\n");
-	device_remove_file(&intf->dev, &dev_attr_throttle);
 	
 
 	net = dev->net;
@@ -1622,14 +1442,6 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 
 	if (dev->driver_info->flags & FLAG_LINK_INTR)
 		netif_carrier_off(net);
-
-	
-	netdev_info(dev->net, "[RMNET_D]> create device flag file\n");
-	if ( device_create_file(&net->dev, &dev_attr_throttle) ) {
-		netdev_info(dev->net, "[RMNET_D]> failed to create device flag file\n");
-		device_remove_file(&net->dev, &dev_attr_throttle);
-	}
-	
 
 	return 0;
 

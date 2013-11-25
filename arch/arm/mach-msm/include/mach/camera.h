@@ -362,7 +362,11 @@ struct msm_actuator_ctrl {
 	int (*a_create_subdevice)(void *, void *);
 	int (*a_config)(void __user *);
 	int is_ois_supported;
-    int is_cal_supported; 
+	int is_cal_supported; 
+	int small_step_damping;
+	int medium_step_damping;
+	int big_step_damping;
+	int is_af_infinity_supported;
 	
 	void (*do_vcm_on_cb)(void);
 	void (*do_vcm_off_cb)(void);

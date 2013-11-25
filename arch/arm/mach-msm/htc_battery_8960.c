@@ -148,7 +148,7 @@ struct htc_battery_info {
 	int critical_alarm_vol_cols;
 	int overload_vol_thr_mv;
 	int overload_curr_thr_ma;
-
+	int smooth_chg_full_delay_min;
 	struct kobject batt_timer_kobj;
 	struct kobject batt_cable_kobj;
 
@@ -210,6 +210,21 @@ static int battery_vol_alarm_mode;
 static struct battery_vol_alarm alarm_data;
 struct mutex batt_set_alarm_lock;
 #endif
+
+struct max_level_by_current_ma {
+	int threshold_ma;
+	int level_boundary;
+};
+static struct max_level_by_current_ma limit_level_curr_table[] = { {-800, 92},
+							{-700, 93},
+							{-600, 94},
+							{-500, 95},
+							{-400, 96},
+							{-300, 97},
+							{-200, 98},
+							{-100, 99},};
+
+static const int LIMIT_LEVEL_CURR_TABLE_SIZE = sizeof(limit_level_curr_table) / sizeof (limit_level_curr_table[0]);
 
 int htc_gauge_get_battery_voltage(int *result)
 {
@@ -1233,13 +1248,17 @@ static void batt_level_adjust(unsigned long time_since_last_update_ms)
 	static int critical_low_enter = 0;
 	int prev_level, drop_level;
 	int is_full = 0;
+	int i, prev_current, measured_current;
 	const struct battery_info_reply *prev_batt_info_rep =
 						htc_battery_core_get_batt_info_rep();
 
-	if (!first)
+	if (!first) {
 		prev_level = prev_batt_info_rep->level;
-	else
+		prev_current = prev_batt_info_rep->batt_current;
+	} else {
 		prev_level = htc_batt_info.rep.level;
+		prev_current = htc_batt_info.rep.batt_current;
+	}
 	drop_level = prev_level - htc_batt_info.rep.level;
 
 	if (!prev_batt_info_rep->charging_enabled &&
@@ -1314,11 +1333,51 @@ static void batt_level_adjust(unsigned long time_since_last_update_ms)
 	} else {
 		if (htc_batt_info.igauge->is_battery_full) {
 			htc_batt_info.igauge->is_battery_full(&is_full);
-			if (!is_full) {
+			if (is_full != 0) {
+				if (htc_batt_info.smooth_chg_full_delay_min
+					&& prev_level < 100) {
+					htc_batt_info.rep.level = prev_level + 1;
+				} else {
+					htc_batt_info.rep.level = 100; 
+				}
+			} else {
 				if (99 < htc_batt_info.rep.level)
 					htc_batt_info.rep.level = 99; 
-			} else
-				htc_batt_info.rep.level = 100; 
+				if (!htc_batt_info.smooth_chg_full_delay_min) {
+					if (htc_batt_info.rep.level > limit_level_curr_table[0].level_boundary
+						&& prev_level < htc_batt_info.rep.level) {
+
+						measured_current = htc_batt_info.rep.batt_current;
+						if (measured_current <= 0) {
+							if (prev_current > 0 || prev_current < measured_current)
+								measured_current = prev_current;
+						}
+
+						if (measured_current <= 0) {
+							for (i = 0; i < LIMIT_LEVEL_CURR_TABLE_SIZE; i++) {
+								if (measured_current <
+									limit_level_curr_table[i].threshold_ma * 1000) {
+									break;
+								}
+							}
+						} else {
+							i = 0;
+						}
+
+						if (i < LIMIT_LEVEL_CURR_TABLE_SIZE
+							&& htc_batt_info.rep.level >= limit_level_curr_table[i].level_boundary) {
+							if (prev_level >= limit_level_curr_table[i].level_boundary)
+								htc_batt_info.rep.level = prev_level;
+							else
+								htc_batt_info.rep.level = limit_level_curr_table[i].level_boundary - 1;
+							pr_info("[BATT] limit battery level to %d(prev=%d) by (%d,%d) "
+								       "with measured current %d\n",
+								htc_batt_info.rep.level, prev_level, limit_level_curr_table[i].level_boundary,
+								limit_level_curr_table[i].threshold_ma,	measured_current);
+						}
+					}
+				}
+			}
 		}
 		critical_low_enter = 0;
 	}
@@ -2075,6 +2134,7 @@ static int htc_battery_probe(struct platform_device *pdev)
 	}
 	htc_batt_info.overload_vol_thr_mv = pdata->overload_vol_thr_mv;
 	htc_batt_info.overload_curr_thr_ma = pdata->overload_curr_thr_ma;
+	htc_batt_info.smooth_chg_full_delay_min = pdata->smooth_chg_full_delay_min;
 	chg_limit_active_mask = pdata->chg_limit_active_mask;
 	htc_batt_info.igauge = &pdata->igauge;
 	htc_batt_info.icharger = &pdata->icharger;

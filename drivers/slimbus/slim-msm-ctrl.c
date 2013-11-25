@@ -742,7 +742,10 @@ static int msm_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 	if (txn->mt == SLIM_MSG_MT_CORE &&
 		mc == SLIM_MSG_MC_BEGIN_RECONFIGURATION) {
 		if (dev->reconf_busy) {
-			wait_for_completion(&dev->reconf);
+			pr_err("Start to wait for completion\n");
+			timeout = wait_for_completion_timeout(&dev->reconf,msecs_to_jiffies(300));
+			if (!timeout)
+				pr_err("Timeout while sending BEGIN_RECONFIGURATION");
 			dev->reconf_busy = false;
 		}
 		
@@ -822,8 +825,11 @@ static int msm_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 	dev->wr_comp = &done;
 	msm_send_msg_buf(ctrl, pbuf, txn->rl);
 	timeout = wait_for_completion_timeout(&done, HZ);
-	if (!timeout)
+	if (!timeout) {
 		dev->wr_comp = NULL;
+		if ( mc >= SLIM_MSG_MC_BEGIN_RECONFIGURATION && mc <= SLIM_MSG_MC_RECONFIGURE_NOW )
+			dev->reconf_busy = false;
+	}
 	if (mc == SLIM_MSG_MC_RECONFIGURE_NOW) {
 		if ((txn->mc == (SLIM_MSG_MC_RECONFIGURE_NOW |
 					SLIM_MSG_CLK_PAUSE_SEQ_FLG)) &&

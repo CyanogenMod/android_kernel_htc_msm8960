@@ -51,7 +51,7 @@ struct adreno_ringbuffer {
 	unsigned int wptr; 
 	unsigned int rptr; 
 
-	unsigned int timestamp[KGSL_MEMSTORE_MAX];
+	unsigned int global_ts;
 };
 
 
@@ -85,8 +85,7 @@ int adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 
 int adreno_ringbuffer_init(struct kgsl_device *device);
 
-int adreno_ringbuffer_start(struct adreno_ringbuffer *rb,
-				unsigned int init_ram);
+int adreno_ringbuffer_start(struct adreno_ringbuffer *rb);
 
 void adreno_ringbuffer_stop(struct adreno_ringbuffer *rb);
 

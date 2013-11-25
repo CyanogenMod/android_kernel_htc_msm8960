@@ -221,10 +221,14 @@ struct msm_hsic_hcd {
 
 static void ehci_hsic_prevent_sleep(struct msm_hsic_hcd *mehci)
 {
+	s32 latency;
 	if (!in_interrupt()) {
 		if (get_radio_flag() & RADIO_FLAG_USB_UPLOAD)
 			pr_info("%s+\n", __func__);
-		pm_qos_update_request(&mehci->pm_qos_req_dma_htc, msm_cpuidle_get_deep_idle_latency());
+		latency =  msm_cpuidle_get_deep_idle_latency();
+		if (!latency)
+			latency = 2;
+		pm_qos_update_request(&mehci->pm_qos_req_dma_htc, latency);
 		if (get_radio_flag() & RADIO_FLAG_USB_UPLOAD)
 			pr_info("%s-\n", __func__);
 	}

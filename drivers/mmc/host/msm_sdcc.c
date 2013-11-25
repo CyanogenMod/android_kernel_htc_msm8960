@@ -64,6 +64,7 @@
 #include "msm_sdcc.h"
 #include "msm_sdcc_dml.h"
 #include <mach/msm_rtb_disable.h> 
+#include <mach/board.h>
 
 #define DRIVER_NAME "msm-sdcc"
 
@@ -94,6 +95,13 @@ tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec); \
 #define SDC_CLK_VERBOSE 1
 #endif
 #define MAX_CONTINUOUS_TUNING_COUNT 10
+
+static int ac_charging = 0;
+static void msmsdcc_cable_notifier_func(int type);
+static struct t_usb_status_notifier usb_status_notifier = {
+	.name = "msmsdcc_ac_detect",
+	.func = msmsdcc_cable_notifier_func,
+};
 
 #if defined(CONFIG_DEBUG_FS)
 static void msmsdcc_dbg_createhost(struct msmsdcc_host *);
@@ -173,6 +181,11 @@ msmsdcc_print_status(struct msmsdcc_host *host, char *hdr, uint32_t status)
 	pr_debug("\n");
 }
 #endif
+
+static void msmsdcc_cable_notifier_func(int type)
+{
+	ac_charging = (type == CONNECT_TYPE_AC) ? 1: 0;
+}
 
 static char *mmc_type_str(unsigned int slot_type)
 {
@@ -6655,7 +6668,6 @@ static int msmsdcc_runtime_idle(struct device *dev)
 	return -EAGAIN;
 }
 
-static int emmc_bkops_prerun = 0;
 #define EMMC_BKOPS_PRERUN_TIMER	180000
 static int msmsdcc_pm_prepare_suspend(struct device *dev)
 {
@@ -6684,18 +6696,24 @@ static int msmsdcc_pm_prepare_suspend(struct device *dev)
 		pr_info("%s: %s leave\n", mmc_hostname(host->mmc), __func__);
 		return err;
 	}
-
+	
+	if (!is_mmc_platform(host->plat))
+		return 0;
 	mmc_claim_host(mmc);
 
+	pr_debug("%s: bkops_trigger %d need_bkops %d\n",
+		mmc_hostname(host->mmc), mmc->bkops_trigger, mmc->bkops_timer.need_bkops);
+	if (mmc->bkops_check_status && ac_charging)
+		mmc->long_bkops = 1;
+	else {
+		mmc->long_bkops = 0;
+		if (mmc->bkops_timer.need_bkops > 240000)
+			mmc->bkops_timer.need_bkops = 0;
+	}
 	mmc->bkops_alarm_set = 0;
-	if (mmc->bkops_trigger || mmc->bkops_timer.need_bkops || emmc_bkops_prerun) {
-		if (emmc_bkops_prerun) {
-			mmc->bkops_timer.need_bkops = EMMC_BKOPS_PRERUN_TIMER; 
-			emmc_bkops_prerun = 0;
-			mmc->bkops_trigger = 0;
-		}
+	if (mmc->bkops_trigger || mmc->bkops_timer.need_bkops) {
 		if (!mmc->bkops_timer.need_bkops) {
-			mmc->bkops_timer.need_bkops = mmc->bkops_trigger; 
+			mmc->bkops_timer.need_bkops = mmc->long_bkops? 3600000 : mmc->bkops_trigger;
 			mmc->bkops_timer.bkops_start = 0;
 			mmc->bkops_trigger = 0;
 		}
@@ -6718,9 +6736,12 @@ static int msmsdcc_pm_prepare_suspend(struct device *dev)
 
 	if (mmc->bkops_started) {
 		mmc->bkops_trigger = 0;
-		pr_info("%s: bkops remain %d\n", mmc_hostname(host->mmc),
-				mmc->bkops_timer.need_bkops);
-		alarm_sec = ((u32)mmc->bkops_timer.need_bkops + 999) / 1000;
+		if (mmc->long_bkops)
+			alarm_sec = 30;
+		else
+			alarm_sec = ((u32)mmc->bkops_timer.need_bkops + 999) / 1000;
+		pr_info("%s: bkops remain %d, ac_charging %d, alarm_sec %li\n", mmc_hostname(host->mmc),
+				mmc->bkops_timer.need_bkops, ac_charging, alarm_sec);
 		interval = ktime_set(alarm_sec, 0);
 		next_alarm = ktime_add(alarm_get_elapsed_realtime(), interval);
 
@@ -6756,6 +6777,9 @@ static void msmsdcc_pm_complete(struct device *dev)
 		return ;
 	}
 #endif
+	
+	if (!is_mmc_platform(host->plat))
+		return;
 
 	if (is_mmc_platform(host->plat)) {
 		if (mmc->bkops_alarm_set) {
@@ -6773,6 +6797,7 @@ static void msmsdcc_pm_complete(struct device *dev)
 				if (mmc_card_doing_bkops(mmc->card))
 					mmc_card_clr_doing_bkops(mmc->card);
 				spin_unlock_irqrestore(&mmc->lock, flags);
+				#if 0
 				if (mmc_bus_needs_resume(mmc)) {
 					spin_lock_irqsave(&mmc->lock, flags);
 					mmc->bus_resume_flags &= ~MMC_BUSRESUME_NEEDS_RESUME;
@@ -6784,6 +6809,7 @@ static void msmsdcc_pm_complete(struct device *dev)
 					else
 						pr_info("%s: %s suspend_host success\n", mmc_hostname(host->mmc), __func__);
 				}
+				#endif
 			} else
 				pr_info("%s: %s mmc_bkops_resume_task fail\n", mmc_hostname(host->mmc), __func__);
 
@@ -6936,6 +6962,7 @@ static int __init msmsdcc_init(void)
 		return ret;
 	}
 #endif
+	htc_usb_register_notifier(&usb_status_notifier);
 	return platform_driver_register(&msmsdcc_driver);
 }
 

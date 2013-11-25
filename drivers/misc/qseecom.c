@@ -39,11 +39,13 @@
 #include <mach/scm.h>
 #include <mach/peripheral-loader.h>
 #include "qseecom_legacy.h"
+#include <linux/completion.h>
 
 #define QSEECOM_DEV			"qseecom"
 #define QSEOS_VERSION_13		0x13
 #define QSEOS_VERSION_14		0x14
 #define QSEOS_CHECK_VERSION_CMD		0x00001803;
+#define WAIT_PIL_TIMEOUT               20000
 
 enum qseecom_command_scm_resp_type {
 	QSEOS_APP_ID = 0xEE01,
@@ -200,6 +202,9 @@ struct qseecom_dev_handle {
 	wait_queue_head_t abort_wq;
 	atomic_t          ioctl_count;
 };
+
+DECLARE_COMPLETION(qseecomd_finish);
+DECLARE_COMPLETION(pil_work_finished);
 
 static int qsee_vote_for_clock(int32_t);
 static void qsee_disable_clock_vote(int32_t);
@@ -1461,6 +1466,7 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		return -ENODEV;
 	}
 
+	wait_for_completion_timeout(&pil_work_finished, msecs_to_jiffies(WAIT_PIL_TIMEOUT));
 	switch (cmd) {
 	case QSEECOM_IOCTL_REGISTER_LISTENER_REQ: {
 		pr_debug("ioctl register_listener_req()\n");
@@ -1470,6 +1476,8 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		wake_up_all(&data->abort_wq);
 		if (ret)
 			pr_err("failed qseecom_register_listener: %d\n", ret);
+		if (((struct qseecom_register_listener_req *)argp)->listener_id == 10)
+			complete_all(&qseecomd_finish);
 		break;
 	}
 	case QSEECOM_IOCTL_UNREGISTER_LISTENER_REQ: {
@@ -1483,6 +1491,7 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		break;
 	}
 	case QSEECOM_IOCTL_SEND_CMD_REQ: {
+		pr_debug("ioctl send_cmd_req()\n");
 		
 		mutex_lock(&app_access_lock);
 		atomic_inc(&data->ioctl_count);
@@ -1495,6 +1504,7 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		break;
 	}
 	case QSEECOM_IOCTL_SEND_MODFD_CMD_REQ: {
+		pr_debug("ioctl send_modfd_cmd_req()\n");
 		
 		mutex_lock(&app_access_lock);
 		atomic_inc(&data->ioctl_count);
@@ -1507,6 +1517,7 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		break;
 	}
 	case QSEECOM_IOCTL_RECEIVE_REQ: {
+		pr_debug("ioctl receive_req()\n");
 		atomic_inc(&data->ioctl_count);
 		ret = qseecom_receive_req(data);
 		atomic_dec(&data->ioctl_count);
@@ -1516,6 +1527,7 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		break;
 	}
 	case QSEECOM_IOCTL_SEND_RESP_REQ: {
+		pr_debug("ioctl send_resp_req()\n");
 		atomic_inc(&data->ioctl_count);
 		ret = qseecom_send_resp();
 		atomic_dec(&data->ioctl_count);
@@ -1525,6 +1537,7 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		break;
 	}
 	case QSEECOM_IOCTL_SET_MEM_PARAM_REQ: {
+		pr_debug("ioctl set_param_req()\n");
 		ret = qseecom_set_client_mem_param(data, argp);
 		if (ret)
 			pr_err("failed Qqseecom_set_mem_param request: %d\n",
@@ -1532,6 +1545,8 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		break;
 	}
 	case QSEECOM_IOCTL_LOAD_APP_REQ: {
+		pr_debug("ioctl load_app_req()\n");
+		wait_for_completion(&qseecomd_finish);
 		mutex_lock(&app_access_lock);
 		atomic_inc(&data->ioctl_count);
 		ret = qseecom_load_app(data, argp);
@@ -1542,6 +1557,7 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		break;
 	}
 	case QSEECOM_IOCTL_UNLOAD_APP_REQ: {
+		pr_debug("ioctl unload_app_req()\n");
 		mutex_lock(&app_access_lock);
 		atomic_inc(&data->ioctl_count);
 		ret = qseecom_unload_app(data);
@@ -1552,6 +1568,7 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		break;
 	}
 	case QSEECOM_IOCTL_GET_QSEOS_VERSION_REQ: {
+		pr_debug("ioctl get_qseos_version_req()\n");
 		atomic_inc(&data->ioctl_count);
 		ret = qseecom_get_qseos_version(data, argp);
 		if (ret)
@@ -1560,6 +1577,7 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		break;
 	}
 	case QSEECOM_IOCTL_PERF_ENABLE_REQ:{
+		pr_debug("ioctl perf_enable_req()\n");
 		atomic_inc(&data->ioctl_count);
 		ret = qsee_vote_for_clock(CLK_DFAB);
 		if (ret)
@@ -1568,12 +1586,14 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		break;
 	}
 	case QSEECOM_IOCTL_PERF_DISABLE_REQ:{
+		pr_debug("ioctl perf_disable_req()\n");
 		atomic_inc(&data->ioctl_count);
 		qsee_disable_clock_vote(CLK_DFAB);
 		atomic_dec(&data->ioctl_count);
 		break;
 	}
 	case QSEECOM_IOCTL_LOAD_EXTERNAL_ELF_REQ: {
+		pr_debug("ioctl load_external_elf_req()\n");
 		data->released = true;
 		if (qseecom.qseos_version == QSEOS_VERSION_13) {
 			pr_err("Loading External elf image unsupported in rev 0x13\n");
@@ -1590,6 +1610,7 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		break;
 	}
 	case QSEECOM_IOCTL_UNLOAD_EXTERNAL_ELF_REQ: {
+		pr_debug("ioctl unload_external_elf_req()\n");
 		data->released = true;
 		if (qseecom.qseos_version == QSEOS_VERSION_13) {
 			pr_err("Unloading External elf image unsupported in rev 0x13\n");
@@ -1606,6 +1627,7 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		break;
 	}
 	case QSEECOM_IOCTL_APP_LOADED_QUERY_REQ: {
+		pr_debug("ioctl app_loaded_query_req()\n");
 		mutex_lock(&app_access_lock);
 		atomic_inc(&data->ioctl_count);
 		ret = qseecom_query_app_loaded(data, argp);

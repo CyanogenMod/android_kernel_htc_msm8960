@@ -3,14 +3,21 @@
 choice
       	prompt "Select MSM 3D Graphic driver branch"
 	depends on FB_MSM
-	default MSM_KGSL_MAINLINE if SYNC
-	default MSM_KGSL_JB_REL_RB31
+	default MSM_KGSL_JB_MR1
 
 config MSM_KGSL_MAINLINE
         bool "MSM 3D Graphics driver (branch jb_2.5)"
         depends on FB_MSM
         help
           3D graphics driver for Adreno200. Required to
+          use hardware accelerated OpenGL ES 2.0 and 1.1 on these
+          chips.
+
+config MSM_KGSL_JB_MR1
+        bool "MSM 3D Graphics driver (branch jb_mr)"
+        depends on FB_MSM
+        help
+          3D graphics driver for Adreno205. Required to
           use hardware accelerated OpenGL ES 2.0 and 1.1 on these
           chips.
 
@@ -21,10 +28,15 @@ config MSM_KGSL_JB_REL_RB31
           3D graphics driver for Adreno205. Required to
           use hardware accelerated OpenGL ES 2.0 and 1.1 on these
           chips.
+
 endchoice
 
 if MSM_KGSL_MAINLINE
 source "drivers/gpu/msm/Kconfig"
+endif
+
+if MSM_KGSL_JB_MR1
+source "drivers/gpu/msm_mr1/Kconfig"
 endif
 
 if MSM_KGSL_JB_REL_RB31

@@ -1401,6 +1401,8 @@ dhd_pktfilter_offload_enable(dhd_pub_t * dhd, char *arg, int enable, int master_
 		goto fail;
 	}
 
+	printf("@@@@@ prepare to enable filter \n");
+
 	str = "pkt_filter_enable";
 	str_len = strlen(str);
 	bcm_strncpy_s(buf, sizeof(buf), str, str_len);

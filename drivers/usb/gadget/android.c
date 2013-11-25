@@ -166,6 +166,8 @@ struct android_dev {
 	int (*match)(int product_id, int intrsharing);
 	bool bEnablePerfLock;
 	int autobot_mode;
+	bool bSwitchFunWhileInit;
+	unsigned SwitchFunCombination;
 };
 
 static struct class *android_class;
@@ -1244,8 +1246,8 @@ static int ncm_function_bind_config(struct android_usb_function *f,
 		ncm->ethaddr[0], ncm->ethaddr[1], ncm->ethaddr[2],
 		ncm->ethaddr[3], ncm->ethaddr[4], ncm->ethaddr[5]);
 
-	if (c->cdev->gadget)
-		c->cdev->gadget->miMaxMtu = 9000;
+    if (c->cdev->gadget)
+        c->cdev->gadget->miMaxMtu = ETH_FRAME_LEN_MAX - ETH_HLEN;
 	ret = gether_setup_name(c->cdev->gadget, ncm->ethaddr, "usb");
 	if (ret) {
 		pr_err("%s: gether_setup failed\n", __func__);
@@ -2805,6 +2807,11 @@ static void android_usb_init_work(struct work_struct *data)
 	usb_gadget_connect(cdev->gadget);
 	dev->enabled = true;
 	pr_info("%s: ret: %d\n", __func__, ret);
+	if (dev->bSwitchFunWhileInit == true) {
+		pr_info("%s: Switch function while init = %d, func = %d\n", __func__, dev->bSwitchFunWhileInit, dev->SwitchFunCombination);
+		android_switch_function(dev->SwitchFunCombination);
+		dev->bSwitchFunWhileInit = false;
+	}
 }
 
 

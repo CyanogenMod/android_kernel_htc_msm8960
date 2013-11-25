@@ -704,6 +704,9 @@ void htc_kernel_top(void)
 	struct task_cputime cputime;
 	int dump_top_stack = 0;
 	int pid_cnt = 0;    
+#ifdef CONFIG_DEBUG_KSWAPD
+	struct task_struct *kswapd_t = NULL;
+#endif
 
 	if (task_ptr_array == NULL ||
 			curr_proc_delta == NULL ||
@@ -761,7 +764,19 @@ void htc_kernel_top(void)
 				top_loading[i],
 				task_ptr_array[top_loading[i]]->comm,
 				curr_proc_delta[top_loading[i]]);
+#ifdef CONFIG_DEBUG_KSWAPD
+		if (task_ptr_array[top_loading[i]] && task_ptr_array[top_loading[i]]->flags & PF_KSWAPD)
+			kswapd_t = task_ptr_array[top_loading[i]];
+#endif
 	}
+
+#ifdef CONFIG_DEBUG_KSWAPD
+	if (kswapd_t) {
+		printk("\n[K][DEBUG] ###pid:%d name:%s state:%lu ppid:%d stime:%lu utime:%lu\n",
+				kswapd_t->pid, kswapd_t->comm, kswapd_t->state, kswapd_t->real_parent->pid, kswapd_t->stime, kswapd_t->utime);
+		show_stack(kswapd_t, NULL);
+	}
+#endif
 
 	
 	if (dump_top_stack) {

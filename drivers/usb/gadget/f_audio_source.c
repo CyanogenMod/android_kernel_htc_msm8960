@@ -506,7 +506,7 @@ static int audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	int ret;
 
 	pr_debug("audio_set_alt intf %d, alt %d\n", intf, alt);
-	printk("[USB]audio_set_alt intf %d alt %d as_alt_1 %d ep_enable %d \n",intf,alt,as_interface_alt_1_desc.bInterfaceNumber,audio->audio_ep_enabled);
+
 	if (intf == as_interface_alt_1_desc.bInterfaceNumber) {
 		if (alt && !audio->audio_ep_enabled) {
 			ret = config_ep_by_speed(cdev->gadget, f, audio->in_ep);

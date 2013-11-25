@@ -191,27 +191,14 @@ int ext4_sync_file(struct file *file, loff_t start, loff_t end, int datasync)
 	int ret;
 	tid_t commit_tid;
 	bool needs_barrier = false;
-#ifdef CONFIG_FSYNC_DEBUG
-	ktime_t fsync_t, fsync_diff;
-#endif
 
 	J_ASSERT(ext4_journal_current_handle() == NULL);
 
 	trace_ext4_sync_file_enter(file, datasync);
 
-#ifdef CONFIG_FSYNC_DEBUG
-	fsync_t = ktime_get();
-	ret = filemap_write_and_wait_range(inode->i_mapping, start, end);
-	fsync_diff = ktime_sub(ktime_get(), fsync_t);
-	if (ktime_to_ns(fsync_diff) >= 5000000000LL)
-		printk("%s: filemap_write_and_wait_range() takes %lld nsec\n", __func__, ktime_to_ns(fsync_diff));
-	if (ret)
-		return ret;
-#else
 	ret = filemap_write_and_wait_range(inode->i_mapping, start, end);
 	if (ret)
 		return ret;
-#endif
 	mutex_lock(&inode->i_mutex);
 
 	if (inode->i_sb->s_flags & MS_RDONLY)
@@ -238,27 +225,9 @@ int ext4_sync_file(struct file *file, loff_t start, loff_t end, int datasync)
 	    !jbd2_trans_will_send_data_barrier(journal, commit_tid))
 		needs_barrier = true;
 	jbd2_log_start_commit(journal, commit_tid);
-#ifdef CONFIG_FSYNC_DEBUG
-	fsync_t = ktime_get();
 	ret = jbd2_log_wait_commit(journal, commit_tid);
-	fsync_diff = ktime_sub(ktime_get(), fsync_t);
-	if (ktime_to_ns(fsync_diff) >= 5000000000LL)
-		printk("%s: jbd2_log_wait_commit() takes %lld nsec\n", __func__, ktime_to_ns(fsync_diff));
-#else
-	ret = jbd2_log_wait_commit(journal, commit_tid);
-#endif
-
-	if (needs_barrier) {
-#ifdef CONFIG_FSYNC_DEBUG
-		fsync_t = ktime_get();
+	if (needs_barrier)
 		blkdev_issue_flush(inode->i_sb->s_bdev, GFP_KERNEL, NULL);
-		fsync_diff = ktime_sub(ktime_get(), fsync_t);
-		if (ktime_to_ns(fsync_diff) >= 5000000000LL)
-			printk("%s: blkdev_issue_flush() takes %lld nsec\n", __func__, ktime_to_ns(fsync_diff));
-#else
-	blkdev_issue_flush(inode->i_sb->s_bdev, GFP_KERNEL, NULL);
-#endif
-	}
  out:
 	mutex_unlock(&inode->i_mutex);
 	trace_ext4_sync_file_exit(inode, ret);

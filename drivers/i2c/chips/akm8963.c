@@ -325,7 +325,7 @@ static int AKECS_GetData(
 
 static void AKECS_SetYPR(
 	struct akm8963_data *akm,
-	int *rbuf)
+	int32_t *rbuf)
 {
 	uint32_t ready;
 	AKM_DATA(&akm->i2c->dev, "AKM8963 %s: flag =0x%X", __func__,
@@ -360,6 +360,16 @@ static void AKECS_SetYPR(
 		input_report_abs(akm->input, ABS_RY, rbuf[6]);
 		input_report_abs(akm->input, ABS_RZ, rbuf[7]);
 		input_report_abs(akm->input, ABS_RUDDER, rbuf[8]);
+
+		
+		
+		input_report_abs(akm->input, ABS_GAS,   rbuf[12]);
+		input_report_abs(akm->input, ABS_BRAKE, rbuf[13]);
+		input_report_abs(akm->input, ABS_HAT2X, rbuf[14]);
+		input_report_abs(akm->input, ABS_HAT2Y, rbuf[15]);
+		input_report_abs(akm->input, ABS_HAT3X, rbuf[16]);
+		input_report_abs(akm->input, ABS_HAT3Y, rbuf[17]);
+		
 	}
 	
 	if (ready & ORI_DATA_READY) {
@@ -1187,6 +1197,19 @@ static int akm8963_input_init(
 			-5760, 5760, 0, 0);
 	input_set_abs_params(*input, ABS_HAT1Y,
 			0, 3, 0, 0);
+	
+	input_set_abs_params(*input, ABS_GAS,
+			-32768, 32767, 0, 0);
+	input_set_abs_params(*input, ABS_BRAKE,
+			-32768, 32767, 0, 0);
+	input_set_abs_params(*input, ABS_HAT2X,
+			-32768, 32767, 0, 0);
+	input_set_abs_params(*input, ABS_HAT2Y,
+			-32768, 32767, 0, 0);
+	input_set_abs_params(*input, ABS_HAT3X,
+			-32768, 32767, 0, 0);
+	input_set_abs_params(*input, ABS_HAT3Y,
+			-32768, 32767, 0, 0);
 
 	
 	(*input)->name = "compass";

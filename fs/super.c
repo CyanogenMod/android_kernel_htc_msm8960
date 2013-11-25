@@ -594,6 +594,8 @@ static void do_emergency_remount(struct work_struct *work)
 	char b[BDEVNAME_SIZE];
 
 	atomic_set(&vfs_emergency_remount, 1);
+	
+	umount2("/devlog", MNT_DETACH);
 	spin_lock(&sb_lock);
 	list_for_each_entry(sb, &super_blocks, s_list) {
 		if (hlist_unhashed(&sb->s_instances))

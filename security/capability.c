@@ -12,6 +12,26 @@
 
 #include <linux/security.h>
 
+static int cap_binder_set_context_mgr(struct task_struct *mgr)
+{
+	return 0;
+}
+
+static int cap_binder_transaction(struct task_struct *from, struct task_struct *to)
+{
+	return 0;
+}
+
+static int cap_binder_transfer_binder(struct task_struct *from, struct task_struct *to)
+{
+	return 0;
+}
+
+static int cap_binder_transfer_file(struct task_struct *from, struct task_struct *to, struct file *file)
+{
+	return 0;
+}
+
 static int cap_syslog(int type)
 {
 	return 0;
@@ -717,7 +737,7 @@ static int cap_tun_dev_attach(struct sock *sk)
 {
 	return 0;
 }
-#endif	/* CONFIG_SECURITY_NETWORK */
+#endif	
 
 #ifdef CONFIG_SECURITY_NETWORK_XFRM
 static int cap_xfrm_policy_alloc_security(struct xfrm_sec_ctx **ctxp,
@@ -774,7 +794,7 @@ static int cap_xfrm_decode_session(struct sk_buff *skb, u32 *fl, int ckall)
 	return 0;
 }
 
-#endif /* CONFIG_SECURITY_NETWORK_XFRM */
+#endif 
 static void cap_d_instantiate(struct dentry *dentry, struct inode *inode)
 {
 }
@@ -842,7 +862,7 @@ static int cap_key_getsecurity(struct key *key, char **_buffer)
 	return 0;
 }
 
-#endif /* CONFIG_KEYS */
+#endif 
 
 #ifdef CONFIG_AUDIT
 static int cap_audit_rule_init(u32 field, u32 op, char *rulestr, void **lsmrule)
@@ -864,7 +884,7 @@ static int cap_audit_rule_match(u32 secid, u32 field, u32 op, void *lsmrule,
 static void cap_audit_rule_free(void *lsmrule)
 {
 }
-#endif /* CONFIG_AUDIT */
+#endif 
 
 #define set_to_cap_if_null(ops, function)				\
 	do {								\
@@ -877,6 +897,10 @@ static void cap_audit_rule_free(void *lsmrule)
 
 void __init security_fixup_ops(struct security_operations *ops)
 {
+	set_to_cap_if_null(ops, binder_set_context_mgr);
+	set_to_cap_if_null(ops, binder_transaction);
+	set_to_cap_if_null(ops, binder_transfer_binder);
+	set_to_cap_if_null(ops, binder_transfer_file);
 	set_to_cap_if_null(ops, ptrace_access_check);
 	set_to_cap_if_null(ops, ptrace_traceme);
 	set_to_cap_if_null(ops, capget);
@@ -1046,7 +1070,7 @@ void __init security_fixup_ops(struct security_operations *ops)
 	set_to_cap_if_null(ops, tun_dev_create);
 	set_to_cap_if_null(ops, tun_dev_post_create);
 	set_to_cap_if_null(ops, tun_dev_attach);
-#endif	/* CONFIG_SECURITY_NETWORK */
+#endif	
 #ifdef CONFIG_SECURITY_NETWORK_XFRM
 	set_to_cap_if_null(ops, xfrm_policy_alloc_security);
 	set_to_cap_if_null(ops, xfrm_policy_clone_security);
@@ -1058,13 +1082,13 @@ void __init security_fixup_ops(struct security_operations *ops)
 	set_to_cap_if_null(ops, xfrm_policy_lookup);
 	set_to_cap_if_null(ops, xfrm_state_pol_flow_match);
 	set_to_cap_if_null(ops, xfrm_decode_session);
-#endif	/* CONFIG_SECURITY_NETWORK_XFRM */
+#endif	
 #ifdef CONFIG_KEYS
 	set_to_cap_if_null(ops, key_alloc);
 	set_to_cap_if_null(ops, key_free);
 	set_to_cap_if_null(ops, key_permission);
 	set_to_cap_if_null(ops, key_getsecurity);
-#endif	/* CONFIG_KEYS */
+#endif	
 #ifdef CONFIG_AUDIT
 	set_to_cap_if_null(ops, audit_rule_init);
 	set_to_cap_if_null(ops, audit_rule_known);

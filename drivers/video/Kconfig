@@ -2408,6 +2408,23 @@ config FB_PUV3_UNIGFX
 	  Choose this option if you want to use the Unigfx device as a
 	  framebuffer device. Without the support of PCI & AGP.
 
+
+choice
+	prompt "Select MSM driver branch"
+	default FB_MSM_MAINLINE
+
+config FB_MSM_412
+	bool "Display driver old"
+	help
+	  Old display driver
+
+config FB_MSM_MAINLINE
+	bool "Display driver old"
+	help
+	  New display driver
+endchoice
+
+
 source "drivers/video/msm/Kconfig"
 
 source "drivers/video/omap/Kconfig"

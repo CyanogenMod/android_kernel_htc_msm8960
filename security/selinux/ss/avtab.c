@@ -1,8 +1,3 @@
-/*
- * Implementation of the access vector table type.
- *
- * Author : Stephen Smalley, <sds@epoch.ncsc.mil>
- */
 
 /* Updated: Frank Mayer <mayerf@tresys.com> and Karl MacMillan <kmacmillan@tresys.com>
  *
@@ -90,10 +85,6 @@ static int avtab_insert(struct avtab *h, struct avtab_key *key, struct avtab_dat
 	return 0;
 }
 
-/* Unlike avtab_insert(), this function allow multiple insertions of the same
- * key/specified mask into the table, as needed by the conditional avtab.
- * It also returns a pointer to the node inserted.
- */
 struct avtab_node *
 avtab_insert_nonunique(struct avtab *h, struct avtab_key *key, struct avtab_datum *datum)
 {
@@ -156,9 +147,6 @@ struct avtab_datum *avtab_search(struct avtab *h, struct avtab_key *key)
 	return NULL;
 }
 
-/* This search function returns a node pointer, and can be used in
- * conjunction with avtab_search_next_node()
- */
 struct avtab_node*
 avtab_search_node(struct avtab *h, struct avtab_key *key)
 {

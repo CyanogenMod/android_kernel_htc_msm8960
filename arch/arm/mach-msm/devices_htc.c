@@ -216,6 +216,40 @@ int __init parse_tag_cam(const struct tag *tags)
 }
 __tagtable(ATAG_CAM, parse_tag_cam);
 
+int batt_stored_magic_num;
+int batt_stored_soc;
+int batt_stored_ocv_uv;
+int batt_stored_cc_uv;
+unsigned long batt_stored_time_ms;
+
+static int __init parse_tag_stored_batt_data(const struct tag *tags)
+{
+	int find = 0;
+	struct tag *t = (struct tag *)tags;
+
+	for (; t->hdr.size; t = tag_next(t)) {
+		if (t->hdr.tag == ATAG_BATT_DATA) {
+			printk(KERN_DEBUG "find the stored batt data tag\n");
+			find = 1;
+			break;
+		}
+	}
+
+	if (find) {
+		batt_stored_magic_num = t->u.batt_data.magic_num;
+		batt_stored_soc = t->u.batt_data.soc;
+		batt_stored_ocv_uv = t->u.batt_data.ocv;
+		batt_stored_cc_uv = t->u.batt_data.cc;
+		batt_stored_time_ms = t->u.batt_data.currtime;
+		printk(KERN_INFO "batt_data: magic_num=%x, soc=%d, "
+			"ocv_uv=%x, cc_uv=%x, stored_time=%ld\n",
+			batt_stored_magic_num, batt_stored_soc, batt_stored_ocv_uv,
+			batt_stored_cc_uv, batt_stored_time_ms);
+	}
+	return 0;
+}
+__tagtable(ATAG_BATT_DATA, parse_tag_stored_batt_data);
+
 #define ATAG_GRYO_GSENSOR	0x54410020
 unsigned char gyro_gsensor_kvalue[37];
 EXPORT_SYMBOL(gyro_gsensor_kvalue);
@@ -415,7 +449,22 @@ int __init tag_gy_parsing(const struct tag *tags)
 }
 __tagtable(ATAG_GY_TYPE, tag_gy_parsing);
 
-#define ATAG_SMLOG     0x54410023
+#define ATAG_COMPASS_TYPE 0x4d534D79
+int compass_type;
+EXPORT_SYMBOL(compass_type);
+int __init tag_compass_parsing(const struct tag *tags)
+{
+        compass_type = tags->u.revision.rev;
+
+        printk(KERN_DEBUG "%s: Compass type = 0x%x\n", __func__,
+                compass_type);
+
+        return compass_type;
+}
+__tagtable(ATAG_COMPASS_TYPE, tag_compass_parsing);
+
+
+#define ATAG_SMLOG     0x54410026
 
 int __init parse_tag_smlog(const struct tag *tags)
 {
@@ -453,6 +502,38 @@ __setup("radioflag=", radio_flag_init);
 unsigned int get_radio_flag(void)
 {
 	return radio_flag;
+}
+
+static unsigned long radio_flag_ex1;
+int __init radio_flag_ex1_init(char *s)
+{
+	int ret = 0;
+	ret = strict_strtoul(s, 16, &radio_flag_ex1);
+	if (ret != 0)
+		pr_err("%s: radio flag ex1 cannot be parsed from `%s'\r\n", __func__, s);
+	return 1;
+}
+__setup("radioflagex1=", radio_flag_ex1_init);
+
+unsigned int get_radio_flag_ex1(void)
+{
+	return radio_flag_ex1;
+}
+
+static unsigned long radio_flag_ex2;
+int __init radio_flag_ex2_init(char *s)
+{
+	int ret = 0;
+	ret = strict_strtoul(s, 16, &radio_flag_ex2);
+	if (ret != 0)
+		pr_err("%s: radio flag ex2 cannot be parsed from `%s'\r\n", __func__, s);
+	return 1;
+}
+__setup("radioflagex2=", radio_flag_ex2_init);
+
+unsigned int get_radio_flag_ex2(void)
+{
+	return radio_flag_ex2;
 }
 
 static unsigned long kernel_flag;

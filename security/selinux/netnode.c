@@ -1,18 +1,3 @@
-/*
- * Network node table
- *
- * SELinux must keep a mapping of network nodes to labels/SIDs.  This
- * mapping is maintained as part of the normal policy but a fast cache is
- * needed to reduce the lookup overhead since most of these queries happen on
- * a per-packet basis.
- *
- * Author: Paul Moore <paul@paul-moore.com>
- *
- * This code is heavily based on the "netif" concept originally developed by
- * James Morris <jmorris@redhat.com>
- *   (see security/selinux/netif.c for more information)
- *
- */
 
 /*
  * (c) Copyright Hewlett-Packard Development Company, L.P., 2007
@@ -58,59 +43,21 @@ struct sel_netnode {
 	struct rcu_head rcu;
 };
 
-/* NOTE: we are using a combined hash table for both IPv4 and IPv6, the reason
- * for this is that I suspect most users will not make heavy use of both
- * address families at the same time so one table will usually end up wasted,
- * if this becomes a problem we can always add a hash table for each address
- * family later */
 
 static LIST_HEAD(sel_netnode_list);
 static DEFINE_SPINLOCK(sel_netnode_lock);
 static struct sel_netnode_bkt sel_netnode_hash[SEL_NETNODE_HASH_SIZE];
 
-/**
- * sel_netnode_hashfn_ipv4 - IPv4 hashing function for the node table
- * @addr: IPv4 address
- *
- * Description:
- * This is the IPv4 hashing function for the node interface table, it returns
- * the bucket number for the given IP address.
- *
- */
 static unsigned int sel_netnode_hashfn_ipv4(__be32 addr)
 {
-	/* at some point we should determine if the mismatch in byte order
-	 * affects the hash function dramatically */
 	return (addr & (SEL_NETNODE_HASH_SIZE - 1));
 }
 
-/**
- * sel_netnode_hashfn_ipv6 - IPv6 hashing function for the node table
- * @addr: IPv6 address
- *
- * Description:
- * This is the IPv6 hashing function for the node interface table, it returns
- * the bucket number for the given IP address.
- *
- */
 static unsigned int sel_netnode_hashfn_ipv6(const struct in6_addr *addr)
 {
-	/* just hash the least significant 32 bits to keep things fast (they
-	 * are the most likely to be different anyway), we can revisit this
-	 * later if needed */
 	return (addr->s6_addr32[3] & (SEL_NETNODE_HASH_SIZE - 1));
 }
 
-/**
- * sel_netnode_find - Search for a node record
- * @addr: IP address
- * @family: address family
- *
- * Description:
- * Search the network node table and return the record matching @addr.  If an
- * entry can not be found in the table return NULL.
- *
- */
 static struct sel_netnode *sel_netnode_find(const void *addr, u16 family)
 {
 	unsigned int idx;
@@ -145,14 +92,6 @@ static struct sel_netnode *sel_netnode_find(const void *addr, u16 family)
 	return NULL;
 }
 
-/**
- * sel_netnode_insert - Insert a new node into the table
- * @node: the new node record
- *
- * Description:
- * Add a new node record to the network address hash table.
- *
- */
 static void sel_netnode_insert(struct sel_netnode *node)
 {
 	unsigned int idx;
@@ -168,13 +107,12 @@ static void sel_netnode_insert(struct sel_netnode *node)
 		BUG();
 	}
 
-	/* we need to impose a limit on the growth of the hash table so check
-	 * this bucket to make sure it is within the specified bounds */
 	list_add_rcu(&node->list, &sel_netnode_hash[idx].list);
 	if (sel_netnode_hash[idx].size == SEL_NETNODE_HASH_BKT_LIMIT) {
 		struct sel_netnode *tail;
 		tail = list_entry(
-			rcu_dereference(sel_netnode_hash[idx].list.prev),
+			rcu_dereference_protected(sel_netnode_hash[idx].list.prev,
+						  lockdep_is_held(&sel_netnode_lock)),
 			struct sel_netnode, list);
 		list_del_rcu(&tail->list);
 		kfree_rcu(tail, rcu);
@@ -182,19 +120,6 @@ static void sel_netnode_insert(struct sel_netnode *node)
 		sel_netnode_hash[idx].size++;
 }
 
-/**
- * sel_netnode_sid_slow - Lookup the SID of a network address using the policy
- * @addr: the IP address
- * @family: the address family
- * @sid: node SID
- *
- * Description:
- * This function determines the SID of a network address by quering the
- * security policy.  The result is added to the network address table to
- * speedup future queries.  Returns zero on success, negative values on
- * failure.
- *
- */
 static int sel_netnode_sid_slow(void *addr, u16 family, u32 *sid)
 {
 	int ret = -ENOMEM;
@@ -243,20 +168,6 @@ out:
 	return ret;
 }
 
-/**
- * sel_netnode_sid - Lookup the SID of a network address
- * @addr: the IP address
- * @family: the address family
- * @sid: node SID
- *
- * Description:
- * This function determines the SID of a network address using the fastest
- * method possible.  First the address table is queried, but if an entry
- * can't be found then the policy is queried and the result is added to the
- * table to speedup future queries.  Returns zero on success, negative values
- * on failure.
- *
- */
 int sel_netnode_sid(void *addr, u16 family, u32 *sid)
 {
 	struct sel_netnode *node;
@@ -273,13 +184,6 @@ int sel_netnode_sid(void *addr, u16 family, u32 *sid)
 	return sel_netnode_sid_slow(addr, family, sid);
 }
 
-/**
- * sel_netnode_flush - Flush the entire network address table
- *
- * Description:
- * Remove all entries from the network address table.
- *
- */
 static void sel_netnode_flush(void)
 {
 	unsigned int idx;

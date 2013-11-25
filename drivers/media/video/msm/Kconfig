@@ -61,6 +61,13 @@ config AR0260
 	---help---
 	  Support for AR0260 sensor driver.
 
+config AS0260
+	bool "Sensor as0260"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  Support for AS0260 sensor driver.
+
 config OV2722
 	bool "Sensor ov2722"
 	depends on MSM_CAMERA

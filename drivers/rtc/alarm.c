@@ -250,13 +250,13 @@ int alarm_set_rtc(struct timespec new_time)
 		alarms[i].stopped = true;
 		alarms[i].stopped_time = timespec_to_ktime(tmp_time);
 	}
+	spin_unlock_irqrestore(&alarm_slock, flags);
+	ret = do_settimeofday(&new_time);
+	spin_lock_irqsave(&alarm_slock, flags);
 	alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP].delta =
 		alarms[ANDROID_ALARM_ELAPSED_REALTIME].delta =
 		ktime_sub(alarms[ANDROID_ALARM_ELAPSED_REALTIME].delta,
 			timespec_to_ktime(timespec_sub(tmp_time, new_time)));
-	spin_unlock_irqrestore(&alarm_slock, flags);
-	ret = do_settimeofday(&new_time);
-	spin_lock_irqsave(&alarm_slock, flags);
 	for (i = 0; i < ANDROID_ALARM_SYSTEMTIME; i++) {
 		alarms[i].stopped = false;
 		update_timer_locked(&alarms[i], false);

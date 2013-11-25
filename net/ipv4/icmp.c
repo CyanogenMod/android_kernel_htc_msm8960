@@ -97,6 +97,7 @@
 #include <net/inet_common.h>
 
 
+
 struct icmp_bxm {
 	struct sk_buff *skb;
 	int offset;
@@ -866,6 +867,7 @@ int icmp_rcv(struct sk_buff *skb)
 	}
 
 	icmp_pointers[icmph->type].handler(skb);
+
 
 drop:
 	kfree_skb(skb);

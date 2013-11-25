@@ -1306,18 +1306,26 @@ static void a2xx_drawctxt_save(struct adreno_device *adreno_dev,
 			"Current active context has caused gpu hang\n");
 
 	if (!(context->flags & CTXT_FLAGS_PREAMBLE)) {
-
+		kgsl_cffdump_syncmem(NULL, &context->gpustate,
+			context->reg_save[1],
+			context->reg_save[2] << 2, true);
 		
 		adreno_ringbuffer_issuecmds(device, context,
 			KGSL_CMD_FLAGS_NONE,
 			context->reg_save, 3);
 
 		if (context->flags & CTXT_FLAGS_SHADER_SAVE) {
+			kgsl_cffdump_syncmem(NULL, &context->gpustate,
+				context->shader_save[1],
+				context->shader_save[2] << 2, true);
 			
 			adreno_ringbuffer_issuecmds(device, context,
 				KGSL_CMD_FLAGS_PMODE,
 				context->shader_save, 3);
 
+			kgsl_cffdump_syncmem(NULL, &context->gpustate,
+				context->shader_fixup[1],
+				context->shader_fixup[2] << 2, true);
 			adreno_ringbuffer_issuecmds(device, context,
 				KGSL_CMD_FLAGS_NONE,
 				context->shader_fixup, 3);
@@ -1328,9 +1336,16 @@ static void a2xx_drawctxt_save(struct adreno_device *adreno_dev,
 
 	if ((context->flags & CTXT_FLAGS_GMEM_SAVE) &&
 	    (context->flags & CTXT_FLAGS_GMEM_SHADOW)) {
+		kgsl_cffdump_syncmem(NULL, &context->gpustate,
+			context->context_gmem_shadow.gmem_save[1],
+			context->context_gmem_shadow.gmem_save[2] << 2, true);
 		adreno_ringbuffer_issuecmds(device, context,
 			KGSL_CMD_FLAGS_PMODE,
 			context->context_gmem_shadow.gmem_save, 3);
+
+		kgsl_cffdump_syncmem(NULL, &context->gpustate,
+			context->chicken_restore[1],
+			context->chicken_restore[2] << 2, true);
 
 		
 		if (!(context->flags & CTXT_FLAGS_PREAMBLE)) {
@@ -1370,18 +1385,21 @@ static void a2xx_drawctxt_restore(struct adreno_device *adreno_dev,
 					cmds, 5);
 	kgsl_mmu_setstate(&device->mmu, context->pagetable, context->id);
 
-#ifndef CONFIG_MSM_KGSL_CFF_DUMP_NO_CONTEXT_MEM_DUMP
-	kgsl_cffdump_syncmem(NULL, &context->gpustate,
-		context->gpustate.gpuaddr, LCC_SHADOW_SIZE +
-		REG_SHADOW_SIZE + CMD_BUFFER_SIZE + TEX_SHADOW_SIZE, false);
-#endif
-
 	if (context->flags & CTXT_FLAGS_GMEM_RESTORE) {
+		kgsl_cffdump_syncmem(NULL, &context->gpustate,
+			context->context_gmem_shadow.gmem_restore[1],
+			context->context_gmem_shadow.gmem_restore[2] << 2,
+			true);
+
 		adreno_ringbuffer_issuecmds(device, context,
 			KGSL_CMD_FLAGS_PMODE,
 			context->context_gmem_shadow.gmem_restore, 3);
 
 		if (!(context->flags & CTXT_FLAGS_PREAMBLE)) {
+			kgsl_cffdump_syncmem(NULL, &context->gpustate,
+				context->chicken_restore[1],
+				context->chicken_restore[2] << 2, true);
+
 			
 			adreno_ringbuffer_issuecmds(device, context,
 				KGSL_CMD_FLAGS_NONE,
@@ -1392,6 +1410,9 @@ static void a2xx_drawctxt_restore(struct adreno_device *adreno_dev,
 	}
 
 	if (!(context->flags & CTXT_FLAGS_PREAMBLE)) {
+		kgsl_cffdump_syncmem(NULL, &context->gpustate,
+			context->reg_restore[1],
+			context->reg_restore[2] << 2, true);
 
 		
 		adreno_ringbuffer_issuecmds(device, context,
@@ -1399,6 +1420,10 @@ static void a2xx_drawctxt_restore(struct adreno_device *adreno_dev,
 
 		
 		if (context->flags & CTXT_FLAGS_SHADER_RESTORE) {
+			kgsl_cffdump_syncmem(NULL, &context->gpustate,
+				context->shader_restore[1],
+				context->shader_restore[2] << 2, true);
+
 			adreno_ringbuffer_issuecmds(device, context,
 				KGSL_CMD_FLAGS_NONE,
 				context->shader_restore, 3);
@@ -1491,9 +1516,6 @@ static void a2xx_cp_intrcallback(struct kgsl_device *device)
 		KGSL_CMD_WARN(rb->device, "ringbuffer ib1/rb interrupt\n");
 		queue_work(device->work_queue, &device->ts_expired_ws);
 		wake_up_interruptible_all(&device->wait_queue);
-		atomic_notifier_call_chain(&(device->ts_notifier_list),
-					   device->id,
-					   NULL);
 	}
 }
 
@@ -1587,19 +1609,17 @@ static unsigned int a2xx_irq_pending(struct adreno_device *adreno_dev)
 		 MASTER_INT_SIGNAL__RBBM_INT_STAT)) ? 1 : 0;
 }
 
-static void a2xx_rb_init(struct adreno_device *adreno_dev,
+static int a2xx_rb_init(struct adreno_device *adreno_dev,
 			struct adreno_ringbuffer *rb)
 {
 	unsigned int *cmds, cmds_gpu;
 
 	
 	cmds = adreno_ringbuffer_allocspace(rb, NULL, 19);
-	cmds_gpu = rb->buffer_desc.gpuaddr + sizeof(uint)*(rb->wptr-19);
+	if (cmds == NULL)
+		return -ENOMEM;
 
-	if(cmds == NULL || cmds_gpu == 0){
-		KGSL_PWR_ERR(rb->device,"cmds or cmds_gpu is NULL");
-		return;
-	}
+	cmds_gpu = rb->buffer_desc.gpuaddr + sizeof(uint)*(rb->wptr-19);
 
 	GSL_RB_WRITE(cmds, cmds_gpu, cp_type3_packet(CP_ME_INIT, 18));
 	
@@ -1646,6 +1666,8 @@ static void a2xx_rb_init(struct adreno_device *adreno_dev,
 	GSL_RB_WRITE(cmds, cmds_gpu, 0x00000000);
 
 	adreno_ringbuffer_submit(rb);
+
+	return 0;
 }
 
 static unsigned int a2xx_busy_cycles(struct adreno_device *adreno_dev)

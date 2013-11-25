@@ -28,6 +28,7 @@
 #include <linux/jiffies.h>
 #include <linux/wakelock.h>
 #include <linux/delay.h>
+#include <linux/completion.h>
 
 #include <asm/uaccess.h>
 #include <asm/setup.h>
@@ -61,6 +62,8 @@ struct pil_device {
 };
 
 #define to_pil_device(d) container_of(d, struct pil_device, dev)
+
+extern struct completion pil_work_finished;
 
 static ssize_t name_show(struct device *dev, struct device_attribute *attr,
 		char *buf)
@@ -388,6 +391,13 @@ void *pil_get(const char *name)
 	pil->count++;
 	pil_set_state(pil, PIL_ONLINE);
 	mutex_unlock(&pil->lock);
+#if defined(CONFIG_MSM8930_ONLY)
+	if (!strcmp("modem", name)) {
+		complete_all(&pil_work_finished);
+	}
+#elif defined(CONFIG_ARCH_APQ8064)
+		complete_all(&pil_work_finished);
+#endif
 out:
 	return retval;
 err_load:

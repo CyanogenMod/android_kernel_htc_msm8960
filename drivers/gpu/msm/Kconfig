@@ -97,17 +97,6 @@ config MSM_KGSL_DISABLE_SHADOW_WRITES
 	default n
 	depends on MSM_KGSL
 
-config MSM_KGSL_DEFAULT_GPUMMU
-	bool "Prefer gpummu than iommu"
-	default n
-
-config MSM_KGSL_PAGE_TABLE_SIZE_FOR_IOMMU
-	hex "Size of pagetables for iommu"
-	default 0x1FE00000
-	---help---
-	Sets the pagetable size used by the IOMMU.  The max value
-	is 0x1FE00000 or (512M - 1536K - little interval).
-
 config MSM_KGSL_KILL_HANG_PROCESS
 	bool "Enable killing recoverable gpu hang process routine"
 	default y

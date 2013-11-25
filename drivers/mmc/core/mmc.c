@@ -933,9 +933,14 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		}
 	}
 	
-	if (card->ext_csd.rev >= 6)
+	if (card->ext_csd.rev >= 6) {
 		card->wr_perf = 14;
-	else if (card->cid.manfid == 0x45) {
+		
+		if (card->cid.manfid == 0x15) {
+			card->host->bkops_check_status = 1;
+			pr_info("%s: set bkops_check_status\n", mmc_hostname(card->host));
+		}
+	} else if (card->cid.manfid == 0x45) {
 		
 		if ((card->ext_csd.sectors == 31105024) && !strcmp(card->cid.prod_name, "SEM16G"))
 			card->wr_perf = 12;

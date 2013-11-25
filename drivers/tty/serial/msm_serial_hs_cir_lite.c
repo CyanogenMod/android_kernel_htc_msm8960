@@ -1062,6 +1062,8 @@ static void msm_hsl_power_cir(struct uart_port *port, unsigned int state,
 {
 	int ret;
 	struct msm_hsl_port *msm_hsl_port = UART_TO_MSM(port);
+	unsigned long flags;
+
 	D("%s (): ir, state %d\n", __func__, state);
 	switch (state) {
 	case 0:
@@ -1072,6 +1074,19 @@ static void msm_hsl_power_cir(struct uart_port *port, unsigned int state,
 		clk_en(port, 1);
 		break;
 	case 3:
+		if (cir_enable_flg != PATH_CIR) {
+			D("%s path is not CIR. flg = %d\n",
+						__func__, cir_enable_flg);
+			D("%s(): Clear IRDA mode \n", __func__);
+			spin_lock_irqsave(&port->lock, flags);
+			ret = 0;
+			msm_hsl_write(port, ret, UARTDM_IRDA_ADDR);
+			spin_unlock_irqrestore(&port->lock, flags);
+
+			cir_enable_flg = PATH_CIR;
+			if (msm_hsl_port->cir_set_path)
+				msm_hsl_port->cir_set_path(PATH_CIR);
+		}
 		clk_en(port, 0);
 		break;
 	default:
@@ -1449,16 +1464,6 @@ static ssize_t enable_cir_store(struct device *dev,
 		cir_enable_flg = PATH_IRDA;
 		if (msm_cir_port->cir_set_path)
 			msm_cir_port->cir_set_path(PATH_IRDA);
-	} else {
-		D("%s(): Clear IRDA mode \n", __func__);
-		spin_lock_irqsave(&port->lock, flags);
-		ret = 0;
-		msm_hsl_write(port, ret, UARTDM_IRDA_ADDR);
-		spin_unlock_irqrestore(&port->lock, flags);
-
-		cir_enable_flg = PATH_CIR;
-		if (msm_cir_port->cir_set_path)
-			msm_cir_port->cir_set_path(PATH_CIR);
 	}
 
 	clk_en(port, 0);
@@ -1798,6 +1803,7 @@ static int __init msm_serial_hsl_init_cir(void)
 		return ret;
 
 	debug_base = debugfs_create_dir("msm_serial_cir", NULL);
+
 	if (IS_ERR_OR_NULL(debug_base))
 		E("%s():Cannot create debugfs dir\n", __func__);
 

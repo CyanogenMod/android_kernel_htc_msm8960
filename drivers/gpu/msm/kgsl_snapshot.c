@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -100,7 +100,12 @@ static int snapshot_context_info(int id, void *ptr, void *data)
 {
 	struct kgsl_snapshot_linux_context *header = _ctxtptr;
 	struct kgsl_context *context = ptr;
-	struct kgsl_device *device = context->dev_priv->device;
+	struct kgsl_device *device;
+
+	if (context)
+		device = context->dev_priv->device;
+	else
+		device = (struct kgsl_device *)data;
 
 	header->id = id;
 
@@ -127,7 +132,12 @@ static int snapshot_os(struct kgsl_device *device,
 	int size = sizeof(*header);
 
 
+	rcu_read_lock();
 	idr_for_each(&device->context_idr, snapshot_context_count, &ctxtcount);
+	rcu_read_unlock();
+
+	
+	ctxtcount++;
 
 	size += ctxtcount * sizeof(struct kgsl_snapshot_linux_context);
 
@@ -158,7 +168,8 @@ static int snapshot_os(struct kgsl_device *device,
 	header->busclk = kgsl_get_clkrate(pwr->ebi1_clk);
 
 	
-	header->current_context = -1;
+	kgsl_sharedmem_readl(&device->memstore, &header->current_context,
+		KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL, current_context));
 
 	
 	header->ptbase = kgsl_mmu_get_current_ptbase(&device->mmu);
@@ -173,10 +184,15 @@ static int snapshot_os(struct kgsl_device *device,
 
 	header->ctxtcount = ctxtcount;
 
-	
 	_ctxtptr = snapshot + sizeof(*header);
-	idr_for_each(&device->context_idr, snapshot_context_info, NULL);
 
+	
+	snapshot_context_info(KGSL_MEMSTORE_GLOBAL, NULL, device);
+
+	
+	rcu_read_lock();
+	idr_for_each(&device->context_idr, snapshot_context_info, NULL);
+	rcu_read_unlock();
 	
 	return size;
 }
@@ -257,7 +273,7 @@ static void kgsl_snapshot_put_object(struct kgsl_device *device,
 {
 	list_del(&obj->node);
 
-	obj->entry->flags &= ~KGSL_MEM_ENTRY_FROZEN;
+	obj->entry->memdesc.priv &= ~KGSL_MEMDESC_FROZEN;
 	kgsl_mem_entry_put(obj->entry);
 
 	kfree(obj);
@@ -279,6 +295,7 @@ int kgsl_snapshot_have_object(struct kgsl_device *device, unsigned int ptbase,
 
 	return 0;
 }
+EXPORT_SYMBOL(kgsl_snapshot_have_object);
 
 
 int kgsl_snapshot_get_object(struct kgsl_device *device, unsigned int ptbase,
@@ -287,6 +304,10 @@ int kgsl_snapshot_get_object(struct kgsl_device *device, unsigned int ptbase,
 	struct kgsl_mem_entry *entry;
 	struct kgsl_snapshot_object *obj;
 	int offset;
+	int ret = -EINVAL;
+
+	if (!gpuaddr)
+		return 0;
 
 	entry = kgsl_get_mem_entry(device, ptbase, gpuaddr, size);
 
@@ -300,7 +321,7 @@ int kgsl_snapshot_get_object(struct kgsl_device *device, unsigned int ptbase,
 	if (entry->memtype != KGSL_MEM_ENTRY_KERNEL) {
 		KGSL_DRV_ERR(device,
 			"Only internal GPU buffers can be frozen\n");
-		return -EINVAL;
+		goto err_put;
 	}
 
 
@@ -317,35 +338,32 @@ int kgsl_snapshot_get_object(struct kgsl_device *device, unsigned int ptbase,
 	if (size + offset > entry->memdesc.size) {
 		KGSL_DRV_ERR(device, "Invalid size for GPU buffer %8.8X\n",
 				gpuaddr);
-		return -EINVAL;
+		goto err_put;
 	}
 
 	
 	list_for_each_entry(obj, &device->snapshot_obj_list, node) {
 		if (obj->gpuaddr == gpuaddr && obj->ptbase == ptbase) {
 			
-			if (obj->size != size)
+			if (obj->size < size)
 				obj->size = size;
-
-			return 0;
+			ret = 0;
+			goto err_put;
 		}
 	}
 
 	if (kgsl_memdesc_map(&entry->memdesc) == NULL) {
 		KGSL_DRV_ERR(device, "Unable to map GPU buffer %X\n",
 				gpuaddr);
-		return -EINVAL;
+		goto err_put;
 	}
 
 	obj = kzalloc(sizeof(*obj), GFP_KERNEL);
 
 	if (obj == NULL) {
 		KGSL_DRV_ERR(device, "Unable to allocate memory\n");
-		return -EINVAL;
+		goto err_put;
 	}
-
-	
-	kgsl_mem_entry_get(entry);
 
 	obj->type = type;
 	obj->entry = entry;
@@ -357,12 +375,15 @@ int kgsl_snapshot_get_object(struct kgsl_device *device, unsigned int ptbase,
 	list_add(&obj->node, &device->snapshot_obj_list);
 
 
-	if (entry->flags & KGSL_MEM_ENTRY_FROZEN)
-		return 0;
+	ret = (entry->memdesc.priv & KGSL_MEMDESC_FROZEN) ? 0
+		: entry->memdesc.size;
 
-	entry->flags |= KGSL_MEM_ENTRY_FROZEN;
+	entry->memdesc.priv |= KGSL_MEMDESC_FROZEN;
 
-	return entry->memdesc.size;
+	return ret;
+err_put:
+	kgsl_mem_entry_put(entry);
+	return ret;
 }
 EXPORT_SYMBOL(kgsl_snapshot_get_object);
 
@@ -583,6 +604,24 @@ static ssize_t trigger_store(struct kgsl_device *device, const char *buf,
 	return count;
 }
 
+static ssize_t no_panic_show(struct kgsl_device *device, char *buf)
+{
+    return snprintf(buf, PAGE_SIZE, "%x\n", device->snapshot_no_panic);
+}
+
+static ssize_t no_panic_store(struct kgsl_device *device, const char *buf,
+    size_t count)
+{
+    if (device && count > 0) {
+        mutex_lock(&device->mutex);
+        device->snapshot_no_panic = simple_strtol(buf, NULL, 10);
+        mutex_unlock(&device->mutex);
+    }
+
+    return count;
+}
+
+
 static struct bin_attribute snapshot_attr = {
 	.attr.name = "dump",
 	.attr.mode = 0444,
@@ -599,6 +638,7 @@ struct kgsl_snapshot_attribute attr_##_name = { \
 
 SNAPSHOT_ATTR(trigger, 0600, NULL, trigger_store);
 SNAPSHOT_ATTR(timestamp, 0444, timestamp_show, NULL);
+SNAPSHOT_ATTR(no_panic, 0644, no_panic_show, no_panic_store);
 
 static void snapshot_sysfs_release(struct kobject *kobj)
 {
@@ -675,6 +715,10 @@ int kgsl_device_snapshot_init(struct kgsl_device *device)
 		goto done;
 
 	ret  = sysfs_create_file(&device->snapshot_kobj, &attr_timestamp.attr);
+	if (ret)
+		goto done;
+
+	ret  = sysfs_create_file(&device->snapshot_kobj, &attr_no_panic.attr);
 
 done:
 	return ret;
@@ -687,6 +731,7 @@ void kgsl_device_snapshot_close(struct kgsl_device *device)
 	sysfs_remove_bin_file(&device->snapshot_kobj, &snapshot_attr);
 	sysfs_remove_file(&device->snapshot_kobj, &attr_trigger.attr);
 	sysfs_remove_file(&device->snapshot_kobj, &attr_timestamp.attr);
+	sysfs_remove_file(&device->snapshot_kobj, &attr_no_panic.attr);
 
 	kobject_put(&device->snapshot_kobj);
 

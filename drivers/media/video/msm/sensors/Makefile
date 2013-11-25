@@ -21,6 +21,7 @@ obj-$(CONFIG_OV8838) += ov8838_v4l2.o
 obj-$(CONFIG_S5K3H2YX) += s5k3h2yx_v4l2.o
 obj-$(CONFIG_S5K6A1GX) += s5k6a1gx_v4l2.o
 obj-$(CONFIG_AR0260) += ar0260_v4l2.o
+obj-$(CONFIG_AS0260) += as0260_v4l2.o
 obj-$(CONFIG_IMX074) += imx074_v4l2.o
 obj-$(CONFIG_S5K3L1YX) += s5k3l1yx.o
 obj-$(CONFIG_OV2720) += ov2720.o

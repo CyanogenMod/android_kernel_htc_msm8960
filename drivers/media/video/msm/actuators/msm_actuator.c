@@ -218,6 +218,8 @@ int32_t msm_actuator_af_power_down(struct msm_actuator_ctrl_t *a_ctrl)
 {
 	int32_t rc = 0;
 	LINFO("%s called\n", __func__);
+	if (!a_ctrl->step_position_table)
+	    return rc;
 
 	if (a_ctrl->step_position_table[a_ctrl->curr_step_pos] !=
 		a_ctrl->initial_code) {
@@ -246,6 +248,7 @@ int32_t msm_actuator_config(
 	case CFG_GET_ACTUATOR_INFO:
 		cdata.is_af_supported = 1;
 		cdata.is_ois_supported = a_ctrl->actuator_ext_ctrl.is_ois_supported;
+		cdata.is_af_infinity_supported = a_ctrl->actuator_ext_ctrl.is_af_infinity_supported;
 		cdata.cfg.get_info = a_ctrl->get_info;
 		if (copy_to_user((void *)argp,
 				 &cdata,
@@ -254,6 +257,7 @@ int32_t msm_actuator_config(
 		break;
 	case CFG_SET_ACTUATOR_INFO:
 		a_ctrl->set_info = cdata.cfg.set_info;
+		a_ctrl->enable_focus_step_log = cdata.enable_focus_step_log;
 		rc = a_ctrl->func_tbl.actuator_init_table(a_ctrl);
 		if (rc < 0)
 			LERROR("%s init table failed %d\n", __func__, rc);

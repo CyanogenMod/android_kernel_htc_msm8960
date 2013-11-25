@@ -1,8 +1,3 @@
-/*
- * Implementation of the SID table type.
- *
- * Author : Stephen Smalley, <sds@epoch.ncsc.mil>
- */
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
@@ -99,7 +94,7 @@ static struct context *sidtab_search_core(struct sidtab *s, u32 sid, int force)
 		return &cur->context;
 
 	if (cur == NULL || sid != cur->sid || cur->context.len) {
-		/* Remap invalid SIDs to the unlabeled SID. */
+		
 		sid = SECINITSID_UNLABELED;
 		hvalue = SIDTAB_HASH(sid);
 		cur = s->htable[hvalue];
@@ -209,11 +204,11 @@ int sidtab_context_to_sid(struct sidtab *s,
 		sid = sidtab_search_context(s, context);
 	if (!sid) {
 		spin_lock_irqsave(&s->lock, flags);
-		/* Rescan now that we hold the lock. */
+		
 		sid = sidtab_search_context(s, context);
 		if (sid)
 			goto unlock_out;
-		/* No SID exists for the context.  Allocate a new one. */
+		
 		if (s->next_sid == UINT_MAX || s->shutdown) {
 			ret = -ENOMEM;
 			goto unlock_out;

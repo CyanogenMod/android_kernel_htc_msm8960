@@ -1811,6 +1811,12 @@ wl_get_valid_channels(struct net_device *ndev, u8 *valid_chan_list, s32 size)
 static bool g_first_broadcast_scan = TRUE;
 #endif 
 
+#ifdef REDUCE_FIRST_SCAN
+#define FIRST_SCAN_ACTIVE_DWELL_TIME_MS 40
+#define FIRST_SCAN_PASSIVE_DWELL_TIME_MS 0
+static bool first_broadcast_scan = TRUE;
+#endif 
+
 void wl_abort_scan(struct work_struct *work);
 DECLARE_DELAYED_WORK(abort_scan, wl_abort_scan);
 void wl_abort_scan(struct work_struct *work)
@@ -1898,6 +1904,10 @@ wl_run_escan(struct wl_priv *wl, struct net_device *ndev,
 	bool is_first_init_2g_scan = false;
 #endif 
 
+#ifdef REDUCE_FIRST_SCAN
+    bool is_first_scan = false;
+#endif 
+
 	WL_DBG(("Enter \n"));
 
 	if (!request || !wl) {
@@ -1938,6 +1948,13 @@ wl_run_escan(struct wl_priv *wl, struct net_device *ndev,
 
 #endif 
 
+#ifdef REDUCE_FIRST_SCAN
+        if (ndev == wl_to_prmry_ndev(wl) && first_broadcast_scan == true) {
+            first_broadcast_scan = false;
+            is_first_scan = true;
+        }
+#endif 
+
 		n_channels = request->n_channels;
 		n_ssids = request->n_ssids;
 		
@@ -1962,6 +1979,15 @@ wl_run_escan(struct wl_priv *wl, struct net_device *ndev,
 		
 		if (is_first_init_2g_scan)
 			params->params.active_time = FIRST_SCAN_ACTIVE_DWELL_TIME_MS;
+#endif 
+
+#ifdef REDUCE_FIRST_SCAN
+        
+        if (is_first_scan) {
+            WL_INFO(("Reduce first scan time\n"));
+            params->params.active_time = FIRST_SCAN_ACTIVE_DWELL_TIME_MS;
+            params->params.passive_time = FIRST_SCAN_PASSIVE_DWELL_TIME_MS;
+        }
 #endif 
 
 		params->version = htod32(ESCAN_REQ_VERSION);
@@ -9321,8 +9347,8 @@ static s32 wl_notifier_change_state(struct wl_priv *wl, struct net_info *_net_in
 					WL_DBG(("%s:netdev not ready\n", iter->ndev->name));
 				else
 					WL_ERR(("%s:error (%d)\n", iter->ndev->name, err));
-				iter->ndev->ieee80211_ptr->ps = pm ? true: false;
 			}
+			iter->ndev->ieee80211_ptr->ps = pm ? true: false;
 		}
 	}
 	 else { 
@@ -10430,6 +10456,9 @@ s32 wl_cfg80211_up(void *para)
 	err = __wl_cfg80211_up(wl);
 	if (unlikely(err))
 		WL_ERR(("__wl_cfg80211_up failed\n"));
+#ifdef REDUCE_FIRST_SCAN
+    first_broadcast_scan = TRUE;
+#endif 
 	mutex_unlock(&wl->usr_sync);
 	return err;
 }

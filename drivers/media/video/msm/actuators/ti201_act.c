@@ -264,6 +264,9 @@ static int32_t ti201_wrapper_i2c_write(struct msm_actuator_ctrl_t *a_ctrl,
 {
 	int32_t rc = 0;
 
+	if(a_ctrl->enable_focus_step_log)
+		pr_info("%s next_lens_position: %d\n", __func__, next_lens_position);
+
 	rc = msm_camera_i2c_write(&a_ctrl->i2c_client,
 		REG_VCM_CODE_MSB,
 		((next_lens_position & 0x0300) >> 8),	
@@ -531,6 +534,10 @@ static struct msm_actuator_ctrl_t ti201_act_t = {
 #if defined(CONFIG_ACT_OIS_BINDER)
 		.is_ois_supported = 1,
 #endif
+		.small_step_damping = 47,
+		.medium_step_damping = 75,
+		.big_step_damping = 100,
+		.is_af_infinity_supported = 0,
 	},
 
 	.i2c_client = {

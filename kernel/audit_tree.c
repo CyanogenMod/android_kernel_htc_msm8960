@@ -23,7 +23,7 @@ struct audit_tree {
 struct audit_chunk {
 	struct list_head hash;
 	struct fsnotify_mark mark;
-	struct list_head trees;		/* with root here */
+	struct list_head trees;		
 	int dead;
 	int count;
 	atomic_long_t refs;
@@ -31,42 +31,13 @@ struct audit_chunk {
 	struct node {
 		struct list_head list;
 		struct audit_tree *owner;
-		unsigned index;		/* index; upper bit indicates 'will prune' */
+		unsigned index;		
 	} owners[];
 };
 
 static LIST_HEAD(tree_list);
 static LIST_HEAD(prune_list);
 
-/*
- * One struct chunk is attached to each inode of interest.
- * We replace struct chunk on tagging/untagging.
- * Rules have pointer to struct audit_tree.
- * Rules have struct list_head rlist forming a list of rules over
- * the same tree.
- * References to struct chunk are collected at audit_inode{,_child}()
- * time and used in AUDIT_TREE rule matching.
- * These references are dropped at the same time we are calling
- * audit_free_names(), etc.
- *
- * Cyclic lists galore:
- * tree.chunks anchors chunk.owners[].list			hash_lock
- * tree.rules anchors rule.rlist				audit_filter_mutex
- * chunk.trees anchors tree.same_root				hash_lock
- * chunk.hash is a hash with middle bits of watch.inode as
- * a hash function.						RCU, hash_lock
- *
- * tree is refcounted; one reference for "some rules on rules_list refer to
- * it", one for each chunk with pointer to it.
- *
- * chunk is refcounted by embedded fsnotify_mark + .refs (non-zero refcount
- * of watch contributes 1 to .refs).
- *
- * node.index allows to get from node.list to containing chunk.
- * MSB of that sucker is stolen to mark taggings that we might have to
- * revert - several operations have very unpleasant cleanup logics and
- * that makes a difference.  Some.
- */
 
 static struct fsnotify_group *audit_tree_group;
 
@@ -99,7 +70,6 @@ static inline void put_tree(struct audit_tree *tree)
 		kfree_rcu(tree, head);
 }
 
-/* to avoid bringing the entire thing in audit.h */
 const char *audit_tree_path(struct audit_tree *tree)
 {
 	return tree->pathname;
@@ -167,7 +137,6 @@ static inline struct list_head *chunk_hash(const struct inode *inode)
 	return chunk_hash_heads + n % HASH_SIZE;
 }
 
-/* hash_lock & entry->lock is held by caller */
 static void insert_hash(struct audit_chunk *chunk)
 {
 	struct fsnotify_mark *entry = &chunk->mark;
@@ -179,14 +148,13 @@ static void insert_hash(struct audit_chunk *chunk)
 	list_add_rcu(&chunk->hash, list);
 }
 
-/* called under rcu_read_lock */
 struct audit_chunk *audit_tree_lookup(const struct inode *inode)
 {
 	struct list_head *list = chunk_hash(inode);
 	struct audit_chunk *p;
 
 	list_for_each_entry_rcu(p, list, hash) {
-		/* mark.inode may have gone NULL, but who cares? */
+		
 		if (p->mark.i.inode == inode) {
 			atomic_long_inc(&p->refs);
 			return p;
@@ -204,7 +172,6 @@ int audit_tree_match(struct audit_chunk *chunk, struct audit_tree *tree)
 	return 0;
 }
 
-/* tagging and untagging inodes with trees */
 
 static struct audit_chunk *find_chunk(struct node *p)
 {
@@ -281,7 +248,7 @@ static void untag_chunk(struct node *p)
 		s = chunk->owners[j].owner;
 		new->owners[i].owner = s;
 		new->owners[i].index = chunk->owners[j].index - j + i;
-		if (!s) /* result of earlier fallback */
+		if (!s) 
 			continue;
 		get_tree(s);
 		list_replace_init(&chunk->owners[j].list, &new->owners[i].list);
@@ -297,7 +264,7 @@ static void untag_chunk(struct node *p)
 	goto out;
 
 Fallback:
-	// do the best we can
+	
 	spin_lock(&hash_lock);
 	if (owner->root == chunk) {
 		list_del_init(&owner->same_root);
@@ -350,7 +317,6 @@ static int create_chunk(struct inode *inode, struct audit_tree *tree)
 	return 0;
 }
 
-/* the first tagged inode becomes root of tree */
 static int tag_chunk(struct inode *inode, struct audit_tree *tree)
 {
 	struct fsnotify_mark *old_entry, *chunk_entry;
@@ -365,7 +331,7 @@ static int tag_chunk(struct inode *inode, struct audit_tree *tree)
 
 	old = container_of(old_entry, struct audit_chunk, mark);
 
-	/* are we already there? */
+	
 	spin_lock(&hash_lock);
 	for (n = 0; n < old->count; n++) {
 		if (old->owners[n].owner == tree) {
@@ -386,7 +352,7 @@ static int tag_chunk(struct inode *inode, struct audit_tree *tree)
 
 	spin_lock(&old_entry->lock);
 	if (!old_entry->i.inode) {
-		/* old_entry is being shot, lets just lie */
+		
 		spin_unlock(&old_entry->lock);
 		fsnotify_put_mark(old_entry);
 		free_chunk(chunk);
@@ -401,11 +367,11 @@ static int tag_chunk(struct inode *inode, struct audit_tree *tree)
 		return -ENOSPC;
 	}
 
-	/* even though we hold old_entry->lock, this is safe since chunk_entry->lock could NEVER have been grabbed before */
+	
 	spin_lock(&chunk_entry->lock);
 	spin_lock(&hash_lock);
 
-	/* we now hold old_entry->lock, chunk_entry->lock, and hash_lock */
+	
 	if (tree->goner) {
 		spin_unlock(&hash_lock);
 		chunk->dead = 1;
@@ -423,7 +389,7 @@ static int tag_chunk(struct inode *inode, struct audit_tree *tree)
 		struct audit_tree *s = old->owners[n].owner;
 		p->owner = s;
 		p->index = old->owners[n].index;
-		if (!s) /* result of fallback in untag */
+		if (!s) 
 			continue;
 		get_tree(s);
 		list_replace_init(&old->owners[n].list, &p->list);
@@ -444,8 +410,8 @@ static int tag_chunk(struct inode *inode, struct audit_tree *tree)
 	spin_unlock(&chunk_entry->lock);
 	spin_unlock(&old_entry->lock);
 	fsnotify_destroy_mark(old_entry);
-	fsnotify_put_mark(old_entry); /* pair to fsnotify_find mark_entry */
-	fsnotify_put_mark(old_entry); /* and kill it */
+	fsnotify_put_mark(old_entry); 
+	fsnotify_put_mark(old_entry); 
 	return 0;
 }
 
@@ -460,7 +426,7 @@ static void kill_rules(struct audit_tree *tree)
 
 		list_del_init(&rule->rlist);
 		if (rule->tree) {
-			/* not a half-baked one */
+			
 			ab = audit_log_start(NULL, GFP_KERNEL, AUDIT_CONFIG_CHANGE);
 			audit_log_format(ab, "op=");
 			audit_log_string(ab, "remove rule");
@@ -477,9 +443,6 @@ static void kill_rules(struct audit_tree *tree)
 	}
 }
 
-/*
- * finish killing struct audit_tree
- */
 static void prune_one(struct audit_tree *victim)
 {
 	spin_lock(&hash_lock);
@@ -494,7 +457,6 @@ static void prune_one(struct audit_tree *victim)
 	put_tree(victim);
 }
 
-/* trim the uncommitted chunks from tree */
 
 static void trim_marked(struct audit_tree *tree)
 {
@@ -504,7 +466,7 @@ static void trim_marked(struct audit_tree *tree)
 		spin_unlock(&hash_lock);
 		return;
 	}
-	/* reorder */
+	
 	for (p = tree->chunks.next; p != &tree->chunks; p = q) {
 		struct node *node = list_entry(p, struct node, list);
 		q = p->next;
@@ -519,7 +481,7 @@ static void trim_marked(struct audit_tree *tree)
 
 		node = list_entry(tree->chunks.next, struct node, list);
 
-		/* have we run out of marked? */
+		
 		if (!(node->index & (1U<<31)))
 			break;
 
@@ -540,7 +502,6 @@ static void trim_marked(struct audit_tree *tree)
 
 static void audit_schedule_prune(void);
 
-/* called with audit_filter_mutex */
 int audit_remove_tree_rule(struct audit_krule *rule)
 {
 	struct audit_tree *tree;
@@ -601,7 +562,7 @@ void audit_trim_trees(void)
 		spin_lock(&hash_lock);
 		list_for_each_entry(node, &tree->chunks, list) {
 			struct audit_chunk *chunk = find_chunk(node);
-			/* this could be NULL if the watch is dying else where... */
+			
 			struct inode *inode = chunk->mark.i.inode;
 			node->index |= 1U<<31;
 			if (iterate_mounts(compare_root, inode, root_mnt))
@@ -642,7 +603,6 @@ static int tag_mount(struct vfsmount *mnt, void *arg)
 	return tag_chunk(mnt->mnt_root->d_inode, arg);
 }
 
-/* called with audit_filter_mutex */
 int audit_add_tree_rule(struct audit_krule *rule)
 {
 	struct audit_tree *seed = rule->tree, *tree;
@@ -661,7 +621,7 @@ int audit_add_tree_rule(struct audit_krule *rule)
 	tree = seed;
 	list_add(&tree->list, &tree_list);
 	list_add(&rule->rlist, &tree->rules);
-	/* do not set rule->tree yet */
+	
 	mutex_unlock(&audit_filter_mutex);
 
 	err = kern_path(tree->pathname, 0, &path);
@@ -801,10 +761,6 @@ int audit_tag_tree(char *old, char *new)
 	return failed;
 }
 
-/*
- * That gets run when evict_chunk() ends up needing to kill audit_tree.
- * Runs from a separate thread.
- */
 static int prune_tree_thread(void *unused)
 {
 	mutex_lock(&audit_cmd_mutex);
@@ -833,10 +789,6 @@ static void audit_schedule_prune(void)
 	kthread_run(prune_tree_thread, NULL, "audit_prune_tree");
 }
 
-/*
- * ... and that one is done if evict_chunk() decides to delay until the end
- * of syscall.  Runs synchronously.
- */
 void audit_kill_trees(struct list_head *list)
 {
 	mutex_lock(&audit_cmd_mutex);
@@ -860,9 +812,6 @@ void audit_kill_trees(struct list_head *list)
 	mutex_unlock(&audit_cmd_mutex);
 }
 
-/*
- *  Here comes the stuff asynchronous to auditctl operations
- */
 
 static void evict_chunk(struct audit_chunk *chunk)
 {

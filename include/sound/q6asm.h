@@ -159,6 +159,7 @@ struct audio_client {
 	uint32_t         io_mode;
 	uint64_t         time_stamp;
 	atomic_t         cmd_response;
+	bool             perf_mode;
 };
 
 struct q6asm_ops {
@@ -185,7 +186,7 @@ int q6asm_audio_client_buf_free_contiguous(unsigned int dir,
 			struct audio_client *ac);
 
 int q6asm_open_read(struct audio_client *ac, uint32_t format);
-
+int q6asm_open_read_v2_1(struct audio_client *ac, uint32_t format);
 int q6asm_open_read_compressed(struct audio_client *ac, uint32_t format);
 
 int q6asm_open_write(struct audio_client *ac, uint32_t format);
@@ -284,7 +285,7 @@ int q6asm_media_format_block_pcm_format_support(struct audio_client *ac,
 			uint32_t rate, uint32_t channels, uint16_t bit_width);
 
 int q6asm_media_format_block_multi_ch_pcm(struct audio_client *ac,
-				uint32_t rate, uint32_t channels);
+				uint32_t rate, uint32_t channels, uint16_t bit_width);
 
 int q6asm_media_format_block_multi_ch_pcm_format_support(
 		struct audio_client *ac, uint32_t rate, uint32_t channels,

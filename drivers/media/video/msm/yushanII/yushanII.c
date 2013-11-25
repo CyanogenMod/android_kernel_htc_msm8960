@@ -51,6 +51,8 @@ static struct YushanII_info_t yushanII_info = {
 static struct class *yushanII_class;
 static dev_t yushanII_devno;
 
+static struct msm_sensor_ctrl_t *g_sensor = NULL;	
+
 int yushanII_intr0, yushanII_intr1;
 atomic_t interrupt, interrupt2;
 
@@ -63,6 +65,9 @@ struct yushanII_int_t {
 
 static struct YushanII_ctrl *YushanIICtrl = NULL;
 
+int YushanII_Get_reloadInfo(void){
+	return reload_firmware;
+}
 
 void YushanII_reload_firmware(void){
 	reload_firmware = 1;
@@ -486,6 +491,9 @@ void YushanII_init_backcam(struct msm_sensor_ctrl_t *sensor,int res){
 	pr_info("[CAM]%s,res=%d,is_hdr=%d",
 		__func__, res,sensor->msm_sensor_reg->output_settings[res].is_hdr);
 	YushanII_login_start();
+
+	g_sensor = sensor;	
+
 	
 	if(sensor->msm_sensor_reg->output_settings[res].is_hdr)
 		sensor->sensordata->hdr_mode = 1;
@@ -530,7 +538,6 @@ void YushanII_init_backcam(struct msm_sensor_ctrl_t *sensor,int res){
 		
 		Ilp0100_interruptEnable(ENABLE_HTC_INTR, INTR_PIN_0);
 		Ilp0100_interruptEnable(ENABLE_RECOMMENDED_DEBUG_INTR_PIN1, INTR_PIN_1);
-		Ilp0100_stop();
 		if (sensor->yushanII_switch_virtual_channel) {
 		    Ilp0100_setVirtualChannelShortOrNormal(1);
 		    Ilp0100_setVirtualChannelLong(0);
@@ -547,7 +554,6 @@ void YushanII_init_backcam(struct msm_sensor_ctrl_t *sensor,int res){
 		
 		Ilp0100_interruptEnable(ENABLE_NO_INTR, INTR_PIN_0);
 		Ilp0100_interruptEnable(ENABLE_RECOMMENDED_DEBUG_INTR_PIN1, INTR_PIN_1);
-		Ilp0100_stop();
 		if (sensor->yushanII_switch_virtual_channel) {
 	        Ilp0100_setVirtualChannelShortOrNormal(0);
 	        Ilp0100_setVirtualChannelLong(1);
@@ -578,6 +584,8 @@ void YushanII_init_frontcam(struct msm_sensor_ctrl_t *sensor,int res){
 		__func__, res,sensor->msm_sensor_reg->output_settings[res].is_hdr);
 
 	YushanII_login_start();
+
+	g_sensor = sensor;	
 
 	sensor->sensordata->hdr_mode = 0;
 
@@ -958,10 +966,12 @@ static unsigned int YushanII_fops_poll(struct file *filp,
 
 int YushanII_got_INT0(void __user *argp){
 	struct yushanii_stats_event_ctrl event;
+	static int got_short = 0;	
 
 	Ilp0100_interruptReadStatus(&pInterruptId, INTR_PIN_0);
 	
 	event.type = pInterruptId;
+
 	Ilp0100_interruptClearStatus(pInterruptId, INTR_PIN_0);
 	enable_irq(yushanII_intr0);
 	switch(pInterruptId){
@@ -976,6 +986,18 @@ int YushanII_got_INT0(void __user *argp){
 			break;
 		case MODE_CHANGE_COMPLETE:
 			pr_info("[CAM]%s, MODE_CHANGE_COMPLETE", __func__);
+			break;
+		case START_OF_SHORTFRAME:
+			if (g_sensor->func_tbl->sensor_yushanII_ae_updated) {
+				if (g_sensor->func_tbl->sensor_yushanII_ae_updated() == 0) {
+					got_short++;
+					if (got_short >= 2) {
+						if (g_sensor->func_tbl->sensor_yushanII_active_hold)
+							g_sensor->func_tbl->sensor_yushanII_active_hold();
+						got_short = 0;
+					}
+				}
+			}
 			break;
 	}
 	if(copy_to_user((void *)argp, &event, sizeof(struct yushanii_stats_event_ctrl))){

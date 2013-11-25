@@ -547,19 +547,20 @@ static int wl_android_get_link_speed(struct net_device *net, char *command, int 
 	return bytes_written;
 }
 
-#define TRAFFIC_SUPER_HIGH_WATER_MARK	2600*(3000/1000)
-#define TRAFFIC_HIGH_WATER_MARK			2300*(3000/1000)
-#define TRAFFIC_LOW_WATER_MARK			256*(3000/1000)
+#define TRAFFIC_SUPER_HIGH_WATER_MARK	2600
+#define TRAFFIC_HIGH_WATER_MARK			2300
+#define TRAFFIC_LOW_WATER_MARK			256
 typedef enum traffic_ind {
 	TRAFFIC_STATS_NORMAL = 0,
 	TRAFFIC_STATS_HIGH,
 	TRAFFIC_STATS_SUPER_HIGH,
 } traffic_ind_t;
 
-
+static int screen_off = 0;
 static int traffic_stats_flag = TRAFFIC_STATS_NORMAL;
 static unsigned long current_traffic_count = 0;
 static unsigned long last_traffic_count = 0;
+static unsigned long last_traffic_count_jiffies = 0;
 
 #ifdef CONFIG_PERFLOCK
 #include <mach/perflock.h>
@@ -658,23 +659,38 @@ void wl_android_traffic_monitor(struct net_device *dev)
 	unsigned long rx_packets_count = 0;
 	unsigned long tx_packets_count = 0;
 	unsigned long traffic_diff = 0;
+    unsigned long jiffies_diff = 0;
 
 	
 	dhd_get_txrx_stats(dev, &rx_packets_count, &tx_packets_count);
 	current_traffic_count = rx_packets_count + tx_packets_count;
 
-	if (current_traffic_count >= last_traffic_count) {
-		traffic_diff = current_traffic_count - last_traffic_count;
+	if ((current_traffic_count >= last_traffic_count && (jiffies - last_traffic_count_jiffies) >= 3*HZ) || screen_off) {
+        
+        if (screen_off) {
+            printf("set traffic = 0 and relase performace lock when screen off");
+            traffic_diff = 0;
+        }
+        else {
+        
+            jiffies_diff = jiffies - last_traffic_count_jiffies;
+            if (jiffies_diff < 7*HZ) {
+                traffic_diff = (current_traffic_count - last_traffic_count) / jiffies_diff * HZ;
+            }
+            else {
+                traffic_diff = 0;
+            }
+        }
         switch (traffic_stats_flag) {
         case TRAFFIC_STATS_NORMAL:
 			if (traffic_diff > TRAFFIC_HIGH_WATER_MARK) {
 				traffic_stats_flag = TRAFFIC_STATS_HIGH;
 				wlan_lock_perf();
-				printf("lock cpu here, traffic-count=%ld\n", traffic_diff / 3);
+				printf("lock cpu here, traffic-count=%ld\n", traffic_diff);
                 if (traffic_diff > TRAFFIC_SUPER_HIGH_WATER_MARK) {
                     traffic_stats_flag = TRAFFIC_STATS_SUPER_HIGH;
                     wlan_lock_multi_core(dev);
-                    printf("lock 2nd cpu here, traffic-count=%ld\n", traffic_diff / 3);
+                    printf("lock 2nd cpu here, traffic-count=%ld\n", traffic_diff);
                 }
 			}
             break;
@@ -682,23 +698,23 @@ void wl_android_traffic_monitor(struct net_device *dev)
             if (traffic_diff > TRAFFIC_SUPER_HIGH_WATER_MARK) {
                 traffic_stats_flag = TRAFFIC_STATS_SUPER_HIGH;
                 wlan_lock_multi_core(dev);
-				printf("lock 2nd cpu here, traffic-count=%ld\n", traffic_diff / 3);
+				printf("lock 2nd cpu here, traffic-count=%ld\n", traffic_diff);
             }
             else if (traffic_diff < TRAFFIC_LOW_WATER_MARK) {
 				traffic_stats_flag = TRAFFIC_STATS_NORMAL;
 				wlan_unlock_perf();
-				printf("unlock cpu here, traffic-count=%ld\n", traffic_diff / 3);
+				printf("unlock cpu here, traffic-count=%ld\n", traffic_diff);
 			}
             break;
         case TRAFFIC_STATS_SUPER_HIGH:
 			if (traffic_diff < TRAFFIC_SUPER_HIGH_WATER_MARK) {
                 traffic_stats_flag = TRAFFIC_STATS_HIGH;
                 wlan_unlock_multi_core(dev);
-				printf("unlock 2nd cpu here, traffic-count=%ld\n", traffic_diff / 3);
+				printf("unlock 2nd cpu here, traffic-count=%ld\n", traffic_diff);
                 if (traffic_diff < TRAFFIC_LOW_WATER_MARK) {
                     traffic_stats_flag = TRAFFIC_STATS_NORMAL;
                     wlan_unlock_perf();
-                    printf("unlock cpu here, traffic-count=%ld\n", traffic_diff / 3);
+                    printf("unlock cpu here, traffic-count=%ld\n", traffic_diff);
                 }
             }
             break;
@@ -706,6 +722,7 @@ void wl_android_traffic_monitor(struct net_device *dev)
             break;
         }
 	}
+    last_traffic_count_jiffies = jiffies;
 	last_traffic_count = current_traffic_count;
 	
 }
@@ -1537,7 +1554,6 @@ static int active_level = -80;
 static int active_period = 20000; 
 static int wl_android_active_expired = 0;
 struct timer_list *wl_android_active_timer = NULL;
-static int screen_off = 0;
 
 static void wl_android_act_time_expire(void)
 {
@@ -1677,6 +1693,15 @@ static int wl_android_set_power_mode(struct net_device *dev, char *command, int 
 			break;
 		case 31:
 			dhdhtc_set_power_control(1, DHDHTC_POWER_CTRL_FOTA_DOWNLOADING);
+			dhdhtc_update_wifi_power_mode(screen_off);
+			break;
+		
+		case 40:
+			dhdhtc_set_power_control(0, DHDHTC_POWER_CTRL_KDDI_APK);
+			dhdhtc_update_wifi_power_mode(screen_off);
+			break;
+		case 41:
+			dhdhtc_set_power_control(1, DHDHTC_POWER_CTRL_KDDI_APK);
 			dhdhtc_update_wifi_power_mode(screen_off);
 			break;
 
@@ -3151,20 +3176,34 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 #ifdef PKT_FILTER_SUPPORT
 	else if (strnicmp(command, CMD_RXFILTER_START, strlen(CMD_RXFILTER_START)) == 0) {
 		
+		printf("@@@@@ %s enter CMD_RXFILTER_START\n",__FUNCTION__); 
+#if 0
 		snprintf(command, 3, "OK");
 		bytes_written = strlen("OK");
+#else		
 		/*bytes_written = net_os_set_packet_filter(net, 1);*/
+		//bytes_written = net_os_set_packet_filter(net, 1);
+		bytes_written = net_os_enable_packet_filter(net, 1);
+
+#endif		
 		
 	}
 	else if (strnicmp(command, CMD_RXFILTER_STOP, strlen(CMD_RXFILTER_STOP)) == 0) {
 		
+		printf("@@@@@ %s enter CMD_RXFILTER_STOP\n",__FUNCTION__); 
+#if 0
 		snprintf(command, 3, "OK");
 		bytes_written = strlen("OK");
+#else		
 		/*bytes_written = net_os_set_packet_filter(net, 0);*/
+		bytes_written = net_os_enable_packet_filter(net, 0);
+
+#endif
 		
 	}
 	else if (strnicmp(command, CMD_RXFILTER_ADD, strlen(CMD_RXFILTER_ADD)) == 0) {
 		
+#if 0		
 #ifdef BCM4329_LOW_POWER
 		if (LowPowerMode == 1) {
 			data = (struct dd_pkt_filter_s *)&command[32];
@@ -3177,14 +3216,21 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 		wl_android_set_pktfilter(net, (struct dd_pkt_filter_s *)&command[32]);
 		snprintf(command, 3, "OK");
 		bytes_written = strlen("OK");
-		/*
-		int filter_num = *(command + strlen(CMD_RXFILTER_ADD) + 1) - '0';
-		bytes_written = net_os_rxfilter_add_remove(net, TRUE, filter_num);
-		*/
+		
+#else
+		int filter_num;
+		printf("@@@@@ %s enter CMD_RXFILTER_ADD\n",__FUNCTION__); 
+		
+		filter_num = *(command + strlen(CMD_RXFILTER_ADD) + 1) - '0';
+ 		bytes_written = net_os_rxfilter_add_remove(net, TRUE, filter_num);
+
+
+#endif		
 		
 	}
 	else if (strnicmp(command, CMD_RXFILTER_REMOVE, strlen(CMD_RXFILTER_REMOVE)) == 0) {
 		
+#if 0
 #ifdef BCM4329_LOW_POWER
 		if (LowPowerMode == 1) {
 			data = (struct dd_pkt_filter_s *)&command[32];
@@ -3197,10 +3243,14 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 		wl_android_set_pktfilter(net, (struct dd_pkt_filter_s *)&command[32]);
 		snprintf(command, 3, "OK");
 		bytes_written = strlen("OK");
-		/*
-		int filter_num = *(command + strlen(CMD_RXFILTER_REMOVE) + 1) - '0';
-		bytes_written = net_os_rxfilter_add_remove(net, FALSE, filter_num);
-		*/
+#else
+		int filter_num;
+
+		printf("@@@@@ %s enter CMD_RXFILTER_REMOVE\n",__FUNCTION__); 
+
+        filter_num = *(command + strlen(CMD_RXFILTER_REMOVE) + 1) - '0';
+        bytes_written = net_os_rxfilter_add_remove(net, FALSE, filter_num);		
+#endif		
 		
 	}
 #endif 

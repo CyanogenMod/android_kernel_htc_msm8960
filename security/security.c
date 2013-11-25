@@ -24,7 +24,6 @@
 
 #define MAX_LSM_EVM_XATTR	2
 
-/* Boot-time LSM user choice */
 static __initdata char chosen_lsm[SECURITY_NAME_MAX + 1] =
 	CONFIG_DEFAULT_SECURITY;
 
@@ -35,7 +34,7 @@ static struct security_operations default_security_ops = {
 
 static inline int __init verify(struct security_operations *ops)
 {
-	/* verify the security_operations structure exists */
+	
 	if (!ops)
 		return -EINVAL;
 	security_fixup_ops(ops);
@@ -52,11 +51,6 @@ static void __init do_security_initcalls(void)
 	}
 }
 
-/**
- * security_init - initializes the security framework
- *
- * This should be called early in the kernel initialization sequence.
- */
 int __init security_init(void)
 {
 	printk(KERN_INFO "Security Framework initialized\n");
@@ -73,7 +67,6 @@ void reset_security_ops(void)
 	security_ops = &default_security_ops;
 }
 
-/* Save user chosen LSM */
 static int __init choose_lsm(char *str)
 {
 	strncpy(chosen_lsm, str, SECURITY_NAME_MAX);
@@ -81,37 +74,11 @@ static int __init choose_lsm(char *str)
 }
 __setup("security=", choose_lsm);
 
-/**
- * security_module_enable - Load given security module on boot ?
- * @ops: a pointer to the struct security_operations that is to be checked.
- *
- * Each LSM must pass this method before registering its own operations
- * to avoid security registration races. This method may also be used
- * to check if your LSM is currently loaded during kernel initialization.
- *
- * Return true if:
- *	-The passed LSM is the one chosen by user at boot time,
- *	-or the passed LSM is configured as the default and the user did not
- *	 choose an alternate LSM at boot time.
- * Otherwise, return false.
- */
 int __init security_module_enable(struct security_operations *ops)
 {
 	return !strcmp(ops->name, chosen_lsm);
 }
 
-/**
- * register_security - registers a security framework with the kernel
- * @ops: a pointer to the struct security_options that is to be registered
- *
- * This function allows a security module to register itself with the
- * kernel security subsystem.  Some rudimentary checking is done on the @ops
- * value passed to this function. You'll need to check first if your LSM
- * is allowed to register its @ops by calling security_module_enable(@ops).
- *
- * If there is already a security module registered with the kernel,
- * an error will be returned.  Otherwise %0 is returned on success.
- */
 int __init register_security(struct security_operations *ops)
 {
 	if (verify(ops)) {
@@ -128,7 +95,26 @@ int __init register_security(struct security_operations *ops)
 	return 0;
 }
 
-/* Security operations */
+
+int security_binder_set_context_mgr(struct task_struct *mgr)
+{
+	return security_ops->binder_set_context_mgr(mgr);
+}
+
+int security_binder_transaction(struct task_struct *from, struct task_struct *to)
+{
+	return security_ops->binder_transaction(from, to);
+}
+
+int security_binder_transfer_binder(struct task_struct *from, struct task_struct *to)
+{
+	return security_ops->binder_transfer_binder(from, to);
+}
+
+int security_binder_transfer_file(struct task_struct *from, struct task_struct *to, struct file *file)
+{
+	return security_ops->binder_transfer_file(from, to, file);
+}
 
 int security_ptrace_access_check(struct task_struct *child, unsigned int mode)
 {
@@ -1193,7 +1179,7 @@ int security_tun_dev_attach(struct sock *sk)
 }
 EXPORT_SYMBOL(security_tun_dev_attach);
 
-#endif	/* CONFIG_SECURITY_NETWORK */
+#endif	
 
 #ifdef CONFIG_SECURITY_NETWORK_XFRM
 
@@ -1231,10 +1217,6 @@ int security_xfrm_state_alloc_acquire(struct xfrm_state *x,
 {
 	if (!polsec)
 		return 0;
-	/*
-	 * We want the context to be taken from secid which is usually
-	 * from the sock.
-	 */
 	return security_ops->xfrm_state_alloc_security(x, NULL, secid);
 }
 
@@ -1274,7 +1256,7 @@ void security_skb_classify_flow(struct sk_buff *skb, struct flowi *fl)
 }
 EXPORT_SYMBOL(security_skb_classify_flow);
 
-#endif	/* CONFIG_SECURITY_NETWORK_XFRM */
+#endif	
 
 #ifdef CONFIG_KEYS
 
@@ -1300,7 +1282,7 @@ int security_key_getsecurity(struct key *key, char **_buffer)
 	return security_ops->key_getsecurity(key, _buffer);
 }
 
-#endif	/* CONFIG_KEYS */
+#endif	
 
 #ifdef CONFIG_AUDIT
 
@@ -1325,4 +1307,4 @@ int security_audit_rule_match(u32 secid, u32 field, u32 op, void *lsmrule,
 	return security_ops->audit_rule_match(secid, field, op, lsmrule, actx);
 }
 
-#endif /* CONFIG_AUDIT */
+#endif 

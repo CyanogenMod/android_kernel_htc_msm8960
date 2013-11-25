@@ -3,14 +3,7 @@
 
 #include <linux/types.h>
 
-/*
- * This is intended for use by various security subsystems (but not
- * at the same time).
- *
- * 'mode' refers to the specific security subsystem which the
- * packets are being marked for.
- */
-#define SECMARK_MODE_SEL	0x01		/* SELinux */
+#define SECMARK_MODE_SEL	0x01		
 #define SECMARK_SECCTX_MAX	256
 
 struct xt_secmark_target_info {
@@ -19,4 +12,4 @@ struct xt_secmark_target_info {
 	char secctx[SECMARK_SECCTX_MAX];
 };
 
-#endif /*_XT_SECMARK_H_target */
+#endif 

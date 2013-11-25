@@ -35,4 +35,8 @@ void msm_hs_request_clock_off(struct uart_port *uport);
 void msm_hs_request_clock_on(struct uart_port *uport);
 void msm_hs_set_mctrl(struct uart_port *uport,
 				    unsigned int mctrl);
+
+void dump_uart_ringbuffer(void);
+void DbgBuffer_printRaw( void *raw, int size, const char *msg);
+void DbgBuffer_printLog( const char * fmt, ...);
 #endif

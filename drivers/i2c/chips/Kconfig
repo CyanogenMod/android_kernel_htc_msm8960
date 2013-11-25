@@ -68,14 +68,14 @@ config BOSCH_BMA250
 	  If you say yes here you get support for Bosch Sensortec's
 	  acceleration sensors BMA250.
 
-config BOSCH_BMA250_ENABLE_INT1
+config BMA250_ENABLE_INT1
 	tristate "BMA250 acceleration sensor interrupt INT1 support"
 	depends on BOSCH_BMA250=y
         help
 	  If you say yes here you get INT1 support for Bosch Sensortec's
 	  acceleration sensors BMA250.
 
-config BOSCH_BMA250_ENABLE_INT2
+config BMA250_ENABLE_INT2
 	tristate "BMA250 acceleration sensor interrupt INT2 support"
 	depends on BOSCH_BMA250=y
 	help
@@ -87,6 +87,12 @@ config SENSORS_BMA250
 	depends on I2C=y
 	help
 	  BMA250 G-sensor Driver implemented by HTC.
+
+config SENSORS_ONLY_BMA250
+	tristate "BMA250 acceleration sensor support"
+	depends on I2C=y
+	help
+	  BMA250 ONLY G-sensor Driver implemented by HTC.
 
 config SENSORS_BMA2X2
 	tristate "BMA255/BMA250E/BMA222E/BMA280 acceleration sensor support"
@@ -161,7 +167,13 @@ config AMP_RT5501
         tristate "TI RT5501 AMP Driver"
 	depends on I2C=y
         help
-          TI RT5501 AMP Driver implemented by HTC.
+          RichTek RT5501 AMP Driver implemented by HTC.
+
+config AMP_RT5501_DELAY
+        tristate "RichTek RT5501 AMP Delay Workaround"
+	depends on I2C=y
+        help
+          RichTek RT5501 AMP Delay Workaround for pop noise of headset enable.
 
 config AMP_TFA9887
         tristate "NXP TFA9887 Speaker AMP Driver"
@@ -200,4 +212,9 @@ config CIR_ALWAYS_READY
 	help
 	  Enable CIR Always Ready
 
+config SIG_MOTION
+        bool "BMA250 Significant Motion"
+	default n
+	help
+	  Enable BMA250 Significant Motion feature
 endmenu

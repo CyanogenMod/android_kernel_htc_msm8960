@@ -315,6 +315,8 @@ int android_switch_function(unsigned func)
 	
 	if (dev->enabled != true) {
 		pr_info("%s: USB driver is not initialize\n", __func__);
+		dev->bSwitchFunWhileInit = true;
+		dev->SwitchFunCombination = func;
 		return 0;
 	}
 	

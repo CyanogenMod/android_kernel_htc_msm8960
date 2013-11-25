@@ -413,9 +413,23 @@ fallback:
 		const unsigned char *p = skb_mac_header(skb);
 		unsigned int i;
 
+#ifdef CONFIG_HTC_NETWORK_MODIFY
+		sb_add(m, "**");
+		p++;
+#else
 		sb_add(m, "%02x", *p++);
-		for (i = 1; i < dev->hard_header_len; i++, p++)
+#endif
+
+		for (i = 1; i < dev->hard_header_len; i++, p++) {
+#ifdef CONFIG_HTC_NETWORK_MODIFY
+			if(i<6)
+				sb_add(m, ":**");
+			else
+				sb_add(m, ":%02x", *p);
+#else
 			sb_add(m, ":%02x", *p);
+#endif
+		}
 	}
 	sb_add(m, " ");
 }

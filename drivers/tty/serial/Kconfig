@@ -1030,6 +1030,13 @@ config SERIAL_MSM_HSL
 	help
 	  Select this module to enable MSM high speed UART driver.
 
+config SERIAL_MSM_HS_DEBUG_RINGBUFFER
+	bool "Capture UART raw data in a ringbuffer for debug purpose."
+	depends on SERIAL_MSM_HS
+	default n
+	help
+	  Capture UART raw data in a ringbuffer for debug purpose.
+
 config SERIAL_IRDA
 	tristate "MSM UART High Speed : Legacy mode IRDA Driver"
 	depends on ARM && ARCH_MSM

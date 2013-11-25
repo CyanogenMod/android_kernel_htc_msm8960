@@ -2207,6 +2207,11 @@ struct platform_device msm_multi_ch_pcm = {
 	.id	= -1,
 };
 
+struct platform_device msm_lowlatency_pcm = {
+   .name   = "msm-lowlatency-pcm-dsp",
+   .id = -1,
+};
+
 struct platform_device msm_pcm_routing = {
 	.name	= "msm-pcm-routing",
 	.id	= -1,
@@ -2233,8 +2238,13 @@ struct platform_device msm8960_cpudai_slimbus_2_tx = {
 };
 
 struct msm_mi2s_pdata mi2s_data = {
+#ifdef CONFIG_MACH_ZIP_CL_MI2S_DATA_SWITCH
+	.rx_sd_lines = MSM_MI2S_SD3 ,   
+	.tx_sd_lines = MSM_MI2S_SD0 ,   
+#else
 	.rx_sd_lines = MSM_MI2S_SD0 ,   
 	.tx_sd_lines = MSM_MI2S_SD3 ,   
+#endif
 };
 
 struct platform_device msm_cpudai_mi2s = {

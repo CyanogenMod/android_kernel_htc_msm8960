@@ -30,3 +30,13 @@ void __msm_gpiomux_write(unsigned gpio, struct gpiomux_setting val)
 	__raw_writel(bits, GPIO_CFG(gpio));
 	mb();
 }
+
+unsigned __msm_gpiomux_read(unsigned gpio)
+{
+	int in_out, cfg;
+
+	in_out = __raw_readl(GPIO_IN_OUT(gpio));
+	cfg = __raw_readl(GPIO_CFG(gpio));
+
+	return (in_out <<16) | cfg;
+}

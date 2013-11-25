@@ -1483,8 +1483,10 @@ int32_t ar0260_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	}
 
 #ifdef CONFIG_RAWCHIPII
-	Ilp0100_enableIlp0100SensorClock(SENSOR_1);
-	mdelay(35);	
+    if (sdata->htc_image == HTC_CAMERA_IMAGE_YUSHANII_BOARD) {
+    	Ilp0100_enableIlp0100SensorClock(SENSOR_1);
+        mdelay(35);	
+	}
 #endif
 
 #if 0	

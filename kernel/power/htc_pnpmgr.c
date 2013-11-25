@@ -27,6 +27,7 @@ static struct kobject *thermal_kobj;
 static struct kobject *apps_kobj;
 static struct kobject *pnpmgr_kobj;
 static struct kobject *adaptive_policy_kobj;
+static struct kobject *sysinfo_kobj;
 static struct kobject *battery_kobj;
 
 #define define_string_show(_name, str_buf)				\
@@ -91,16 +92,16 @@ define_string_show(media_mode, media_mode_buf);
 define_string_store(media_mode, media_mode_buf, null_cb);
 power_attr(media_mode);
 
-static int thermal_c0_value;
+static int thermal_c0_value = 9999999;
 #if (CONFIG_NR_CPUS >= 2)
-static int thermal_c1_value;
+static int thermal_c1_value = 9999999;
 #if (CONFIG_NR_CPUS == 4)
-static int thermal_c2_value;
-static int thermal_c3_value;
+static int thermal_c2_value = 9999999;
+static int thermal_c3_value = 9999999;
 #endif
 #endif
-static int thermal_final_value;
-static int thermal_g0_value;
+static int thermal_final_value = 9999999;
+static int thermal_g0_value = 999999999;
 static int thermal_batt_value;
 static int data_throttling_value;
 
@@ -134,6 +135,22 @@ power_attr(thermal_g0);
 define_int_show(thermal_batt, thermal_batt_value);
 define_int_store(thermal_batt, thermal_batt_value, null_cb);
 power_attr(thermal_batt);
+
+static unsigned int info_gpu_max_clk = 400000000;
+void set_gpu_clk(unsigned int value)
+{
+        info_gpu_max_clk = value;
+}
+
+ssize_t
+gpu_max_clk_show(struct kobject *kobj, struct kobj_attribute *attr,
+                char *buf)
+{
+       int ret = 0;
+        ret = sprintf(buf, "%u", info_gpu_max_clk);
+        return ret;
+}
+power_ro_attr(gpu_max_clk);
 
 define_int_show(pause_dt, data_throttling_value);
 define_int_store(pause_dt, data_throttling_value, null_cb);
@@ -347,6 +364,11 @@ static struct attribute *apps_g[] = {
 	NULL,
 };
 
+static struct attribute *sysinfo_g[] = {
+       &gpu_max_clk_attr.attr,
+       NULL,
+};
+
 static struct attribute *battery_g[] = {
 	&charging_enabled_attr.attr,
 	NULL,
@@ -368,9 +390,35 @@ static struct attribute_group apps_attr_group = {
 	.attrs = apps_g,
 };
 
+static struct attribute_group sysinfo_attr_group = {
+       .attrs = sysinfo_g,
+};
+
 static struct attribute_group battery_attr_group = {
 	.attrs = battery_g,
 };
+
+#ifdef CONFIG_HOTPLUG_CPU
+static int __cpuinit cpu_hotplug_callback(struct notifier_block *nfb, unsigned long action, void *hcpu)
+{
+	switch (action) {
+		
+		case CPU_ONLINE:
+		case CPU_ONLINE_FROZEN:
+			sysfs_notify(hotplug_kobj, NULL, "cpu_hotplug");
+			break;
+		case CPU_DEAD:
+		case CPU_DEAD_FROZEN:
+			break;
+	}
+	return NOTIFY_OK;
+}
+
+static struct notifier_block __refdata cpu_hotplug_notifier = {
+	.notifier_call = cpu_hotplug_callback,
+	.priority = -10, 
+};
+#endif
 
 static unsigned int slack_time_ms;
 static unsigned int step_time_ms;
@@ -443,10 +491,11 @@ static int __init pnpmgr_init(void)
 	hotplug_kobj = kobject_create_and_add("hotplug", pnpmgr_kobj);
 	thermal_kobj = kobject_create_and_add("thermal", pnpmgr_kobj);
 	apps_kobj = kobject_create_and_add("apps", pnpmgr_kobj);
+	sysinfo_kobj = kobject_create_and_add("sysinfo", pnpmgr_kobj);
 	battery_kobj = kobject_create_and_add("battery", pnpmgr_kobj);
 	adaptive_policy_kobj = kobject_create_and_add("adaptive_policy", power_kobj);
 
-	if (!cpufreq_kobj || !hotplug_kobj || !thermal_kobj || !apps_kobj || !battery_kobj || !adaptive_policy_kobj) {
+	if (!cpufreq_kobj || !hotplug_kobj || !thermal_kobj || !apps_kobj || !sysinfo_kobj || !battery_kobj || !adaptive_policy_kobj) {
 		pr_err("%s: Can not allocate enough memory.\n", __func__);
 		return -ENOMEM;
 	}
@@ -455,6 +504,7 @@ static int __init pnpmgr_init(void)
 	ret |= sysfs_create_group(hotplug_kobj, &hotplug_attr_group);
 	ret |= sysfs_create_group(thermal_kobj, &thermal_attr_group);
 	ret |= sysfs_create_group(apps_kobj, &apps_attr_group);
+	ret |= sysfs_create_group(sysinfo_kobj, &sysinfo_attr_group);
 	ret |= sysfs_create_group(battery_kobj, &battery_attr_group);
 	ret |= sysfs_create_group(adaptive_policy_kobj, &adaptive_attr_group);
 
@@ -462,6 +512,10 @@ static int __init pnpmgr_init(void)
 		pr_err("%s: sysfs_create_group failed\n", __func__);
 		return ret;
 	}
+
+#ifdef CONFIG_HOTPLUG_CPU
+	register_hotcpu_notifier(&cpu_hotplug_notifier);
+#endif
 
 	return 0;
 }
@@ -472,8 +526,12 @@ static void  __exit pnpmgr_exit(void)
 	sysfs_remove_group(hotplug_kobj, &hotplug_attr_group);
 	sysfs_remove_group(thermal_kobj, &thermal_attr_group);
 	sysfs_remove_group(apps_kobj, &apps_attr_group);
+	sysfs_remove_group(sysinfo_kobj, &sysinfo_attr_group);
 	sysfs_remove_group(battery_kobj, &battery_attr_group);
 	sysfs_remove_group(adaptive_policy_kobj, &adaptive_attr_group);
+#ifdef CONFIG_HOTPLUG_CPU
+	unregister_hotcpu_notifier(&cpu_hotplug_notifier);
+#endif
 }
 
 module_init(pnpmgr_init);

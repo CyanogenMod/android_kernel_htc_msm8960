@@ -735,6 +735,7 @@ static int rmnet_usb_ctrl_write(struct rmnet_ctrl_dev *dev, char *buf,
 		usb_free_urb(sndurb);
 		kfree(out_ctlreq);
 #ifdef HTC_DEBUG_QMI_STUCK
+		del_timer(&context->timer);
 		kfree(context);
 #endif	
 		return result;

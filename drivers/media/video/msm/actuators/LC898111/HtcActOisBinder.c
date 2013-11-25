@@ -189,6 +189,7 @@ void HtcActOisBinder_open_init(void)
 		return;
 
 	pr_info("[OIS]  %s  start\n", __func__);
+	pr_info("[OIS]  %s  FW_Version=0x%x\n", __func__, RdFwVr());
 
 #if 0
 	RegReadA_lc898111(0x027F, &ois_data_8); 

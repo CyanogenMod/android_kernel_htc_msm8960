@@ -215,6 +215,7 @@ enum {
 	HEADSET_REG_1WIRE_READ_KEY,
 	HEADSET_REG_1WIRE_DEINIT,
 	HEADSET_REG_1WIRE_REPORT_TYPE,
+	HEADSET_REG_HS_INSERT,
 };
 
 enum {
@@ -292,6 +293,7 @@ struct hs_notifier_func {
 	int (*hs_1wire_read_key)(void);
 	int (*hs_1wire_deinit)(void);
 	int (*hs_1wire_report_type)(char **);
+	int (*hs_insert)(int);
 };
 
 struct htc_headset_mgr_platform_data {

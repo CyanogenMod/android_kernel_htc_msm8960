@@ -227,6 +227,8 @@ static void ghsic_data_write_tohost(struct work_struct *w)
 		} else {
 			req->no_interrupt = 1;
 		}
+		
+		req->zero = 1;
 
 		list_del(&req->list);
 

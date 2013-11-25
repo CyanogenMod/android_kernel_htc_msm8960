@@ -49,7 +49,7 @@
 #define Max_open_value 50
 #ifdef POLLING_PROXIMITY
 #define POLLING_DELAY		200
-#define TH_ADD			5
+#define TH_ADD			10
 #endif
 static int record_init_fail = 0;
 static void sensor_irq_do_work(struct work_struct *work);
@@ -65,7 +65,12 @@ static void report_near_do_work(struct work_struct *w);
 static DECLARE_DELAYED_WORK(report_near_work, report_near_do_work);
 static int inter_error = 0;
 static int is_probe_success;
-
+static int lightsensor_cali;
+static int psensor_cali;
+static int min_adc = 255;
+static int call_count = 0;
+static int record_adc[6] = {0};
+static int avg_min_adc = 0;
 struct cm3629_info {
 	struct class *cm3629_class;
 	struct device *ls_dev;
@@ -329,6 +334,7 @@ static int get_ls_adc_value(uint32_t *als_step, bool resume)
 	int ret = 0;
 	char cmd[3];
 	char ls_cmd;
+	uint32_t als_step_temp = 0;
 
 	if (als_step == NULL)
 		return -EFAULT;
@@ -376,7 +382,11 @@ static int get_ls_adc_value(uint32_t *als_step, bool resume)
 
 
 	if (!lpi->ls_calibrate && !lpi->ws_calibrate) {
+		als_step_temp = *als_step;
 		*als_step = (*als_step) * lpi->als_gadc / lpi->als_kadc;
+		if( ((*als_step)*lpi->als_kadc) < (als_step_temp*lpi->als_gadc)) {
+			*als_step = (*als_step) + 1;
+		}
 		if (*als_step > 0xFFFF)
 			*als_step = 0xFFFF;
 	}
@@ -593,8 +603,8 @@ static void report_psensor_input_event(struct cm3629_info *lpi, int interrupt_fl
 			input_sync(lpi->ps_input_dev);
 		}
 	}
-	D("[PS][cm3629] proximity %s, ps_adc=%d, High thd= %d, interrupt_flag %d\n",
-	  val ? "FAR" : "NEAR", ps_adc, ps_thd_set, interrupt_flag);
+	D("[PS][cm3629] proximity %s, ps_adc=%d, High thd= %d, interrupt_flag %d, calibration %d\n",
+	  val ? "FAR" : "NEAR", ps_adc, ps_thd_set, interrupt_flag, psensor_cali);
 	if (lpi->dynamical_threshold == 1 && val == 0 && lpi->mfg_mode != MFG_MODE &&
 			pocket_mode_flag != 1 && psensor_enable_by_touch != 1 &&
 				time_before(lpi->j_end, (lpi->j_start + NEAR_DELAY_TIME))) {
@@ -682,11 +692,11 @@ static void report_lsensor_input_event(struct cm3629_info *lpi, bool resume)
 		printk(KERN_ERR "[LS][cm3629 error] %s fail\n", __func__);
 
 	if ((i == 0) || (adc_value == 0))
-		D("[LS][cm3629] %s: ADC=0x%03X, Level=%d, l_thd equal 0, h_thd = 0x%x \n",
-			__func__, adc_value, level, *(lpi->cali_table + i));
+		D("[LS][cm3629] %s: ADC=0x%03X, Level=%d, l_thd equal 0, h_thd = 0x%x, calibration %d \n",
+			__func__, adc_value, level, *(lpi->cali_table + i), lightsensor_cali);
 	else
-		D("[LS][cm3629] %s: ADC=0x%03X, Level=%d, l_thd = 0x%x, h_thd = 0x%x \n",
-			__func__, adc_value, level, *(lpi->cali_table + (i - 1)) + 1, *(lpi->cali_table + i));
+		D("[LS][cm3629] %s: ADC=0x%03X, Level=%d, l_thd = 0x%x, h_thd = 0x%x, calibration %d \n",
+			__func__, adc_value, level, *(lpi->cali_table + (i - 1)) + 1, *(lpi->cali_table + i), lightsensor_cali);
 	current_lightsensor_adc = adc_value;
 	lpi->current_level = level;
         lpi->current_adc = adc_value;
@@ -847,24 +857,36 @@ static void polling_do_work(struct work_struct *w)
 	int i = 0;
 	int ret = 0;
 	char cmd[3];
-
 	
 	if (lpi->ps_enable == 0)
 		return;
 
 	ret = get_stable_ps_adc_value(&ps_adc1, &ps_adc2);
 
-	if ((ps_adc1 == 0) || (ret < 0)) {
-		queue_delayed_work(lpi->lp_wq, &polling_work,
-			msecs_to_jiffies(POLLING_DELAY));
-		return;
+	if (min_adc > ps_adc1) {
+		avg_min_adc = 0;
+		min_adc = ps_adc1;
+		if (call_count < 3) {
+			avg_min_adc = min_adc;
+			for (i = 0; i < 5; i++)
+				record_adc[i] = avg_min_adc;
+		} else {
+			record_adc[5] = min_adc;
+			for (i = 1 ;i <= 5; i++) {
+				avg_min_adc = avg_min_adc + record_adc[i];
+			}
+			D("[PS][cm3629] %s: record_adc[1-5]: %d, %d, %d, %d, %d\n", __func__, record_adc[1], record_adc[2], record_adc[3], record_adc[4], record_adc[5]);
+			avg_min_adc = avg_min_adc / 5;
+			if ((min_adc - avg_min_adc) >= lpi->ps_th_add)
+				avg_min_adc = min_adc;
+		}
 	}
 
 	for (i = lpi->ps_base_index; i >= 1; i--) {
-		if (ps_adc1 > lpi->mapping_table[i])
+		if (avg_min_adc > lpi->mapping_table[i])
 			break;
-		else if ((ps_adc1 > lpi->mapping_table[(i-1)]) &&
-		    (ps_adc1 <= lpi->mapping_table[i])) {
+		else if ((avg_min_adc > lpi->mapping_table[(i-1)]) &&
+		    (avg_min_adc <= lpi->mapping_table[i])) {
 			lpi->ps_base_index = (i-1);
 
 			if (i == (lpi->mapping_size - 1))
@@ -873,7 +895,7 @@ static void polling_do_work(struct work_struct *w)
 				lpi->ps1_thd_set = (lpi->mapping_table[i] +
 						   lpi->ps_th_add);
 
-			if (lpi->ps1_thd_set <= ps_adc1)
+			if (lpi->ps1_thd_set <= avg_min_adc)
 				lpi->ps1_thd_set = 0xFF;
 
 			
@@ -888,13 +910,29 @@ static void polling_do_work(struct work_struct *w)
 
 			_cm3629_I2C_Write2(lpi->cm3629_slave_address,
 				PS_1_thd, cmd, 3);
-			D("[PS][cm3629] SET THD: lpi->ps1_thd_set = %d,"
-				" cmd[0] = 0x%x, cmd[1] = 0x%x\n",
-				lpi->ps1_thd_set, cmd[0], cmd[1]);
+			D("[PS][cm3629] SET THD1: lpi->ps1_thd_set = %d,"
+				" cmd[0] = 0x%x, cmd[1] = 0x%x, avg_min_adc = %d\n",
+				lpi->ps1_thd_set, cmd[0], cmd[1], avg_min_adc);
 			break;
 		}
 	}
+	if (avg_min_adc == 0 && lpi->ps1_thd_set != (lpi->mapping_table[0] + lpi->ps_th_add)) {
+		lpi->ps1_thd_set = (lpi->mapping_table[0] + lpi->ps_th_add);
+		
+		cmd[0] = lpi->ps1_thd_set;
+		if (lpi->ps1_thh_diff == 0)
+			cmd[1] = lpi->ps1_thd_set + 1;
+		else
+			cmd[1] = lpi->ps1_thd_set + lpi->ps1_thh_diff;
+                if (cmd[1] < cmd[0])
+			cmd[1] = cmd[0];
 
+		_cm3629_I2C_Write2(lpi->cm3629_slave_address,
+			PS_1_thd, cmd, 3);
+		D("[PS][cm3629] SET THD2: lpi->ps1_thd_set = %d,"
+			" cmd[0] = 0x%x, cmd[1] = 0x%x, avg_min_adc = %d\n",
+			lpi->ps1_thd_set, cmd[0], cmd[1], avg_min_adc);
+	}
 	queue_delayed_work(lpi->lp_wq, &polling_work,
 		msecs_to_jiffies(POLLING_DELAY));
 }
@@ -1009,7 +1047,7 @@ static int psensor_enable(struct cm3629_info *lpi)
 	psensor_initial_cmd(lpi);
 
 	if (lpi->dynamical_threshold == 1 && lpi->mfg_mode != MFG_MODE &&
-			pocket_mode_flag != 1 && psensor_enable_by_touch != 1 && phone_status ==1) {
+			pocket_mode_flag != 1 && psensor_enable_by_touch != 1 ) {
 		
 		D("[PS][cm3629] default report FAR ");
 		input_report_abs(lpi->ps_input_dev, ABS_DISTANCE, 1);
@@ -1045,7 +1083,7 @@ static int psensor_enable(struct cm3629_info *lpi)
 		return ret;
 	}
 	if (lpi->dynamical_threshold == 1 && lpi->mfg_mode != MFG_MODE &&
-		pocket_mode_flag != 1 && psensor_enable_by_touch != 1 && phone_status ==1) {
+		pocket_mode_flag != 1 && psensor_enable_by_touch != 1 ) {
 
 			msleep(40);
 			ret = get_stable_ps_adc_value(&ps_adc1, &ps_adc2);
@@ -1075,7 +1113,7 @@ static int psensor_disable(struct cm3629_info *lpi)
 {
 	int ret = -EIO;
 	char cmd[2];
-
+	int i;
 	mutex_lock(&ps_enable_mutex);
 
 	D("[PS][cm3629] %s %d\n", __func__, lpi->ps_enable);
@@ -1119,6 +1157,13 @@ static int psensor_disable(struct cm3629_info *lpi)
 	lpi->ps_enable = 0;
 	if (lpi->dynamical_threshold == 1 && lpi->mfg_mode != MFG_MODE) {
 		cancel_delayed_work(&polling_work);
+
+		if ((call_count >= 3) && (record_adc[5] < Max_open_value) && lpi->psensor_opened) {
+			for (i=0;i<5;i++)
+				record_adc[i] = record_adc[i+1];
+		}
+		D("[PS][cm3629] %s: record_adc[0-4]: %d, %d, %d, %d, %d\n", __func__, record_adc[0], record_adc[1], record_adc[2], record_adc[3], record_adc[4]);
+		min_adc = 255;
 		lpi->ps_base_index = (lpi->mapping_size - 1);
 		if (lpi->ps1_thd_set > Max_open_value) {
 			lpi->ps1_thd_set = lpi->original_ps_thd_set;
@@ -1142,12 +1187,16 @@ static int psensor_open(struct inode *inode, struct file *file)
 {
 	struct cm3629_info *lpi = lp_info;
 
-	D("[PS][cm3629] %s\n", __func__);
+	D("[PS][cm3629] %s, calibration:%d\n", __func__, psensor_cali);
+
+	psensor_enable_by_touch_driver(0);
 
 	if (lpi->psensor_opened)
 		return -EBUSY;
 
 	lpi->psensor_opened = 1;
+	if (call_count < 3)
+		call_count++;
 
 	return 0;
 }
@@ -1157,7 +1206,6 @@ static int psensor_release(struct inode *inode, struct file *file)
 	struct cm3629_info *lpi = lp_info;
 
 	D("[PS][cm3629] %s\n", __func__);
-	phone_status = 0;
 	lpi->psensor_opened = 0;
 
 	return ps_hal_enable ? psensor_disable(lpi) : 0 ;
@@ -1220,10 +1268,12 @@ static void lightsensor_set_kvalue(struct cm3629_info *lpi)
 	D("[LS][cm3629] %s: ALS calibrated als_kadc=0x%x\n",
 			__func__, als_kadc);
 
-	if (als_kadc >> 16 == ALS_CALIBRATED)
+	if (als_kadc >> 16 == ALS_CALIBRATED) {
 		lpi->als_kadc = als_kadc & 0xFFFF;
-	else {
+		lightsensor_cali = 1;
+	} else {
 		lpi->als_kadc = 0;
+		lightsensor_cali = 0;
 		D("[LS][cm3629] %s: no ALS calibrated\n", __func__);
 	}
 	current_lightsensor_kadc = lpi->als_kadc;
@@ -1277,6 +1327,7 @@ static void psensor_set_kvalue(struct cm3629_info *lpi)
 	ps_conf1_val = lpi->ps_conf1_val;
 	
 	if (ps_kparam1 >> 16 == PS_CALIBRATED) {
+		psensor_cali = 1;
 		lpi->inte_ps1_canc = (uint8_t) (ps_kparam2 & 0xFF);
 		lpi->inte_ps2_canc = (uint8_t) ((ps_kparam2 >> 8) & 0xFF);
 		if (lpi->ps_calibration_rule == 3) {
@@ -1322,6 +1373,7 @@ static void psensor_set_kvalue(struct cm3629_info *lpi)
 		  "inte_ps2_canc = 0x%02X, ((ps_kparam2 >> 16) & 0xFF) = 0x%X\n", __func__,
 		  lpi->inte_ps1_canc, lpi->inte_ps2_canc, ((ps_kparam2 >> 16) & 0xFF));
 	} else {
+		psensor_cali = 0;
 		if (lpi->ps_calibration_rule >= 1) {
 			lpi->ps1_thd_set = lpi->ps1_thd_no_cal;
 			lpi->ps2_thd_set = lpi->ps2_thd_no_cal;
@@ -1416,7 +1468,7 @@ static int lightsensor_open(struct inode *inode, struct file *file)
 	struct cm3629_info *lpi = lp_info;
 	int rc = 0;
 
-	D("[LS][cm3629] %s\n", __func__);
+	D("[LS][cm3629] %s, calibration:%d\n", __func__, lightsensor_cali);
 	if (lpi->lightsensor_opened) {
 		pr_err("[LS][cm3629 error]%s: already opened\n", __func__);
 		rc = -EBUSY;
@@ -2236,44 +2288,29 @@ static ssize_t phone_status_store(struct device *dev,
 				const char *buf, size_t count)
 {
 	int phone_status1 = 0;
-	int ret;
 	struct cm3629_info *lpi = lp_info;
-#ifdef POLLING_PROXIMITY
-	uint8_t ps_adc1 = 0;
-	uint8_t ps_adc2 = 0;
-	int index = 0;
-#endif
 
 	sscanf(buf, "%d" , &phone_status1);
 
 	phone_status = phone_status1;
-
 	D("[PS][cm3629] %s: phone_status = %d\n", __func__, phone_status);
-	if (phone_status == 2 && ps_hal_enable == 1 && lpi->dynamical_threshold == 1) {
+	return count; 
+
+	if ((phone_status == 1 || phone_status == 3) && (call_count < 2))
+		call_count++;
+
+
+	if (phone_status == 2 && ps_hal_enable == 1 && lpi->dynamical_threshold == 1
+		&&(lpi->mapping_table != NULL)) {
+
 		
 		input_report_abs(lpi->ps_input_dev, ABS_DISTANCE, 1);
 		input_sync(lpi->ps_input_dev);
 
 
-		msleep(40);
-		ret = get_stable_ps_adc_value(&ps_adc1, &ps_adc2);
-		while (index <= 10 && ps_adc1 == 0) {
-			D("[PS][cm3629]ps_adca = 0 retry");
-			ret = get_stable_ps_adc_value(&ps_adc1, &ps_adc2);
-			if (ps_adc1 != 0) {
-				D("[PS][cm3629]retry work");
-				break;
-			}
-			mdelay(1);
-			index++;
-		}
-
-		D("[PS][cm3629] INITIAL ps_adc1 = 0x%02X\n", ps_adc1);
-		if ((ret == 0) && (lpi->mapping_table != NULL))
 			queue_delayed_work(lpi->lp_wq, &polling_work,
 				msecs_to_jiffies(POLLING_DELAY));
 	}
-
 	return count;
 }
 static DEVICE_ATTR(PhoneApp_status, 0666, phone_status_show, phone_status_store);
@@ -2615,7 +2652,7 @@ static int cm3629_probe(struct i2c_client *client,
 	lpi->ps_debounce = pdata->ps_debounce;
 	lpi->ps_delay_time = pdata->ps_delay_time;
 	lpi->no_need_change_setting = pdata->no_need_change_setting;
-	lpi->ps_th_add = TH_ADD;
+	lpi->ps_th_add = (pdata->ps_th_add) ? pdata->ps_th_add : TH_ADD;
 	lpi->dark_level = pdata->dark_level;
 
 	lp_info = lpi;
@@ -2680,10 +2717,10 @@ static int cm3629_probe(struct i2c_client *client,
 	wake_lock_init(&(lpi->ps_wake_lock), WAKE_LOCK_SUSPEND, "proximity");
 
 	psensor_set_kvalue(lpi);
-	lpi->ps1_thd_set = lpi->ps1_thd_set + 50;
-	if (lpi->dynamical_threshold == 1)
+	if (lpi->dynamical_threshold == 1) {
+	        lpi->ps1_thd_set = lpi->ps1_thd_set + 50;
 		lpi->original_ps_thd_set = lpi->ps1_thd_set;
-
+	}
 	ret = cm3629_setup(lpi);
 	if (ret < 0) {
 		pr_err("[PS_ERR][cm3629 error]%s: cm3629_setup error!\n", __func__);

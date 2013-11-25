@@ -1007,4 +1007,14 @@ config TOUCHSCREEN_MAX11871
 
           If unsure, say N.
 
+config TOUCHSCREEN_MAX1187X
+        tristate "Maxim max1187X touchscreen"
+        depends on I2C
+        help
+          Say Y here if you have a Maxim max11871 touchscreen connected
+          to your system. max11871 conforms to the Maxim Touch Protocol
+          (MTP) defined by Maxim.
+
+          If unsure, say N.
+
 endif

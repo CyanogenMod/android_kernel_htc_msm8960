@@ -1,4 +1,4 @@
-#define	FW_VER			0x0005
+#define	FW_VER			0x0007
 #define StAdjPar StAdjPar_lc898111
 #define UsStpSiz UsStpSiz_lc898111
 

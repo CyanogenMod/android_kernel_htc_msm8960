@@ -31,14 +31,6 @@
 #include <linux/sctp.h>
 #include <linux/lsm_audit.h>
 
-/**
- * ipv4_skb_to_auditdata : fill auditdata from skb
- * @skb : the skb
- * @ad : the audit data to fill
- * @proto : the layer 4 protocol
- *
- * return  0 on success
- */
 int ipv4_skb_to_auditdata(struct sk_buff *skb,
 		struct common_audit_data *ad, u8 *proto)
 {
@@ -54,7 +46,7 @@ int ipv4_skb_to_auditdata(struct sk_buff *skb,
 
 	if (proto)
 		*proto = ih->protocol;
-	/* non initial fragment */
+	
 	if (ntohs(ih->frag_off) & IP_OFFSET)
 		return 0;
 
@@ -100,14 +92,6 @@ int ipv4_skb_to_auditdata(struct sk_buff *skb,
 	return ret;
 }
 #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-/**
- * ipv6_skb_to_auditdata : fill auditdata from skb
- * @skb : the skb
- * @ad : the audit data to fill
- * @proto : the layer 4 protocol
- *
- * return  0 on success
- */
 int ipv6_skb_to_auditdata(struct sk_buff *skb,
 		struct common_audit_data *ad, u8 *proto)
 {
@@ -122,8 +106,6 @@ int ipv6_skb_to_auditdata(struct sk_buff *skb,
 	ad->u.net->v6info.saddr = ip6->saddr;
 	ad->u.net->v6info.daddr = ip6->daddr;
 	ret = 0;
-	/* IPv6 can have several extension header before the Transport header
-	 * skip them */
 	offset = skb_network_offset(skb);
 	offset += sizeof(*ip6);
 	nexthdr = ip6->nexthdr;
@@ -203,11 +185,6 @@ static inline void print_ipv4_addr(struct audit_buffer *ab, __be32 addr,
 		audit_log_format(ab, " %s=%d", name2, ntohs(port));
 }
 
-/**
- * dump_common_audit_data - helper to dump common audit data
- * @a : common audit data
- *
- */
 static void dump_common_audit_data(struct audit_buffer *ab,
 				   struct common_audit_data *a)
 {
@@ -351,7 +328,7 @@ static void dump_common_audit_data(struct audit_buffer *ab,
 		if (a->u.net->netif > 0) {
 			struct net_device *dev;
 
-			/* NOTE: we always use init's namespace */
+			
 			dev = dev_get_by_index(&init_net, a->u.net->netif);
 			if (dev) {
 				audit_log_format(ab, " netif=%s", dev->name);
@@ -372,18 +349,9 @@ static void dump_common_audit_data(struct audit_buffer *ab,
 		audit_log_format(ab, " kmod=");
 		audit_log_untrustedstring(ab, a->u.kmod_name);
 		break;
-	} /* switch (a->type) */
+	} 
 }
 
-/**
- * common_lsm_audit - generic LSM auditing function
- * @a:  auxiliary audit data
- * @pre_audit: lsm-specific pre-audit callback
- * @post_audit: lsm-specific post-audit callback
- *
- * setup the audit buffer for common security information
- * uses callback to print LSM specific information
- */
 void common_lsm_audit(struct common_audit_data *a,
 	void (*pre_audit)(struct audit_buffer *, void *),
 	void (*post_audit)(struct audit_buffer *, void *))
@@ -392,7 +360,7 @@ void common_lsm_audit(struct common_audit_data *a,
 
 	if (a == NULL)
 		return;
-	/* we use GFP_ATOMIC so we won't sleep */
+	
 	ab = audit_log_start(current->audit_context, GFP_ATOMIC, AUDIT_AVC);
 
 	if (ab == NULL)

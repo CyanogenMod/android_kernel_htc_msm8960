@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2009, 2012 Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2009, 2012 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -114,20 +114,9 @@ static void mdp_set_vsync(unsigned long data);
 void mdp_vsync_clk_enable(void)
 {
 	if (vsync_mfd) {
-	#ifdef CONFIG_MACH_DUMMY 
-		unsigned int timeout = (vsync_clk_status == 0)? 18 : 0; 
-	#endif 
 		mdp_hw_vsync_clk_enable(vsync_mfd);
 		if (!vsync_mfd->vsync_resync_timer.function)
 			mdp_set_vsync((unsigned long) vsync_mfd);
-	#ifdef CONFIG_MACH_DUMMY
-	if (timeout) {
-		uint32 count;
-		for (count = inpdw(MDP_BASE + 0x140) >> 16; timeout && count == inpdw(MDP_BASE + 0x140) >> 16; --timeout) {
-			hr_msleep(1);
-		}
-	}
-	#endif 
 	}
 }
 

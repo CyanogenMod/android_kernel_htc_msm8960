@@ -499,15 +499,13 @@ int wldev_set_pktfilter_enable(struct net_device *dev, int enable)
     wldev_set_pktfilter_enable_by_id(dev, 106, enable);
         printf("%s: pkt_filter id:106 %s\n", __FUNCTION__, (enable)?"enable":"disable");
 	}
-
-	if(!enable){
+	if (!enable) {
 		wldev_set_pktfilter_enable_by_id(dev, 107, enable);
-			printf("%s: pkt_filter id:107 %s\n", __FUNCTION__, (enable)?"enable":"disable");
+		printf("%s: pkt_filter id:107 %s\n", __FUNCTION__, (enable)?"enable":"disable");
 
 		wldev_set_pktfilter_enable_by_id(dev, 108, enable);
-	        printf("%s: pkt_filter id:108 %s\n", __FUNCTION__, (enable)?"enable":"disable");
+		printf("%s: pkt_filter id:108 %s\n", __FUNCTION__, (enable)?"enable":"disable");
 	}
-
         return 0;
 }
 #ifdef SOFTAP

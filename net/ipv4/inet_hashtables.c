@@ -76,6 +76,16 @@ static void __inet_put_port(struct sock *sk)
 
 	spin_lock(&head->lock);
 	tb = inet_csk(sk)->icsk_bind_hash;
+
+	if ((!tb) || (IS_ERR(tb))) {
+			printk(KERN_DEBUG "[NET][WARN] tb is illegal in %s \n", __func__);
+			__sk_del_bind_node(sk);
+			inet_csk(sk)->icsk_bind_hash = NULL;
+			inet_sk(sk)->inet_num = 0;
+			spin_unlock(&head->lock);
+			return;
+	}
+
 	__sk_del_bind_node(sk);
 	tb->num_owners--;
 	inet_csk(sk)->icsk_bind_hash = NULL;

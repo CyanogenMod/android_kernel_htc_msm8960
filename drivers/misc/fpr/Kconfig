@@ -1,0 +1,11 @@
+#
+# TI's shared transport line discipline and the protocol
+# drivers (BT, FM and GPS)
+#
+menu "Vadality finger printer SPI driver"
+config FPR_SPI
+	bool "SPI driver for finger print"
+    default n
+	help
+         SPI driver for finger print
+endmenu

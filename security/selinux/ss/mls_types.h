@@ -1,9 +1,4 @@
 /*
- * Type definitions for the multi-level security (MLS) policy.
- *
- * Author : Stephen Smalley, <sds@epoch.ncsc.mil>
- */
-/*
  * Updated: Trusted Computer Solutions, Inc. <dgoeddel@trustedcs.com>
  *
  *	Support for enhanced MLS infrastructure.
@@ -18,12 +13,12 @@
 #include "ebitmap.h"
 
 struct mls_level {
-	u32 sens;		/* sensitivity */
-	struct ebitmap cat;	/* category set */
+	u32 sens;		
+	struct ebitmap cat;	
 };
 
 struct mls_range {
-	struct mls_level level[2]; /* low == level[0], high == level[1] */
+	struct mls_level level[2]; 
 };
 
 static inline int mls_level_eq(struct mls_level *l1, struct mls_level *l2)
@@ -48,4 +43,4 @@ static inline int mls_level_dom(struct mls_level *l1, struct mls_level *l2)
 (mls_level_dom(&(r2).level[0], &(r1).level[0]) && \
  mls_level_dom(&(r1).level[1], &(r2).level[1]))
 
-#endif	/* _SS_MLS_TYPES_H_ */
+#endif	

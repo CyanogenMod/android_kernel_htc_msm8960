@@ -18,6 +18,12 @@
 
 #include "kgsl_trace.h"
 
+static inline struct list_head *_get_list_head(struct kgsl_device *device,
+		struct kgsl_context *context)
+{
+	return (context) ? &context->events : &device->events;
+}
+
 static void _add_event_to_list(struct list_head *head, struct kgsl_event *event)
 {
 	struct list_head *n;
@@ -36,19 +42,127 @@ static void _add_event_to_list(struct list_head *head, struct kgsl_event *event)
 		list_add_tail(&event->list, head);
 }
 
-int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
-	void (*cb)(struct kgsl_device *, void *, u32, u32), void *priv,
-	void *owner)
+static inline void _do_signal_event(struct kgsl_device *device,
+		struct kgsl_event *event, unsigned int timestamp,
+		unsigned int type)
 {
+	int id = event->context ? event->context->id : KGSL_MEMSTORE_GLOBAL;
+
+	trace_kgsl_fire_event(id, timestamp, type, jiffies - event->created);
+
+	if (event->func)
+		event->func(device, event->priv, id, timestamp, type);
+
+	list_del(&event->list);
+	kgsl_context_put(event->context);
+	kfree(event);
+
+	kgsl_active_count_put(device);
+}
+
+static void _retire_events(struct kgsl_device *device,
+		struct list_head *head, unsigned int timestamp)
+{
+	struct kgsl_event *event, *tmp;
+
+	list_for_each_entry_safe(event, tmp, head, list) {
+		if (timestamp_cmp(timestamp, event->timestamp) < 0)
+			break;
+
+		_do_signal_event(device, event, event->timestamp,
+			KGSL_EVENT_TIMESTAMP_RETIRED);
+	}
+}
+
+static struct kgsl_event *_find_event(struct kgsl_device *device,
+		struct list_head *head, unsigned int timestamp,
+		kgsl_event_func func, void *priv)
+{
+	struct kgsl_event *event, *tmp;
+
+	list_for_each_entry_safe(event, tmp, head, list) {
+		if (timestamp == event->timestamp && func == event->func &&
+			event->priv == priv)
+			return event;
+	}
+
+	return NULL;
+}
+
+static void _signal_event(struct kgsl_device *device,
+		struct list_head *head, unsigned int timestamp,
+		unsigned int cur, unsigned int type)
+{
+	struct kgsl_event *event, *tmp;
+
+	list_for_each_entry_safe(event, tmp, head, list) {
+		if (timestamp_cmp(timestamp, event->timestamp) == 0)
+			_do_signal_event(device, event, cur, type);
+	}
+}
+
+static void _signal_events(struct kgsl_device *device,
+		struct list_head *head, uint32_t timestamp,
+		unsigned int type)
+{
+	struct kgsl_event *event, *tmp;
+
+	list_for_each_entry_safe(event, tmp, head, list)
+		_do_signal_event(device, event, timestamp, type);
+
+}
+
+void kgsl_signal_event(struct kgsl_device *device,
+		struct kgsl_context *context, unsigned int timestamp,
+		unsigned int type)
+{
+	struct list_head *head = _get_list_head(device, context);
+	uint32_t cur;
+
+	BUG_ON(!mutex_is_locked(&device->mutex));
+
+	cur = kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_RETIRED);
+	_signal_event(device, head, timestamp, cur, type);
+
+	if (context && list_empty(&context->events))
+		list_del_init(&context->events_list);
+}
+EXPORT_SYMBOL(kgsl_signal_event);
+
+void kgsl_signal_events(struct kgsl_device *device,
+		struct kgsl_context *context, unsigned int type)
+{
+	struct list_head *head = _get_list_head(device, context);
+	uint32_t cur;
+
+	BUG_ON(!mutex_is_locked(&device->mutex));
+
+
+	cur = kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_RETIRED);
+
+	_signal_events(device, head, cur, type);
+
+
+	if (context)
+		list_del_init(&context->events_list);
+}
+EXPORT_SYMBOL(kgsl_signal_events);
+
+int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
+	kgsl_event_func func, void *priv, void *owner)
+{
+	int ret;
 	struct kgsl_event *event;
 	unsigned int cur_ts;
 	struct kgsl_context *context = NULL;
 
-	if (cb == NULL)
+	BUG_ON(!mutex_is_locked(&device->mutex));
+
+	if (func == NULL)
 		return -EINVAL;
 
 	if (id != KGSL_MEMSTORE_GLOBAL) {
-		context = idr_find(&device->context_idr, id);
+		context = kgsl_context_get(device, id);
 		if (context == NULL)
 			return -EINVAL;
 	}
@@ -56,27 +170,33 @@ int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
 
 
 	if (timestamp_cmp(cur_ts, ts) >= 0) {
-		trace_kgsl_fire_event(id, ts, 0);
-		cb(device, priv, id, ts);
+		trace_kgsl_fire_event(id, cur_ts, ts, 0);
+
+		func(device, priv, id, ts, KGSL_EVENT_TIMESTAMP_RETIRED);
+		kgsl_context_put(context);
 		return 0;
 	}
 
 	event = kzalloc(sizeof(*event), GFP_KERNEL);
-	if (event == NULL)
+	if (event == NULL) {
+		kgsl_context_put(context);
 		return -ENOMEM;
+	}
+
+	ret = kgsl_active_count_get_light(device);
+	if (ret < 0) {
+		kfree(event);
+		return ret;
+	}
 
 	event->context = context;
 	event->timestamp = ts;
 	event->priv = priv;
-	event->func = cb;
+	event->func = func;
 	event->owner = owner;
 	event->created = jiffies;
 
 	trace_kgsl_register_event(id, ts);
-
-	
-	if (context)
-		kgsl_context_get(context);
 
 	
 
@@ -91,46 +211,17 @@ int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
 	} else
 		_add_event_to_list(&device->events, event);
 
-
-	device->active_cnt++;
-
 	queue_work(device->work_queue, &device->ts_expired_ws);
 	return 0;
 }
 EXPORT_SYMBOL(kgsl_add_event);
 
-void kgsl_cancel_events_ctxt(struct kgsl_device *device,
-	struct kgsl_context *context)
-{
-	struct kgsl_event *event, *event_tmp;
-	unsigned int id, cur;
-
-	cur = kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_RETIRED);
-	id = context->id;
-
-	list_for_each_entry_safe(event, event_tmp, &context->events, list) {
-
-		trace_kgsl_fire_event(id, cur, jiffies - event->created);
-
-		if (event->func)
-			event->func(device, event->priv, id, cur);
-
-		kgsl_context_put(context);
-		list_del(&event->list);
-		kfree(event);
-
-		kgsl_active_count_put(device);
-	}
-
-	
-	list_del_init(&context->events_list);
-}
-
-void kgsl_cancel_events(struct kgsl_device *device,
-	void *owner)
+void kgsl_cancel_events(struct kgsl_device *device, void *owner)
 {
 	struct kgsl_event *event, *event_tmp;
 	unsigned int cur;
+
+	BUG_ON(!mutex_is_locked(&device->mutex));
 
 	cur = kgsl_readtimestamp(device, NULL, KGSL_TIMESTAMP_RETIRED);
 
@@ -138,53 +229,28 @@ void kgsl_cancel_events(struct kgsl_device *device,
 		if (event->owner != owner)
 			continue;
 
-
-		trace_kgsl_fire_event(KGSL_MEMSTORE_GLOBAL, cur,
-			jiffies - event->created);
-
-		if (event->func)
-			event->func(device, event->priv, KGSL_MEMSTORE_GLOBAL,
-				cur);
-
-		if (event->context)
-			kgsl_context_put(event->context);
-
-		list_del(&event->list);
-		kfree(event);
-
-		kgsl_active_count_put(device);
+		_do_signal_event(device, event, cur, KGSL_EVENT_CANCELLED);
 	}
 }
 EXPORT_SYMBOL(kgsl_cancel_events);
 
-static void _process_event_list(struct kgsl_device *device,
-		struct list_head *head, unsigned int timestamp)
+void kgsl_cancel_event(struct kgsl_device *device, struct kgsl_context *context,
+		unsigned int timestamp, kgsl_event_func func,
+		void *priv)
 {
-	struct kgsl_event *event, *tmp;
-	unsigned int id;
+	struct kgsl_event *event;
+	struct list_head *head = _get_list_head(device, context);
 
-	list_for_each_entry_safe(event, tmp, head, list) {
-		if (timestamp_cmp(timestamp, event->timestamp) < 0)
-			break;
+	event = _find_event(device, head, timestamp, func, priv);
 
-		id = event->context ? event->context->id : KGSL_MEMSTORE_GLOBAL;
+	if (event) {
+		unsigned int cur = kgsl_readtimestamp(device, context,
+			KGSL_TIMESTAMP_RETIRED);
 
-
-		trace_kgsl_fire_event(id, event->timestamp,
-			jiffies - event->created);
-
-		if (event->func)
-			event->func(device, event->priv, id, event->timestamp);
-
-		if (event->context)
-			kgsl_context_put(event->context);
-
-		list_del(&event->list);
-		kfree(event);
-
-		kgsl_active_count_put(device);
+		_do_signal_event(device, event, cur, KGSL_EVENT_CANCELLED);
 	}
 }
+EXPORT_SYMBOL(kgsl_cancel_event);
 
 static inline int _mark_next_event(struct kgsl_device *device,
 		struct list_head *head)
@@ -195,7 +261,8 @@ static inline int _mark_next_event(struct kgsl_device *device,
 		event = list_first_entry(head, struct kgsl_event, list);
 
 
-		return device->ftbl->next_event(device, event);
+		if (device->ftbl->next_event)
+			return device->ftbl->next_event(device, event);
 	}
 
 	return 0;
@@ -208,7 +275,7 @@ static int kgsl_process_context_events(struct kgsl_device *device,
 		unsigned int timestamp = kgsl_readtimestamp(device, context,
 			KGSL_TIMESTAMP_RETIRED);
 
-		_process_event_list(device, &context->events, timestamp);
+		_retire_events(device, &context->events, timestamp);
 
 
 		if (!_mark_next_event(device, &context->events))
@@ -230,16 +297,18 @@ void kgsl_process_events(struct work_struct *work)
 
 	
 	timestamp = kgsl_readtimestamp(device, NULL, KGSL_TIMESTAMP_RETIRED);
-	_process_event_list(device, &device->events, timestamp);
+	_retire_events(device, &device->events, timestamp);
 	_mark_next_event(device, &device->events);
 
 	
 	list_for_each_entry_safe(context, tmp, &device->events_pending_list,
 		events_list) {
 
+		_kgsl_context_get(context);
 
 		if (kgsl_process_context_events(device, context) == 0)
 			list_del_init(&context->events_list);
+		kgsl_context_put(context);
 	}
 
 	mutex_unlock(&device->mutex);

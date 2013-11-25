@@ -16,12 +16,6 @@
 #include "security.h"
 #include "conditional.h"
 
-/*
- * cond_evaluate_expr evaluates a conditional expr
- * in reverse polish notation. It returns true (1), false (0),
- * or undefined (-1). Undefined occurs when the expression
- * exceeds the stack depth of COND_EXPR_MAXDEPTH.
- */
 static int cond_evaluate_expr(struct policydb *p, struct cond_expr *expr)
 {
 
@@ -79,13 +73,6 @@ static int cond_evaluate_expr(struct policydb *p, struct cond_expr *expr)
 	return s[0];
 }
 
-/*
- * evaluate_cond_node evaluates the conditional stored in
- * a struct cond_node and if the result is different than the
- * current state of the node it sets the rules in the true/false
- * list appropriately. If the result of the expression is undefined
- * all of the rules are disabled for safety.
- */
 int evaluate_cond_node(struct policydb *p, struct cond_node *node)
 {
 	int new_state;
@@ -96,7 +83,7 @@ int evaluate_cond_node(struct policydb *p, struct cond_node *node)
 		node->cur_state = new_state;
 		if (new_state == -1)
 			printk(KERN_ERR "SELinux: expression result was undefined - disabling all rules.\n");
-		/* turn the rules on or off */
+		
 		for (cur = node->true_list; cur; cur = cur->next) {
 			if (new_state <= 0)
 				cur->node->key.specified &= ~AVTAB_ENABLED;
@@ -105,7 +92,7 @@ int evaluate_cond_node(struct policydb *p, struct cond_node *node)
 		}
 
 		for (cur = node->false_list; cur; cur = cur->next) {
-			/* -1 or 1 */
+			
 			if (new_state)
 				cur->node->key.specified &= ~AVTAB_ENABLED;
 			else
@@ -134,7 +121,7 @@ static void cond_av_list_destroy(struct cond_av_list *list)
 	struct cond_av_list *cur, *next;
 	for (cur = list; cur; cur = next) {
 		next = cur->next;
-		/* the avtab_ptr_t node is destroy by the avtab */
+		
 		kfree(cur);
 	}
 }
@@ -276,24 +263,11 @@ static int cond_insertf(struct avtab *a, struct avtab_key *k, struct avtab_datum
 	u8 found;
 	int rc = -EINVAL;
 
-	/*
-	 * For type rules we have to make certain there aren't any
-	 * conflicting rules by searching the te_avtab and the
-	 * cond_te_avtab.
-	 */
 	if (k->specified & AVTAB_TYPE) {
 		if (avtab_search(&p->te_avtab, k)) {
 			printk(KERN_ERR "SELinux: type rule already exists outside of a conditional.\n");
 			goto err;
 		}
-		/*
-		 * If we are reading the false list other will be a pointer to
-		 * the true list. We can have duplicate entries if there is only
-		 * 1 other entry and it is in our true list.
-		 *
-		 * If we are reading the true list (other == NULL) there shouldn't
-		 * be any other entries.
-		 */
 		if (other) {
 			node_ptr = avtab_search_node(&p->te_cond_avtab, k);
 			if (node_ptr) {
@@ -413,7 +387,7 @@ static int cond_read_node(struct policydb *p, struct cond_node *node, void *fp)
 	if (rc)
 		return rc;
 
-	/* expr */
+	
 	len = le32_to_cpu(buf[0]);
 
 	for (i = 0; i < len; i++) {
@@ -517,15 +491,6 @@ int cond_write_bool(void *vkey, void *datum, void *ptr)
 	return 0;
 }
 
-/*
- * cond_write_cond_av_list doesn't write out the av_list nodes.
- * Instead it writes out the key/value pairs from the avtab. This
- * is necessary because there is no way to uniquely identifying rules
- * in the avtab so it is not possible to associate individual rules
- * in the avtab with a conditional without saving them as part of
- * the conditional. This means that the avtab with the conditional
- * rules will not be saved but will be rebuilt on policy load.
- */
 static int cond_write_av_list(struct policydb *p,
 			      struct cond_av_list *list, struct policy_file *fp)
 {
@@ -617,9 +582,6 @@ int cond_write_list(struct policydb *p, struct cond_node *list, void *fp)
 
 	return 0;
 }
-/* Determine whether additional permissions are granted by the conditional
- * av table, and if so, add them to the result
- */
 void cond_compute_av(struct avtab *ctab, struct avtab_key *key, struct av_decision *avd)
 {
 	struct avtab_node *node;
@@ -634,11 +596,6 @@ void cond_compute_av(struct avtab *ctab, struct avtab_key *key, struct av_decisi
 			avd->allowed |= node->datum.data;
 		if ((u16)(AVTAB_AUDITDENY|AVTAB_ENABLED) ==
 		    (node->key.specified & (AVTAB_AUDITDENY|AVTAB_ENABLED)))
-			/* Since a '0' in an auditdeny mask represents a
-			 * permission we do NOT want to audit (dontaudit), we use
-			 * the '&' operand to ensure that all '0's in the mask
-			 * are retained (much unlike the allow and auditallow cases).
-			 */
 			avd->auditdeny &= node->datum.data;
 		if ((u16)(AVTAB_AUDITALLOW|AVTAB_ENABLED) ==
 		    (node->key.specified & (AVTAB_AUDITALLOW|AVTAB_ENABLED)))

@@ -23,13 +23,11 @@
 #include <linux/fs.h>
 #include <linux/sysfs.h>
 #include <linux/mutex.h>
-#include <linux/suspend.h>
 
 static DEFINE_PER_CPU(unsigned int, cpu_max_freq);
 static DEFINE_PER_CPU(unsigned int, cpu_min_freq);
 static DEFINE_PER_CPU(unsigned int, cpu_cur_freq); 
 static DEFINE_PER_CPU(unsigned int, cpu_set_freq); 
-static DEFINE_PER_CPU(unsigned int, cpu_pre_freq);
 static DEFINE_PER_CPU(unsigned int, cpu_is_managed);
 
 static DEFINE_MUTEX(userspace_mutex);
@@ -53,33 +51,8 @@ userspace_cpufreq_notifier(struct notifier_block *nb, unsigned long val,
 	return 0;
 }
 
-static int user_cpufreq_pm_event(struct notifier_block *this,
-                                unsigned long event, void *ptr)
-{
-	int cpu = 0;
-	switch (event) {
-	case PM_POST_HIBERNATION:
-	case PM_POST_SUSPEND:
-		for_each_present_cpu(cpu) {
-			per_cpu(cpu_set_freq, cpu) = per_cpu(cpu_pre_freq, cpu);
-			cpufreq_update_policy(cpu);
-		}
-	case PM_HIBERNATION_PREPARE:
-	case PM_SUSPEND_PREPARE:
-		for_each_present_cpu(cpu)
-			per_cpu(cpu_pre_freq, cpu) = per_cpu(cpu_cur_freq, cpu);
-	default:
-		return NOTIFY_DONE;
-        }
-}
-
 static struct notifier_block userspace_cpufreq_notifier_block = {
 	.notifier_call  = userspace_cpufreq_notifier
-};
-
-static struct notifier_block __refdata user_cpufreq_pm_notifier = {
-        .notifier_call = user_cpufreq_pm_event,
-        .priority = -1
 };
 
 
@@ -130,7 +103,6 @@ static int cpufreq_governor_userspace(struct cpufreq_policy *policy,
 			cpufreq_register_notifier(
 					&userspace_cpufreq_notifier_block,
 					CPUFREQ_TRANSITION_NOTIFIER);
-			register_pm_notifier(&user_cpufreq_pm_notifier);
 		}
 		cpus_using_userspace_governor++;
 
@@ -155,7 +127,6 @@ static int cpufreq_governor_userspace(struct cpufreq_policy *policy,
 			cpufreq_unregister_notifier(
 					&userspace_cpufreq_notifier_block,
 					CPUFREQ_TRANSITION_NOTIFIER);
-			unregister_pm_notifier(&user_cpufreq_pm_notifier);
 		}
 
 		per_cpu(cpu_is_managed, cpu) = 0;

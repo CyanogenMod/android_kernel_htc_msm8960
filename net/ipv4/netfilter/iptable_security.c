@@ -47,7 +47,7 @@ iptable_security_hook(unsigned int hook, struct sk_buff *skb,
 	if (hook == NF_INET_LOCAL_OUT &&
 	    (skb->len < sizeof(struct iphdr) ||
 	     ip_hdrlen(skb) < sizeof(struct iphdr)))
-		/* Somebody is playing with raw sockets. */
+		
 		return NF_ACCEPT;
 
 	net = dev_net((in != NULL) ? in : out);

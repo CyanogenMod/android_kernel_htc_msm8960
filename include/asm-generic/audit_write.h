@@ -11,5 +11,5 @@ __NR_truncate,
 __NR_truncate64,
 #endif
 #ifdef __NR_bind
-__NR_bind,		/* bind can affect fs object only in one way... */
+__NR_bind,		
 #endif

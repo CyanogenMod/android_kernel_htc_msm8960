@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,7 @@
 #include "kgsl_mmu.h"
 #include <linux/slab.h>
 #include <linux/kmemleak.h>
+#include <linux/iommu.h>
 #include <linux/sched.h>
 
 #include "kgsl_log.h"
@@ -88,6 +89,12 @@ kgsl_memdesc_get_align(const struct kgsl_memdesc *memdesc)
 }
 
 static inline int
+kgsl_memdesc_get_cachemode(const struct kgsl_memdesc *memdesc)
+{
+	return (memdesc->flags & KGSL_CACHEMODE_MASK) >> KGSL_CACHEMODE_SHIFT;
+}
+
+static inline int
 kgsl_memdesc_set_align(struct kgsl_memdesc *memdesc, unsigned int align)
 {
 	if (align > 32) {
@@ -153,22 +160,72 @@ memdesc_sg_phys(struct kgsl_memdesc *memdesc,
 	return 0;
 }
 
+static inline int kgsl_memdesc_is_global(const struct kgsl_memdesc *memdesc)
+{
+	return (memdesc->priv & KGSL_MEMDESC_GLOBAL) != 0;
+}
+
+static inline int
+kgsl_memdesc_has_guard_page(const struct kgsl_memdesc *memdesc)
+{
+	return (memdesc->priv & KGSL_MEMDESC_GUARD_PAGE) != 0;
+}
+
+static inline unsigned int
+kgsl_memdesc_protflags(const struct kgsl_memdesc *memdesc)
+{
+	unsigned int protflags = 0;
+	enum kgsl_mmutype mmutype = kgsl_mmu_get_mmutype();
+
+	if (mmutype == KGSL_MMU_TYPE_GPU) {
+		protflags = GSL_PT_PAGE_RV;
+		if (!(memdesc->flags & KGSL_MEMFLAGS_GPUREADONLY))
+			protflags |= GSL_PT_PAGE_WV;
+	} else if (mmutype == KGSL_MMU_TYPE_IOMMU) {
+		protflags = IOMMU_READ;
+		if (!(memdesc->flags & KGSL_MEMFLAGS_GPUREADONLY))
+			protflags |= IOMMU_WRITE;
+	}
+	return protflags;
+}
+
+static inline int
+kgsl_memdesc_use_cpu_map(const struct kgsl_memdesc *memdesc)
+{
+	return (memdesc->flags & KGSL_MEMFLAGS_USE_CPU_MAP) != 0;
+}
+
+static inline unsigned int
+kgsl_memdesc_mmapsize(const struct kgsl_memdesc *memdesc)
+{
+	unsigned int size = memdesc->size;
+	if (kgsl_memdesc_use_cpu_map(memdesc) &&
+		kgsl_memdesc_has_guard_page(memdesc))
+		size += SZ_4K;
+	return size;
+}
+
 static inline int
 kgsl_allocate(struct kgsl_memdesc *memdesc,
 		struct kgsl_pagetable *pagetable, size_t size)
 {
 	int ret = 1;
 
+	memdesc->priv |= (KGSL_MEMTYPE_KERNEL << KGSL_MEMTYPE_SHIFT);
 	if (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_NONE)
 		return kgsl_sharedmem_ebimem(memdesc, pagetable, size);
 
-	memdesc->flags |= (KGSL_MEMTYPE_KERNEL << KGSL_MEMTYPE_SHIFT);
 	if (size >= SZ_4M)
 		ret = kgsl_sharedmem_ion_alloc(memdesc, pagetable, size);
 
 	if (ret)
 		return kgsl_sharedmem_page_alloc(memdesc, pagetable, size);
 
+	if (ret)
+		return ret;
+	ret = kgsl_mmu_map(pagetable, memdesc);
+	if (ret)
+		kgsl_sharedmem_free(memdesc);
 	return ret;
 }
 
@@ -181,6 +238,9 @@ kgsl_allocate_user(struct kgsl_memdesc *memdesc,
 	int ret = 1;
 	char task_comm[TASK_COMM_LEN];
 
+	if (size == 0)
+		return -EINVAL;
+
 	memdesc->flags = flags;
 
 	if (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_NONE)
@@ -190,10 +250,10 @@ kgsl_allocate_user(struct kgsl_memdesc *memdesc,
 			ret = kgsl_sharedmem_ion_alloc_user(memdesc, private, pagetable, size);
 		else if ( size >= SZ_1M && strcmp("om.htc.launcher", get_task_comm(task_comm, current->group_leader)) == 0 )
 			ret = kgsl_sharedmem_ion_alloc_user(memdesc, private, pagetable, size);
+
 		if (ret)
 			ret = kgsl_sharedmem_page_alloc_user(memdesc, private, pagetable, size);
 	}
-
 	return ret;
 }
 

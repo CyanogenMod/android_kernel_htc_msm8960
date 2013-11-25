@@ -910,6 +910,7 @@ enum dhdhtc_pwr_ctrl{
 	DHDHTC_POWER_CTRL_USER_CONFIG,
 	DHDHTC_POWER_CTRL_WIFI_PHONE,
 	DHDHTC_POWER_CTRL_FOTA_DOWNLOADING,
+	DHDHTC_POWER_CTRL_KDDI_APK,
 	DHDHTC_POWER_CTRL_MAX_NUM,
 };
 extern int dhdhtc_update_wifi_power_mode(int is_screen_off);

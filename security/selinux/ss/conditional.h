@@ -17,41 +17,25 @@
 
 #define COND_EXPR_MAXDEPTH 10
 
-/*
- * A conditional expression is a list of operators and operands
- * in reverse polish notation.
- */
 struct cond_expr {
-#define COND_BOOL	1 /* plain bool */
-#define COND_NOT	2 /* !bool */
-#define COND_OR		3 /* bool || bool */
-#define COND_AND	4 /* bool && bool */
-#define COND_XOR	5 /* bool ^ bool */
-#define COND_EQ		6 /* bool == bool */
-#define COND_NEQ	7 /* bool != bool */
+#define COND_BOOL	1 
+#define COND_NOT	2 
+#define COND_OR		3 
+#define COND_AND	4 
+#define COND_XOR	5 
+#define COND_EQ		6 
+#define COND_NEQ	7 
 #define COND_LAST	COND_NEQ
 	__u32 expr_type;
 	__u32 bool;
 	struct cond_expr *next;
 };
 
-/*
- * Each cond_node contains a list of rules to be enabled/disabled
- * depending on the current value of the conditional expression. This
- * struct is for that list.
- */
 struct cond_av_list {
 	struct avtab_node *node;
 	struct cond_av_list *next;
 };
 
-/*
- * A cond node represents a conditional block in a policy. It
- * contains a conditional expression, the current state of the expression,
- * two lists of rules to enable/disable depending on the value of the
- * expression (the true list corresponds to if and the false list corresponds
- * to else)..
- */
 struct cond_node {
 	int cur_state;
 	struct cond_expr *expr;
@@ -77,4 +61,4 @@ void cond_compute_av(struct avtab *ctab, struct avtab_key *key, struct av_decisi
 
 int evaluate_cond_node(struct policydb *p, struct cond_node *node);
 
-#endif /* _CONDITIONAL_H_ */
+#endif 

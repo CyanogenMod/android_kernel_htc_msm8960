@@ -471,6 +471,8 @@ static int create_new_entry(struct fuse_conn *fc, struct fuse_req *req,
 			mutex_unlock(&fc->inst_mutex);
 			dput(alias);
 			iput(inode);
+			pr_info("fuse: %s -EBUSY (%s)\n", __func__,
+				entry->d_name.name);
 			return -EBUSY;
 		}
 		d_instantiate(entry, inode);
@@ -525,11 +527,29 @@ static int fuse_create(struct inode *dir, struct dentry *entry, umode_t mode,
 	return fuse_mknod(dir, entry, mode, 0);
 }
 
+static int fuse_lsof(struct inode *dir, struct dentry *entry)
+{
+	struct fuse_conn *fc = get_fuse_conn(dir);
+	struct fuse_req *req = fuse_get_req(fc);
+	if (IS_ERR(req))
+		return PTR_ERR(req);
+
+	req->in.h.opcode = FUSE_LSOF;
+	req->in.h.nodeid = get_node_id(dir);
+	req->in.numargs = 1;
+	req->in.args[0].size = entry->d_name.len + 1;
+	req->in.args[0].value = entry->d_name.name;
+	fuse_request_send(fc, req);
+	fuse_put_request(fc, req);
+	return 0;
+}
+
 static int fuse_mkdir(struct inode *dir, struct dentry *entry, umode_t mode)
 {
 	struct fuse_mkdir_in inarg;
 	struct fuse_conn *fc = get_fuse_conn(dir);
 	struct fuse_req *req = fuse_get_req(fc);
+	int ret;
 	if (IS_ERR(req))
 		return PTR_ERR(req);
 
@@ -545,7 +565,10 @@ static int fuse_mkdir(struct inode *dir, struct dentry *entry, umode_t mode)
 	req->in.args[0].value = &inarg;
 	req->in.args[1].size = entry->d_name.len + 1;
 	req->in.args[1].value = entry->d_name.name;
-	return create_new_entry(fc, req, dir, entry, S_IFDIR);
+	ret = create_new_entry(fc, req, dir, entry, S_IFDIR);
+	if (ret == -EBUSY)
+		fuse_lsof(dir, entry);
+	return ret;
 }
 
 static int fuse_symlink(struct inode *dir, struct dentry *entry,

@@ -1,9 +1,3 @@
-/*
- * Security server interface.
- *
- * Author : Stephen Smalley, <sds@epoch.ncsc.mil>
- *
- */
 
 #ifndef _SELINUX_SECURITY_H_
 #define _SELINUX_SECURITY_H_
@@ -13,11 +7,10 @@
 #include <linux/types.h>
 #include "flask.h"
 
-#define SECSID_NULL			0x00000000 /* unspecified SID */
-#define SECSID_WILD			0xffffffff /* wildcard SID */
-#define SECCLASS_NULL			0x0000 /* no class */
+#define SECSID_NULL			0x00000000 
+#define SECSID_WILD			0xffffffff 
+#define SECCLASS_NULL			0x0000 
 
-/* Identify specific policy version changes */
 #define POLICYDB_VERSION_BASE		15
 #define POLICYDB_VERSION_BOOL		16
 #define POLICYDB_VERSION_IPV6		17
@@ -32,7 +25,6 @@
 #define POLICYDB_VERSION_FILENAME_TRANS	25
 #define POLICYDB_VERSION_ROLETRANS	26
 
-/* Range of policy versions we understand*/
 #define POLICYDB_VERSION_MIN   POLICYDB_VERSION_BASE
 #ifdef CONFIG_SECURITY_SELINUX_POLICYDB_VERSION_MAX
 #define POLICYDB_VERSION_MAX	CONFIG_SECURITY_SELINUX_POLICYDB_VERSION_MAX_VALUE
@@ -40,14 +32,11 @@
 #define POLICYDB_VERSION_MAX	POLICYDB_VERSION_ROLETRANS
 #endif
 
-/* Mask for just the mount related flags */
 #define SE_MNTMASK	0x0f
-/* Super block security struct flags for mount options */
 #define CONTEXT_MNT	0x01
 #define FSCONTEXT_MNT	0x02
 #define ROOTCONTEXT_MNT	0x04
 #define DEFCONTEXT_MNT	0x08
-/* Non-mount related flags */
 #define SE_SBINITIALIZED	0x10
 #define SE_SBPROC		0x20
 #define SE_SBLABELSUPP	0x40
@@ -62,7 +51,6 @@ struct netlbl_lsm_secattr;
 
 extern int selinux_enabled;
 
-/* Policy capabilities */
 enum {
 	POLICYDB_CAPABILITY_NETPEER,
 	POLICYDB_CAPABILITY_OPENPERM,
@@ -73,14 +61,9 @@ enum {
 extern int selinux_policycap_netpeer;
 extern int selinux_policycap_openperm;
 
-/*
- * type_datum properties
- * available at the kernel policy version >= POLICYDB_VERSION_BOUNDARY
- */
 #define TYPEDATUM_PROPERTY_PRIMARY	0x0001
 #define TYPEDATUM_PROPERTY_ATTRIBUTE	0x0002
 
-/* limitation of boundary depth  */
 #define POLICYDB_BOUNDS_MAXDEPTH	4
 
 int security_mls_enabled(void);
@@ -100,7 +83,6 @@ struct av_decision {
 	u32 flags;
 };
 
-/* definitions of av_decision.flags */
 #define AVD_FLAGS_PERMISSIVE	0x0001
 
 void security_compute_av(u32 ssid, u32 tsid,
@@ -161,12 +143,12 @@ int security_get_permissions(char *class, char ***perms, int *nperms);
 int security_get_reject_unknown(void);
 int security_get_allow_unknown(void);
 
-#define SECURITY_FS_USE_XATTR		1 /* use xattr */
-#define SECURITY_FS_USE_TRANS		2 /* use transition SIDs, e.g. devpts/tmpfs */
-#define SECURITY_FS_USE_TASK		3 /* use task SIDs, e.g. pipefs/sockfs */
-#define SECURITY_FS_USE_GENFS		4 /* use the genfs support */
-#define SECURITY_FS_USE_NONE		5 /* no labeling support */
-#define SECURITY_FS_USE_MNTPOINT	6 /* use mountpoint labeling */
+#define SECURITY_FS_USE_XATTR		1 
+#define SECURITY_FS_USE_TRANS		2 
+#define SECURITY_FS_USE_TASK		3 
+#define SECURITY_FS_USE_GENFS		4 
+#define SECURITY_FS_USE_NONE		5 
+#define SECURITY_FS_USE_MNTPOINT	6 
 
 int security_fs_use(const char *fstype, unsigned int *behavior,
 	u32 *sid);
@@ -193,25 +175,19 @@ static inline int security_netlbl_sid_to_secattr(u32 sid,
 {
 	return -ENOENT;
 }
-#endif /* CONFIG_NETLABEL */
+#endif 
 
 const char *security_get_initial_sid_context(u32 sid);
 
-/*
- * status notifier using mmap interface
- */
 extern struct page *selinux_kernel_status_page(void);
 
 #define SELINUX_KERNEL_STATUS_VERSION	1
 struct selinux_kernel_status {
-	u32	version;	/* version number of thie structure */
-	u32	sequence;	/* sequence number of seqlock logic */
-	u32	enforcing;	/* current setting of enforcing mode */
-	u32	policyload;	/* times of policy reloaded */
-	u32	deny_unknown;	/* current setting of deny_unknown */
-	/*
-	 * The version > 0 supports above members.
-	 */
+	u32	version;	
+	u32	sequence;	
+	u32	enforcing;	
+	u32	policyload;	
+	u32	deny_unknown;	
 } __attribute__((packed));
 
 extern void selinux_status_update_setenforce(int enforcing);
@@ -225,5 +201,5 @@ extern void selnl_notify_setenforce(int val);
 extern void selnl_notify_policyload(u32 seqno);
 extern int selinux_nlmsg_lookup(u16 sclass, u16 nlmsg_type, u32 *perm);
 
-#endif /* _SELINUX_SECURITY_H_ */
+#endif 
 

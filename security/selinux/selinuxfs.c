@@ -31,8 +31,6 @@
 #include <linux/kobject.h>
 #include <linux/ctype.h>
 
-/* selinuxfs pseudo filesystem for exporting the security policy API.
-   Based on the proc code and the fs/nfsd/nfsctl.c code. */
 
 #include "flask.h"
 #include "avc.h"
@@ -41,7 +39,6 @@
 #include "objsec.h"
 #include "conditional.h"
 
-/* Policy capability filenames */
 static char *policycap_names[] = {
 	"network_peer_controls",
 	"open_perms"
@@ -60,22 +57,18 @@ __setup("checkreqprot=", checkreqprot_setup);
 
 static DEFINE_MUTEX(sel_mutex);
 
-/* global data for booleans */
 static struct dentry *bool_dir;
 static int bool_num;
 static char **bool_pending_names;
 static int *bool_pending_values;
 
-/* global data for classes */
 static struct dentry *class_dir;
 static unsigned long last_class_ino;
 
 static char policy_opened;
 
-/* global data for policy capabilities */
 static struct dentry *policycap_dir;
 
-/* Check whether a task is allowed to use a security operation. */
 static int task_has_security(struct task_struct *tsk,
 			     u32 perms)
 {
@@ -96,25 +89,25 @@ static int task_has_security(struct task_struct *tsk,
 
 enum sel_inos {
 	SEL_ROOT_INO = 2,
-	SEL_LOAD,	/* load policy */
-	SEL_ENFORCE,	/* get or set enforcing status */
-	SEL_CONTEXT,	/* validate context */
-	SEL_ACCESS,	/* compute access decision */
-	SEL_CREATE,	/* compute create labeling decision */
-	SEL_RELABEL,	/* compute relabeling decision */
-	SEL_USER,	/* compute reachable user contexts */
-	SEL_POLICYVERS,	/* return policy version for this kernel */
-	SEL_COMMIT_BOOLS, /* commit new boolean values */
-	SEL_MLS,	/* return if MLS policy is enabled */
-	SEL_DISABLE,	/* disable SELinux until next reboot */
-	SEL_MEMBER,	/* compute polyinstantiation membership decision */
-	SEL_CHECKREQPROT, /* check requested protection, not kernel-applied one */
-	SEL_COMPAT_NET,	/* whether to use old compat network packet controls */
-	SEL_REJECT_UNKNOWN, /* export unknown reject handling to userspace */
-	SEL_DENY_UNKNOWN, /* export unknown deny handling to userspace */
-	SEL_STATUS,	/* export current status using mmap() */
-	SEL_POLICY,	/* allow userspace to read the in kernel policy */
-	SEL_INO_NEXT,	/* The next inode number to use */
+	SEL_LOAD,	
+	SEL_ENFORCE,	
+	SEL_CONTEXT,	
+	SEL_ACCESS,	
+	SEL_CREATE,	
+	SEL_RELABEL,	
+	SEL_USER,	
+	SEL_POLICYVERS,	
+	SEL_COMMIT_BOOLS, 
+	SEL_MLS,	
+	SEL_DISABLE,	
+	SEL_MEMBER,	
+	SEL_CHECKREQPROT, 
+	SEL_COMPAT_NET,	
+	SEL_REJECT_UNKNOWN, 
+	SEL_DENY_UNKNOWN, 
+	SEL_STATUS,	
+	SEL_POLICY,	
+	SEL_INO_NEXT,	
 };
 
 static unsigned long sel_last_ino = SEL_INO_NEXT - 1;
@@ -149,7 +142,7 @@ static ssize_t sel_write_enforce(struct file *file, const char __user *buf,
 	if (count >= PAGE_SIZE)
 		goto out;
 
-	/* No partial writes. */
+	
 	length = EINVAL;
 	if (*ppos != 0)
 		goto out;
@@ -247,13 +240,13 @@ static int sel_mmap_handle_status(struct file *filp,
 
 	BUG_ON(!status);
 
-	/* only allows one page from the head */
+	
 	if (vma->vm_pgoff > 0 || size != PAGE_SIZE)
 		return -EIO;
-	/* disallow writable mapping */
+	
 	if (vma->vm_flags & VM_WRITE)
 		return -EPERM;
-	/* disallow mprotect() turns it into writable */
+	
 	vma->vm_flags &= ~VM_MAYWRITE;
 
 	return remap_pfn_range(vma, vma->vm_start,
@@ -281,7 +274,7 @@ static ssize_t sel_write_disable(struct file *file, const char __user *buf,
 	if (count >= PAGE_SIZE)
 		goto out;
 
-	/* No partial writes. */
+	
 	length = -EINVAL;
 	if (*ppos != 0)
 		goto out;
@@ -338,12 +331,10 @@ static const struct file_operations sel_policyvers_ops = {
 	.llseek		= generic_file_llseek,
 };
 
-/* declaration for sel_write_load */
 static int sel_make_bools(void);
 static int sel_make_classes(void);
 static int sel_make_policycap(void);
 
-/* declaration for sel_make_class_dirs */
 static struct dentry *sel_make_dir(struct dentry *dir, const char *name,
 			unsigned long *ino);
 
@@ -478,7 +469,7 @@ static struct vm_operations_struct sel_mmap_policy_ops = {
 static int sel_mmap_policy(struct file *filp, struct vm_area_struct *vma)
 {
 	if (vma->vm_flags & VM_SHARED) {
-		/* do not allow mprotect to make mapping writable */
+		
 		vma->vm_flags &= ~VM_MAYWRITE;
 
 		if (vma->vm_flags & VM_WRITE)
@@ -511,7 +502,7 @@ static ssize_t sel_write_load(struct file *file, const char __user *buf,
 	if (length)
 		goto out;
 
-	/* No partial writes. */
+	
 	length = -EINVAL;
 	if (*ppos != 0)
 		goto out;
@@ -620,7 +611,7 @@ static ssize_t sel_write_checkreqprot(struct file *file, const char __user *buf,
 	if (count >= PAGE_SIZE)
 		goto out;
 
-	/* No partial writes. */
+	
 	length = -EINVAL;
 	if (*ppos != 0)
 		goto out;
@@ -650,9 +641,6 @@ static const struct file_operations sel_checkreqprot_ops = {
 	.llseek		= generic_file_llseek,
 };
 
-/*
- * Remaining nodes use transaction based IO methods like nfsd/nfsctl.c
- */
 static ssize_t sel_write_access(struct file *file, char *buf, size_t size);
 static ssize_t sel_write_create(struct file *file, char *buf, size_t size);
 static ssize_t sel_write_relabel(struct file *file, char *buf, size_t size);
@@ -696,11 +684,6 @@ static const struct file_operations transaction_ops = {
 	.llseek		= generic_file_llseek,
 };
 
-/*
- * payload - write methods
- * If the method has a response, the response should be put in buf,
- * and the length returned.  Otherwise return 0 or and -error.
- */
 
 static ssize_t sel_write_access(struct file *file, char *buf, size_t size)
 {
@@ -784,13 +767,6 @@ static ssize_t sel_write_create(struct file *file, char *buf, size_t size)
 	if (nargs < 3 || nargs > 4)
 		goto out;
 	if (nargs == 4) {
-		/*
-		 * If and when the name of new object to be queried contains
-		 * either whitespace or multibyte characters, they shall be
-		 * encoded based on the percentage-encoding rule.
-		 * If not encoded, the sscanf logic picks up only left-half
-		 * of the supplied name; splitted by a whitespace unexpectedly.
-		 */
 		char   *r, *w;
 		int     c1, c2;
 
@@ -1094,7 +1070,7 @@ static ssize_t sel_write_bool(struct file *filep, const char __user *buf,
 	if (count >= PAGE_SIZE)
 		goto out;
 
-	/* No partial writes. */
+	
 	length = -EINVAL;
 	if (*ppos != 0)
 		goto out;
@@ -1148,7 +1124,7 @@ static ssize_t sel_commit_bools_write(struct file *filep,
 	if (count >= PAGE_SIZE)
 		goto out;
 
-	/* No partial writes. */
+	
 	length = -EINVAL;
 	if (*ppos != 0)
 		goto out;
@@ -1227,7 +1203,7 @@ static int sel_make_bools(void)
 	int *values = NULL;
 	u32 sid;
 
-	/* remove any existing files */
+	
 	for (i = 0; i < bool_num; i++)
 		kfree(bool_pending_names[i]);
 	kfree(bool_pending_names);
@@ -1329,7 +1305,7 @@ static ssize_t sel_write_avc_cache_threshold(struct file *file,
 	if (count >= PAGE_SIZE)
 		goto out;
 
-	/* No partial writes. */
+	
 	ret = -EINVAL;
 	if (*ppos != 0)
 		goto out;
@@ -1648,7 +1624,7 @@ static int sel_make_perm_files(char *objclass, int classvalue,
 			goto out;
 
 		inode->i_fop = &sel_perm_ops;
-		/* i+1 since perm values are 1-indexed */
+		
 		inode->i_ino = sel_perm_to_ino(classvalue, i + 1);
 		d_add(dentry, inode);
 	}
@@ -1717,14 +1693,14 @@ static int sel_make_classes(void)
 	int rc, nclasses, i;
 	char **classes;
 
-	/* delete any existing entries */
+	
 	sel_remove_classes();
 
 	rc = security_get_classes(&classes, &nclasses);
 	if (rc)
 		return rc;
 
-	/* +2 since classes are 1-indexed */
+	
 	last_class_ino = sel_class_to_ino(nclasses + 2);
 
 	for (i = 0; i < nclasses; i++) {
@@ -1737,7 +1713,7 @@ static int sel_make_classes(void)
 			goto out;
 		}
 
-		/* i+1 since class values are 1-indexed */
+		
 		rc = sel_make_class_dir_entries(classes[i], i + 1,
 				class_name_dir);
 		if (rc)
@@ -1799,10 +1775,10 @@ static struct dentry *sel_make_dir(struct dentry *dir, const char *name,
 	inode->i_op = &simple_dir_inode_operations;
 	inode->i_fop = &simple_dir_operations;
 	inode->i_ino = ++(*ino);
-	/* directory inodes start off with i_nlink == 2 (for "." entry) */
+	
 	inc_nlink(inode);
 	d_add(dentry, inode);
-	/* bump link count on parent directory, too */
+	
 	inc_nlink(dir->d_inode);
 
 	return dentry;
@@ -1833,7 +1809,7 @@ static int sel_fill_super(struct super_block *sb, void *data, int silent)
 		[SEL_DENY_UNKNOWN] = {"deny_unknown", &sel_handle_unknown_ops, S_IRUGO},
 		[SEL_STATUS] = {"status", &sel_handle_status_ops, S_IRUGO},
 		[SEL_POLICY] = {"policy", &sel_policy_ops, S_IRUSR},
-		/* last one */ {""}
+		 {""}
 	};
 	ret = simple_fill_super(sb, SELINUX_MAGIC, selinux_files);
 	if (ret)

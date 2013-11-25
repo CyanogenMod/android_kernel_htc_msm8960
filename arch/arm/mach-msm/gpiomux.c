@@ -83,6 +83,25 @@ int msm_gpiomux_get(unsigned gpio)
 }
 EXPORT_SYMBOL(msm_gpiomux_get);
 
+int msm_gpiomux_read(unsigned gpio)
+{
+	unsigned long irq_flags;
+	unsigned ret = 0;
+
+	if (!msm_gpiomux_recs)
+		return -EFAULT;
+
+	if (gpio >= msm_gpiomux_ngpio)
+		return -EINVAL;
+
+	spin_lock_irqsave(&gpiomux_lock, irq_flags);
+		ret = __msm_gpiomux_read(gpio);
+	spin_unlock_irqrestore(&gpiomux_lock, irq_flags);
+
+	return ret;
+}
+EXPORT_SYMBOL(msm_gpiomux_read);
+
 int msm_gpiomux_put(unsigned gpio)
 {
 	struct msm_gpiomux_rec *rec = msm_gpiomux_recs + gpio;

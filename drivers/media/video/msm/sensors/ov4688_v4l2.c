@@ -3,11 +3,20 @@
 #include "../yushanII/ilp0100_ST_definitions.h"
 #include "../yushanII/ilp0100_ST_api.h"
 
-#define SENSOR_NAME "ov4688"
+#define SENSOR_NAME_I2C_0X20 "ov4688_0x20"
+#define SENSOR_NAME_I2C_0X6C "ov4688_0x6c"
+
 #define PLATFORM_DRIVER_NAME "msm_camera_ov4688"
 #define ov4688_obj ov4688_##obj
 
 #define OV4688_REG_READ_MODE 0x0101
+
+#define OV4688_REG_FLIP_MODE 0x3820	
+#define OV4688_REG_MIRROR_MODE 0x3821	
+#define OV4688_REG_NON_MIRROR_FLIP 0x0000
+#define OV4688_REG_FLIP 0x6
+#define OV4688_REG_MIRROR 0x6
+
 #define OV4688_READ_NORMAL_MODE 0x0000	
 #define OV4688_READ_MIRROR 0x0001			
 #define OV4688_READ_FLIP 0x0002			
@@ -43,12 +52,21 @@ static struct msm_sensor_ctrl_t ov4688_s_ctrl;
 
 static struct msm_camera_i2c_reg_conf ov4688_start_settings[] = {
 	{0x0100, 0x01},
+
+	{0x301a, 0xf9},
+    {0xffff, 10},
+	{0x301a, 0xf1},
+	{0x4805, 0x00},
+	{0x301a, 0xf0},
+
 };
 
 static struct msm_camera_i2c_reg_conf ov4688_start_settings2[] = {
 	{0x3105, 0x11}, 
-	{0x301a, 0xf0}, 
-	{0x3208, 0x00}, 
+	{0x301a, 0xf1}, 
+	{0x4805, 0x00}, 
+    {0x301a, 0xf0},
+    {0x3208, 0x00},
 	{0x302a, 0x00}, 
 	{0x302a, 0x00}, 
 	{0x302a, 0x00}, 
@@ -63,26 +81,39 @@ static struct msm_camera_i2c_reg_conf ov4688_start_settings2[] = {
 
 static struct msm_camera_i2c_reg_conf ov4688_stop_settings[] = {
 
-	{0x3208, 0x00},
-
 	{0x0100, 0x00},
-
-    {0x3208, 0x10},
-    {0x3208, 0xa0},
+    {0xffff, 100},
+	{0x301a, 0xf9},
+	{0x4805, 0x03},
 };
 
 static struct msm_camera_i2c_reg_conf ov4688_groupon_settings[] = {
-
+	{0x3208, 0x00},
 };
 
 static struct msm_camera_i2c_reg_conf ov4688_groupoff_settings[] = {
-
+    {0x3208, 0x10},
+	{0x3208, 0xa0},
 };
 
+static struct msm_camera_i2c_reg_conf ov4688_groupon_settings_hdr[] = {
+	{0x3208, 0x01},
+};
+
+static struct msm_camera_i2c_reg_conf ov4688_groupoff_settings_hdr[] = {
+    {0x3208, 0x11},
+};
 
  struct msm_camera_i2c_reg_conf ov4688_prev_settings[] = {
-#if 1
-	{0x4308 , 0x02+1}, 
+    {0xffff, 200},
+    
+    {0x3841 , 0x02},
+    {0x3846 , 0x08},
+    {0x3847 , 0x07},
+    {0x4800 , 0x04},
+    {0x376e , 0x00},
+
+	
 	{0x3632, 0x05},
 	{0x376b, 0x40},
 	{0x3800, 0x00},
@@ -126,58 +157,11 @@ static struct msm_camera_i2c_reg_conf ov4688_groupoff_settings[] = {
 	{0x4502, 0x44},
 	{0x4601, 0x28},
 	{0x5050, 0x0c}, 
-#else
-    {0x4308 , 0x02}, 
-    {0x3632, 0x05},
-    {0x376b, 0x40},
-    {0x3800, 0x00},
-    {0x3801, 0x08},
-    {0x3802, 0x00},
-    {0x3803, 0x04},
-    {0x3804, 0x0a},
-    {0x3805, 0x97},
-    {0x3806, 0x05},
-    {0x3807, 0xff},
-    {0x3808, 0x05},
-    {0x3809, 0x40},
-    {0x380a, 0x02},
-    {0x380b, 0xf8},
-    {0x380c, 0x04}, 
-    {0x380d, 0xe6},
-    {0x380e, 0x03},
-    {0x380f, 0x1d},
-    {0x3810, 0x00},
-    {0x3811, 0x04},
-    {0x3812, 0x00},
-    {0x3813, 0x02},
-    {0x3814, 0x03},
-    {0x3815, 0x01},
-    {0x3819, 0x01},
-    {0x3820, 0x00},
-    {0x3821, 0x07},
-    {0x3829, 0x00},
-    {0x382a, 0x03},
-    {0x382b, 0x01},
-    {0x382d, 0x7f},
-    {0x3830, 0x08},
-    {0x3836, 0x02},
-    {0x4001, 0x50},
-    {0x4022, 0x03},
-    {0x4023, 0xe7},
-    {0x4024, 0x05},
-    {0x4025, 0x14},
-    {0x4026, 0x05},
-    {0x4027, 0x23},
-    {0x4502, 0x44},
-    {0x4601, 0x28},
-    {0x5050, 0x0c},
-
-#endif
 };
 
 static struct msm_camera_i2c_reg_conf ov4688_video_settings[] = {
 
-
+    {0xffff, 200},
     {0x3632, 0x00},
     {0x376b, 0x20},
 
@@ -187,7 +171,7 @@ static struct msm_camera_i2c_reg_conf ov4688_video_settings[] = {
     {0x3847 , 0x07},
     {0x4800 , 0x04},
     {0x376e , 0x00},
-    {0x4308 , 0x02+1}, 
+    
 
 
     {0x3800, 0x00},
@@ -235,7 +219,16 @@ static struct msm_camera_i2c_reg_conf ov4688_video_settings[] = {
 };
 
 struct msm_camera_i2c_reg_conf ov4688_fast_video_settings[] = {
-    {0x4308, 0x02+1}, 
+    
+    {0xffff, 200},
+
+    
+    {0x3841 , 0x02},
+    {0x3846 , 0x08},
+    {0x3847 , 0x07},
+    {0x4800 , 0x04},
+    {0x376e , 0x00},
+
     {0x3632, 0x05},
     {0x376b, 0x40},
     {0x3800, 0x00},
@@ -283,67 +276,12 @@ struct msm_camera_i2c_reg_conf ov4688_fast_video_settings[] = {
 };
 
 struct msm_camera_i2c_reg_conf ov4688_4_3_settings[] = {
-#if 1
-
-{0x3632 , 0x00},
-{0x376b , 0x20},
+    {0xffff, 200},
 
 
-{0x3841 , 0x02},
-{0x3846 , 0x08},
-{0x3847 , 0x07},
-{0x4800 , 0x04},
-{0x376e , 0x00},
-{0x4308 , 0x02+1}, 
+    {0x3632 , 0x00},
+    {0x376b , 0x20},
 
-
-{0x3800 , 0x01},
-{0x3801 , 0x34},
-{0x3802 , 0x00},
-{0x3803 , 0x04},
-{0x3804 , 0x09},
-{0x3805 , 0x4f},
-{0x3806 , 0x05},
-{0x3807 , 0xfb},
-{0x3808 , 0x08},
-{0x3809 , 0x04},
-{0x380a , 0x05},
-{0x380b , 0xf0+1},
-{0x380c , 0x05},
-{0x380d , 0xc0},
-{0x380e , 0x06},
-{0x380f , 0x60},
-{0x3810 , 0x00},
-{0x3811 , 0x04},
-{0x3812 , 0x00},
-{0x3813 , 0x04-1},
-{0x3814 , 0x01},
-{0x3815 , 0x01},
-{0x3819 , 0x01},
-{0x3820 , 0x00},
-{0x3821 , 0x06},
-{0x3829 , 0x00},
-{0x382a , 0x01},
-{0x382b , 0x01},
-{0x382d , 0x7f},
-{0x3830 , 0x04},
-{0x3836 , 0x01},
-
-{0x4001 , 0x40},
-{0x4022 , 0x06},
-{0x4023 , 0x3f},
-{0x4024 , 0x07},
-{0x4025 , 0x6c},
-{0x4026 , 0x07},
-{0x4027 , 0x7b},
-{0x4502 , 0x40},
-{0x4601 , 0x04},
-{0x5050 , 0x0c},
-
-
-#else
-    {0x3632, 0x00},
-    {0x376b, 0x20},
 
     
     {0x3841 , 0x02},
@@ -351,57 +289,56 @@ struct msm_camera_i2c_reg_conf ov4688_4_3_settings[] = {
     {0x3847 , 0x07},
     {0x4800 , 0x04},
     {0x376e , 0x00},
-    {0x4308 , 0x02}, 
+    
 
-	{0x3800, 0x01},
-	{0x3801, 0x38},
-	{0x3802, 0x00},
-	{0x3803, 0x04},
-	{0x3804, 0x09},
-	{0x3805, 0x4f},
-	{0x3806, 0x05},
-	{0x3807, 0xfb},
-	{0x3808, 0x08},
-	{0x3809, 0x00},
-	{0x380a, 0x05},
-	{0x380b, 0xf0},
-	{0x380c, 0x05},
-	{0x380d, 0xbd},
-	{0x380e, 0x06},
-	{0x380f, 0x60},
-	{0x3810, 0x00},
-	{0x3811, 0x00},
-	{0x3812, 0x00},
-	{0x3813, 0x00},
-	{0x3814, 0x01},
-	{0x3815, 0x01},
-	{0x3819, 0x01},
-	{0x3820, 0x00},
-	{0x3821, 0x06},
-	{0x3829, 0x00},
-	{0x382a, 0x01},
-	{0x382b, 0x01},
-	{0x382d, 0x7f},
-	{0x3830, 0x04},
-	{0x3836, 0x01},
 
-    {0x4001, 0x40},
-    {0x4022, 0x07},
-    {0x4023, 0xcf},
-    {0x4024, 0x09},
-    {0x4025, 0x60},
-    {0x4026, 0x09},
-    {0x4027, 0x6f},
-    {0x4502, 0x40},
-    {0x4601, 0x04},
-    {0x5050, 0x0c},
-#endif
+    {0x3800 , 0x01},
+    {0x3801 , 0x34},
+    {0x3802 , 0x00},
+    {0x3803 , 0x04},
+    {0x3804 , 0x09},
+    {0x3805 , 0x4f},
+    {0x3806 , 0x05},
+    {0x3807 , 0xfb},
+    {0x3808 , 0x08},
+    {0x3809 , 0x04},
+    {0x380a , 0x05},
+    {0x380b , 0xf0+1},
+    {0x380c , 0x05},
+    {0x380d , 0xc0},
+    {0x380e , 0x06},
+    {0x380f , 0x60},
+    {0x3810 , 0x00},
+    {0x3811 , 0x04},
+    {0x3812 , 0x00},
+    {0x3813 , 0x04-1},
+    {0x3814 , 0x01},
+    {0x3815 , 0x01},
+    {0x3819 , 0x01},
+    {0x3820 , 0x00},
+    {0x3821 , 0x06},
+    {0x3829 , 0x00},
+    {0x382a , 0x01},
+    {0x382b , 0x01},
+    {0x382d , 0x7f},
+    {0x3830 , 0x04},
+    {0x3836 , 0x01},
+
+    {0x4001 , 0x40},
+    {0x4022 , 0x06},
+    {0x4023 , 0x3f},
+    {0x4024 , 0x07},
+    {0x4025 , 0x6c},
+    {0x4026 , 0x07},
+    {0x4027 , 0x7b},
+    {0x4502 , 0x40},
+    {0x4601 , 0x04},
+    {0x5050 , 0x0c},
 };
 
 static struct msm_camera_i2c_reg_conf ov4688_hdr_settings[] = {
-	
-	
-#if 1
+    {0xffff, 200},
+
 
    {0x3632 , 0x00},
    {0x376b , 0x20},
@@ -451,7 +388,6 @@ static struct msm_camera_i2c_reg_conf ov4688_hdr_settings[] = {
    {0x4601 , 0x04 },
    {0x5050 , 0x0c },
 
- #endif
    {0x3841 , 0x03},
    {0x3846 , 0x08},
    {0x3847 , 0x06},
@@ -461,6 +397,7 @@ static struct msm_camera_i2c_reg_conf ov4688_hdr_settings[] = {
 };
 
 struct msm_camera_i2c_reg_conf ov4688_16_9_settings_non_hdr[] = {
+    {0xffff, 200},
 
     {0x3632, 0x00},
     {0x376b, 0x20},
@@ -471,7 +408,7 @@ struct msm_camera_i2c_reg_conf ov4688_16_9_settings_non_hdr[] = {
     {0x3847 , 0x07},
     {0x4800 , 0x04},
     {0x376e , 0x00},
-    {0x4308 , 0x02|1}, 
+   
 
     {0x3800, 0x00},
     {0x3801, 0x00},
@@ -521,7 +458,7 @@ static struct msm_camera_i2c_reg_conf ov4688_recommend_settings[] = {
     {0x0103, 0x01},
     {0x3638, 0x00},
     {0x0300, 0x00},
-    {0x0302, 0x32},
+    {0x0302, 0x30}, 
     {0x0303, 0x01}, 
     {0x0304, 0x03},
     {0x030b, 0x00},
@@ -534,6 +471,7 @@ static struct msm_camera_i2c_reg_conf ov4688_recommend_settings[] = {
     {0x3002, 0x00},
     {0x3018, 0x72},
     {0x3020, 0x93},
+    {0x3021, 0x03}, 
     {0x3022, 0x01},
     {0x3031, 0x0a},
     {0x3305, 0xf1},
@@ -542,7 +480,7 @@ static struct msm_camera_i2c_reg_conf ov4688_recommend_settings[] = {
     {0x3500, 0x00},
     {0x3501, 0x60},
     {0x3502, 0x00},
-    {0x3503, 0x04},
+    {0x3503, 0x04}, 
     {0x3504, 0x00},
     {0x3505, 0x00},
     {0x3506, 0x00},
@@ -579,6 +517,9 @@ static struct msm_camera_i2c_reg_conf ov4688_recommend_settings[] = {
     {0x3528, 0x08},
     {0x352a, 0x08},
     {0x3602, 0x00},
+
+	{0x3603, 0x01},    
+
     {0x3604, 0x02},
     {0x3605, 0x00},
     {0x3606, 0x00},
@@ -688,7 +629,7 @@ static struct msm_camera_i2c_reg_conf ov4688_recommend_settings[] = {
     {0x4304, 0x00},
     {0x4305, 0x00},
     {0x4306, 0x00},
-    {0x4308 , 0x02}, 
+    {0x4308 , 0x03}, 
 
     {0x4500, 0x6c},
     {0x4501, 0xc4},
@@ -697,11 +638,11 @@ static struct msm_camera_i2c_reg_conf ov4688_recommend_settings[] = {
     {0x4813, 0x08},
     {0x481f, 0x40},
     {0x4829, 0x78},
-    {0x4837, 0x1b},
+    {0x4837, 0x1c},
     {0x4b00, 0x2a},
     {0x4b0d, 0x00},
     {0x4d00, 0x04},
-    {0x4d01, 0x18},
+    {0x4d01, 0x42}, 
     {0x4d02, 0xd1},
     {0x4d03, 0x93},
     {0x4d04, 0xf5},
@@ -712,6 +653,14 @@ static struct msm_camera_i2c_reg_conf ov4688_recommend_settings[] = {
     {0x500a, 0x00},
     {0x500b, 0x00},
     {0x5032, 0x00},
+
+	
+	{0x5500, 0x00},
+	{0x5501, 0x10},
+	{0x5502, 0x01},
+	{0x5503, 0x0f},
+	
+
     {0x5040, 0x00},
     {0x8000, 0x00},
     {0x8001, 0x00},
@@ -724,13 +673,20 @@ static struct msm_camera_i2c_reg_conf ov4688_recommend_settings[] = {
     {0x8008, 0x00},
     {0x3638, 0x00},
     {0x3105, 0x31},
-    {0x301a, 0xf1},
-    {0x3508, 0x07},
-    {0x3601, 0x01},
+    {0x301a, 0xf9}, 
+
+	
+	{0x484b, 0x05},
+	{0x4805, 0x03},
+	{0x3508, 0x07},
+	{0x3601, 0x01},
+	{0x3603, 0x01},
+	
 };
 
 static struct msm_camera_i2c_reg_conf ov4688_zoe_settings[] = {
 
+    {0xffff, 200},
 
     {0x3632, 0x00},
     {0x376b, 0x20},
@@ -741,7 +697,7 @@ static struct msm_camera_i2c_reg_conf ov4688_zoe_settings[] = {
     {0x3847 , 0x07},
     {0x4800 , 0x04},
     {0x376e , 0x00},
-    {0x4308 , 0x02+1}, 
+    
 
 
     {0x3800, 0x00},
@@ -756,10 +712,14 @@ static struct msm_camera_i2c_reg_conf ov4688_zoe_settings[] = {
     {0x3809, 0x80},
     {0x380a, 0x05},
     {0x380b, 0xf0+1}, 
-    {0x380c, 0x06},
-    {0x380d, 0x48},
-    {0x380e, 0x06},
-    {0x380f, 0x12},
+    {0x380c, 0x09},
+    {0x380d, 0x10},
+    {0x380e, 0x09},
+    {0x380f, 0x2d},
+
+    
+    
+
     {0x3810, 0x00},
     {0x3811, 0x10},
     {0x3812, 0x00},
@@ -785,7 +745,6 @@ static struct msm_camera_i2c_reg_conf ov4688_zoe_settings[] = {
     {0x4502, 0x40},
     {0x4601, 0x04},
     {0x5050, 0x0c},
-
 };
 
 static struct v4l2_subdev_info ov4688_subdev_info[] = {
@@ -825,7 +784,8 @@ static struct msm_camera_i2c_conf_array ov4688_confs[] = {
 
 #define ADD_FRAME_LENGTH_LINES 0x00
 #define ADD_LINE_LENGTH 0x0
-#define PIXEL_CLK 240000000 
+#define PIXEL_CLK 230400000 
+#define De_flicker_pixel_clk 240000000
 
 static struct msm_sensor_output_info_t ov4688_dimensions[] = {
 	{
@@ -835,7 +795,7 @@ static struct msm_sensor_output_info_t ov4688_dimensions[] = {
 		.y_output = 0x5F0+1, 
 		.line_length_pclk = 0x6c0+ADD_LINE_LENGTH,
 		.frame_length_lines = 0x612+ADD_FRAME_LENGTH_LINES,
-		.vt_pixel_clk = PIXEL_CLK,
+		.vt_pixel_clk = De_flicker_pixel_clk,
 		.op_pixel_clk = PIXEL_CLK,
 		.binning_factor = 1,
 		.is_hdr = 0,
@@ -848,7 +808,7 @@ static struct msm_sensor_output_info_t ov4688_dimensions[] = {
 		.y_output = 0x2F8+1, 
 		.line_length_pclk = 0xa00+ADD_LINE_LENGTH,  
 		.frame_length_lines = 0x31d+ADD_FRAME_LENGTH_LINES,
-		.vt_pixel_clk = PIXEL_CLK,
+		.vt_pixel_clk = De_flicker_pixel_clk,
 		.op_pixel_clk = PIXEL_CLK,
 		.binning_factor = 2,
 		.is_hdr = 0,
@@ -863,7 +823,7 @@ static struct msm_sensor_output_info_t ov4688_dimensions[] = {
 		.y_output = 0x5F0+1, 
 		.line_length_pclk = 0x9f0+ADD_LINE_LENGTH,
 		.frame_length_lines = 0x612+ADD_FRAME_LENGTH_LINES,
-		.vt_pixel_clk = PIXEL_CLK,
+		.vt_pixel_clk = De_flicker_pixel_clk,
 		.op_pixel_clk = PIXEL_CLK,
 		.binning_factor = 1,
 		.is_hdr = 0,
@@ -876,7 +836,7 @@ static struct msm_sensor_output_info_t ov4688_dimensions[] = {
 		.y_output = 0x2F8+1, 
 		.line_length_pclk = 0x600+ADD_LINE_LENGTH,  
 		.frame_length_lines = 0x31d+ADD_FRAME_LENGTH_LINES,
-		.vt_pixel_clk = PIXEL_CLK,
+		.vt_pixel_clk = De_flicker_pixel_clk,
 		.op_pixel_clk = PIXEL_CLK,
 		.binning_factor = 2,
 		.is_hdr = 0,
@@ -888,9 +848,9 @@ static struct msm_sensor_output_info_t ov4688_dimensions[] = {
 	{
 		.x_output = 1952, 
 		.y_output = 1089, 
-		.line_length_pclk = 0x8c0+ADD_LINE_LENGTH,
+		.line_length_pclk = 0xaaa+ADD_LINE_LENGTH,
 		.frame_length_lines = 0x4c0+ADD_FRAME_LENGTH_LINES,
-		.vt_pixel_clk = PIXEL_CLK,
+		.vt_pixel_clk = De_flicker_pixel_clk,
 		.op_pixel_clk = PIXEL_CLK,
 		.binning_factor = 1,
 		.is_hdr = 1,
@@ -906,7 +866,7 @@ static struct msm_sensor_output_info_t ov4688_dimensions[] = {
         .y_output = 0x5F0+1, 
         .line_length_pclk = 0x6c0,
         .frame_length_lines = 0x660+ADD_FRAME_LENGTH_LINES,
-        .vt_pixel_clk = PIXEL_CLK,
+        .vt_pixel_clk = De_flicker_pixel_clk,
         .op_pixel_clk = PIXEL_CLK,
         .binning_factor = 1,
         .is_hdr = 0,
@@ -919,7 +879,7 @@ static struct msm_sensor_output_info_t ov4688_dimensions[] = {
         .y_output = 0x2F8+1, 
         .line_length_pclk = 0x600+ADD_LINE_LENGTH,  
         .frame_length_lines = 0x31d+ADD_FRAME_LENGTH_LINES,
-        .vt_pixel_clk = PIXEL_CLK,
+        .vt_pixel_clk = De_flicker_pixel_clk,
         .op_pixel_clk = PIXEL_CLK,
         .binning_factor = 2,
         .is_hdr = 0,
@@ -934,7 +894,7 @@ static struct msm_sensor_output_info_t ov4688_dimensions[] = {
 		.y_output = 0x5F0+1, 
 		.line_length_pclk = 0x6c0+ADD_LINE_LENGTH,
 		.frame_length_lines = 0x612+ADD_FRAME_LENGTH_LINES,
-		.vt_pixel_clk = PIXEL_CLK,
+		.vt_pixel_clk = De_flicker_pixel_clk,
 		.op_pixel_clk = PIXEL_CLK,
 		.binning_factor = 1,
 		.is_hdr = 0,
@@ -947,9 +907,9 @@ static struct msm_sensor_output_info_t ov4688_dimensions[] = {
 		.y_addr_start = 0x0,
 		.x_output = 0xA80, 
 		.y_output = 0x5F0+1, 
-		.line_length_pclk = 0x6c0*2+ADD_LINE_LENGTH,
-		.frame_length_lines = 0x612+ADD_FRAME_LENGTH_LINES,
-		.vt_pixel_clk = PIXEL_CLK,
+		.line_length_pclk = 0x910,
+		.frame_length_lines = 0x92d,
+		.vt_pixel_clk = De_flicker_pixel_clk,
 		.op_pixel_clk = PIXEL_CLK, 
 		.binning_factor = 1,
 		.is_hdr = 0,
@@ -1002,14 +962,17 @@ static struct msm_sensor_id_info_t ov4688_id_info = {
 	.sensor_id_reg_addr = 0x300A,
 	.sensor_id = 0x4688,
 };
+#define SENSOR_REGISTER_MAX_LINECOUNT 0xffff
+#define SENSOR_VERT_OFFSET 25
 
 static struct msm_sensor_exp_gain_info_t ov4688_exp_gain_info = {
 	.coarse_int_time_addr = 0x3500,
 	.global_gain_addr = 0x3508,
-	.vert_offset = 25,
+	.vert_offset = SENSOR_VERT_OFFSET, 
 	.min_vert = 4,  
-	.sensor_max_linecount = 65531,  
+	.sensor_max_linecount = SENSOR_REGISTER_MAX_LINECOUNT - SENSOR_VERT_OFFSET,  
 };
+#define SENSOR_VERT_OFFSET_HDR 4
 
 static struct ov4688_hdr_exp_info_t ov4688_hdr_gain_info = {
 	.long_coarse_int_time_addr_h = 0x3500,
@@ -1024,8 +987,8 @@ static struct ov4688_hdr_exp_info_t ov4688_hdr_gain_info = {
 	.middle_gain_addr_h = 0x350D,
 	.middle_gain_addr_m = 0x350E,
 	.middle_gain_addr_l = 0x350F,
-	.vert_offset = 4,
-	.sensor_max_linecount = 65531,  
+	.vert_offset = SENSOR_VERT_OFFSET_HDR,
+	.sensor_max_linecount = SENSOR_REGISTER_MAX_LINECOUNT-SENSOR_VERT_OFFSET_HDR,  
 };
 
 int32_t ov4688_set_dig_gain(struct msm_sensor_ctrl_t *s_ctrl, uint16_t dig_gain)
@@ -1049,29 +1012,45 @@ int32_t ov4688_set_dig_gain(struct msm_sensor_ctrl_t *s_ctrl, uint16_t dig_gain)
 static int ov4688_sensor_open_init(const struct msm_camera_sensor_info *data)
 {
 	int rc = 0;
-	uint16_t value = 0;
 
 	if (data->sensor_platform_info)
 		ov4688_s_ctrl.mirror_flip = data->sensor_platform_info->mirror_flip;
 
-    pr_info("ov4688_sensor_open_init,ov4688_s_ctrl.mirror_flip=%d",ov4688_s_ctrl.mirror_flip);
+	ov4688_s_ctrl.actived_ae = false;	
+    pr_info("%s: ov4688_s_ctrl.mirror_flip=%d", __func__, ov4688_s_ctrl.mirror_flip);
+
+	 return rc;
+}
+
+
+int ov4688_write_output_settings_specific(struct msm_sensor_ctrl_t *s_ctrl,
+       uint16_t res)
+{
+	int rc = 0;
+	int16_t read_data = 0;
+
+    pr_info("%s: ov4688_s_ctrl.mirror_flip=%d", __func__, ov4688_s_ctrl.mirror_flip);
+
+	msm_camera_i2c_read(ov4688_s_ctrl.sensor_i2c_client, OV4688_REG_MIRROR_MODE, &read_data, MSM_CAMERA_I2C_BYTE_DATA);
+	read_data = read_data & 0x1;    
 
 	
-	if (ov4688_s_ctrl.mirror_flip == CAMERA_SENSOR_MIRROR_FLIP)
-		value = OV4688_READ_MIRROR_FLIP;
-	else if (ov4688_s_ctrl.mirror_flip == CAMERA_SENSOR_MIRROR)
-		value = OV4688_READ_MIRROR;
-	else if (ov4688_s_ctrl.mirror_flip == CAMERA_SENSOR_FLIP)
-		value = OV4688_READ_FLIP;
-	else
-		value = OV4688_READ_NORMAL_MODE;
-
-    pr_info("ov4688_sensor_open_init,value=%d",value);
-	msm_camera_i2c_write(ov4688_s_ctrl.sensor_i2c_client,
-		OV4688_REG_READ_MODE, value, MSM_CAMERA_I2C_BYTE_DATA);
+	if (ov4688_s_ctrl.mirror_flip == CAMERA_SENSOR_MIRROR_FLIP) {
+		msm_camera_i2c_write(ov4688_s_ctrl.sensor_i2c_client, OV4688_REG_FLIP_MODE, OV4688_REG_FLIP, MSM_CAMERA_I2C_BYTE_DATA);
+		msm_camera_i2c_write(ov4688_s_ctrl.sensor_i2c_client, OV4688_REG_MIRROR_MODE, (OV4688_REG_MIRROR | read_data), MSM_CAMERA_I2C_BYTE_DATA);
+	}       else if (ov4688_s_ctrl.mirror_flip == CAMERA_SENSOR_MIRROR) {
+		msm_camera_i2c_write(ov4688_s_ctrl.sensor_i2c_client, OV4688_REG_FLIP_MODE, OV4688_REG_NON_MIRROR_FLIP, MSM_CAMERA_I2C_BYTE_DATA);
+		msm_camera_i2c_write(ov4688_s_ctrl.sensor_i2c_client, OV4688_REG_MIRROR_MODE, (OV4688_REG_MIRROR | read_data), MSM_CAMERA_I2C_BYTE_DATA);
+	} else if (ov4688_s_ctrl.mirror_flip == CAMERA_SENSOR_FLIP) {
+		msm_camera_i2c_write(ov4688_s_ctrl.sensor_i2c_client, OV4688_REG_FLIP_MODE, OV4688_REG_FLIP, MSM_CAMERA_I2C_BYTE_DATA);
+		msm_camera_i2c_write(ov4688_s_ctrl.sensor_i2c_client, OV4688_REG_MIRROR_MODE, (OV4688_REG_NON_MIRROR_FLIP | read_data), MSM_CAMERA_I2C_BYTE_DATA);
+	}       else {
+		msm_camera_i2c_write(ov4688_s_ctrl.sensor_i2c_client, OV4688_REG_FLIP_MODE, OV4688_REG_NON_MIRROR_FLIP, MSM_CAMERA_I2C_BYTE_DATA);
+		msm_camera_i2c_write(ov4688_s_ctrl.sensor_i2c_client, OV4688_REG_MIRROR_MODE, (OV4688_REG_NON_MIRROR_FLIP | read_data), MSM_CAMERA_I2C_BYTE_DATA);
+	}
 
 	return rc;
-}
+ }
 
 static const char *ov4688Vendor = "ov";
 static const char *ov4688NAME = "ov4688";
@@ -1129,27 +1108,47 @@ int32_t ov4688_i2c_probe(struct i2c_client *client,
 	return rc;
 }
 
-static const struct i2c_device_id ov4688_i2c_id[] = {
-	{SENSOR_NAME, (kernel_ulong_t)&ov4688_s_ctrl},
+static const struct i2c_device_id ov4688_i2c_0x20_id[] = {
+	{SENSOR_NAME_I2C_0X20, (kernel_ulong_t)&ov4688_s_ctrl},
 	{ }
 };
 
-static struct i2c_driver ov4688_i2c_driver = {
-	.id_table = ov4688_i2c_id,
+static struct i2c_driver ov4688_i2c_0x20_driver = {
+	.id_table = ov4688_i2c_0x20_id,
 	.probe  = ov4688_i2c_probe,
 	.driver = {
-		.name = SENSOR_NAME,
+		.name = SENSOR_NAME_I2C_0X20,
 	},
 };
+
+static const struct i2c_device_id ov4688_i2c_0x6c_id[] = {
+	{SENSOR_NAME_I2C_0X6C, (kernel_ulong_t)&ov4688_s_ctrl},
+	{ }
+};
+
+static struct i2c_driver ov4688_i2c_0x6c_driver = {
+	.id_table = ov4688_i2c_0x6c_id,
+	.probe  = ov4688_i2c_probe,
+	.driver = {
+		.name = SENSOR_NAME_I2C_0X6C,
+	},
+};
+
 
 static struct msm_camera_i2c_client ov4688_sensor_i2c_client = {
 	.addr_type = MSM_CAMERA_I2C_WORD_ADDR,
 };
 
+
+static int ov4688_read_fuseid(struct sensor_cfg_data *cdata,
+	struct msm_sensor_ctrl_t *s_ctrl);
+static int power_on=false;
 int32_t ov4688_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	int rc;
 	struct msm_camera_sensor_info *sdata = NULL;
+	struct sensor_cfg_data cdata;
+	power_on=true;
 	pr_info("%s called\n", __func__);
 
 	if (s_ctrl && s_ctrl->sensordata)
@@ -1189,6 +1188,8 @@ int32_t ov4688_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	mdelay(5);
 
 	ov4688_sensor_open_init(sdata);
+
+	ov4688_read_fuseid(&cdata,s_ctrl);
 	return rc;
 
 enable_sensor_power_up_failed:
@@ -1206,6 +1207,7 @@ int32_t ov4688_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	int rc;
 	struct msm_camera_sensor_info *sdata = NULL;
+	power_on=false;
 	pr_info("%s called\n", __func__);
 
 	if (s_ctrl && s_ctrl->sensordata)
@@ -1220,10 +1222,6 @@ int32_t ov4688_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 		return -EIO;
 	}
 
-	rc = sdata->camera_power_off();
-	if (rc < 0)
-		pr_info("%s: failed to disable power\n", __func__);
-
 	rc = msm_sensor_set_power_down(s_ctrl);
 	if (rc < 0)
 		pr_info("%s: msm_sensor_power_down failed\n", __func__);
@@ -1235,13 +1233,25 @@ int32_t ov4688_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 				 __func__, rc);
 	}
 
+	rc = sdata->camera_power_off();
+	if (rc < 0)
+		pr_info("%s: failed to disable power\n", __func__);
+
 	return rc;
 }
 
 static int __init msm_sensor_init_module(void)
 {
+    int rc =0;
 	pr_info("ov4688 %s\n", __func__);
-	return i2c_add_driver(&ov4688_i2c_driver);
+	rc = i2c_add_driver(&ov4688_i2c_0x6c_driver);
+    if (!rc) {
+	    pr_info("ov4688 %s with i2c address 0x6c fail, try 0x20\n", __func__);
+        ov4688_s_ctrl.sensor_i2c_addr = 0x20;
+        ov4688_s_ctrl.sensor_i2c_driver = &ov4688_i2c_0x20_driver;
+        rc = i2c_add_driver(&ov4688_i2c_0x20_driver);
+    }
+    return rc;
 }
 
 static struct v4l2_subdev_core_ops ov4688_subdev_core_ops = {
@@ -1258,6 +1268,45 @@ static struct v4l2_subdev_ops ov4688_subdev_ops = {
 	.video  = &ov4688_subdev_video_ops,
 };
 
+
+static int ov4688_lookup_actuator(struct msm_sensor_ctrl_t *s_ctrl, char *actuator_name)
+{
+	int i;
+	struct msm_camera_sensor_info *sdata;
+	struct msm_actuator_info *actuator_info;
+	int actuator_index = -1;
+
+	if ((s_ctrl == NULL) || (s_ctrl->sensordata == NULL))
+		return -EFAULT;
+	if (actuator_name == NULL)
+		return -EFAULT;
+
+	sdata = (struct msm_camera_sensor_info *) s_ctrl->sensordata;
+
+	for(i=0; i<sdata->num_actuator_info_table; i++) {
+		actuator_info = &sdata->actuator_info_table[i][0];
+		pr_info("index=%d   actuator_info->board_info->type=%s\n", i, actuator_info->board_info->type);
+		if(!strncmp(actuator_info->board_info->type, actuator_name, strlen(actuator_name))) {
+			actuator_index = i;
+			break;
+		}
+	}
+
+	return actuator_index;
+}
+
+#if defined(CONFIG_ACT_OIS_BINDER)
+extern void HtcActOisBinder_set_OIS_OTP(uint8_t *otp_data, uint8_t otp_size);
+
+#define OV4688_LITEON_OIS_OTP_SIZE 34
+const static short ois_addr[3][OV4688_LITEON_OIS_OTP_SIZE] = {
+    
+    {0x16A,0x16B,0x16C,0x16D,0x16E,0x16F,0x170,0x171,0x172,0x173,0x174,0x175,0x176,0x177,0x178,0x179,0x17A,0x17B,0x17C,0x17D,0x17E,0x17F,0x180,0x181,   0x124,0x125,0x12B,0x12C,   0x1B2,0x1B3,0x1B4,0x1B5,0x1B6,0x1B7}, 
+    {0x182,0x183,0x184,0x185,0x186,0x187,0x188,0x189,0x18A,0x18B,0x18C,0x18D,0x18E,0x18F,0x190,0x191,0x192,0x193,0x194,0x195,0x196,0x197,0x198,0x199,   0x142,0x143,0x149,0x014A,   0x1B8,0x1B9,0x1BA,0x1BB,0x1BC,0x1BD}, 
+    {0x19A,0x19B,0x19C,0x19D,0x19E,0x19F,0x1A0,0x1A1,0x1A2,0x1A3,0x1A4,0x1A5,0x1A6,0x1A7,0x1A8,0x1A9,0x1AA,0x1AB,0x1AC,0x1AD,0x1AE,0x1AF,0x1B0,0x1B1,   0x160,0x161,0x167,0x168,   0x1BE,0x1BF,0x1C0,0x1C1,0x1C2,0x1C3}, 
+};
+#endif
+
 static int ov4688_read_fuseid(struct sensor_cfg_data *cdata,
 	struct msm_sensor_ctrl_t *s_ctrl)
 {
@@ -1273,12 +1322,20 @@ static int ov4688_read_fuseid(struct sensor_cfg_data *cdata,
 	static int frist= true;
 	uint16_t read_data = 0;
 
+#if defined(CONFIG_ACT_OIS_BINDER)
+	int32_t ois_valid_layer=-1;
+	static uint8_t ois_otp[OV4688_LITEON_OIS_OTP_SIZE];
+#endif
+
     int32_t i,j;
     int32_t rc = 0;
     const int32_t offset = 0x7000;
-    int32_t valid_layer=-1;
+    static int32_t valid_layer=-1;
     uint16_t addr_start=0x7100;
     uint16_t addr_end=0x71ca;
+    struct msm_camera_sensor_info *sdata = (struct msm_camera_sensor_info *) s_ctrl->sensordata;
+    uint8_t driver_ic;
+    int actuator_index = -1;
 
 	if (frist) {
 	    frist = false;
@@ -1332,12 +1389,45 @@ static int ov4688_read_fuseid(struct sensor_cfg_data *cdata,
         }
         pr_info("%s: OTP valid layer = %d\n", __func__,  valid_layer);
 
+
+
+#if defined(CONFIG_ACT_OIS_BINDER)
+        
+        for (j=2; j>=0; --j) {
+            for (i=0; i<OV4688_LITEON_OIS_OTP_SIZE; ++i) {
+                rc = msm_camera_i2c_read(s_ctrl->sensor_i2c_client, ois_addr[j][i]+offset, &read_data, MSM_CAMERA_I2C_BYTE_DATA);
+                if (rc < 0){
+                    pr_err("%s: msm_camera_i2c_read 0x%x failed\n", __func__, ois_addr[j][i]);
+                    return rc;
+                }
+                pr_info("%s: OTP ois_addr 0x%x = 0x%x\n", __func__,  ois_addr[j][i], read_data);
+
+                ois_otp[i]= read_data;
+
+                if (read_data)
+                    ois_valid_layer = j;
+            }
+            if (ois_valid_layer!=-1)
+                break;
+        }
+        pr_info("%s: OTP OIS valid layer = %d\n", __func__,  ois_valid_layer);
+
+
+	if (ois_valid_layer!=-1) {
+		for(i=0; i<OV4688_LITEON_OIS_OTP_SIZE;i ++)
+			pr_info("read out OTP OIS data = 0x%x\n", ois_otp[i]);
+
+		HtcActOisBinder_set_OIS_OTP(ois_otp, OV4688_LITEON_OIS_OTP_SIZE);
+	}
+#endif
+
+
         rc = msm_camera_i2c_write_b(s_ctrl->sensor_i2c_client, 0x0100, 0x00);
         if (rc < 0)
             pr_info("%s: i2c_write_b 0x0100 fail\n", __func__);
     }
-    
-
+    if (board_mfg_mode())
+        msm_dump_otp_to_file (PLATFORM_DRIVER_NAME, addr[valid_layer], otp, sizeof(otp));
     
     cdata->cfg.fuse.fuse_id_word1 = 0;
     cdata->cfg.fuse.fuse_id_word2 = otp[5];
@@ -1377,6 +1467,31 @@ static int ov4688_read_fuseid(struct sensor_cfg_data *cdata,
     pr_info("%s: OTP Macro position code (LSByte) = 0x%x\n",    __func__,  cdata->af_value.AF_MACRO_LSB);
     pr_info("%s: OTP VCM top mech. Limit (MSByte) = 0x%x\n",    __func__,  cdata->af_value.VCM_TOP_MECH_MSB);
     pr_info("%s: OTP VCM top mech. Limit (LSByte) = 0x%x\n",    __func__,  cdata->af_value.VCM_TOP_MECH_LSB);
+
+
+	if (sdata->num_actuator_info_table > 1)
+	{
+		driver_ic = otp[3];
+		pr_info("%s: driver_ic=%d\n", __func__, driver_ic);
+
+		if (driver_ic == 0x21) { 
+			actuator_index = ov4688_lookup_actuator(s_ctrl, "ti201_act");
+		} else if (driver_ic == 0x11) { 
+			actuator_index = ov4688_lookup_actuator(s_ctrl, "lc898212_act");
+		} else if (driver_ic == 0x1)  { 
+			actuator_index = ov4688_lookup_actuator(s_ctrl, "rumbas_act");
+		}
+
+		if (actuator_index >= 0 && actuator_index < sdata->num_actuator_info_table)
+			sdata->actuator_info = &sdata->actuator_info_table[actuator_index][0];
+		else {
+			pr_info("%s: Actuator lookup fail, use the default actuator in board file\n", __func__);
+		}
+
+		pr_info("%s: sdata->actuator_info->board_info->type=%s", __func__, sdata->actuator_info->board_info->type);
+		pr_info("%s: sdata->actuator_info->board_info->addr=0x%x", __func__, sdata->actuator_info->board_info->addr);
+	}
+
 	return 0;
 }
 
@@ -1502,13 +1617,13 @@ int ov4688_write_hdr_exp_gain1_ex(struct msm_sensor_ctrl_t *s_ctrl,
 
 	if(short_line > 198)
 		short_line = 198;
-	if(short_line < 2)
+	if(short_line < 2)	
 		short_line = 2;
 
 	long_line = short_line*4;
 
-	if(long_line > 1584)
-		long_line = 1584;
+	if(long_line > 1008)	
+		long_line = 1008;
 	if(long_line < 8)
 		long_line = 8;
 
@@ -1517,118 +1632,38 @@ int ov4688_write_hdr_exp_gain1_ex(struct msm_sensor_ctrl_t *s_ctrl,
 		long_line,
 		short_line);
 
-	s_ctrl->func_tbl->sensor_group_hold_on(s_ctrl);
-	mdelay(250);
+	if (s_ctrl->func_tbl->sensor_group_hold_on_hdr)
+		s_ctrl->func_tbl->sensor_group_hold_on_hdr(s_ctrl);
+
 	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
 		s_ctrl->sensor_output_reg_addr->frame_length_lines, fl_lines,
 		MSM_CAMERA_I2C_WORD_DATA);
+
 	
-#if 0
-	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
-		ov4688_hdr_gain_info.long_coarse_int_time_addr_h, long_line>>8,
-		MSM_CAMERA_I2C_BYTE_DATA);
-
-	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
-		ov4688_hdr_gain_info.long_coarse_int_time_addr_l, (long_line&0x00ff),
-		MSM_CAMERA_I2C_BYTE_DATA);
-#else
-
-
 	
 	msm_camera_i2c_write(s_ctrl->sensor_i2c_client, ov4688_hdr_gain_info.long_coarse_int_time_addr_h, long_line>>12, MSM_CAMERA_I2C_BYTE_DATA);
 	msm_camera_i2c_write(s_ctrl->sensor_i2c_client, ov4688_hdr_gain_info.long_coarse_int_time_addr_m, (long_line>>4)&0xff, MSM_CAMERA_I2C_BYTE_DATA);
 	msm_camera_i2c_write(s_ctrl->sensor_i2c_client, ov4688_hdr_gain_info.long_coarse_int_time_addr_l, (long_line<<4)&0xff, MSM_CAMERA_I2C_BYTE_DATA);
 
-
-
 	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
-		ov4688_hdr_gain_info.long_gain_addr_h, gain,
+		ov4688_hdr_gain_info.long_gain_addr_m, gain,
 		MSM_CAMERA_I2C_WORD_DATA);
 
-#if 0
-
-	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
-		ov4688_hdr_gain_info.long_gain_addr_h, gain >> 8, MSM_CAMERA_I2C_BYTE_DATA);
-
-	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
-		ov4688_hdr_gain_info.long_gain_addr_m, gain & 0x00ff, MSM_CAMERA_I2C_BYTE_DATA);
-
-	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
-		ov4688_hdr_gain_info.long_gain_addr_l, 0x0, MSM_CAMERA_I2C_BYTE_DATA);
-#endif
-#endif
-#if 0
-	long_exp.AnalogGainCodeBlue = gain;
-	long_exp.AnalogGainCodeGreen = gain;
-	long_exp.AnalogGainCodeRed = gain;
-	long_exp.ExposureTime = long_line;
-	long_exp.DigitalGainCodeBlue = 256;
-	long_exp.DigitalGainCodeGreen = 256;
-	long_exp.DigitalGainCodeRed = 256;
-
-	Ilp0100_updateSensorParamsLong(long_exp);
-#endif
 	
-#if 0
-	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
-		ov4688_hdr_gain_info.short_coarse_int_time_addr_h, (short_line)>>8,
-		MSM_CAMERA_I2C_BYTE_DATA);
-	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
-		ov4688_hdr_gain_info.short_coarse_int_time_addr_l, (short_line & 0x00ff),
-		MSM_CAMERA_I2C_BYTE_DATA);
-#else
-#if 0
-	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
-		ov4688_hdr_gain_info.middle_coarse_int_time_addr_h, short_line >> 8, MSM_CAMERA_I2C_BYTE_DATA);
-
-	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
-		ov4688_hdr_gain_info.middle_coarse_int_time_addr_m, short_line & 0x00ff, MSM_CAMERA_I2C_BYTE_DATA);
-
-	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
-		ov4688_hdr_gain_info.middle_coarse_int_time_addr_l, 0x0, MSM_CAMERA_I2C_BYTE_DATA);
-#endif
 	
 	msm_camera_i2c_write(s_ctrl->sensor_i2c_client, ov4688_hdr_gain_info.middle_coarse_int_time_addr_h, short_line>>12, MSM_CAMERA_I2C_BYTE_DATA);
 	msm_camera_i2c_write(s_ctrl->sensor_i2c_client, ov4688_hdr_gain_info.middle_coarse_int_time_addr_m, (short_line>>4)&0xff, MSM_CAMERA_I2C_BYTE_DATA);
 	msm_camera_i2c_write(s_ctrl->sensor_i2c_client, ov4688_hdr_gain_info.middle_coarse_int_time_addr_l, (short_line<<4)&0xff, MSM_CAMERA_I2C_BYTE_DATA);
 
-
 	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
-		ov4688_hdr_gain_info.middle_gain_addr_h, gain,
+		ov4688_hdr_gain_info.middle_gain_addr_m, gain,
 		MSM_CAMERA_I2C_WORD_DATA);
 
-#if 0
-	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
-		ov4688_hdr_gain_info.middle_gain_addr_h, gain >> 8, MSM_CAMERA_I2C_BYTE_DATA);
+	if (s_ctrl->func_tbl->sensor_group_hold_off_hdr)
+		s_ctrl->func_tbl->sensor_group_hold_off_hdr(s_ctrl);
 
-	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
-		ov4688_hdr_gain_info.middle_gain_addr_m, gain & 0x00ff, MSM_CAMERA_I2C_BYTE_DATA);
+	ov4688_s_ctrl.actived_ae = false;
 
-	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
-		ov4688_hdr_gain_info.middle_gain_addr_l, 0x0, MSM_CAMERA_I2C_BYTE_DATA);
-#endif
-#endif
-
-#if 0 
-	
-	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
-		ov4688_hdr_gain_info.global_gain_addr, gain,
-		MSM_CAMERA_I2C_BYTE_DATA);
-#endif
-
-#if 0
-	short_exp.AnalogGainCodeBlue = gain;
-	short_exp.AnalogGainCodeGreen = gain;
-	short_exp.AnalogGainCodeRed = gain;
-	short_exp.ExposureTime = short_line;
-	short_exp.DigitalGainCodeBlue = 256;
-	short_exp.DigitalGainCodeGreen = 256;
-	short_exp.DigitalGainCodeRed = 256;
-
-	Ilp0100_updateSensorParamsShortOrNormal(short_exp);
-#endif
-
-	s_ctrl->func_tbl->sensor_group_hold_off(s_ctrl);
 	return 0;
 
 }
@@ -1720,42 +1755,26 @@ void ov4688_start_stream_hdr(struct msm_sensor_ctrl_t *s_ctrl){
 }
 
 void ov4688_start_stream_non_hdr(struct msm_sensor_ctrl_t *s_ctrl){
-	uint16_t data;
+
+
 	pr_info("ov4688_start_stream,non-HDR");
 
-	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
-		0x100, 0x01,
-		MSM_CAMERA_I2C_BYTE_DATA);
+	msm_camera_i2c_write_tbl(
+    		s_ctrl->sensor_i2c_client,
+    		ov4688_start_settings,
+    		ARRAY_SIZE(ov4688_start_settings),
+    		MSM_CAMERA_I2C_BYTE_DATA);
+
 	mdelay(10);
 
-	msm_camera_i2c_write_tbl(
-		s_ctrl->sensor_i2c_client, 
-		ov4688_start_settings2, 
-		ARRAY_SIZE(ov4688_start_settings2), 
-		MSM_CAMERA_I2C_BYTE_DATA);
-
-	msm_camera_i2c_read(s_ctrl->sensor_i2c_client,
-		0x3500, &data, MSM_CAMERA_I2C_BYTE_DATA);
-	pr_info("ov4688 0x3500:0x%x",data);
-	msm_camera_i2c_read(s_ctrl->sensor_i2c_client,
-		0x3501, &data, MSM_CAMERA_I2C_BYTE_DATA);
-	pr_info("ov4688 0x3501:0x%x",data);
-	msm_camera_i2c_read(s_ctrl->sensor_i2c_client,
-		0x3502, &data, MSM_CAMERA_I2C_BYTE_DATA);
-	pr_info("ov4688 0x3502:0x%x",data);
-	msm_camera_i2c_read(s_ctrl->sensor_i2c_client,
-		0x380e, &data, MSM_CAMERA_I2C_BYTE_DATA);
-	pr_info("ov4688 0x380e:0x%x",data);
-	msm_camera_i2c_read(s_ctrl->sensor_i2c_client,
-		0x380f, &data, MSM_CAMERA_I2C_BYTE_DATA);
-	pr_info("ov4688 0x380f:0x%x",data);
-	msm_camera_i2c_read(s_ctrl->sensor_i2c_client,
-		0x380c, &data, MSM_CAMERA_I2C_BYTE_DATA);
-	pr_info("ov4688 0x380c:0x%x",data);
-	msm_camera_i2c_read(s_ctrl->sensor_i2c_client,
-		0x380d, &data, MSM_CAMERA_I2C_BYTE_DATA);
-	pr_info("ov4688 0x380d:0x%x",data);
-
+    if (power_on) {
+    	msm_camera_i2c_write_tbl(
+    		s_ctrl->sensor_i2c_client,
+    		ov4688_start_settings2,
+    		ARRAY_SIZE(ov4688_start_settings2),
+    		MSM_CAMERA_I2C_BYTE_DATA);
+           power_on=0;
+    }
 }
 
 void ov4688_start_stream(struct msm_sensor_ctrl_t *s_ctrl)
@@ -1773,14 +1792,8 @@ void ov4688_start_stream(struct msm_sensor_ctrl_t *s_ctrl)
 int ov4688_write_hdr_outdoor_flag(struct msm_sensor_ctrl_t *s_ctrl, uint8_t is_outdoor)
 {
     int indoor_line_length, outdoor_line_length;
-    indoor_line_length = 9600;
-    outdoor_line_length = 6000;
-    if(s_ctrl->sensordata->sensor_cut == 0){
-	indoor_line_length = indoor_line_length /2;
-	outdoor_line_length = outdoor_line_length /2;
-    }
-
-    return 0;
+    indoor_line_length = 2730;
+    outdoor_line_length = 1760;
 
     if (is_outdoor)
         msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
@@ -1859,15 +1872,73 @@ void ov4688_yushanII_set_IQ(struct msm_sensor_ctrl_t *sensor,int* channel_offset
     *channel_offset = 70;
 }
 
+void ov4688_yushanII_active_hold(void)
+{
+	pr_info("[CAM]%s,actived_ae=%d", __func__, ov4688_s_ctrl.actived_ae);
+	if (!ov4688_s_ctrl.actived_ae) {
+		msm_camera_i2c_write(ov4688_s_ctrl.sensor_i2c_client, 0x3208, 0xe1, MSM_CAMERA_I2C_BYTE_DATA);
+		ov4688_s_ctrl.actived_ae = true;
+	}
+}
+
+int ov4688_yushanII_ae_updated(void)
+{
+	return ov4688_s_ctrl.actived_ae;
+}
+
+void ov4688_yushanII_set_default_ae(struct msm_sensor_ctrl_t *s_ctrl, uint8_t res)
+{
+	uint32_t long_line =0x1d4;	
+	uint32_t short_line = 0x75;
+	uint16_t gain = 0x3f7;
+
+	pr_info("[CAM]%s, res=%d", __func__, res);
+
+	if (res == 4) {	
+		
+		msm_camera_i2c_write(s_ctrl->sensor_i2c_client, ov4688_hdr_gain_info.long_coarse_int_time_addr_h, long_line>>12, MSM_CAMERA_I2C_BYTE_DATA);
+		msm_camera_i2c_write(s_ctrl->sensor_i2c_client, ov4688_hdr_gain_info.long_coarse_int_time_addr_m, (long_line>>4)&0xff, MSM_CAMERA_I2C_BYTE_DATA);
+		msm_camera_i2c_write(s_ctrl->sensor_i2c_client, ov4688_hdr_gain_info.long_coarse_int_time_addr_l, (long_line<<4)&0xff, MSM_CAMERA_I2C_BYTE_DATA);
+
+		msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
+			ov4688_hdr_gain_info.long_gain_addr_m, gain,
+			MSM_CAMERA_I2C_WORD_DATA);
+
+		
+		msm_camera_i2c_write(s_ctrl->sensor_i2c_client, ov4688_hdr_gain_info.middle_coarse_int_time_addr_h, short_line>>12, MSM_CAMERA_I2C_BYTE_DATA);
+		msm_camera_i2c_write(s_ctrl->sensor_i2c_client, ov4688_hdr_gain_info.middle_coarse_int_time_addr_m, (short_line>>4)&0xff, MSM_CAMERA_I2C_BYTE_DATA);
+		msm_camera_i2c_write(s_ctrl->sensor_i2c_client, ov4688_hdr_gain_info.middle_coarse_int_time_addr_l, (short_line<<4)&0xff, MSM_CAMERA_I2C_BYTE_DATA);
+
+		msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
+			ov4688_hdr_gain_info.middle_gain_addr_m, gain,
+			MSM_CAMERA_I2C_WORD_DATA);
+	} else {
+		long_line = s_ctrl->msm_sensor_reg->output_settings[res].frame_length_lines/2;	
+		gain = 0x80;	
+
+		msm_camera_i2c_write(s_ctrl->sensor_i2c_client, ov4688_hdr_gain_info.long_coarse_int_time_addr_h, long_line>>12, MSM_CAMERA_I2C_BYTE_DATA);
+		msm_camera_i2c_write(s_ctrl->sensor_i2c_client, ov4688_hdr_gain_info.long_coarse_int_time_addr_m, (long_line>>4)&0xff, MSM_CAMERA_I2C_BYTE_DATA);
+		msm_camera_i2c_write(s_ctrl->sensor_i2c_client, ov4688_hdr_gain_info.long_coarse_int_time_addr_l, (long_line<<4)&0xff, MSM_CAMERA_I2C_BYTE_DATA);
+
+		msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
+			ov4688_hdr_gain_info.long_gain_addr_m, gain,
+			MSM_CAMERA_I2C_WORD_DATA);
+	}
+
+}
+
 static struct msm_sensor_fn_t ov4688_func_tbl = {
 	.sensor_start_stream = ov4688_start_stream,
 	.sensor_stop_stream = msm_sensor_stop_stream,
 	.sensor_group_hold_on = msm_sensor_group_hold_on,
 	.sensor_group_hold_off = msm_sensor_group_hold_off,
+	.sensor_group_hold_on_hdr = msm_sensor_group_hold_on_hdr,
+	.sensor_group_hold_off_hdr = msm_sensor_group_hold_off_hdr,
 	.sensor_set_fps = msm_sensor_set_fps,
 	.sensor_write_exp_gain_ex = ov4688_write_exp_gain1_ex,
 	.sensor_write_hdr_exp_gain_ex = ov4688_write_hdr_exp_gain1_ex,
-	.sensor_write_snapshot_exp_gain_ex = msm_sensor_write_exp_gain1_ex,
+	
+	.sensor_write_snapshot_exp_gain_ex = ov4688_write_exp_gain1_ex,
 	.sensor_write_snapshot_exp_gain = msm_sensor_write_exp_gain1,
 	.sensor_setting = msm_sensor_setting_parallel,
 	.sensor_set_sensor_mode = msm_sensor_set_sensor_mode,
@@ -1882,6 +1953,10 @@ static struct msm_sensor_fn_t ov4688_func_tbl = {
 	.sensor_yushanII_set_output_format = ov4688_yushanII_set_output_format,
 	.sensor_yushanII_set_parm = ov4688_yushanII_set_parm,
 	.sensor_yushanII_set_IQ = ov4688_yushanII_set_IQ,
+	.sensor_write_output_settings_specific = ov4688_write_output_settings_specific,	
+	.sensor_yushanII_active_hold = ov4688_yushanII_active_hold,
+	.sensor_yushanII_ae_updated = ov4688_yushanII_ae_updated,
+	.sensor_yushanII_set_default_ae = ov4688_yushanII_set_default_ae,
 };
 
 static struct msm_sensor_reg_t ov4688_regs = {
@@ -1893,8 +1968,12 @@ static struct msm_sensor_reg_t ov4688_regs = {
 	.group_hold_on_conf = ov4688_groupon_settings,
 	.group_hold_on_conf_size = ARRAY_SIZE(ov4688_groupon_settings),
 	.group_hold_off_conf = ov4688_groupoff_settings,
-	.group_hold_off_conf_size =
-		ARRAY_SIZE(ov4688_groupoff_settings),
+	.group_hold_off_conf_size = ARRAY_SIZE(ov4688_groupoff_settings),
+	.group_hold_on_conf_hdr = ov4688_groupon_settings_hdr,
+	.group_hold_on_conf_size_hdr = ARRAY_SIZE(ov4688_groupon_settings_hdr),
+	.group_hold_off_conf_hdr = ov4688_groupoff_settings_hdr,
+	.group_hold_off_conf_size_hdr = ARRAY_SIZE(ov4688_groupoff_settings_hdr),
+
 	.init_settings = &ov4688_init_conf[0],
 	.init_size = ARRAY_SIZE(ov4688_init_conf),
 
@@ -1909,14 +1988,14 @@ static struct msm_sensor_reg_t ov4688_regs = {
 static struct msm_sensor_ctrl_t ov4688_s_ctrl = {
 	.msm_sensor_reg = &ov4688_regs,
 	.sensor_i2c_client = &ov4688_sensor_i2c_client,
-	.sensor_i2c_addr = 0x6C,
+	.sensor_i2c_addr = 0x6c,
 	.sensor_output_reg_addr = &ov4688_reg_addr,
 	.sensor_id_info = &ov4688_id_info,
 	.sensor_exp_gain_info = &ov4688_exp_gain_info,
 	.cam_mode = MSM_SENSOR_MODE_INVALID,
 	.csi_params = &ov4688_csi_params_array[0],
 	.msm_sensor_mutex = &ov4688_mut,
-	.sensor_i2c_driver = &ov4688_i2c_driver,
+	.sensor_i2c_driver = &ov4688_i2c_0x6c_driver,
 	.sensor_v4l2_subdev_info = ov4688_subdev_info,
 	.sensor_v4l2_subdev_info_size = ARRAY_SIZE(ov4688_subdev_info),
 	.sensor_v4l2_subdev_ops = &ov4688_subdev_ops,
@@ -1924,6 +2003,7 @@ static struct msm_sensor_ctrl_t ov4688_s_ctrl = {
 	.sensor_first_mutex = &ov4688_sensor_init_mut, 
 	.yushanII_switch_virtual_channel = 1,
 	.adjust_y_output_size = 1,
+	.adjust_frame_length_line = 1,
 };
 
 module_init(msm_sensor_init_module);

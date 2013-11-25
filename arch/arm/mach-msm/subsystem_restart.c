@@ -508,9 +508,6 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 	#endif 
 	
 
-#ifdef CONFIG_QSC_MODEM
-	crashed_modem = 0;
-#endif
 	mutex_unlock(powerup_lock);
 
 	mutex_unlock(&soc_order_reg_lock);
@@ -552,6 +549,9 @@ static void __subsystem_restart(struct subsys_data *subsys)
 		     __func__, subsys->name, rc);
 }
 
+#ifdef CONFIG_SERIAL_MSM_HS_DEBUG_RINGBUFFER
+void dump_uart_ringbuffer(void);
+#endif
 int subsystem_restart(const char *subsys_name)
 {
 	struct subsys_data *subsys;
@@ -580,6 +580,16 @@ int subsystem_restart(const char *subsys_name)
 	#endif 
 	
 
+	pr_info("Restart sequence requested for %s, restart_level = %d.\n",
+		subsys_name, restart_level);
+
+	subsys = _find_subsystem(subsys_name);
+
+	if (!subsys) {
+		pr_warn("Unregistered subsystem %s!\n", subsys_name);
+		return -EINVAL;
+	}
+
 #ifdef CONFIG_QSC_MODEM
 	if(strcmp(subsys_name, "external_modem") == 0){
 		crashed_modem = 1;
@@ -591,15 +601,11 @@ int subsystem_restart(const char *subsys_name)
 	}
 #endif
 
-	pr_info("Restart sequence requested for %s, restart_level = %d.\n",
-		subsys_name, restart_level);
-
-	subsys = _find_subsystem(subsys_name);
-
-	if (!subsys) {
-		pr_warn("Unregistered subsystem %s!\n", subsys_name);
-		return -EINVAL;
+#ifdef CONFIG_SERIAL_MSM_HS_DEBUG_RINGBUFFER
+	if(strcmp(subsys_name, "qsc_modem") == 0){
+		dump_uart_ringbuffer();
 	}
+#endif
 
 	switch (restart_level) {
 
@@ -713,7 +719,7 @@ static int __init ssr_init_soc_restart_orders(void)
 	}
 
 	if (cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_msm8930aa() ||
-	    cpu_is_msm9615() || cpu_is_apq8064() || cpu_is_msm8627()) {
+	    cpu_is_msm9615() || cpu_is_apq8064() || cpu_is_msm8627() || is_qsc_dsda()) {
 		if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE) {
 			restart_orders = restart_orders_8960_sglte;
 			n_restart_orders =
@@ -728,7 +734,7 @@ static int __init ssr_init_soc_restart_orders(void)
 			n_restart_orders = ARRAY_SIZE(restart_orders_8960);
 		}
 		
-#if defined(CONFIG_ARCH_DUMMY) || defined(CONFIG_ARCH_DUMMY)
+#if defined(CONFIG_ARCH_DUMMY) || defined(CONFIG_ARCH_DUMMY) || defined(CONFIG_ARCH_DUMMY)
 		if (!0) { 
 			restart_orders = restart_orders_8064_dsda;
 			n_restart_orders =

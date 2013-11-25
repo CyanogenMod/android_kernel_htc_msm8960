@@ -180,7 +180,7 @@ int v4l2_device_register_subdev(struct v4l2_device *v4l2_dev,
 	}
 #endif
 
-#if defined(CONFIG_MACH_DUMMY)
+#if defined(CONFIG_MACH_DELUXE_J)
 	if (v4l2_dev->subdevs.prev == NULL)
 		return -EINVAL;
 #endif

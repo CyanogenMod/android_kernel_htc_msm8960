@@ -687,6 +687,7 @@
 		((regvar & ~bitname##__MSK) | ((val<<bitname##__POS)&bitname##__MSK))
 
 #define BMA250_I2C_NAME "bma250"
+#define BMA250_I2C_NAME_REMOVE_ECOMPASS "bma250_no_ecmps"
 
 #define BMAIO			0xA1
 
@@ -737,7 +738,7 @@ struct bma250_platform_data {
 	int calibration_mode;
 	int gs_kvalue;
 	unsigned int (*G_Sensor_Compass_POR)(void);
-
+	short layouts[4][3][3];
         
         u8 axis_map_x;
         u8 axis_map_y;

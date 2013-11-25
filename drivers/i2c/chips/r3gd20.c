@@ -131,6 +131,12 @@
 #define HTC_WQ 1
 #define HTC_SUSPEND 1
 #define HTC_ATTR 1
+#define cywee
+
+#ifdef cywee
+#define FIFO_LEVEL_MESK		0x1F
+#endif
+
 
 #define HW_WAKE_UP_TIME 160
 
@@ -556,8 +562,15 @@ static int r3gd20_update_odr(struct r3gd20_data *gyro,
 		if ((odr_table[i].poll_rate_ms <= poll_interval_ms) || (i == 0))
 			break;
 	}
-
+#ifdef cywee
+	if (poll_interval_ms > 20) {
+		config[1] = 0x00;
+	} else {
+		config[1] = 0x40;
+	}
+#else
 	config[1] = odr_table[i].mask;
+#endif
 	config[1] |= (ENABLE_ALL_AXES + PM_NORMAL);
 
 	if (atomic_read(&gyro->enabled)) {
@@ -571,6 +584,25 @@ static int r3gd20_update_odr(struct r3gd20_data *gyro,
 
 	return err;
 }
+
+#ifdef cywee
+static int r3gd20_get_status(struct r3gd20_data *gyro ,unsigned char *status)
+{
+	int err = 0;
+	unsigned char gyro_out[2];
+
+	gyro_out[0] = (FIFO_SRC_REG); 
+
+	err = r3gd20_i2c_read(gyro, gyro_out, 1);
+	if (err < 0)
+		E("%s: r3gd20_i2c_read() fails, err = %d\n", __func__, err);
+
+	status[0] = gyro_out[0] & FIFO_LEVEL_MESK;
+
+	return err;
+}
+#endif
+
 
 static int r3gd20_get_data(struct r3gd20_data *gyro,
 			     struct r3gd20_triple *data)
@@ -625,13 +657,33 @@ static void polling_do_work(struct work_struct *w)
 	struct r3gd20_data *gyro = g_gyro;
 	struct r3gd20_triple data_out;
 	int err;
+	unsigned char status = 0;
 
 	mutex_lock(&gyro->lock);
+
+#ifdef cywee
+	err = r3gd20_get_status(gyro, &status);
+	if (err < 0)
+		dev_err(&gyro->client->dev, "get_gyroscope_status failed\n");
+	else {
+		while(status > 0){
+			err = r3gd20_get_data(gyro, &data_out);
+			if (err < 0)
+				dev_err(&gyro->client->dev, "get_gyroscope_data failed\n");
+			else
+				r3gd20_report_values(gyro, &data_out);
+			status --;
+		}
+	}
+#else
 	err = r3gd20_get_data(gyro, &data_out);
 	if (err < 0)
 		dev_err(&gyro->client->dev, "get_gyroscope_data failed\n");
 	else
 		r3gd20_report_values(gyro, &data_out);
+
+
+#endif
 
 	mutex_unlock(&gyro->lock);
 
@@ -645,6 +697,59 @@ static void polling_do_work(struct work_struct *w)
 	}
 }
 #endif 
+
+#ifdef cywee
+static int r3gd20_hw_init(struct r3gd20_data *gyro)
+{
+	int err;
+	u8 buf[6];
+
+	buf[0] = 0x20 ;
+	buf[1] = 0x40 | 0x08 | 0x07 | 0x30;
+	err = r3gd20_i2c_write(gyro, buf, 1);
+	if (err < 0) {
+		E("%s: r3gd20_i2c_write fails 111\n", __func__);
+		return err;
+	}
+
+	buf[0] = 0x23 ;
+	buf[1] = 0x20;
+	err = r3gd20_i2c_write(gyro, buf, 1);
+	if (err < 0) {
+		E("%s: r3gd20_i2c_write fails 222\n", __func__);
+		return err;
+	}
+
+	buf[0] = 0x24 ; 
+	buf[1] = 0x40;
+	err = r3gd20_i2c_write(gyro, buf, 1);
+	if (err < 0) {
+		E("%s: r3gd20_i2c_write fails 333\n", __func__);
+		return err;
+	}
+
+	buf[0] = FIFO_CTRL_REG; 
+	buf[1] = 0x40 | 0x1F;
+	err = r3gd20_i2c_write(gyro, buf, 1);
+	if (err < 0) {
+		E("%s: r3gd20_i2c_write fails 444\n", __func__);
+		return err;
+	}
+
+	buf[0] = 0x22 ; 
+	buf[1] = 0x00;
+	err = r3gd20_i2c_write(gyro, buf, 1);
+	if (err < 0) {
+		E("%s: r3gd20_i2c_write fails 444\n", __func__);
+		return err;
+	}
+
+	gyro->hw_initialized = 1;
+
+	return err;
+}
+
+#else 
 
 static int r3gd20_hw_init(struct r3gd20_data *gyro)
 {
@@ -674,6 +779,7 @@ static int r3gd20_hw_init(struct r3gd20_data *gyro)
 
 	return err;
 }
+#endif
 
 static void r3gd20_device_power_off(struct r3gd20_data *dev_data)
 {

@@ -41,8 +41,14 @@ import subprocess
 
 allowed_warnings = set([
     "alignment.c:327",
+    "inet_hashtables.h:356",
     "mmu.c:602",
     "return_address.c:62",
+    "swab.h:49",
+    "xc4000.c:1049",
+    "xc4000.c:1063",
+    "xt_socket.c:161",
+    "xt_socket.c:307",
  ])
 
 # Capture the name of the object file, can find it.

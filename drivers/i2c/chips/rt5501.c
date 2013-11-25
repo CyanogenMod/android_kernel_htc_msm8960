@@ -758,6 +758,9 @@ void set_rt5501_amp(int on)
                 msleep(1);
             }
 
+#ifdef CONFIG_AMP_RT5501_DELAY
+			msleep(50);
+#endif
             pr_info("%s: enable gpio %d\n",__func__,pdata->gpio_rt5501_spk_en);
             gpio_direction_output(pdata->gpio_rt5501_spk_en, 1);
             rt5501_query.gpiostatus = AMP_GPIO_ON;
@@ -1033,7 +1036,7 @@ int rt5501_probe(struct i2c_client *client, const struct i2c_device_id *id)
 			INIT_DELAYED_WORK(&rt5501_query.volume_ramp_work, volume_ramp_func);
 			gpio_wq = create_workqueue("rt5501_gpio_off");
 			INIT_DELAYED_WORK(&rt5501_query.gpio_off_work, hs_imp_gpio_off);
-            notifier.id = HEADSET_REG_MIC_BIAS;
+            notifier.id = HEADSET_REG_HS_INSERT;
             notifier.func = rt5501_headset_detect;
             headset_notifier_register(&notifier);
         }

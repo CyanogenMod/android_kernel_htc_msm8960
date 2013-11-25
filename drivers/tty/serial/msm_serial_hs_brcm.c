@@ -2220,8 +2220,16 @@ static int __init msm_serial_hs_init(void)
 static void msm_hs_shutdown(struct uart_port *uport)
 {
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
+	unsigned long flags; 
 
 	printk(KERN_INFO "[BT]=+ S DN +=\n");
+
+	
+	spin_lock_irqsave(&uport->lock, flags);
+	if (use_low_power_wakeup(msm_uport))
+		irq_set_irq_wake(msm_uport->wakeup.irq, 0);
+	spin_unlock_irqrestore(&uport->lock, flags);
+
 	BUG_ON(msm_uport->rx.flush < FLUSH_STOP);
 	tasklet_kill(&msm_uport->tx.tlet);
 #if 1 
@@ -2251,10 +2259,6 @@ static void msm_hs_shutdown(struct uart_port *uport)
 	wake_lock_timeout(&msm_uport->rx.brcm_rx_wake_lock, HZ / 2);
 	
 	wake_lock_timeout(&msm_uport->rx.wake_lock, HZ / 10);
-
-	
-	if (use_low_power_wakeup(msm_uport))
-		irq_set_irq_wake(msm_uport->wakeup.irq, 0);
 #endif
 
 	msm_uport->imr_reg = 0;

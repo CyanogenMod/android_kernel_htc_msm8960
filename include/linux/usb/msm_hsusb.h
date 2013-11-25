@@ -216,6 +216,7 @@ struct msm_otg {
 	int connect_type_ready;
 	struct workqueue_struct *usb_wq;
 	struct delayed_work ac_detect_work;
+	struct work_struct usb_disable_work;
 	int ac_detect_count;
 	int reset_phy_before_lpm;
 	int reset_counter;

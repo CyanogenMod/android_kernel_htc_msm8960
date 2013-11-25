@@ -17,7 +17,9 @@
 #include <net/sock.h>
 #include <net/fib_rules.h>
 
+#ifdef CONFIG_MODULES
 #define FIB_RULE_DEBUG 1
+#endif
 
 int fib_default_rule_add(struct fib_rules_ops *ops,
 			 u32 pref, u32 table, u32 flags)

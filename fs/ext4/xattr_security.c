@@ -1,7 +1,3 @@
-/*
- * linux/fs/ext4/xattr_security.c
- * Handler for storing security labels as extended attributes.
- */
 
 #include <linux/string.h>
 #include <linux/fs.h>

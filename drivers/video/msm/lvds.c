@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -63,6 +63,7 @@ static struct lcdc_platform_data *lvds_pdata;
 static void lvds_init(struct msm_fb_data_type *mfd)
 {
 	unsigned int lvds_intf = 0, lvds_phy_cfg0 = 0;
+	mdp_clk_ctrl(1);
 
 	MDP_OUTP(MDP_BASE + 0xc2034, 0x33);
 	usleep(1000);
@@ -92,11 +93,11 @@ static void lvds_init(struct msm_fb_data_type *mfd)
 		MDP_OUTP(MDP_BASE + 0xc3064, 0x05);
 		MDP_OUTP(MDP_BASE + 0xc3050, 0x20);
 	} else {
-		MDP_OUTP(MDP_BASE + 0xc3004, 0x62);
+		MDP_OUTP(MDP_BASE + 0xc3004, 0x8f);
 		MDP_OUTP(MDP_BASE + 0xc3008, 0x30);
-		MDP_OUTP(MDP_BASE + 0xc300c, 0xc4);
+		MDP_OUTP(MDP_BASE + 0xc300c, 0xc6);
 		MDP_OUTP(MDP_BASE + 0xc3014, 0x10);
-		MDP_OUTP(MDP_BASE + 0xc3018, 0x05);
+		MDP_OUTP(MDP_BASE + 0xc3018, 0x07);
 		MDP_OUTP(MDP_BASE + 0xc301c, 0x62);
 		MDP_OUTP(MDP_BASE + 0xc3020, 0x41);
 		MDP_OUTP(MDP_BASE + 0xc3024, 0x0d);
@@ -173,7 +174,7 @@ static void lvds_init(struct msm_fb_data_type *mfd)
 			
 			MDP_OUTP(MDP_BASE +  0xc2020, 0x00090a0b);
 			
-			MDP_OUTP(MDP_BASE +  0xc2024, 0x151a191a);
+			MDP_OUTP(MDP_BASE +  0xc2024, 0x1518191a);
 			
 			MDP_OUTP(MDP_BASE +  0xc2028, 0x00121314);
 			
@@ -231,6 +232,7 @@ static void lvds_init(struct msm_fb_data_type *mfd)
 	usleep(1);
 	
 	MDP_OUTP(MDP_BASE +  0xc3100, lvds_phy_cfg0);
+	mdp_clk_ctrl(0);
 }
 
 static int lvds_off(struct platform_device *pdev)
@@ -244,19 +246,17 @@ static int lvds_off(struct platform_device *pdev)
 	if (lvds_clk)
 		clk_disable_unprepare(lvds_clk);
 
+	mdp_clk_ctrl(1);
 	MDP_OUTP(MDP_BASE +  0xc3100, 0x0);
 	MDP_OUTP(MDP_BASE + 0xc3000, 0x0);
 	usleep(10);
+	mdp_clk_ctrl(0);
 
 	if (lvds_pdata && lvds_pdata->lcdc_power_save)
 		lvds_pdata->lcdc_power_save(0);
 
 	if (lvds_pdata && lvds_pdata->lcdc_gpio_config)
 		ret = lvds_pdata->lcdc_gpio_config(0);
-
-#ifdef CONFIG_MSM_BUS_SCALING
-	mdp_bus_scale_update_request(0);
-#endif
 
 	return ret;
 }
@@ -273,9 +273,6 @@ static int lvds_on(struct platform_device *pdev)
 
 	if (!panel_pixclock_freq)
 		panel_pixclock_freq = mfd->fbi->var.pixclock;
-#ifdef CONFIG_MSM_BUS_SCALING
-	mdp_bus_scale_update_request(2);
-#endif
 	mfd = platform_get_drvdata(pdev);
 
 	if (lvds_clk) {

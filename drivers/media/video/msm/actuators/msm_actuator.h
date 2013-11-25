@@ -100,6 +100,7 @@ struct msm_actuator_ctrl_t {
 	af_algo_t af_algo; 
 	int ois_ready_version; 
 	uint8_t ois_mfgtest_in_progress; 
+	uint8_t enable_focus_step_log;
 	struct msm_actuator_get_ois_info_t get_ois_info;
 	struct msm_actuator_get_ois_tbl_t get_ois_tbl;
 	struct msm_actuator_af_OTP_info_t af_OTP_info;

@@ -663,10 +663,10 @@ void	IniGyr( void )
 	RegWriteA( GPANSTTSETI1FTR,	0x58 );		
 	RegWriteA( GPANSTTSETI2FTR,	0x00 );		
 #else
-	RegWriteA( GPANSTTSETGAIN, 	0x00 );		
+	RegWriteA( GPANSTTSETGAIN, 	0x10 );		
 	RegWriteA( GPANSTTSETISTP, 	0x00 );		
-	RegWriteA( GPANSTTSETI1FTR,	0xB0 );		
-	RegWriteA( GPANSTTSETI2FTR,	0xB0 );		
+	RegWriteA( GPANSTTSETI1FTR,	0x90 );		
+	RegWriteA( GPANSTTSETI2FTR,	0x90 );		
 #endif
 	RegWriteA( GPANSTTSETL2FTR, 0x00 );		
 	RegWriteA( GPANSTTSETL3FTR,	0x00 );		

@@ -65,7 +65,7 @@ static inline void pm_runtime_get_noresume(struct device *dev)
 
 	
 	
-	#if defined(CONFIG_USB_EHCI_MSM_HSIC)
+	#if defined(CONFIG_ARCH_APQ8064) && defined(CONFIG_USB_EHCI_MSM_HSIC)
 	{
 		extern unsigned int get_radio_flag(void);
 		if (dev && msm_hsic_host_dev == dev && (mdm_is_in_restart || (get_radio_flag() & 0x0001))) {
@@ -84,7 +84,7 @@ static inline void pm_runtime_put_noidle(struct device *dev)
 
 	
 	
-	#if defined(CONFIG_USB_EHCI_MSM_HSIC)
+	#if defined(CONFIG_ARCH_APQ8064) && defined(CONFIG_USB_EHCI_MSM_HSIC)
 	{
 		extern unsigned int get_radio_flag(void);
 		if (dev && msm_hsic_host_dev == dev && (mdm_is_in_restart || (get_radio_flag() & 0x0001))) {

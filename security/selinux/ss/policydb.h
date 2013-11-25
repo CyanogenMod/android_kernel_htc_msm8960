@@ -1,9 +1,3 @@
-/*
- * A policy database (policydb) specifies the
- * configuration data for the security policy.
- *
- * Author : Stephen Smalley, <sds@epoch.ncsc.mil>
- */
 
 /*
  * Updated: Trusted Computer Solutions, Inc. <dgoeddel@trustedcs.com>
@@ -34,95 +28,81 @@
 #include "context.h"
 #include "constraint.h"
 
-/*
- * A datum type is defined for each kind of symbol
- * in the configuration data:  individual permissions,
- * common prefixes for access vectors, classes,
- * users, roles, types, sensitivities, categories, etc.
- */
 
-/* Permission attributes */
 struct perm_datum {
-	u32 value;		/* permission bit + 1 */
+	u32 value;		
 };
 
-/* Attributes of a common prefix for access vectors */
 struct common_datum {
-	u32 value;			/* internal common value */
-	struct symtab permissions;	/* common permissions */
+	u32 value;			
+	struct symtab permissions;	
 };
 
-/* Class attributes */
 struct class_datum {
-	u32 value;			/* class value */
-	char *comkey;			/* common name */
-	struct common_datum *comdatum;	/* common datum */
-	struct symtab permissions;	/* class-specific permission symbol table */
-	struct constraint_node *constraints;	/* constraints on class permissions */
-	struct constraint_node *validatetrans;	/* special transition rules */
+	u32 value;			
+	char *comkey;			
+	struct common_datum *comdatum;	
+	struct symtab permissions;	
+	struct constraint_node *constraints;	
+	struct constraint_node *validatetrans;	
 };
 
-/* Role attributes */
 struct role_datum {
-	u32 value;			/* internal role value */
-	u32 bounds;			/* boundary of role */
-	struct ebitmap dominates;	/* set of roles dominated by this role */
-	struct ebitmap types;		/* set of authorized types for role */
+	u32 value;			
+	u32 bounds;			
+	struct ebitmap dominates;	
+	struct ebitmap types;		
 };
 
 struct role_trans {
-	u32 role;		/* current role */
-	u32 type;		/* program executable type, or new object type */
-	u32 tclass;		/* process class, or new object class */
-	u32 new_role;		/* new role */
+	u32 role;		
+	u32 type;		
+	u32 tclass;		
+	u32 new_role;		
 	struct role_trans *next;
 };
 
 struct filename_trans {
-	u32 stype;		/* current process */
-	u32 ttype;		/* parent dir context */
-	u16 tclass;		/* class of new object */
-	const char *name;	/* last path component */
+	u32 stype;		
+	u32 ttype;		
+	u16 tclass;		
+	const char *name;	
 };
 
 struct filename_trans_datum {
-	u32 otype;		/* expected of new object */
+	u32 otype;		
 };
 
 struct role_allow {
-	u32 role;		/* current role */
-	u32 new_role;		/* new role */
+	u32 role;		
+	u32 new_role;		
 	struct role_allow *next;
 };
 
-/* Type attributes */
 struct type_datum {
-	u32 value;		/* internal type value */
-	u32 bounds;		/* boundary of type */
-	unsigned char primary;	/* primary name? */
-	unsigned char attribute;/* attribute ?*/
+	u32 value;		
+	u32 bounds;		
+	unsigned char primary;	
+	unsigned char attribute;
 };
 
-/* User attributes */
 struct user_datum {
-	u32 value;			/* internal user value */
-	u32 bounds;			/* bounds of user */
-	struct ebitmap roles;		/* set of authorized roles for user */
-	struct mls_range range;		/* MLS range (min - max) for user */
-	struct mls_level dfltlevel;	/* default login MLS level for user */
+	u32 value;			
+	u32 bounds;			
+	struct ebitmap roles;		
+	struct mls_range range;		
+	struct mls_level dfltlevel;	
 };
 
 
-/* Sensitivity attributes */
 struct level_datum {
-	struct mls_level *level;	/* sensitivity and associated categories */
-	unsigned char isalias;	/* is this sensitivity an alias for another? */
+	struct mls_level *level;	
+	unsigned char isalias;	
 };
 
-/* Category attributes */
 struct cat_datum {
-	u32 value;		/* internal category bit + 1 */
-	unsigned char isalias;  /* is this category an alias for another? */
+	u32 value;		
+	unsigned char isalias;  
 };
 
 struct range_trans {
@@ -131,44 +111,36 @@ struct range_trans {
 	u32 target_class;
 };
 
-/* Boolean data type */
 struct cond_bool_datum {
-	__u32 value;		/* internal type value */
+	__u32 value;		
 	int state;
 };
 
 struct cond_node;
 
-/*
- * The configuration data includes security contexts for
- * initial SIDs, unlabeled file systems, TCP and UDP port numbers,
- * network interfaces, and nodes.  This structure stores the
- * relevant data for one such entry.  Entries of the same kind
- * (e.g. all initial SIDs) are linked together into a list.
- */
 struct ocontext {
 	union {
-		char *name;	/* name of initial SID, fs, netif, fstype, path */
+		char *name;	
 		struct {
 			u8 protocol;
 			u16 low_port;
 			u16 high_port;
-		} port;		/* TCP or UDP port information */
+		} port;		
 		struct {
 			u32 addr;
 			u32 mask;
-		} node;		/* node information */
+		} node;		
 		struct {
 			u32 addr[4];
 			u32 mask[4];
-		} node6;        /* IPv6 node information */
+		} node6;        
 	} u;
 	union {
-		u32 sclass;  /* security class for genfs */
-		u32 behavior;  /* labeling behavior for fs_use */
+		u32 sclass;  
+		u32 behavior;  
 	} v;
-	struct context context[2];	/* security context(s) */
-	u32 sid[2];	/* SID(s) */
+	struct context context[2];	
+	u32 sid[2];	
 	struct ocontext *next;
 };
 
@@ -178,7 +150,6 @@ struct genfs {
 	struct genfs *next;
 };
 
-/* symbol table array indices */
 #define SYM_COMMONS 0
 #define SYM_CLASSES 1
 #define SYM_ROLES   2
@@ -189,21 +160,19 @@ struct genfs {
 #define SYM_CATS    7
 #define SYM_NUM     8
 
-/* object context array indices */
-#define OCON_ISID  0	/* initial SIDs */
-#define OCON_FS    1	/* unlabeled file systems */
-#define OCON_PORT  2	/* TCP and UDP port numbers */
-#define OCON_NETIF 3	/* network interfaces */
-#define OCON_NODE  4	/* nodes */
-#define OCON_FSUSE 5	/* fs_use */
-#define OCON_NODE6 6	/* IPv6 nodes */
+#define OCON_ISID  0	
+#define OCON_FS    1	
+#define OCON_PORT  2	
+#define OCON_NETIF 3	
+#define OCON_NODE  4	
+#define OCON_FSUSE 5	
+#define OCON_NODE6 6	
 #define OCON_NUM   7
 
-/* The policy database */
 struct policydb {
 	int mls_enabled;
 
-	/* symbol tables */
+	
 	struct symtab symtab[SYM_NUM];
 #define p_commons symtab[SYM_COMMONS]
 #define p_classes symtab[SYM_CLASSES]
@@ -214,57 +183,52 @@ struct policydb {
 #define p_levels symtab[SYM_LEVELS]
 #define p_cats symtab[SYM_CATS]
 
-	/* symbol names indexed by (value - 1) */
+	
 	struct flex_array *sym_val_to_name[SYM_NUM];
 
-	/* class, role, and user attributes indexed by (value - 1) */
+	
 	struct class_datum **class_val_to_struct;
 	struct role_datum **role_val_to_struct;
 	struct user_datum **user_val_to_struct;
 	struct flex_array *type_val_to_struct_array;
 
-	/* type enforcement access vectors and transitions */
+	
 	struct avtab te_avtab;
 
-	/* role transitions */
+	
 	struct role_trans *role_tr;
 
-	/* file transitions with the last path component */
-	/* quickly exclude lookups when parent ttype has no rules */
+	
+	
 	struct ebitmap filename_trans_ttypes;
-	/* actual set of filename_trans rules */
+	
 	struct hashtab *filename_trans;
 
-	/* bools indexed by (value - 1) */
+	
 	struct cond_bool_datum **bool_val_to_struct;
-	/* type enforcement conditional access vectors and transitions */
+	
 	struct avtab te_cond_avtab;
-	/* linked list indexing te_cond_avtab by conditional */
+	
 	struct cond_node *cond_list;
 
-	/* role allows */
+	
 	struct role_allow *role_allow;
 
-	/* security contexts of initial SIDs, unlabeled file systems,
-	   TCP or UDP port numbers, network interfaces and nodes */
 	struct ocontext *ocontexts[OCON_NUM];
 
-	/* security contexts for files in filesystems that cannot support
-	   a persistent label mapping or use another
-	   fixed labeling behavior. */
 	struct genfs *genfs;
 
-	/* range transitions table (range_trans_key -> mls_range) */
+	
 	struct hashtab *range_tr;
 
-	/* type -> attribute reverse mapping */
+	
 	struct flex_array *type_attr_map_array;
 
 	struct ebitmap policycaps;
 
 	struct ebitmap permissive_map;
 
-	/* length of this policy when it was loaded */
+	
 	size_t len;
 
 	unsigned int policyvers;
@@ -289,7 +253,6 @@ extern int policydb_write(struct policydb *p, void *fp);
 
 #define POLICYDB_CONFIG_MLS    1
 
-/* the config flags related to unknown classes/perms are bits 2 and 3 */
 #define REJECT_UNKNOWN	0x00000002
 #define ALLOW_UNKNOWN	0x00000004
 
@@ -341,5 +304,5 @@ static inline char *sym_name(struct policydb *p, unsigned int sym_num, unsigned 
 extern u16 string_to_security_class(struct policydb *p, const char *name);
 extern u32 string_to_av_perm(struct policydb *p, u16 tclass, const char *name);
 
-#endif	/* _SS_POLICYDB_H_ */
+#endif	
 

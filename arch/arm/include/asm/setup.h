@@ -147,6 +147,16 @@ struct tag_last_bldr_log {
 	__u32 size;
 };
 
+#define ATAG_BATT_DATA	0x54410027
+
+struct tag_batt_data {
+	__s32 magic_num;
+	__s32 soc;
+	__s32 ocv;
+	__s32 cc;
+	__u32 currtime;
+};
+
 struct tag {
 	struct tag_header hdr;
 	union {
@@ -165,6 +175,7 @@ struct tag {
 		struct tag_memclk	memclk;
 		struct tag_bldr_log	bldr_log;
 		struct tag_last_bldr_log last_bldr_log;
+		struct tag_batt_data	batt_data;
 	} u;
 };
 

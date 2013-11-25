@@ -2310,6 +2310,7 @@ dhdsdio_sendfromq(dhd_bus_t *bus, uint maxframes)
 }
 
 static int bus_txctl_failed_num = 0;
+extern volatile bool dhd_mmc_suspend;
 
 int rxglom_fail_count = RXGLOM_FAIL_COUNT;
 int max_cntl_timeout =  MAX_CNTL_TIMEOUT;
@@ -2461,13 +2462,19 @@ dhd_bus_txctl(struct dhd_bus *bus, uchar *msg, uint msglen)
 				DHD_ERROR(("%s: Device asleep already\n", __FUNCTION__));
 			} else if (ret < 0) {
 #if 1
-			
-			DHD_ERROR(("%s: sdio error %d, abort command and terminate frame 2.\n",
-			__FUNCTION__, ret));
-			bus->dhd->busstate = DHD_BUS_DOWN;
-			dhd_os_send_hang_message(bus->dhd);
+                
+                DHD_ERROR(("%s: sdio error %d, abort command and terminate frame 2.\n",
+                            __FUNCTION__, ret));
+                if(!dhd_mmc_suspend) {
+                    bus->dhd->busstate = DHD_BUS_DOWN;
+                    dhd_os_send_hang_message(bus->dhd);
+                }
+                else {
+                     DHD_ERROR(("%s: mmc is in suspend state, not send hang event\n",
+                                                             __FUNCTION__));
+                }
 #else
-			
+                
 				DHD_ERROR(("%s: sdio error %d, abort command and terminate frame.\n",
 				          __FUNCTION__, ret));
 				bus->tx_sderrs++;

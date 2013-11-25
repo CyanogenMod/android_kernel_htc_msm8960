@@ -6,7 +6,7 @@
 #define AKM8963_I2C_NAME "akm8963"
 
 #define SENSOR_DATA_SIZE	8
-#define YPR_DATA_SIZE		12
+#define YPR_DATA_SIZE		18
 #define RWBUF_SIZE		16
 
 #define ACC_DATA_FLAG		0

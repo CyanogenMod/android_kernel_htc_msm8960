@@ -191,7 +191,6 @@ done:
 
 #if defined(COEX_DHCP)
 
-#define BT_DHCP_eSCO_FIX
 #define BT_DHCP_USE_FLAGS
 #define BT_DHCP_OPPR_WIN_TIME	500
 #define BT_DHCP_FLAG_FORCE_TIME 3500

@@ -350,6 +350,8 @@ unsigned long videobuf2_to_pmem_contig(struct vb2_buffer *vb,
 	mem = vb2_plane_cookie(vb, plane_no);
 	BUG_ON(!mem);
 	MAGIC_CHECK(mem->magic, MAGIC_PMEM);
+	if (!mem->mapped_phyaddr)
+		pr_err("%s mem->mapped_phyaddr is null", __func__);
 	return mem->mapped_phyaddr;
 }
 EXPORT_SYMBOL_GPL(videobuf2_to_pmem_contig);

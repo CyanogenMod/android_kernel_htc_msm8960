@@ -127,6 +127,25 @@ struct data_counters {
 	struct byte_packet_counters bpc[IFS_MAX_COUNTER_SETS][IFS_MAX_DIRECTIONS][IFS_MAX_PROTOS];
 };
 
+static inline uint64_t dc_sum_bytes(struct data_counters *counters,
+				    int set,
+				    enum ifs_tx_rx direction)
+{
+	return counters->bpc[set][direction][IFS_TCP].bytes
+		+ counters->bpc[set][direction][IFS_UDP].bytes
+		+ counters->bpc[set][direction][IFS_PROTO_OTHER].bytes;
+}
+
+static inline uint64_t dc_sum_packets(struct data_counters *counters,
+				      int set,
+				      enum ifs_tx_rx direction)
+{
+	return counters->bpc[set][direction][IFS_TCP].packets
+		+ counters->bpc[set][direction][IFS_UDP].packets
+		+ counters->bpc[set][direction][IFS_PROTO_OTHER].packets;
+}
+
+
 struct tag_node {
 	struct rb_node node;
 	tag_t tag;
@@ -146,7 +165,7 @@ struct iface_stat {
 	struct net_device *net_dev;
 
 	struct byte_packet_counters totals_via_dev[IFS_MAX_DIRECTIONS];
-	struct byte_packet_counters totals_via_skb[IFS_MAX_DIRECTIONS];
+	struct data_counters totals_via_skb;
 	struct byte_packet_counters last_known[IFS_MAX_DIRECTIONS];
 	
 	bool last_known_valid;

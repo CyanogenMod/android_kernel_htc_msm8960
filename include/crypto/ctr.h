@@ -17,4 +17,4 @@
 #define CTR_RFC3686_IV_SIZE 8
 #define CTR_RFC3686_BLOCK_SIZE 16
 
-#endif  
+#endif  /* _CRYPTO_CTR_H */

@@ -24,6 +24,7 @@ obj-$(CONFIG_SENSORS_AK8963)    += akm8963.o
 obj-$(CONFIG_SENSORS_R3GD20)    += r3gd20.o
 obj-$(CONFIG_SENSORS_BMA250)	+= bma250.o
 obj-$(CONFIG_BOSCH_BMA250)      += bma250_bosch.o
+obj-$(CONFIG_SENSORS_ONLY_BMA250)      += bma250_without_Ecompass.o
 obj-$(CONFIG_VP_A1028)          += a1028.o
 obj-$(CONFIG_TPS65200)          += tps65200.o
 obj-$(CONFIG_SENSORS_BMA2X2)    += bma2x2_driver.o

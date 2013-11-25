@@ -218,6 +218,30 @@ static int a2xx_snapshot_miudebug(struct kgsl_device *device, void *snapshot,
 	return DEBUG_SECTION_SZ(MIUDEBUG_COUNT);
 }
 
+static int a2xx_snapshot_istore(struct kgsl_device *device, void *snapshot,
+	int remain, void *priv)
+{
+	struct kgsl_snapshot_istore *header = snapshot;
+	unsigned int *data = snapshot + sizeof(*header);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	int count, i;
+
+	count = adreno_dev->istore_size * adreno_dev->instruction_size;
+
+	if (remain < (count * 4) + sizeof(*header)) {
+		KGSL_DRV_ERR(device,
+			"snapshot: Not enough memory for the istore section");
+		return 0;
+	}
+
+	header->count = adreno_dev->istore_size;
+
+	for (i = 0; i < count; i++)
+		kgsl_regread(device, ADRENO_ISTORE_START + i, &data[i]);
+
+	return (count * 4) + sizeof(*header);
+}
+
 
 void *a2xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 	int *remain, int hang)
@@ -320,6 +344,14 @@ void *a2xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 				a2xx_snapshot_sqthreaddebug, NULL);
 		}
 	}
+
+
+	if (adreno_is_a2xx(adreno_dev) && hang) {
+		snapshot = kgsl_snapshot_add_section(device,
+			KGSL_SNAPSHOT_SECTION_ISTORE, snapshot, remain,
+			a2xx_snapshot_istore, NULL);
+	}
+
 
 	
 	adreno_regwrite(device, REG_RBBM_PM_OVERRIDE2, pmoverride);

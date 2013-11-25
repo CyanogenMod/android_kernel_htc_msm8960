@@ -15,6 +15,8 @@
  * (at your option) any later version.
  */
 
+#define DEBUG
+
 #include <linux/kernel.h>
 #include <linux/device.h>
 #include <linux/etherdevice.h>
@@ -49,6 +51,7 @@ struct f_ncm {
 
 	struct ndp_parser_opts_ncm		*parser_opts;
 	bool				is_crc;
+	int                 iCurMaxDataSize;
 
 	spinlock_t			lock;
 };
@@ -67,7 +70,7 @@ static inline unsigned ncm_bitrate(struct usb_gadget *g)
 }
 
 
-#define NTB_DEFAULT_IN_SIZE_NCM	9000
+#define NTB_DEFAULT_IN_SIZE_NCM 16384
 #define NTB_OUT_SIZE_NCM		16384
 
 
@@ -150,7 +153,7 @@ static struct usb_cdc_ether_desc ecm_desc = {
 };
 #endif
 
-#define NCAPS	(USB_CDC_NCM_NCAP_ETH_FILTER | USB_CDC_NCM_NCAP_CRC_MODE)
+#define NCAPS	(USB_CDC_NCM_NCAP_ETH_FILTER | USB_CDC_NCM_NCAP_CRC_MODE | USB_CDC_NCM_NCAP_MAX_DATAGRAM_SIZE)
 
 static struct usb_cdc_ncm_desc ncm_desc = {
 	.bLength =		sizeof ncm_desc,
@@ -512,6 +515,31 @@ invalid:
 	return;
 }
 
+static void ncm_ep0out_complete2(struct usb_ep *ep, struct usb_request *req)
+{
+u16     in_size;
+struct usb_function	*f = req->context;
+struct f_ncm		*ncm = func_to_ncm(f);
+struct usb_composite_dev *cdev = ep->driver_data;
+
+	req->context = NULL;
+	if (req->status || req->actual != req->length) {
+		DBG(cdev, "Bad control-OUT transfer\n");
+		goto invalid;
+	}
+
+	in_size = get_unaligned_le16(req->buf);
+
+	DBG(cdev, "Set USB_CDC_SET_MAX_DATAGRAM_SIZE %d\n", in_size);
+    gether_change_mtu(in_size - ETH_HLEN);
+    ncm->iCurMaxDataSize = in_size;
+	return;
+
+invalid:
+	usb_ep_set_halt(ep);
+	return;
+}
+
 static int ncm_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 {
 	struct f_ncm		*ncm = func_to_ncm(f);
@@ -540,7 +568,7 @@ static int ncm_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 		value = w_length > sizeof ntb_parameters_ncm ?
 			sizeof ntb_parameters_ncm : w_length;
 		memcpy(req->buf, &ntb_parameters_ncm, value);
-		VDBG(cdev, "Host asked NTB parameters\n");
+		DBG(cdev, "Host asked NTB parameters\n");
 		break;
 
 	case ((USB_DIR_IN | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
@@ -550,7 +578,7 @@ static int ncm_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 			goto invalid;
 		put_unaligned_le32(ncm->port.fixed_in_len, req->buf);
 		value = 4;
-		VDBG(cdev, "Host asked INPUT SIZE, sending %d\n",
+		DBG(cdev, "Host asked INPUT SIZE, sending %d\n",
 		     ncm->port.fixed_in_len);
 		break;
 
@@ -577,7 +605,7 @@ static int ncm_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 		format = (ncm->parser_opts == &ndp16_opts_ncm) ? 0x0000 : 0x0001;
 		put_unaligned_le16(format, req->buf);
 		value = 2;
-		VDBG(cdev, "Host asked NTB FORMAT, sending %d\n", format);
+		DBG(cdev, "Host asked NTB FORMAT, sending %d\n", format);
 		break;
 	}
 
@@ -611,7 +639,7 @@ static int ncm_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 		is_crc = ncm->is_crc ? 0x0001 : 0x0000;
 		put_unaligned_le16(is_crc, req->buf);
 		value = 2;
-		VDBG(cdev, "Host asked CRC MODE, sending %d\n", is_crc);
+		DBG(cdev, "Host asked CRC MODE, sending %d\n", is_crc);
 		break;
 	}
 
@@ -648,7 +676,34 @@ static int ncm_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 	
 	
 
-	default:
+    case ((USB_DIR_IN | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
+        | USB_CDC_GET_MAX_DATAGRAM_SIZE:
+    {
+        if (w_length < 2 || w_value != 0 || w_index != ncm->ctrl_id)
+            goto invalid;
+        if ((ncm->iCurMaxDataSize == 0) || (ncm->iCurMaxDataSize > ETH_FRAME_LEN_MAX))
+            ncm->iCurMaxDataSize = ETH_FRAME_LEN_MAX;
+        put_unaligned_le16(ncm->iCurMaxDataSize, req->buf);
+        value = 2;
+        DBG(cdev, "Host asked MAX_DATAGRAM_SIZE, sending %d\n", ncm->iCurMaxDataSize);
+        break;
+    }
+
+    case ((USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
+        | USB_CDC_SET_MAX_DATAGRAM_SIZE:
+    {
+        if (w_length != 2 || w_value != 0 || w_index != ncm->ctrl_id)
+            goto invalid;
+        DBG(cdev, "Host set MAX_DATAGRAM_SIZE\n");
+        req->complete = ncm_ep0out_complete2;
+        req->length = w_length;
+        req->context = f;
+
+        value = req->length;
+        break;
+    }
+
+    default:
 invalid:
 		DBG(cdev, "invalid control req%02x.%02x v%04x i%04x l%d\n",
 			ctrl->bRequestType, ctrl->bRequest,
@@ -835,9 +890,11 @@ static struct sk_buff *ncm_wrap_ntb(struct gether *port,
 	put_ncm(&tmp, opts->dgram_item_len, skb->len - ncb_len);
 	
 
-	if (skb->len > MAX_TX_NONFIXED)
+	if (skb->len > MAX_TX_NONFIXED && (max_size <= (ETH_FRAME_LEN - ETH_HLEN)))
+	{
 		memset(skb_put(skb, max_size - skb->len),
 		       0, max_size - skb->len);
+	}
 
 	return skb;
 }
@@ -1173,6 +1230,7 @@ int ncm_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN])
 			return status;
 		ncm_string_defs[STRING_MAC_IDX].id = status;
 		ecm_desc.iMACAddress = status;
+		ecm_desc.wMaxSegmentSize = cpu_to_le16(ETH_FRAME_LEN_MAX);
 
 		
 		status = usb_string_id(c->cdev);

@@ -349,20 +349,19 @@ static void sii9234_irq_do_work(struct work_struct *work)
 	T_MHL_SII9234_INFO *pInfo = sii9234_info_ptr;
 	if (!pInfo)
 		return;
+
 	mutex_lock(&mhl_early_suspend_sem);
-	if (!g_bEnterEarlySuspend) {
+	if(time_after(jiffies, irq_jiffies + HZ/20))
+	{
 		uint8_t		event;
 		uint8_t		eventParameter;
-		if(time_after(jiffies, irq_jiffies + HZ/20))
-		{
-			irq_jiffies = jiffies;
-			
-			need_simulate_cable_out = false;
-			if(!dbg_con_test_on)
-				cancel_delayed_work(&pInfo->irq_timeout_work);
-			SiiMhlTxGetEvents(&event, &eventParameter);
-			ProcessRcp(event, eventParameter);
-		}
+		irq_jiffies = jiffies;
+		
+		need_simulate_cable_out = false;
+		if(!dbg_con_test_on)
+			cancel_delayed_work(&pInfo->irq_timeout_work);
+		SiiMhlTxGetEvents(&event, &eventParameter);
+		ProcessRcp(event, eventParameter);
 	}
 	mutex_unlock(&mhl_early_suspend_sem);
 

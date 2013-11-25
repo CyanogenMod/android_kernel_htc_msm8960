@@ -128,6 +128,7 @@ enum
   CLOCK_SOURCE_PLL13  
 };
 
+#ifdef CONFIG_QUALCOMM_WLAN_PXO
 static bool Clock_WaitForPLLActive (u32 nPLL)
 {
   u32 nLoops = 100;
@@ -165,6 +166,7 @@ static bool Clock_WaitForPLLActive (u32 nPLL)
   return FALSE;
 
 } 
+#endif
 
 static bool cxo_is_needed(struct riva_data *drv)
 {
@@ -214,11 +216,13 @@ static int pil_riva_init_image(struct pil_desc *pil, const u8 *metadata,
 static int pil_riva_reset(struct pil_desc *pil)
 {
 	u32 reg, sel;
-	u32 nLoopCount = 5;
 	struct riva_data *drv = dev_get_drvdata(pil->dev);
 	void __iomem *base = drv->base;
 	unsigned long start_addr = drv->start_addr;
 	bool use_cxo = cxo_is_needed(drv);
+#ifdef CONFIG_QUALCOMM_WLAN_PXO
+	u32 nLoopCount = 5;
+#endif
 
 	
 	reg = readl_relaxed(base + RIVA_PMU_A2XB_CFG);
@@ -260,6 +264,7 @@ static int pil_riva_reset(struct pil_desc *pil)
 	usleep_range(50, 100);
 
 	
+#ifdef CONFIG_QUALCOMM_WLAN_PXO
 	printk("[WLAN][SSR] Wait for PLL warm-up\n");
 	while(nLoopCount > 0) 
 	{
@@ -270,7 +275,10 @@ static int pil_riva_reset(struct pil_desc *pil)
 	}
 
 	if(nLoopCount == 0)
-	{return -1;}
+	{
+		printk("[WLAN][SSR] PLL lock detection failed!\n");
+		return -1;
+	}
 	printk("[WLAN][SSR] Check PLL lock detection passed\n");
 
 	HWIO_RIVA_PLL_MODE_OUTM(0x1, (u32)(1) << (0x0)); 
@@ -278,8 +286,8 @@ static int pil_riva_reset(struct pil_desc *pil)
 	if (Clock_WaitForPLLActive(CLOCK_SOURCE_PLL13) == FALSE)
 	{return -1;}
 	printk("[WLAN][SSR] Wait for PLL Active ...OK!\n");
+#endif
 	
-
 
 	
 	sel = readl_relaxed(base + RIVA_PMU_ROOT_CLK_SEL);
@@ -321,11 +329,13 @@ static int pil_riva_reset(struct pil_desc *pil)
 	writel_relaxed(reg, base + RIVA_PMU_OVRD_VAL);
 
 	
+#ifdef CONFIG_QUALCOMM_WLAN_PXO
 	printk("[WLAN][SSR] Use PXO for RIVA\n");
 
 	HWIO_RIVA_RESET_OUTM((0x2),(u32)(1) << (0x1)); 
 	HWIO_RIVA_XO_SRC_CLK_CTL_OUTM((0x00000004), (u32)(1) << (0x2)); 
 	HWIO_RIVA_RESET_OUTM((0x2),(u32)(0) << (0x1)); 
+#endif
 	
 
 	

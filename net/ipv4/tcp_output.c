@@ -166,9 +166,6 @@ void tcp_select_initial_window(int __space, __u32 mss,
 	}
 
 	
-	*rcv_wnd = 65535;
-
-	
 	(*window_clamp) = min(65535U << (*rcv_wscale), *window_clamp);
 }
 EXPORT_SYMBOL(tcp_select_initial_window);

@@ -104,6 +104,7 @@ extern struct platform_device apq8064_device_qup_i2c_gsbi2;
 extern struct platform_device apq8064_device_qup_i2c_gsbi3;
 extern struct platform_device apq8064_device_qup_i2c_gsbi4;
 extern struct platform_device apq8064_device_qup_i2c_gsbi7;
+extern struct platform_device apq8064_device_qup_spi_gsbi1;
 extern struct platform_device apq8064_device_qup_spi_gsbi5;
 extern struct platform_device apq8064_slim_ctrl;
 extern struct platform_device apq8064_device_ssbi_pmic1;
@@ -222,6 +223,7 @@ extern struct platform_device msm_device_vidc_720p;
 
 extern struct platform_device msm_pcm;
 extern struct platform_device msm_multi_ch_pcm;
+extern struct platform_device msm_lowlatency_pcm;
 extern struct platform_device msm_pcm_routing;
 extern struct platform_device msm_cpudai0;
 extern struct platform_device msm_cpudai1;
@@ -288,6 +290,7 @@ extern struct platform_device apq_voip;
 extern struct platform_device apq_lpa_pcm;
 extern struct platform_device apq_compr_dsp;
 extern struct platform_device apq_multi_ch_pcm;
+extern struct platform_device apq_lowlatency_pcm;
 extern struct platform_device apq_pcm_hostless;
 extern struct platform_device apq_cpudai_afe_01_rx;
 extern struct platform_device apq_cpudai_afe_01_tx;
@@ -341,6 +344,7 @@ struct platform_device *msm_add_gsbi9_uart(void);
 extern struct platform_device msm_device_touchscreen;
 
 extern int gy_type;
+extern int compass_type;
 
 extern struct platform_device led_pdev;
 

@@ -63,6 +63,7 @@ int gether_setup(struct usb_gadget *g, u8 ethaddr[ETH_ALEN]);
 void gether_cleanup(void);
 int gether_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
 		const char *netname);
+int gether_change_mtu(int new_mtu);
 
 struct net_device *gether_connect(struct gether *);
 void gether_disconnect(struct gether *);

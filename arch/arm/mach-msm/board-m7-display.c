@@ -248,13 +248,6 @@ static struct lcdc_platform_data dtv_pdata = {
 };
 #endif
 
-static int mdp_core_clk_rate_table[] = {
-	200000000,
-	200000000,
-	200000000,
-	200000000,
-};
-
 struct mdp_reg *mdp_gamma = NULL;
 int mdp_gamma_count = 0;
 struct mdp_reg mdp_gamma_jdi[] = {
@@ -789,9 +782,6 @@ int m7_mdp_gamma(void)
 
 static struct msm_panel_common_pdata mdp_pdata = {
 	.gpio = MDP_VSYNC_GPIO,
-	.mdp_core_clk_rate = 200000000,
-	.mdp_core_clk_table = mdp_core_clk_rate_table,
-	.num_mdp_clk = ARRAY_SIZE(mdp_core_clk_rate_table),
 #ifdef CONFIG_MSM_BUS_SCALING
 	.mdp_bus_scale_table = &mdp_bus_scale_pdata,
 #endif
@@ -1476,7 +1466,7 @@ static char common_setting[] = {
        0x82, 0x94, 0xA8, 0xB9,
        0xCB, 0xDB, 0xE9, 0xF5,
        0xFC, 0xFF, 0x04, 0xD3, 
-       0x06, 0x06, 0x54, 0x24};
+       0x00, 0x00, 0x54, 0x24};
 
 static char cabc_still[] = {0xB9, 0x03, 0x82, 0x3C, 0x10, 0x3C, 0x87};
 static char cabc_movie[] = {0xBA, 0x03, 0x78, 0x64, 0x10, 0x64, 0xB4};
@@ -1689,6 +1679,8 @@ static void m7_display_on(struct msm_fb_data_type *mfd)
 	cmdreq.cmds = display_on_cmds;
 	cmdreq.cmds_cnt = display_on_cmds_count;
 	cmdreq.flags = CMD_REQ_COMMIT;
+	if (mfd && mfd->panel_info.type == MIPI_CMD_PANEL)
+		cmdreq.flags |= CMD_CLK_CTRL;
 	cmdreq.rlen = 0;
 	cmdreq.cb = NULL;
 
@@ -1702,6 +1694,9 @@ static void m7_display_off(struct msm_fb_data_type *mfd)
 	cmdreq.cmds = display_off_cmds;
 	cmdreq.cmds_cnt = display_off_cmds_count;
 	cmdreq.flags = CMD_REQ_COMMIT;
+	if (mfd && mfd->panel_info.type == MIPI_CMD_PANEL)
+		cmdreq.flags |= CMD_CLK_CTRL;
+
 	cmdreq.rlen = 0;
 	cmdreq.cb = NULL;
 
@@ -1727,6 +1722,9 @@ static void m7_dim_on(struct msm_fb_data_type *mfd)
 	cmdreq.cmds_cnt = dim_on_cmds_count;
 
 	cmdreq.flags = CMD_REQ_COMMIT;
+	if (mfd && mfd->panel_info.type == MIPI_CMD_PANEL)
+		cmdreq.flags |= CMD_CLK_CTRL;
+
 	cmdreq.rlen = 0;
 	cmdreq.cb = NULL;
 	mipi_dsi_cmdlist_put(&cmdreq);
@@ -1796,10 +1794,6 @@ static void m7_set_backlight(struct msm_fb_data_type *mfd)
 {
 	int rc;
 
-	if (mdp4_overlay_dsi_state_get() <= ST_DSI_SUSPEND) {
-		return;
-	}
-
 	if ((panel_type == PANEL_ID_M7_JDI_SAMSUNG) ||
 		(panel_type == PANEL_ID_M7_JDI_SAMSUNG_C2) ||
 		(panel_type == PANEL_ID_M7_JDI_SAMSUNG_C2_1) ||
@@ -1864,6 +1858,9 @@ static void m7_set_backlight(struct msm_fb_data_type *mfd)
 		cmdreq.cmds = dim_off_cmds;
 		cmdreq.cmds_cnt = dim_off_cmds_count;
 		cmdreq.flags = CMD_REQ_COMMIT;
+		if (mfd && mfd->panel_info.type == MIPI_CMD_PANEL)
+			cmdreq.flags |= CMD_CLK_CTRL;
+
 		cmdreq.rlen = 0;
 		cmdreq.cb = NULL;
 
@@ -1874,6 +1871,9 @@ static void m7_set_backlight(struct msm_fb_data_type *mfd)
 	cmdreq.cmds = backlight_cmds;
 	cmdreq.cmds_cnt = backlight_cmds_count;
 	cmdreq.flags = CMD_REQ_COMMIT;
+	if (mfd && mfd->panel_info.type == MIPI_CMD_PANEL)
+		cmdreq.flags |= CMD_CLK_CTRL;
+
 	cmdreq.rlen = 0;
 	cmdreq.cb = NULL;
 
@@ -1935,6 +1935,9 @@ static void m7_color_enhance(struct msm_fb_data_type *mfd, int on)
 		cmdreq.cmds = color_en_on_cmds;
 		cmdreq.cmds_cnt = color_en_on_cmds_count;
 		cmdreq.flags = CMD_REQ_COMMIT;
+		if (mfd && mfd->panel_info.type == MIPI_CMD_PANEL)
+			cmdreq.flags |= CMD_CLK_CTRL;
+
 		cmdreq.rlen = 0;
 		cmdreq.cb = NULL;
 
@@ -1945,6 +1948,9 @@ static void m7_color_enhance(struct msm_fb_data_type *mfd, int on)
 		cmdreq.cmds = color_en_off_cmds;
 		cmdreq.cmds_cnt = color_en_off_cmds_count;
 		cmdreq.flags = CMD_REQ_COMMIT;
+		if (mfd && mfd->panel_info.type == MIPI_CMD_PANEL)
+			cmdreq.flags |= CMD_CLK_CTRL;
+
 		cmdreq.rlen = 0;
 		cmdreq.cb = NULL;
 
@@ -2105,6 +2111,9 @@ static void m7_sre_ctrl(struct msm_fb_data_type *mfd, unsigned long level)
 		}
 
 		cmdreq.flags = CMD_REQ_COMMIT;
+		if (mfd && mfd->panel_info.type == MIPI_CMD_PANEL)
+			cmdreq.flags |= CMD_CLK_CTRL;
+
 		cmdreq.rlen = 0;
 		cmdreq.cb = NULL;
 		mipi_dsi_cmdlist_put(&cmdreq);
@@ -2196,6 +2205,9 @@ void m7_set_cabc (struct msm_fb_data_type *mfd, int mode)
 
 		if (cur_cabc_mode != req_cabc_zoe_mode) {
 			cmdreq.flags = CMD_REQ_COMMIT;
+			if (mfd && mfd->panel_info.type == MIPI_CMD_PANEL)
+				cmdreq.flags |= CMD_CLK_CTRL;
+
 			cmdreq.rlen = 0;
 			cmdreq.cb = NULL;
 			mipi_dsi_cmdlist_put(&cmdreq);
@@ -2211,6 +2223,9 @@ void m7_set_cabc (struct msm_fb_data_type *mfd, int mode)
 	}
 
 	cmdreq.flags = CMD_REQ_COMMIT;
+	if (mfd && mfd->panel_info.type == MIPI_CMD_PANEL)
+		cmdreq.flags |= CMD_CLK_CTRL;
+
 	cmdreq.rlen = 0;
 	cmdreq.cb = NULL;
 

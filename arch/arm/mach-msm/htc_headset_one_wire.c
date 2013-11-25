@@ -277,7 +277,7 @@ static int hs_1wire_report_type(char **string)
 	char *hs_type[] = {
 		"headset_beats_20",
 		"headset_mic_midtier",
-		"headset_beats_solo_20",
+		"headset_mic_oneseg",
 	};
 	hi->aid &= 0x7f;
 	HS_LOG("[1wire]AID = 0x%x", hi->aid);

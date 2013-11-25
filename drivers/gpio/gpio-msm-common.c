@@ -43,6 +43,11 @@
 #define GPIO_PM_USR_INTz       (104)
 #endif
 
+#ifdef CONFIG_PWRKEY_WAKESRC_LOG
+extern uint16_t get_power_key_gpio(void);
+static char log_buf[DIV_ROUND_UP(NR_MSM_GPIOS, 32)*9+1];
+#endif
+
 #ifdef CONFIG_GPIO_MSM_V3
 enum msm_tlmm_register {
 	SDC4_HDRV_PULL_CTL = 0x0, 
@@ -357,6 +362,21 @@ static int msm_gpio_irq_set_wake(struct irq_data *d, unsigned int on)
 	if (msm_gpio_irq_extn.irq_set_wake)
 		msm_gpio_irq_extn.irq_set_wake(d, on);
 
+#ifdef CONFIG_PWRKEY_WAKESRC_LOG
+	if (gpio==get_power_key_gpio()) {
+		static int counter = 0;
+		if (counter!=0) {
+			pr_info("[KEY_ERR]%s: Power Key set wake: %d, counter=%d\n", __func__, on, counter);
+			dump_stack();
+		}
+		bitmap_scnprintf(log_buf, sizeof(log_buf), msm_gpio.wake_irqs,
+			NR_MSM_GPIOS);
+		log_buf[sizeof(log_buf) - 1] = '\0';
+		pr_info("%s: wake_irqs: %s", __func__, log_buf);
+		counter++;
+	}
+#endif
+
 	return 0;
 }
 
@@ -424,6 +444,12 @@ static int msm_gpio_suspend(void)
 	unsigned long irq_flags;
 	unsigned long i;
 
+#ifdef CONFIG_PWRKEY_WAKESRC_LOG
+	bitmap_scnprintf(log_buf, sizeof(log_buf), msm_gpio.wake_irqs,
+		NR_MSM_GPIOS);
+	log_buf[sizeof(log_buf) - 1] = '\0';
+	pr_info("%s: wake_irqs: %s", __func__, log_buf);
+#endif
 	spin_lock_irqsave(&tlmm_lock, irq_flags);
 	for_each_set_bit(i, msm_gpio.enabled_irqs, NR_MSM_GPIOS)
 		__msm_gpio_set_intr_cfg_enable(i, 0);
@@ -468,6 +494,12 @@ static void msm_gpio_resume(void)
 
 	msm_gpio_show_resume_irq();
 
+#ifdef CONFIG_PWRKEY_WAKESRC_LOG
+	bitmap_scnprintf(log_buf, sizeof(log_buf), msm_gpio.wake_irqs,
+		NR_MSM_GPIOS);
+	log_buf[sizeof(log_buf) - 1] = '\0';
+	pr_info("%s: wake_irqs: %s", __func__, log_buf);
+#endif
 	spin_lock_irqsave(&tlmm_lock, irq_flags);
 	for_each_set_bit(i, msm_gpio.wake_irqs, NR_MSM_GPIOS)
 		__msm_gpio_set_intr_cfg_enable(i, 0);

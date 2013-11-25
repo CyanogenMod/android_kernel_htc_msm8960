@@ -146,6 +146,7 @@ config ARCH_MSM8960
 	select MSM_RUN_QUEUE_STATS
 	select ARM_HAS_SG_CHAIN
 	select MSM_KRAIT_WFE_FIXUP
+	select MSM_IOMMU_GPU_SYNC
 
 config ARCH_MSM8930
 	bool "MSM8930"
@@ -457,6 +458,10 @@ config PERFLOCK
         depends on ARCH_APQ8064 || ARCH_MSM8960 || ARCH_MSM8X60 || ARCH_QSD8X50 || ARCH_MSM7X30 || ARCH_MSM7X00A || ARCH_MSM7227 || ARCH_MSM7225
         default n
         bool "HTC Performance Lock"
+
+config DEBUG_KSWAPD
+        default n
+        bool "HTC Debug Kswapd busy"
 
 config PERFLOCK_FIX_UP
         depends on CPU_FREQ
@@ -2676,23 +2681,23 @@ config MACH_MONARUDO
 	help
 	  Support for the HTC APQ8064 MONARUDO.
 
+config MACH_DELUXE_J
+        depends on ARCH_APQ8064
+        bool "APQ8064 DELUXE_J"
+        help
+          Support for the HTC APQ8064 DELUXE_J.
+
+config MACH_IMPRESSION_J
+        depends on ARCH_APQ8064
+        bool "APQ8064 IMPRESSION_J"
+        help
+          Support for the HTC APQ8064 IMPRESSION_J.
+
 config MACH_M7_UL
         depends on ARCH_APQ8064
         bool "APQ8064 M7_UL"
         help
           Support for the HTC APQ8064 M7_UL.
-
-config MACH_M7_DXG
-        depends on ARCH_APQ8064
-        bool "APQ8064 M7_DXG"
-        help
-          Support for the HTC APQ8064 M7_DXG.
-
-config MACH_T6_DXG
-        depends on ARCH_APQ8064
-        bool "APQ8064 T6_DXG"
-        help
-          Support for the HTC APQ8064 T6_DXG.
 
 config QSC_MODEM
         default n
@@ -2755,5 +2760,10 @@ config MSM_CPU_PWRCTL
 	  stand alone power collapse operation. Selecting this option
 	  ensures that they are always off.
 
+config QUALCOMM_WLAN_PXO
+	default n
+	bool "Use PXO for WLAN clock source"
+	help
+	  Use PXO for clock source of WLAN chip
 endif
 

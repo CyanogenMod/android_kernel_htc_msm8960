@@ -153,7 +153,8 @@ static int is_buf_in_queue(struct msm_cam_v4l2_device *pcam,
 		buf_phyaddr = (unsigned long)
 			videobuf2_to_pmem_contig(&buf->vidbuf, 0) +
 			offset;
-		D("%s vb_idx=%d,vb_paddr=0x%x ch0=0x%x\n",
+		if (!buf_phyaddr)
+		pr_info("%s vb_idx=%d,vb_paddr=0x%x ch0=0x%x\n",
 		  __func__, buf->vidbuf.v4l2_buf.index,
 		  buf_phyaddr, fbuf->ch_paddr[0]);
 		if (fbuf->ch_paddr[0] == buf_phyaddr) {
@@ -315,7 +316,8 @@ static int msm_mctl_pp_get_phy_addr(
 			pcam_inst->buf_offset[buf_idx][i].data_offset;
 			pp_frame->mp[i].fd = (int)mem->vaddr;
 			pp_frame->mp[i].length = mem->size;
-			D("%s frame id %d buffer %d plane %d phy addr 0x%x"
+			if (!pp_frame->mp[i].phy_addr)
+			pr_info("%s frame id %d buffer %d plane %d phy addr 0x%x"
 				" fd %d length %d\n", __func__,
 				pp_frame->frame_id, buf_idx, i,
 				(uint32_t)pp_frame->mp[i].phy_addr,
@@ -550,14 +552,6 @@ int msm_mctl_pp_proc_vpe_cmd(
 			sizeof(zoom->pp_frame_cmd))) {
 			kfree(zoom);
 			return -EFAULT;
-		}
-		if ((void *)zoom->pp_frame_cmd.src_buf_handle == NULL ||
-			(void *)zoom->pp_frame_cmd.dest_buf_handle == NULL) {
-			pr_err("%s: src_buf_handle 0x%x dest_buf_handle 0x%x\n",
-				__func__, zoom->pp_frame_cmd.src_buf_handle, zoom->pp_frame_cmd.dest_buf_handle);
-			rc = -EINVAL;
-			kfree(zoom);
-			break;
 		}
 		D("%s: src=0x%x, dest=0x%x,cookie=0x%x,action=0x%x,path=0x%x",
 				__func__, zoom->pp_frame_cmd.src_buf_handle,

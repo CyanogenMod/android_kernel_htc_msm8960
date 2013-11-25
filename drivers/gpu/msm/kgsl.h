@@ -60,6 +60,23 @@
 #define KGSL_STATS_ADD(_size, _stat, _max) \
 	do { _stat += (_size); if (_stat > _max) _max = _stat; } while (0)
 
+
+#define KGSL_MEMFREE_HIST_SIZE	((int)(PAGE_SIZE * 2))
+
+struct kgsl_memfree_hist_elem {
+	unsigned int pid;
+	unsigned int gpuaddr;
+	unsigned int size;
+	unsigned int flags;
+};
+
+struct kgsl_memfree_hist {
+	void *base_hist_rb;
+	unsigned int size;
+	struct kgsl_memfree_hist_elem *wptr;
+};
+
+
 struct kgsl_device;
 struct kgsl_context;
 
@@ -89,6 +106,9 @@ struct kgsl_driver {
 	struct mutex devlock;
 
 	void *ptpool;
+
+	struct mutex memfree_hist_mutex;
+	struct kgsl_memfree_hist memfree_hist;
 
 	struct {
 		unsigned int vmalloc;
@@ -122,10 +142,13 @@ struct kgsl_memdesc_ops {
 
 #define KGSL_MEMDESC_GUARD_PAGE BIT(0)
 #define KGSL_MEMDESC_GLOBAL BIT(1)
+#define KGSL_MEMDESC_FROZEN BIT(2)
+#define KGSL_MEMDESC_MAPPED BIT(3)
 
 struct kgsl_memdesc {
 	struct kgsl_pagetable *pagetable;
-	void *hostptr;
+	void *hostptr; 
+	unsigned long useraddr; 
 	unsigned int gpuaddr;
 	unsigned int physaddr;
 	unsigned int size;
@@ -151,29 +174,28 @@ struct kgsl_memdesc {
 #define KGSL_MEM_ENTRY_MAX     7
 #else
 enum {
-KGSL_MEM_ENTRY_KERNEL = 0,
-KGSL_MEM_ENTRY_PMEM,
-KGSL_MEM_ENTRY_ASHMEM,
-KGSL_MEM_ENTRY_USER,
-KGSL_MEM_ENTRY_ION,
-KGSL_MEM_ENTRY_PAGE_ALLOC,
-KGSL_MEM_ENTRY_PRE_ALLOC,
-KGSL_MEM_ENTRY_MAX,
+	KGSL_MEM_ENTRY_KERNEL = 0,
+	KGSL_MEM_ENTRY_PMEM,
+	KGSL_MEM_ENTRY_ASHMEM,
+	KGSL_MEM_ENTRY_USER,
+	KGSL_MEM_ENTRY_ION,
+	KGSL_MEM_ENTRY_PAGE_ALLOC,
+	KGSL_MEM_ENTRY_PRE_ALLOC,
+	KGSL_MEM_ENTRY_MAX,
 };
 #endif
-
-
-#define KGSL_MEM_ENTRY_FROZEN (1 << 0)
 
 struct kgsl_mem_entry {
 	struct kref refcount;
 	struct kgsl_memdesc memdesc;
 	int memtype;
-	int flags;
 	void *priv_data;
 	struct rb_node node;
+	unsigned int id;
 	unsigned int context_id;
 	struct kgsl_process_private *priv;
+	
+	int pending_free;
 };
 
 #ifdef CONFIG_MSM_KGSL_MMU_PAGE_FAULT
@@ -194,15 +216,15 @@ struct kgsl_mem_entry *kgsl_sharedmem_find_region(
 
 void kgsl_get_memory_usage(char *str, size_t len, unsigned int memflags);
 
-int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
-	void (*cb)(struct kgsl_device *, void *, u32, u32), void *priv,
-	void *owner);
+void kgsl_signal_event(struct kgsl_device *device,
+		struct kgsl_context *context, unsigned int timestamp,
+		unsigned int type);
+
+void kgsl_signal_events(struct kgsl_device *device,
+		struct kgsl_context *context, unsigned int type);
 
 void kgsl_cancel_events(struct kgsl_device *device,
 	void *owner);
-
-void kgsl_cancel_events_ctxt(struct kgsl_device *device,
-	struct kgsl_context *context);
 
 extern const struct dev_pm_ops kgsl_pm_ops;
 
@@ -211,6 +233,14 @@ int kgsl_suspend_driver(struct platform_device *pdev, pm_message_t state);
 int kgsl_resume_driver(struct platform_device *pdev);
 void kgsl_early_suspend_driver(struct early_suspend *h);
 void kgsl_late_resume_driver(struct early_suspend *h);
+
+void kgsl_trace_regwrite(struct kgsl_device *device, unsigned int offset,
+		unsigned int value);
+
+void kgsl_trace_issueibcmds(struct kgsl_device *device, int id,
+		struct kgsl_ibdesc *ibdesc, int numibs,
+		unsigned int timestamp, unsigned int flags,
+		int result, unsigned int type);
 
 #ifdef CONFIG_MSM_KGSL_DRM
 extern int kgsl_drm_init(struct platform_device *dev);
@@ -229,6 +259,14 @@ static inline void kgsl_drm_exit(void)
 static inline int kgsl_gpuaddr_in_memdesc(const struct kgsl_memdesc *memdesc,
 				unsigned int gpuaddr, unsigned int size)
 {
+	
+	if (!size)
+		size = 1;
+
+	
+	if ((gpuaddr + size) < gpuaddr)
+		return 0;
+
 	if (gpuaddr >= memdesc->gpuaddr &&
 	    ((gpuaddr + size) <= (memdesc->gpuaddr + memdesc->size))) {
 		return 1;

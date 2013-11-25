@@ -428,6 +428,10 @@ static void vfs_write_timeout(unsigned long data)
 	show_state_filter(TASK_UNINTERRUPTIBLE);
 	pr_info("### Show System Server State ###\n");
 	show_thread_group_state_filter("system_server", 0);
+	pr_info("### Show bugreport State ###\n");
+	show_thread_group_state_filter("bugreport", 0);
+	pr_info("### Show adbd State ###\n");
+	show_thread_group_state_filter("adbd", 0);
 }
 
 SYSCALL_DEFINE3(write, unsigned int, fd, const char __user *, buf,

@@ -41,6 +41,11 @@ EXPORT_SYMBOL(cpu_user);
 #endif
 #endif
 
+/*
+ * No module should need to touch the TLB (and currently
+ * no modules do.  We export this for "loadkernel" support
+ * (booting a new kernel from within a running kernel.)
+ */
 #ifdef MULTI_TLB
 EXPORT_SYMBOL(cpu_tlb);
 #endif

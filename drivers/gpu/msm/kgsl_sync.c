@@ -63,20 +63,6 @@ static int kgsl_sync_pt_compare(struct sync_pt *a, struct sync_pt *b)
 	return timestamp_cmp(ts_a, ts_b);
 }
 
-void kgsl_sync_timeline_value_str(struct sync_timeline *timeline, char *str,
-				   int size)
-{
-	struct kgsl_sync_timeline *ktimeline =
-		 (struct kgsl_sync_timeline *) timeline;
-	snprintf(str, size, "%d", ktimeline->last_timestamp);
-}
-
-void kgsl_sync_pt_value_str(struct sync_pt *pt, char *str, int size)
-{
-	struct kgsl_sync_pt *kpt = (struct kgsl_sync_pt *) pt;
-	snprintf(str, size, "%d", kpt->timestamp);
-}
-
 struct kgsl_fence_event_priv {
 	struct kgsl_context *context;
 	unsigned int timestamp;
@@ -84,10 +70,12 @@ struct kgsl_fence_event_priv {
 
 
 static inline void kgsl_fence_event_cb(struct kgsl_device *device,
-	void *priv, u32 context_id, u32 timestamp)
+	void *priv, u32 context_id, u32 timestamp, u32 type)
 {
 	struct kgsl_fence_event_priv *ev = priv;
-	kgsl_sync_timeline_signal(ev->context->timeline, ev->timestamp);
+
+	
+	kgsl_sync_timeline_signal(ev->context->timeline, timestamp);
 	kgsl_context_put(ev->context);
 	kfree(ev);
 }
@@ -107,16 +95,19 @@ int kgsl_add_fence_event(struct kgsl_device *device,
 	if (len != sizeof(priv))
 		return -EINVAL;
 
-	context = kgsl_find_context(owner, context_id);
-	if (context == NULL)
-		return -EINVAL;
-
 	event = kzalloc(sizeof(*event), GFP_KERNEL);
 	if (event == NULL)
 		return -ENOMEM;
+
+	context = kgsl_context_get_owner(owner, context_id);
+
+	if (context == NULL) {
+		kfree(event);
+		return -EINVAL;
+	}
+
 	event->context = context;
 	event->timestamp = timestamp;
-	kgsl_context_get(context);
 
 	pt = kgsl_sync_pt_create(context->timeline, timestamp);
 	if (pt == NULL) {
@@ -157,7 +148,6 @@ int kgsl_add_fence_event(struct kgsl_device *device,
 fail_event:
 fail_copy_fd:
 	
-	sync_fence_put(fence);
 	put_unused_fd(priv.fence_fd);
 fail_fd:
 	
@@ -170,11 +160,10 @@ fail_pt:
 }
 
 static const struct sync_timeline_ops kgsl_sync_timeline_ops = {
+	.driver_name = "kgsl-timeline",
 	.dup = kgsl_sync_pt_dup,
 	.has_signaled = kgsl_sync_pt_has_signaled,
 	.compare = kgsl_sync_pt_compare,
-	.timeline_value_str = kgsl_sync_timeline_value_str,
-	.pt_value_str = kgsl_sync_pt_value_str,
 };
 
 int kgsl_sync_timeline_create(struct kgsl_context *context)

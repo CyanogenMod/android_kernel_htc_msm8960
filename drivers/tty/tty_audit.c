@@ -15,11 +15,11 @@
 
 struct tty_audit_buf {
 	atomic_t count;
-	struct mutex mutex;	/* Protects all data below */
-	int major, minor;	/* The TTY which the data is from */
+	struct mutex mutex;	
+	int major, minor;	
 	unsigned icanon:1;
 	size_t valid;
-	unsigned char *data;	/* Allocated size N_TTY_BUF_SIZE */
+	unsigned char *data;	
 };
 
 static struct tty_audit_buf *tty_audit_buf_alloc(int major, int minor,
@@ -83,12 +83,6 @@ static void tty_audit_log(const char *description, struct task_struct *tsk,
 	}
 }
 
-/**
- *	tty_audit_buf_push	-	Push buffered data out
- *
- *	Generate an audit message from the contents of @buf, which is owned by
- *	@tsk with @loginuid.  @buf->mutex must be locked.
- */
 static void tty_audit_buf_push(struct task_struct *tsk, uid_t loginuid,
 			       unsigned int sessionid,
 			       struct tty_audit_buf *buf)
@@ -104,12 +98,6 @@ static void tty_audit_buf_push(struct task_struct *tsk, uid_t loginuid,
 	buf->valid = 0;
 }
 
-/**
- *	tty_audit_buf_push_current	-	Push buffered data out
- *
- *	Generate an audit message from the contents of @buf, which is owned by
- *	the current task.  @buf->mutex must be locked.
- */
 static void tty_audit_buf_push_current(struct tty_audit_buf *buf)
 {
 	uid_t auid = audit_get_loginuid(current);
@@ -141,11 +129,6 @@ void tty_audit_exit(void)
 	tty_audit_buf_put(buf);
 }
 
-/**
- *	tty_audit_fork	-	Copy TTY audit state for a new task
- *
- *	Set up TTY audit state in @sig from current.  @sig needs no locking.
- */
 void tty_audit_fork(struct signal_struct *sig)
 {
 	spin_lock_irq(&current->sighand->siglock);
@@ -153,9 +136,6 @@ void tty_audit_fork(struct signal_struct *sig)
 	spin_unlock_irq(&current->sighand->siglock);
 }
 
-/**
- *	tty_audit_tiocsti	-	Log TIOCSTI
- */
 void tty_audit_tiocsti(struct tty_struct *tty, char ch)
 {
 	struct tty_audit_buf *buf;
@@ -189,16 +169,6 @@ void tty_audit_tiocsti(struct tty_struct *tty, char ch)
 	}
 }
 
-/**
- * tty_audit_push_task	-	Flush task's pending audit data
- * @tsk:		task pointer
- * @loginuid:		sender login uid
- * @sessionid:		sender session id
- *
- * Called with a ref on @tsk held. Try to lock sighand and get a
- * reference to the tty audit buffer if available.
- * Flush the buffer or return an appropriate error code.
- */
 int tty_audit_push_task(struct task_struct *tsk, uid_t loginuid, u32 sessionid)
 {
 	struct tty_audit_buf *buf = ERR_PTR(-EPERM);
@@ -214,10 +184,6 @@ int tty_audit_push_task(struct task_struct *tsk, uid_t loginuid, u32 sessionid)
 	}
 	unlock_task_sighand(tsk, &flags);
 
-	/*
-	 * Return 0 when signal->audit_tty set
-	 * but tsk->signal->tty_audit_buf == NULL.
-	 */
 	if (!buf || IS_ERR(buf))
 		return PTR_ERR(buf);
 
@@ -229,13 +195,6 @@ int tty_audit_push_task(struct task_struct *tsk, uid_t loginuid, u32 sessionid)
 	return 0;
 }
 
-/**
- *	tty_audit_buf_get	-	Get an audit buffer.
- *
- *	Get an audit buffer for @tty, allocate it if necessary.  Return %NULL
- *	if TTY auditing is disabled or out of memory.  Otherwise, return a new
- *	reference to the buffer.
- */
 static struct tty_audit_buf *tty_audit_buf_get(struct tty_struct *tty)
 {
 	struct tty_audit_buf *buf, *buf2;
@@ -270,7 +229,7 @@ static struct tty_audit_buf *tty_audit_buf_get(struct tty_struct *tty)
 		buf2 = NULL;
 	}
 	atomic_inc(&buf->count);
-	/* Fall through */
+	
  out:
 	spin_unlock_irq(&current->sighand->siglock);
 	if (buf2)
@@ -278,11 +237,6 @@ static struct tty_audit_buf *tty_audit_buf_get(struct tty_struct *tty)
 	return buf;
 }
 
-/**
- *	tty_audit_add_data	-	Add data for TTY auditing.
- *
- *	Audit @data of @size from @tty, if necessary.
- */
 void tty_audit_add_data(struct tty_struct *tty, unsigned char *data,
 			size_t size)
 {
@@ -327,11 +281,6 @@ void tty_audit_add_data(struct tty_struct *tty, unsigned char *data,
 	tty_audit_buf_put(buf);
 }
 
-/**
- *	tty_audit_push	-	Push buffered data out
- *
- *	Make sure no audit data is pending for @tty on the current process.
- */
 void tty_audit_push(struct tty_struct *tty)
 {
 	struct tty_audit_buf *buf;

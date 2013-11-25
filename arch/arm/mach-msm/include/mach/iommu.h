@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -119,7 +119,6 @@ static inline struct device *msm_iommu_get_ctx(const char *ctx_name)
 }
 #endif
 
-#endif
 
 static inline int msm_soc_version_supports_iommu_v1(void)
 {
@@ -143,3 +142,4 @@ static inline int msm_soc_version_supports_iommu_v1(void)
 	}
 	return 1;
 }
+#endif

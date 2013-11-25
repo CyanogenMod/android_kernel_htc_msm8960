@@ -89,6 +89,7 @@ struct YushanII_info_t {
 };
 
 void YushanII_Init(struct msm_sensor_ctrl_t *sensor,int res);
+int YushanII_Get_reloadInfo(void);
 void YushanII_reload_firmware(void);
 int YushanII_probe_init(void);
 void YushanII_probe_deinit(void);

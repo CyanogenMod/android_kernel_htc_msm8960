@@ -1223,6 +1223,10 @@ static int32_t rumbas_wrapper_i2c_write(struct msm_actuator_ctrl_t *a_ctrl,
 		pr_info("[RUMBA_S]  VCM lens position = %d\n", positon);
 	}
 
+	if(a_ctrl->enable_focus_step_log)
+		pr_info("%s next_lens_position: %d, positon: %d, VCM_Macro: %d, VCM_Infinity: %d\n", __func__,
+			next_lens_position, positon, a_ctrl->af_OTP_info.VCM_Macro, a_ctrl->af_OTP_info.VCM_Infinity);
+
 	memset(byte_data, 0, sizeof(byte_data));
 	byte_data[0] = (positon & 0xFF00) >> 8;
 	byte_data[1] = positon & 0x00FF;
@@ -1774,6 +1778,10 @@ static struct msm_actuator_ctrl_t rumbas_act_t = {
 		.a_create_subdevice = rumbas_act_create_subdevice,
 		.a_config = rumbas_act_config,
 		.is_ois_supported = 1,
+		.small_step_damping = 47,
+		.medium_step_damping = 75,
+		.big_step_damping = 100,
+		.is_af_infinity_supported = 0,
 		
 		.do_vcm_on_cb	= rumbas_do_cam_vcm_on_cb,
 		.do_vcm_off_cb	= rumbas_do_cam_vcm_off_cb,

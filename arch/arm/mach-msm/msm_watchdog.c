@@ -214,6 +214,7 @@ int msm_watchdog_resume(struct device *dev)
 	__raw_writel(1, msm_tmr0_base + WDT0_RST);
 	last_pet = sched_clock();
 	mb();
+	set_dog_pet_footprint();
 	set_WDT_EN_footprint(1);
 	printk(KERN_DEBUG "msm_watchdog_resume\n");
 	mb();

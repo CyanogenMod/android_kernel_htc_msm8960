@@ -25,6 +25,7 @@
 #include <linux/switch.h>
 #include <mach/htc_acoustic_8960.h>
 #include <mach/subsystem_restart.h>
+#include <linux/sched.h>
 
 #define ACOUSTIC_IOCTL_MAGIC 'p'
 #define ACOUSTIC_SET_Q6_EFFECT		_IOW(ACOUSTIC_IOCTL_MAGIC, 43, unsigned)
@@ -35,6 +36,7 @@
 #define ACOUSTIC_UPDATE_LISTEN_NOTIFICATION	_IOW(ACOUSTIC_IOCTL_MAGIC, 48, unsigned)
 #define ACOUSTIC_SET_CSD_CLIENT   	_IOW(ACOUSTIC_IOCTL_MAGIC, 49, unsigned)
 #define ACOUSTIC_GET_CSD_CLIENT   	_IOW(ACOUSTIC_IOCTL_MAGIC, 50, unsigned)
+#define ACOUSTIC_KILL_PID		_IOW(ACOUSTIC_IOCTL_MAGIC, 88, unsigned)
 
 #define ACOUSTIC_RAMDUMP		_IOW(ACOUSTIC_IOCTL_MAGIC, 99, unsigned)
 #define D(fmt, args...) printk(KERN_INFO "[AUD] htc-acoustic: "fmt, ##args)
@@ -199,6 +201,28 @@ acoustic_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				temp = 1;
 			}
 			is_csd_client_inited = temp;
+			break;
+		}
+
+		case ACOUSTIC_KILL_PID: {
+			int pid = 0;
+			struct pid *pid_struct = NULL;
+
+			if (copy_from_user(&pid, (void *)arg, sizeof(pid))) {
+				rc = -EFAULT;
+				break;
+			}
+
+			D("ACOUSTIC_KILL_PID: %d\n", pid);
+
+			if (pid <= 0)
+				break;
+
+			pid_struct = find_get_pid(pid);
+			if (pid_struct) {
+				kill_pid(pid_struct, SIGKILL, 1);
+				D("kill pid: %d", pid);
+			}
 			break;
 		}
 

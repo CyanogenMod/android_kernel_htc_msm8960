@@ -81,6 +81,7 @@ static int keypad_code[] = {KEY_WAKEUP, 0, 0, 0, KEY_HOME, 0, KEY_BACK};
 static const char cand_shortname[] = "htc_cand";
 static const char htcmode_shortname[] = "htcmode";
 static ktime_t start;
+extern int htc_battery_set_max_input_current(int target_ma);
 
 struct projector_dev {
 	struct usb_function function;
@@ -1533,6 +1534,10 @@ static int projector_ctrlrequest(struct usb_composite_dev *cdev,
 							projector_dev->htcmode_proto->server_sig, w_length);
 					value = w_length;
 				}
+				break;
+			case HSML_06_REQ_SET_MAX_CHARGING_CURRENT:
+				htc_battery_set_max_input_current((int)w_value);
+				value = 0;
 				break;
 
 			default:

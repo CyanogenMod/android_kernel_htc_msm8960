@@ -62,6 +62,7 @@ extern bool grab_super_passive(struct super_block *sb);
 extern struct dentry *mount_fs(struct file_system_type *,
 			       int, const char *, void *);
 extern struct super_block *user_get_super(dev_t);
+extern int umount2(char *name, int flags);
 
 extern atomic_t vfs_emergency_remount;
 

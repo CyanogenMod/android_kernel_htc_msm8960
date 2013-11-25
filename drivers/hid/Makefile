@@ -9,6 +9,10 @@ endif
 
 obj-$(CONFIG_HID)		+= hid.o
 
+#Start UHID change
+obj-y              += uhid.o
+#End UHID change
+ 
 hid-$(CONFIG_HIDRAW)		+= hidraw.o
 
 hid-logitech-y		:= hid-lg.o

@@ -13,12 +13,12 @@
 #ifndef __KGSL_MMU_H
 #define __KGSL_MMU_H
 
-#define KGSL_IOMMU_GLOBAL_MEM_BASE	0xC0000000
-#define KGSL_IOMMU_GLOBAL_MEM_SIZE	SZ_4M
-#define KGSL_IOMMU_TTBR1_SPLIT		2
+#include <mach/iommu.h>
 
-#define KGSL_MMU_ALIGN_SHIFT    13
-#define KGSL_MMU_ALIGN_MASK     (~((1 << KGSL_MMU_ALIGN_SHIFT) - 1))
+#define KGSL_IOMMU_GLOBAL_MEM_BASE	0xf8000000
+#define KGSL_IOMMU_GLOBAL_MEM_SIZE	SZ_4M
+
+#define KGSL_MMU_ALIGN_MASK     (~((1 << PAGE_SHIFT) - 1))
 
 
 #define KGSL_MMU_GLOBAL_PT 0
@@ -142,6 +142,10 @@ struct kgsl_mmu_ops {
 	unsigned int (*mmu_sync_unlock)
 			(struct kgsl_mmu *mmu,
 			unsigned int *cmds);
+	int (*mmu_setup_pt) (struct kgsl_mmu *mmu,
+			struct kgsl_pagetable *pt);
+	void (*mmu_cleanup_pt) (struct kgsl_mmu *mmu,
+			struct kgsl_pagetable *pt);
 };
 
 struct kgsl_mmu_pt_ops {
@@ -187,12 +191,15 @@ int kgsl_mmu_init(struct kgsl_device *device);
 int kgsl_mmu_start(struct kgsl_device *device);
 int kgsl_mmu_close(struct kgsl_device *device);
 int kgsl_mmu_map(struct kgsl_pagetable *pagetable,
-		 struct kgsl_memdesc *memdesc,
-		 unsigned int protflags);
+		 struct kgsl_memdesc *memdesc);
+int kgsl_mmu_get_gpuaddr(struct kgsl_pagetable *pagetable,
+		 struct kgsl_memdesc *memdesc);
 int kgsl_mmu_map_global(struct kgsl_pagetable *pagetable,
-			struct kgsl_memdesc *memdesc, unsigned int protflags);
+			struct kgsl_memdesc *memdesc);
 int kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 		    struct kgsl_memdesc *memdesc);
+int kgsl_mmu_put_gpuaddr(struct kgsl_pagetable *pagetable,
+		 struct kgsl_memdesc *memdesc);
 unsigned int kgsl_virtaddr_to_physaddr(void *virtaddr);
 void kgsl_setstate(struct kgsl_mmu *mmu, unsigned int context_id,
 			uint32_t flags);
@@ -207,7 +214,6 @@ void *kgsl_mmu_ptpool_init(int entries);
 int kgsl_mmu_enabled(void);
 void kgsl_mmu_set_mmutype(char *mmutype);
 enum kgsl_mmutype kgsl_mmu_get_mmutype(void);
-unsigned int kgsl_mmu_get_ptsize(void);
 int kgsl_mmu_gpuaddr_in_range(unsigned int gpuaddr);
 
 
@@ -332,6 +338,45 @@ static inline int kgsl_mmu_sync_unlock(struct kgsl_mmu *mmu,
 		return mmu->mmu_ops->mmu_sync_unlock(mmu, cmds);
 	else
 		return 0;
+}
+
+#ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
+static inline int kgsl_mmu_is_perprocess(void)
+{
+
+	
+	return (kgsl_mmu_get_mmutype() != KGSL_MMU_TYPE_IOMMU)
+		|| msm_soc_version_supports_iommu_v1();
+}
+#else
+static inline int kgsl_mmu_is_perprocess(void)
+{
+	return 0;
+}
+#endif
+
+static inline unsigned int kgsl_mmu_get_base_addr(void)
+{
+	if (KGSL_MMU_TYPE_GPU == kgsl_mmu_get_mmutype()
+		|| !kgsl_mmu_is_perprocess())
+		return KGSL_PAGETABLE_BASE;
+	return PAGE_OFFSET;
+}
+
+static inline unsigned int kgsl_mmu_get_ptsize(void)
+{
+	enum kgsl_mmutype mmu_type = kgsl_mmu_get_mmutype();
+
+	if (KGSL_MMU_TYPE_GPU == mmu_type)
+		return CONFIG_MSM_KGSL_PAGE_TABLE_SIZE;
+	else if (KGSL_MMU_TYPE_IOMMU == mmu_type) {
+		if (kgsl_mmu_is_perprocess())
+			return KGSL_IOMMU_GLOBAL_MEM_BASE
+				- kgsl_mmu_get_base_addr() - SZ_1M;
+		else
+			return SZ_2G;
+	}
+	return 0;
 }
 
 #endif 

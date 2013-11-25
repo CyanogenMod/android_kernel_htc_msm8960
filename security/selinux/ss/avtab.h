@@ -1,12 +1,3 @@
-/*
- * An access vector table (avtab) is a hash table
- * of access vectors and transition types indexed
- * by a type pair and a class.  An access vector
- * table is used to represent the type enforcement
- * tables.
- *
- *  Author : Stephen Smalley, <sds@epoch.ncsc.mil>
- */
 
 /* Updated: Frank Mayer <mayerf@tresys.com> and Karl MacMillan <kmacmillan@tresys.com>
  *
@@ -24,9 +15,9 @@
 #define _SS_AVTAB_H_
 
 struct avtab_key {
-	u16 source_type;	/* source type */
-	u16 target_type;	/* target type */
-	u16 target_class;	/* target object class */
+	u16 source_type;	
+	u16 target_type;	
+	u16 target_class;	
 #define AVTAB_ALLOWED		0x0001
 #define AVTAB_AUDITALLOW	0x0002
 #define AVTAB_AUDITDENY		0x0004
@@ -35,13 +26,13 @@ struct avtab_key {
 #define AVTAB_MEMBER		0x0020
 #define AVTAB_CHANGE		0x0040
 #define AVTAB_TYPE		(AVTAB_TRANSITION | AVTAB_MEMBER | AVTAB_CHANGE)
-#define AVTAB_ENABLED_OLD   0x80000000 /* reserved for used in cond_avtab */
-#define AVTAB_ENABLED		0x8000 /* reserved for used in cond_avtab */
-	u16 specified;	/* what field is specified */
+#define AVTAB_ENABLED_OLD   0x80000000 
+#define AVTAB_ENABLED		0x8000 
+	u16 specified;	
 };
 
 struct avtab_datum {
-	u32 data; /* access vector or type value */
+	u32 data; 
 };
 
 struct avtab_node {
@@ -52,9 +43,9 @@ struct avtab_node {
 
 struct avtab {
 	struct avtab_node **htable;
-	u32 nel;	/* number of elements */
-	u32 nslot;      /* number of hash slots */
-	u16 mask;       /* mask to compute hash func */
+	u32 nel;	
+	u32 nslot;      
+	u16 mask;       
 
 };
 
@@ -87,5 +78,5 @@ void avtab_cache_destroy(void);
 #define MAX_AVTAB_HASH_BITS 11
 #define MAX_AVTAB_HASH_BUCKETS (1 << MAX_AVTAB_HASH_BITS)
 
-#endif	/* _SS_AVTAB_H_ */
+#endif	
 

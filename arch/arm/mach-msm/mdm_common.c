@@ -128,6 +128,7 @@ struct mdm_msr_info {
 	char modem_errmsg[RD_BUF_SIZE];
 };
 int mdm_msr_index = 0;
+static spinlock_t msr_info_lock;
 static struct mdm_msr_info msr_info_list[MODEM_ERRMSG_LIST_LEN];
 #endif
 
@@ -162,7 +163,27 @@ static void mdm_loaded_info(void)
 static ssize_t modem_silent_reset_info_store(struct device *dev,
 		struct device_attribute *attr,	const char *buf, size_t count)
 {
-	return -EPERM;
+	int len = 0;
+	unsigned long flags;
+
+	spin_lock_irqsave(&msr_info_lock, flags);
+
+	msr_info_list[mdm_msr_index].valid = 1;
+	msr_info_list[mdm_msr_index].msr_time = current_kernel_time();
+	snprintf(msr_info_list[mdm_msr_index].modem_errmsg, RD_BUF_SIZE, "%s", buf);
+	len = strlen(msr_info_list[mdm_msr_index].modem_errmsg);
+	if(msr_info_list[mdm_msr_index].modem_errmsg[len-1] == '\n')
+	{
+		msr_info_list[mdm_msr_index].modem_errmsg[len-1] = '\0';
+	}
+
+	if(++mdm_msr_index >= MODEM_ERRMSG_LIST_LEN) {
+		mdm_msr_index = 0;
+	}
+
+	spin_unlock_irqrestore(&msr_info_lock, flags);
+
+	return count;
 }
 
 static ssize_t modem_silent_reset_info_show(struct device *dev,
@@ -170,6 +191,9 @@ static ssize_t modem_silent_reset_info_show(struct device *dev,
 {
 	int i = 0;
 	char tmp[RD_BUF_SIZE+30];
+	unsigned long flags;
+
+	spin_lock_irqsave(&msr_info_lock, flags);
 
 	for( i=0; i<MODEM_ERRMSG_LIST_LEN; i++ ) {
 		if( msr_info_list[i].valid != 0 ) {
@@ -183,19 +207,27 @@ static ssize_t modem_silent_reset_info_show(struct device *dev,
 	}
 	strcat(buf, "\n\r\0");
 
+	spin_unlock_irqrestore(&msr_info_lock, flags);
+
 	return strlen(buf);
 }
-static DEVICE_ATTR(msr_info, S_IRUSR | S_IROTH | S_IRGRP,
+static DEVICE_ATTR(msr_info, S_IRUSR | S_IROTH | S_IRGRP | S_IWUSR,
 	modem_silent_reset_info_show, modem_silent_reset_info_store);
 
 static int modem_silent_reset_info_sysfs_attrs(struct platform_device *pdev)
 {
 	int i = 0;
+	unsigned long flags;
+
+	spin_lock_irqsave(&msr_info_lock, flags);
+
 	mdm_msr_index = 0;
 	for( i=0; i<MODEM_ERRMSG_LIST_LEN; i++ ) {
 		msr_info_list[i].valid = 0;
 		memset(msr_info_list[i].modem_errmsg, 0, RD_BUF_SIZE);
 	}
+
+	spin_unlock_irqrestore(&msr_info_lock, flags);
 
 	return device_create_file(&pdev->dev, &dev_attr_msr_info);
 }
@@ -206,6 +238,9 @@ static void mdm_restart_reason_fn(struct work_struct *work)
 {
 	int ret, ntries = 0;
 	char sfr_buf[RD_BUF_SIZE];
+#ifdef CONFIG_HTC_STORE_MODEM_RESET_INFO
+	unsigned long flags;
+#endif
 
 	do {
 		msleep(SFR_RETRY_INTERVAL);
@@ -218,12 +253,16 @@ static void mdm_restart_reason_fn(struct work_struct *work)
 		} else {
 			pr_err("mdm restart reason: %s\n", sfr_buf);
 #ifdef CONFIG_HTC_STORE_MODEM_RESET_INFO
+			spin_lock_irqsave(&msr_info_lock, flags);
+
 			msr_info_list[mdm_msr_index].valid = 1;
 			msr_info_list[mdm_msr_index].msr_time = current_kernel_time();
 			snprintf(msr_info_list[mdm_msr_index].modem_errmsg, RD_BUF_SIZE, "%s", sfr_buf);
 			if(++mdm_msr_index >= MODEM_ERRMSG_LIST_LEN) {
 				mdm_msr_index = 0;
 			}
+
+			spin_unlock_irqrestore(&msr_info_lock, flags);
 #endif
 			break;
 		}
@@ -590,10 +629,11 @@ static void mdm_disable_irqs(void)
 
 static irqreturn_t mdm_errfatal(int irq, void *dev_id)
 {
-	pr_err("%s: mdm got errfatal interrupt\n", __func__);
+	pr_err("%s: detect mdm errfatal pin rising\n", __func__);
 
 	if (mdm_drv->mdm_ready &&
 		(gpio_get_value(mdm_drv->mdm2ap_status_gpio) == 1)) {
+		pr_err("%s: mdm got errfatal interrupt\n", __func__);
 		pr_debug("%s: scheduling work now\n", __func__);
 		queue_work_on(0, mdm_queue, &mdm_fatal_work);	
 	}

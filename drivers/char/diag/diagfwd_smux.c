@@ -77,6 +77,10 @@ int diagfwd_read_complete_smux(void)
 int diag_get_rx_buffer(void *priv, void **pkt_priv, void **buffer, int size)
 {
 	if (!driver->in_busy_smux) {
+		if (!driver->smux_connected) {
+			pr_err("diag: received data in disconnect\n");
+			return -EINVAL;
+		}
 		*pkt_priv = (void *)0x1234;
 		*buffer = driver->buf_in_smux;
 		pr_debug("diag: set in_busy_smux as 1\n");
@@ -191,6 +195,8 @@ static int diagfwd_smux_remove(struct platform_device *pdev)
 	driver->in_busy_smux = 1;
 	kfree(driver->buf_in_smux);
 	driver->buf_in_smux = NULL;
+
+	pr_info("diag: SMUX removed\n");
 	return 0;
 }
 

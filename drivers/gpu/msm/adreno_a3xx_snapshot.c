@@ -21,6 +21,14 @@
 
 #define SHADER_MEMORY_SIZE 0x4000
 
+static void _rbbm_debug_bus_read(struct kgsl_device *device,
+	unsigned int block_id, unsigned int index, unsigned int *val)
+{
+	unsigned int block = (block_id << 8) | 1 << 16;
+	adreno_regwrite(device, A3XX_RBBM_DEBUG_BUS_CTL, block | index);
+	adreno_regread(device, A3XX_RBBM_DEBUG_BUS_DATA_STATUS, val);
+}
+
 static int a3xx_snapshot_shader_memory(struct kgsl_device *device,
 	void *snapshot, int remain, void *priv)
 {
@@ -229,11 +237,8 @@ static int a3xx_snapshot_debugbus_block(struct kgsl_device *device,
 	header->id = id;
 	header->count = DEBUGFS_BLOCK_SIZE;
 
-	for (i = 0; i < DEBUGFS_BLOCK_SIZE; i++) {
-		adreno_regwrite(device, A3XX_RBBM_DEBUG_BUS_CTL, val | i);
-		adreno_regread(device, A3XX_RBBM_DEBUG_BUS_DATA_STATUS,
-			&data[i]);
-	}
+	for (i = 0; i < DEBUGFS_BLOCK_SIZE; i++)
+		_rbbm_debug_bus_read(device, id, i, &data[i]);
 
 	return size;
 }
@@ -295,12 +300,37 @@ static void _snapshot_hlsq_regs(struct kgsl_snapshot_registers *regs,
 	struct kgsl_snapshot_registers_list *list,
 	struct adreno_device *adreno_dev)
 {
-	
-	if (!adreno_is_a3xx(adreno_dev)) {
-		regs[list->count].regs = (unsigned int *) a3xx_hlsq_registers;
-		regs[list->count].count = a3xx_hlsq_registers_count;
-		list->count++;
+	struct kgsl_device *device = &adreno_dev->dev;
+
+
+	if (adreno_is_a330(adreno_dev)) {
+		unsigned int stall_context_full = 0;
+
+		_rbbm_debug_bus_read(device, RBBM_BLOCK_ID_HLSQ, 49,
+				&stall_context_full);
+		stall_context_full &= 0x08000000;
+
+		if (stall_context_full)
+			return;
+	} else {
+		unsigned int next_pif = 0;
+
+		
+		_rbbm_debug_bus_read(device, RBBM_BLOCK_ID_HLSQ, 4, &next_pif);
+		next_pif &= 0x1f;
+		if (next_pif != 0 && next_pif != 1 && next_pif != 28)
+			return;
+
+		
+		_rbbm_debug_bus_read(device, RBBM_BLOCK_ID_HLSQ, 7, &next_pif);
+		next_pif &= 0x3f;
+		if (next_pif != 0 && next_pif != 1 && next_pif != 10)
+			return;
 	}
+
+	regs[list->count].regs = (unsigned int *) a3xx_hlsq_registers;
+	regs[list->count].count = a3xx_hlsq_registers_count;
+	list->count++;
 }
 
 static void _snapshot_a330_regs(struct kgsl_snapshot_registers *regs,
@@ -391,7 +421,7 @@ void *a3xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 
 	
 	adreno_regwrite(device, A3XX_RBBM_CLOCK_CTL,
-			A3XX_RBBM_CLOCK_CTL_DEFAULT);
+		adreno_a3xx_rbbm_clock_ctl_default(adreno_dev));
 
 	return snapshot;
 }

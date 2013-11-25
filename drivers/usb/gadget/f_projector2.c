@@ -853,12 +853,9 @@ static int projector2_ctrlrequest(struct usb_composite_dev *cdev,
 						ctrl->bRequest, ctrl->wValue, ctrl->wIndex, ctrl->wLength);
 		switch (ctrl->bRequest) {
 			case HSML_08_REQ_MIRROR_LINK:
-
-				if (atomic_read(&prj2_dev->prj2_enable_HSML) != 1) {
-					printk(KERN_INFO "[MIRROR_LINK]%s, set state: 1\n",__func__);
-					atomic_set(&prj2_dev->prj2_enable_HSML, 1);
-					schedule_work(&prj2_dev->notifier_setting_work);
-				}
+				printk(KERN_INFO "[MIRROR_LINK]%s, set state: 1\n",__func__);
+				atomic_set(&prj2_dev->prj2_enable_HSML, 1);
+				schedule_work(&prj2_dev->notifier_setting_work);
 				value = w_length;
 				break;
 			default:
