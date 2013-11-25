@@ -1,0 +1,38 @@
+config BCMDHD_4334
+	tristate "Broadcom 4329/30 wireless cards support"
+	depends on MMC
+	---help---
+	  This module adds support for wireless adapters based on
+	  Broadcom 4329/30 chipset.
+
+	  This driver uses the kernel's wireless extensions subsystem.
+
+	  If you choose to build a module, it'll be called dhd. Say M if
+	  unsure.
+
+config BCMDHD_FW_PATH
+	depends on BCMDHD_4334
+	string "Firmware path"
+	default "/system/etc/firmware/fw_bcm4334.bin"
+	---help---
+	  Path to the firmware file.
+
+config BCMDHD_NVRAM_PATH
+	depends on BCMDHD_4334
+	string "NVRAM path"
+	default "/proc/calibration"
+	---help---
+	  Path to the calibration file.
+
+config BCMDHD_WEXT
+	bool "Enable WEXT support"
+	depends on BCMDHD_4334 && CFG80211 = n
+	select WIRELESS_EXT
+	select WEXT_PRIV
+	help
+	  Enables WEXT support
+
+config HTC_IGNORE_SKB_ALIGNMENT
+    tristate "HTC ignore skb 32bytes aligment to avoid CMD53 fragment"
+    help
+	  Enables HTC_IGNORE_SKB_ALIGNMENT support, for QCT platform, please enable this to avoid TP drop by SDIO CMD53 fragment.

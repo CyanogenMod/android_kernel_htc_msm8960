@@ -1,0 +1,70 @@
+/*
+ * Inode based directory notification for Linux
+ *
+ * Copyright (C) 2005 John McCutchan
+ */
+
+#ifndef _LINUX_INOTIFY_H
+#define _LINUX_INOTIFY_H
+
+#include <linux/fcntl.h>
+#include <linux/types.h>
+
+struct inotify_event {
+	__s32		wd;		
+	__u32		mask;		
+	__u32		cookie;		
+	__u32		len;		
+	char		name[0];	
+};
+
+#define IN_ACCESS		0x00000001	
+#define IN_MODIFY		0x00000002	
+#define IN_ATTRIB		0x00000004	
+#define IN_CLOSE_WRITE		0x00000008	
+#define IN_CLOSE_NOWRITE	0x00000010	
+#define IN_OPEN			0x00000020	
+#define IN_MOVED_FROM		0x00000040	
+#define IN_MOVED_TO		0x00000080	
+#define IN_CREATE		0x00000100	
+#define IN_DELETE		0x00000200	
+#define IN_DELETE_SELF		0x00000400	
+#define IN_MOVE_SELF		0x00000800	
+
+#define IN_UNMOUNT		0x00002000	
+#define IN_Q_OVERFLOW		0x00004000	
+#define IN_IGNORED		0x00008000	
+
+#define IN_CLOSE		(IN_CLOSE_WRITE | IN_CLOSE_NOWRITE) 
+#define IN_MOVE			(IN_MOVED_FROM | IN_MOVED_TO) 
+
+#define IN_ONLYDIR		0x01000000	
+#define IN_DONT_FOLLOW		0x02000000	
+#define IN_EXCL_UNLINK		0x04000000	
+#define IN_MASK_ADD		0x20000000	
+#define IN_ISDIR		0x40000000	
+#define IN_ONESHOT		0x80000000	
+
+#define IN_ALL_EVENTS	(IN_ACCESS | IN_MODIFY | IN_ATTRIB | IN_CLOSE_WRITE | \
+			 IN_CLOSE_NOWRITE | IN_OPEN | IN_MOVED_FROM | \
+			 IN_MOVED_TO | IN_DELETE | IN_CREATE | IN_DELETE_SELF | \
+			 IN_MOVE_SELF)
+
+#define IN_CLOEXEC O_CLOEXEC
+#define IN_NONBLOCK O_NONBLOCK
+
+#ifdef __KERNEL__
+#include <linux/sysctl.h>
+extern struct ctl_table inotify_table[]; 
+
+#define ALL_INOTIFY_BITS (IN_ACCESS | IN_MODIFY | IN_ATTRIB | IN_CLOSE_WRITE | \
+			  IN_CLOSE_NOWRITE | IN_OPEN | IN_MOVED_FROM | \
+			  IN_MOVED_TO | IN_CREATE | IN_DELETE | \
+			  IN_DELETE_SELF | IN_MOVE_SELF | IN_UNMOUNT | \
+			  IN_Q_OVERFLOW | IN_IGNORED | IN_ONLYDIR | \
+			  IN_DONT_FOLLOW | IN_EXCL_UNLINK | IN_MASK_ADD | \
+			  IN_ISDIR | IN_ONESHOT)
+
+#endif
+
+#endif	
