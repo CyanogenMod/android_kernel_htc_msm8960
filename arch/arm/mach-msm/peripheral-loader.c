@@ -27,6 +27,9 @@
 #include <linux/workqueue.h>
 #include <linux/jiffies.h>
 #include <linux/wakelock.h>
+#ifdef CONFIG_MACH_HTC
+#include <linux/delay.h>
+#endif
 
 #include <asm/uaccess.h>
 #include <asm/setup.h>
@@ -361,6 +364,10 @@ void *pil_get(const char *name)
 	struct pil_device *pil;
 	struct pil_device *pil_d;
 	void *retval;
+#ifdef CONFIG_MACH_HTC
+	static int modem_initialized = 0;
+	int loop_count = 0;
+#endif
 
 	if (!name)
 		return NULL;
@@ -379,8 +386,21 @@ void *pil_get(const char *name)
 		goto err_depends;
 	}
 
+#ifdef CONFIG_MACH_HTC
+	if (!strcmp("modem", name)) {
+		while (!modem_initialized &&
+				strcmp("rmt_storage", current->comm) &&
+				loop_count++ < 10) {
+			msleep(500);
+		}
+	}
+#endif
 	mutex_lock(&pil->lock);
 	if (!pil->count) {
+#ifdef CONFIG_MACH_HTC
+		if (!strcmp("modem", name))
+			modem_initialized = 1;
+#endif
 		ret = load_image(pil);
 		if (ret) {
 			retval = ERR_PTR(ret);
