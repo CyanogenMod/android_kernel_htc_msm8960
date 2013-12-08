@@ -13,10 +13,13 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#include <mach/board.h>
+
 #include <asm/setup.h>
+#include <mach/board.h>
+#include <mach/msm_iomap.h>
 #include <linux/mtd/nand.h>
 #include <linux/module.h>
+
 #define MFG_GPIO_TABLE_MAX_SIZE        0x400
 static unsigned char mfg_gpio_table[MFG_GPIO_TABLE_MAX_SIZE];
 
@@ -518,8 +521,8 @@ unsigned int get_tamper_sf(void)
 }
 EXPORT_SYMBOL(get_tamper_sf);
 
-#define MSM_RAM_CONSOLE_BASE   0x88900000
-#define MSM_RAM_CONSOLE_SIZE   (SZ_1M - SZ_128K) /* 128K for debug info */
+#define MSM_RAM_CONSOLE_BASE	MSM_HTC_RAM_CONSOLE_PHYS
+#define MSM_RAM_CONSOLE_SIZE	MSM_HTC_RAM_CONSOLE_SIZE
 
 static struct resource ram_console_resources[] = {
 	{
