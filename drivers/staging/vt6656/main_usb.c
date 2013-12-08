@@ -718,8 +718,6 @@ static int vt6656_suspend(struct usb_interface *intf, pm_message_t message)
 	if (device->flags & DEVICE_FLAGS_OPENED)
 		device_close(device->dev);
 
-	usb_put_dev(interface_to_usbdev(intf));
-
 	return 0;
 }
 
@@ -729,8 +727,6 @@ static int vt6656_resume(struct usb_interface *intf)
 
 	if (!device || !device->dev)
 		return -ENODEV;
-
-	usb_get_dev(interface_to_usbdev(intf));
 
 	if (!(device->flags & DEVICE_FLAGS_OPENED))
 		device_open(device->dev);
@@ -1224,6 +1220,8 @@ device_release_WPADEV(pDevice);
     memset(pMgmt->abyCurrBSSID, 0, 6);
     pMgmt->eCurrState = WMAC_STATE_IDLE;
 
+	pDevice->flags &= ~DEVICE_FLAGS_OPENED;
+
     device_free_tx_bufs(pDevice);
     device_free_rx_bufs(pDevice);
     device_free_int_bufs(pDevice);
@@ -1235,7 +1233,6 @@ device_release_WPADEV(pDevice);
     usb_free_urb(pDevice->pInterruptURB);
 
     BSSvClearNodeDBTable(pDevice, 0);
-    pDevice->flags &=(~DEVICE_FLAGS_OPENED);
 
     DBG_PRT(MSG_LEVEL_DEBUG, KERN_INFO "device_close2 \n");
 
