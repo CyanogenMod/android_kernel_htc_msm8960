@@ -272,7 +272,7 @@ static int snd_usb_audio_dev_free(struct snd_device *device)
 {
 	struct snd_usb_audio *chip = device->device_data;
 #ifdef CONFIG_SUPPORT_USB_SPEAKER
-	headset_ext_detect(USB_NO_HEADSET);
+	
 #endif
 	return snd_usb_audio_free(chip);
 }
@@ -409,7 +409,7 @@ static int snd_usb_audio_create(struct usb_device *dev, int idx,
 	snd_usb_audio_create_proc(chip);
 	switch_set_state(usbaudiosdev, 1);
 #ifdef CONFIG_SUPPORT_USB_SPEAKER
-	headset_ext_detect(USB_AUDIO_OUT_DGTL);
+	
 #endif
 	*rchip = chip;
 	return 0;

@@ -8489,10 +8489,12 @@ wl_notify_pfn_status(struct wl_priv *wl, bcm_struct_cfgdev *cfgdev,
 	ndev = cfgdev_to_wlc_ndev(cfgdev, wl);
 
 #ifndef WL_SCHED_SCAN
+#ifndef CUSTOMER_HW_ONE
 	mutex_lock(&wl->usr_sync);
 	
 	cfg80211_disconnected(ndev, 0, NULL, 0, GFP_KERNEL);
 	mutex_unlock(&wl->usr_sync);
+#endif
 #else
 	wl_notify_sched_scan_results(wl, ndev, e, data);
 #endif 

@@ -619,12 +619,12 @@ static void hs_imp_detec_func(struct work_struct *work)
 
 	rt5501_write_reg(0x0,0xc0);
 	rt5501_write_reg(0x81,0x30);
-	rt5501_write_reg(0x87,0xf6);
+	
 	rt5501_write_reg(0x90,0xd0);
 	rt5501_write_reg(0x93,0x9d);
 	rt5501_write_reg(0x95,0x7b);
 	rt5501_write_reg(0xa4,0x01);
-	rt5501_write_reg(0x96,0xae);
+	
 	rt5501_write_reg(0x97,0x11);
 	rt5501_write_reg(0x98,0x22);
 	rt5501_write_reg(0x99,0x44);
@@ -1035,12 +1035,12 @@ int rt5501_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 		rt5501_write_reg(0x0,0xc0);
 		rt5501_write_reg(0x81,0x30);
-		rt5501_write_reg(0x87,0xf6);
+		
 		rt5501_write_reg(0x90,0xd0);
 		rt5501_write_reg(0x93,0x9d);
 		rt5501_write_reg(0x95,0x7b);
 		rt5501_write_reg(0xa4,0x01);
-		rt5501_write_reg(0x96,0xae);
+		
 		rt5501_write_reg(0x97,0x11);
 		rt5501_write_reg(0x98,0x22);
 		rt5501_write_reg(0x99,0x44);

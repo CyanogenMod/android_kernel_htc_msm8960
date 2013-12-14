@@ -215,7 +215,7 @@ int msm_gemini_evt_get(struct msm_gemini_device *pgmn_dev,
 		GMN_DBG("%s:%d] no buffer\n", __func__, __LINE__);
 		return -EAGAIN;
 	}
-
+    memset(&ctrl_cmd,0,sizeof(ctrl_cmd));
 	ctrl_cmd.type = buf_p->vbuf.type;
 	kfree(buf_p);
 

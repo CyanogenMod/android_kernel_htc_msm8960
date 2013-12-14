@@ -2817,6 +2817,13 @@ config MACH_M7_WLV
         help
           Support for the HTC APQ8064 M7_WLV.
 
+config MACH_M7_WLJ
+        depends on ARCH_APQ8064
+        bool "APQ8064 M7_WLJ"
+        help
+          Support for the HTC APQ8064 M7_WLJ.
+
+
 config MACH_M7_DCG
         depends on ARCH_APQ8064
         bool "APQ8064 M7_DCG"
@@ -2828,6 +2835,12 @@ config MACH_M7_DUG
         bool "APQ8064 M7_DUG"
         help
           Support for the HTC APQ8064 M7_DUG.
+
+config MACH_M7_EVM
+        depends on ARCH_APQ8064
+        bool "APQ8064 M7_EVM"
+        help
+          Support for the HTC APQ8064 M7_EVM.
 
 config QSC_MODEM
         default n

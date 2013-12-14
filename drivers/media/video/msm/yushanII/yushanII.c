@@ -971,7 +971,9 @@ static unsigned int YushanII_fops_poll(struct file *filp,
 
 int YushanII_got_INT0(void __user *argp){
 	struct yushanii_stats_event_ctrl event;
+	
 	static int got_short = 0;	
+    memset(&event,0,sizeof(struct yushanii_stats_event_ctrl));
 
 	Ilp0100_interruptReadStatus(&pInterruptId, INTR_PIN_0);
 	
@@ -1182,6 +1184,7 @@ void YushanII_correct_StaturatedPixel(
 
 int YushanII_read_stats(void __user *argp,unsigned int cmd){
 	GlaceStatsData glace;
+	memset(&glace,0,sizeof(GlaceStatsData));
 	switch(cmd){
 		case YUSHANII_GET_LOGN_GLACE:
 			Ilp0100_readBackGlaceStatisticsLong(&glace_long);

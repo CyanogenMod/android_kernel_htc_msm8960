@@ -82,13 +82,13 @@
 #define TABLA_MBHC_DEF_RLOADS 5
 #define HAC_PAMP_GPIO	6
 
-#ifdef CONFIG_MACH_DUMMY
+#ifdef CONFIG_MACH_M7_WLJ
 #define RCV_PAMP_PMGPIO	24
 #else
 #define RCV_PAMP_GPIO    67
 #endif
 
-#ifdef CONFIG_MACH_DUMMY
+#ifdef CONFIG_MACH_M7_WLJ
 #define RCV_SPK_SEL_PMGPIO    5
 #else
 #define RCV_SPK_SEL_PMGPIO    24
@@ -495,7 +495,7 @@ static void msm_ext_spk_power_amp_on(u32 spk)
 
 
 			pr_info("rcv amp on++");
-#ifdef CONFIG_MACH_DUMMY
+#ifdef CONFIG_MACH_M7_WLJ
 			gpio_direction_output(PM8921_GPIO_PM_TO_SYS(RCV_PAMP_PMGPIO), 1);
 #else
 			gpio_direction_output(RCV_PAMP_GPIO, 1);
@@ -606,7 +606,7 @@ static void msm_ext_spk_power_amp_off(u32 spk)
 
 
 		pr_info("rcv amp off ++");
-#ifdef CONFIG_MACH_DUMMY
+#ifdef CONFIG_MACH_M7_WLJ
 		gpio_direction_output(PM8921_GPIO_PM_TO_SYS(RCV_PAMP_PMGPIO), 0);
 #else
 		gpio_direction_output(RCV_PAMP_GPIO, 0);

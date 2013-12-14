@@ -1489,7 +1489,7 @@ int32_t msm_sensor_interface_config(struct msm_sensor_ctrl_t *s_ctrl, void __use
 			pr_info("%s: intftype %d cur_csid %d new_csid %d\n",__func__,
 				cdata.cfg.intf, cur_csid, new_csid);
 
-			if (s_ctrl->intf != cdata.cfg.intf || cur_csid != new_csid) {
+			if ((s_ctrl->curr_csi_params) && (s_ctrl->intf != cdata.cfg.intf || cur_csid != new_csid)) {
 				s_ctrl->intf = cdata.cfg.intf;
 
 				v4l2_subdev_notify(&s_ctrl->sensor_v4l2_subdev,

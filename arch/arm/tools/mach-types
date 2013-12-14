@@ -1217,3 +1217,5 @@ m7_wlv          MACH_M7_WLV         M7_WLV          4358
 deluxe_ub1		MACH_DELUXE_UB1		DELUXE_UB1		4372
 m7_dcg			MACH_M7_DCG		M7_DCG			4415
 m7_dug			MACH_M7_DUG		M7_DUG			4416
+m7_wlj          MACH_M7_WLJ     M7_WLJ          4454
+m7_evm			MACH_M7_EVM		M7_EVM			9999
