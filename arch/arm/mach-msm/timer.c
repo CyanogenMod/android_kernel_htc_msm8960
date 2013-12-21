@@ -1174,6 +1174,7 @@ static void __init msm_timer_init(void)
 		}
 	}
 
+#ifdef ARCH_HAS_READ_CURRENT_TIMER
 	if (is_smp()) {
 		__raw_writel(1,
 			msm_clocks[MSM_CLOCK_DGT].regbase + TIMER_ENABLE);
@@ -1181,6 +1182,7 @@ static void __init msm_timer_init(void)
 		msm_delay_timer.read_current_timer = &msm_read_current_timer;
 		register_current_timer_delay(&msm_delay_timer);
 	}
+#endif
 
 #ifdef CONFIG_LOCAL_TIMERS
 	local_timer_register(&msm_lt_ops);
