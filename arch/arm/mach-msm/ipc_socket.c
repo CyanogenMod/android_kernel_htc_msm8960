@@ -232,7 +232,7 @@ static int msm_ipc_router_extract_msg(struct msghdr *m,
 		return offset;
 	}
 #ifdef CONFIG_MACH_HTC
-	if (addr || (hdr->src_port_id != IPC_ROUTER_ADDRESS)) {
+	if (addr && (hdr->src_port_id != IPC_ROUTER_ADDRESS)) {
 #else
 	if (addr && (hdr->type == IPC_ROUTER_CTRL_CMD_DATA)) {
 #endif
