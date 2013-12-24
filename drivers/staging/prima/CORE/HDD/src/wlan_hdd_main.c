@@ -54,6 +54,7 @@
   Include Files
   ------------------------------------------------------------------------*/
 //#include <wlan_qct_driver.h>
+#include <linux/platform_device.h>
 #include <wlan_hdd_includes.h>
 #ifdef ANI_BUS_TYPE_SDIO
 #include <wlan_sal_misc.h>
@@ -126,7 +127,7 @@ int wlan_hdd_ftm_start(hdd_context_t *pAdapter);
 #ifdef MODULE
 #define WLAN_MODULE_NAME  module_name(THIS_MODULE)
 #else
-#define WLAN_MODULE_NAME  "wlan"
+#define WLAN_MODULE_NAME  "prima_wlan"
 #endif
 
 #ifdef TIMER_MANAGER
@@ -4109,6 +4110,30 @@ static int __init hdd_module_init ( void)
    return ret_status;
 }
 
+#if defined(CONFIG_PRIMA_WLAN) && !defined(CONFIG_PRIMA_WLAN_MODULE)
+static int
+wcnss_ready_probe(struct platform_device *pdev)
+{
+   return hdd_module_init();
+}
+
+static struct platform_driver wcnss_ready = {
+   .driver = {
+      .name = "wcnss_ready",
+      .owner = THIS_MODULE,
+   },
+   .probe = wcnss_ready_probe,
+};
+#endif
+
+static int __init hdd_module_init_first(void)
+{
+#if defined(CONFIG_PRIMA_WLAN) && !defined(CONFIG_PRIMA_WLAN_MODULE)
+   return platform_driver_register(&wcnss_ready);
+#else
+   return hdd_module_init();
+#endif
+}
 
 /**---------------------------------------------------------------------------
 
@@ -4402,7 +4427,7 @@ void wlan_hdd_clear_concurrency_mode(hdd_context_t *pHddCtx, tVOS_CON_MODE mode)
 }
 
 //Register the module init/exit functions
-module_init(hdd_module_init);
+module_init(hdd_module_init_first);
 module_exit(hdd_module_exit);
 
 MODULE_LICENSE("Dual BSD/GPL");
