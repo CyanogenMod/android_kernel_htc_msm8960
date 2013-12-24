@@ -9,7 +9,7 @@ endif
 ifeq ($(KERNEL_BUILD),1)
 	# These are provided in Android-based builds
 	# Need to explicitly define for Kernel-based builds
-	MODNAME := wlan
+	MODNAME := prima_wlan
 	WLAN_ROOT := drivers/staging/prima
 endif
 
