@@ -715,6 +715,18 @@ config SENSORS_NFC_PN544
 	help
 	  PN544 NFC driver.
 
+config AMP_TFA9887
+	tristate "NXP TFA9887 Speaker AMP Driver"
+	depends on I2C=y
+	help
+	  NXP TFA9887 Speaker AMP Driver implemented by HTC.
+
+config AMP_TFA9887L
+	tristate "NXP TFA9887 (L) Speaker AMP Driver"
+	depends on I2C=y
+	help
+	  NXP TFA9887 Speaker AMP Driver implemented by HTC.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
