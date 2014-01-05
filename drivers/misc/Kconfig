@@ -727,6 +727,18 @@ config AMP_TFA9887L
 	help
 	  NXP TFA9887 Speaker AMP Driver implemented by HTC.
 
+config AMP_RT5501
+	tristate "TI RT5501 AMP Driver"
+	depends on I2C=y
+	help
+	  RichTek RT5501 AMP Driver implemented by HTC.
+
+config AMP_RT5501_DELAY
+	tristate "RichTek RT5501 AMP Delay Workaround"
+	depends on I2C=y
+	help
+	  RichTek RT5501 AMP Delay Workaround for pop noise of headset enable.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
