@@ -53,7 +53,11 @@
 
 /* Address of GSBI blocks */
 #define MSM_GSBI1_PHYS		0x12440000
+#ifdef CONFIG_MACH_M7_UL
+#define MSM_GSBI2_PHYS		0x12480000
+#else
 #define MSM_GSBI2_PHYS		0x13440000
+#endif
 #define MSM_GSBI3_PHYS		0x16200000
 #define MSM_GSBI4_PHYS		0x16300000
 #define MSM_GSBI5_PHYS		0x1A200000
@@ -62,6 +66,7 @@
 
 /* GSBI UART devices */
 #define MSM_UART1DM_PHYS	(MSM_GSBI1_PHYS + 0x10000)
+#define MSM_UART2DM_PHYS	(MSM_GSBI2_PHYS + 0x10000)
 #define MSM_UART3DM_PHYS	(MSM_GSBI3_PHYS + 0x40000)
 #define MSM_UART4DM_PHYS	(MSM_GSBI4_PHYS + 0x40000)
 #define MSM_UART6DM_PHYS	(MSM_GSBI6_PHYS + 0x40000)
@@ -228,6 +233,72 @@ struct platform_device apq8064_device_uart_gsbi1 = {
 	.id	= 1,
 	.num_resources	= ARRAY_SIZE(resources_uart_gsbi1),
 	.resource	= resources_uart_gsbi1,
+};
+
+static struct resource resources_uart_gsbi2[] = {
+	{
+		.start	= APQ8064_GSBI2_UARTDM_IRQ,
+		.end	= APQ8064_GSBI2_UARTDM_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.start	= MSM_UART2DM_PHYS,
+		.end	= MSM_UART2DM_PHYS + PAGE_SIZE - 1,
+		.name	= "uartdm_resource",
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= MSM_GSBI2_PHYS,
+		.end	= MSM_GSBI2_PHYS + PAGE_SIZE - 1,
+		.name	= "gsbi_resource",
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
+struct platform_device apq8064_device_uart_gsbi2 = {
+	.name	= "msm_serial_hsl",
+	.id	= 3,
+	.num_resources	= ARRAY_SIZE(resources_uart_gsbi2),
+	.resource	= resources_uart_gsbi2,
+};
+
+static struct resource resources_qup_i2c_gsbi2[] = {
+	{
+		.name	= "gsbi_qup_i2c_addr",
+		.start	= MSM_GSBI2_PHYS,
+		.end	= MSM_GSBI2_PHYS + MSM_QUP_SIZE - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "qup_phys_addr",
+		.start	= MSM_GSBI2_QUP_PHYS,
+		.end	= MSM_GSBI2_QUP_PHYS + 4 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "qup_err_intr",
+		.start	= APQ8064_GSBI2_QUP_IRQ,
+		.end	= APQ8064_GSBI2_QUP_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.name	= "i2c_sda",
+		.start	= 24,
+		.end	= 24,
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.name	= "i2c_clk",
+		.start	= 25,
+		.end	= 25,
+		.flags	= IORESOURCE_IO,
+	},
+};
+struct platform_device apq8064_device_qup_i2c_gsbi2 = {
+	.name		= "qup_i2c",
+	.id		= 2,
+	.num_resources	= ARRAY_SIZE(resources_qup_i2c_gsbi2),
+	.resource	= resources_qup_i2c_gsbi2,
 };
 
 static struct resource resources_uart_gsbi3[] = {
