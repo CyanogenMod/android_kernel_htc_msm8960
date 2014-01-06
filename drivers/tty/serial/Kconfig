@@ -1026,6 +1026,21 @@ config SERIAL_MSM_HSL
 	help
 	  Select this module to enable MSM high speed UART driver.
 
+config SERIAL_CIR
+	tristate "MSM UART High Speed : Legacy mode CIR Driver"
+	depends on ARM && ARCH_MSM
+	select SERIAL_CORE
+	default n
+	help
+	  Select this module to enable MSM high speed CIR driver.
+
+config CIR_ALWAYS_READY
+	bool "CIR is always ready"
+	depends on SERIAL_CIR
+	default n
+	help
+	  Requires SERIAL_CIR. Leave CIR always ready.
+
 config SERIAL_MSM_HSL_CONSOLE
 	bool "MSM High speed serial legacy mode console support"
 	depends on SERIAL_MSM_HSL=y
