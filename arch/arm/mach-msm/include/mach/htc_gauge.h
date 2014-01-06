@@ -35,11 +35,14 @@ struct htc_gauge {
 	int (*get_battery_cc)(int *result);
 	int (*is_battery_temp_fault)(int *result);
 	int (*is_battery_full)(int *result);
+	int (*is_pj_full)(int *result);
+	void (*get_pj_voltage)(int *result);
+	int (*calculate_pj_level)(int vol, int is_charging, int batt_temp);
 #if 0
 	int (*dump_all)(void);
 #endif
 	int (*get_attr_text)(char *buf, int size);
-
+	
 	int (*register_lower_voltage_alarm_notifier)(void (*callback)(int));
 	int (*enable_lower_voltage_alarm)(int enable);
 	int (*set_lower_voltage_alarm_threshold)(int thres_mV);
