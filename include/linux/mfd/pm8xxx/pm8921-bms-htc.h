@@ -20,13 +20,26 @@
 #define FCC_CC_COLS		5
 #define FCC_TEMP_COLS		8
 
+#ifdef CONFIG_MACH_M7_UL
+#define PC_CC_ROWS             31
+#else
 #define PC_CC_ROWS             29
+#endif
 #define PC_CC_COLS             13
 
+#ifdef CONFIG_MACH_M7_UL
+#define PC_TEMP_ROWS		31
+#else
 #define PC_TEMP_ROWS		29
+#endif
 #define PC_TEMP_COLS		8
 
 #define MAX_SINGLE_LUT_COLS	20
+
+#define OCV_UPDATE_STOP_BIT_CABLE_IN			(1)
+#define OCV_UPDATE_STOP_BIT_BATT_LEVEL			(1<<1)
+#define OCV_UPDATE_STOP_BIT_ATTR_FILE			(1<<2)
+#define OCV_UPDATE_STOP_BIT_BOOT_UP			(1<<3)
 
 struct single_row_lut {
 	int x[MAX_SINGLE_LUT_COLS];
@@ -57,8 +70,19 @@ struct pm8921_bms_battery_data {
 	struct pc_temp_ocv_lut	*pc_temp_ocv_lut;
 	struct sf_lut		*pc_sf_lut;
 	struct sf_lut		*rbatt_sf_lut;
+	struct sf_lut		*rbatt_est_ocv_lut;
 	int			default_rbatt_mohm;
 	int			delta_rbatt_mohm;
+	int			level_ocv_update_stop_begin; 
+	int			level_ocv_update_stop_end; 
+};
+
+struct pm8921_bms_pj_data {
+	struct single_row_lut	*pj_vth_discharge_lut;
+	struct single_row_lut	*pj_dvi_discharge_lut;
+	struct single_row_lut	*pj_vth_charge_lut;
+	struct single_row_lut	*pj_dvi_charge_lut;
+	struct single_row_lut	*pj_temp_lut;
 };
 
 struct pm8xxx_bms_core_data {
@@ -83,8 +107,18 @@ struct pm8921_bms_platform_data {
 	unsigned int			v_failure;
 	unsigned int			max_voltage_uv;
 	unsigned int			rconn_mohm;
+	int				store_batt_data_soc_thre;
 	int				enable_fcc_learning;
+	unsigned int			criteria_sw_est_ocv; 
+	unsigned int			rconn_mohm_sw_est_ocv;
+	void (*get_power_jacket_status) (int *full, int *status, int *exist);
 };
+
+extern int batt_stored_magic_num;
+extern int batt_stored_soc;
+extern int batt_stored_ocv_uv;
+extern int batt_stored_cc_uv;
+extern unsigned long batt_stored_time_ms;
 
 #if defined(CONFIG_PM8921_BMS) || defined(CONFIG_PM8921_BMS_MODULE)
 extern struct pm8921_bms_battery_data  palladium_1500_data;
@@ -94,6 +128,8 @@ int pm8921_bms_get_vsense_avg(int *result);
 int pm8921_bms_get_battery_current(int *result);
 
 int pm8921_bms_get_percent_charge(void);
+
+int pm8921_calculate_pj_level(int Vjk, int is_charging, int batt_temp);
 
 int pm8921_bms_get_fcc(void);
 
@@ -111,6 +147,7 @@ int pm8921_bms_dump_all(void);
 #ifdef CONFIG_HTC_BATT_8960
 int pm8921_bms_get_batt_current(int *result);
 
+int pm8921_store_hw_reset_reason(int is_hw_reset);
 int pm8921_bms_get_batt_soc(int *result);
 int pm8921_bms_get_batt_cc(int *result);
 int pm8921_bms_get_attr_text(char *buf, int size);
@@ -125,6 +162,10 @@ static inline int pm8921_bms_get_battery_current(int *result)
 	return -ENXIO;
 }
 static inline int pm8921_bms_get_percent_charge(void)
+{
+	return -ENXIO;
+}
+static inline int pm8921_calculate_pj_level(int Vjk, int is_charging, int batt_temp)
 {
 	return -ENXIO;
 }
@@ -168,6 +209,12 @@ static inline int pm8921_bms_get_batt_current(int *result)
 {
 	return -ENXIO;
 }
+
+static inline int pm8921_store_hw_reset_reason(int is_hw_reset)
+{
+	return -ENXIO;
+}
+
 static inline int pm8921_bms_get_batt_soc(int *result)
 {
 	return -ENXIO;
