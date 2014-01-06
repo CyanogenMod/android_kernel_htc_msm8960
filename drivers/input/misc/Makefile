@@ -63,6 +63,7 @@ obj-$(CONFIG_BOSCH_BMA150)              += bma150.o
 obj-$(CONFIG_STM_LIS3DH)		+= lis3dh_acc.o
 obj-$(CONFIG_BMP18X)			+= bmp18x-core.o
 obj-$(CONFIG_BMP18X_I2C)		+= bmp18x-i2c.o
+obj-$(CONFIG_SENSORS_AKM8963_NST)	+= akm8963_nst.o
 obj-$(CONFIG_SENSORS_AKM8975)		+= akm8975.o
 obj-$(CONFIG_SENSORS_PANASONIC_GYRO)	+= ewtzmu2.o
 obj-$(CONFIG_SENSORS_BMA250)		+= bma250.o
