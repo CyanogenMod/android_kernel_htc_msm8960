@@ -13,23 +13,24 @@
  * GNU General Public License for more details.
  */
 
-/* This constant is used in bootloader to decide actions. */
 #define RESTART_REASON_BOOT_BASE        0x77665500
 #define RESTART_REASON_BOOTLOADER       (RESTART_REASON_BOOT_BASE | 0x00)
 #define RESTART_REASON_REBOOT           (RESTART_REASON_BOOT_BASE | 0x01)
 #define RESTART_REASON_RECOVERY         (RESTART_REASON_BOOT_BASE | 0x02)
+#define RESTART_REASON_ERASE_EFS        (RESTART_REASON_BOOT_BASE | 0x03)
 #define RESTART_REASON_RAMDUMP          (RESTART_REASON_BOOT_BASE | 0xAA)
 #define RESTART_REASON_POWEROFF         (RESTART_REASON_BOOT_BASE | 0xBB)
 #define RESTART_REASON_ERASE_FLASH      (RESTART_REASON_BOOT_BASE | 0xEF)
 
-/*
-   This restart constant is used for oem commands.
-   The actual value is parsed from reboot commands.
-   RIL FATAL will use oem-99 to restart a device.
-*/
 #define RESTART_REASON_OEM_BASE         0x6f656d00
 #define RESTART_REASON_RIL_FATAL        (RESTART_REASON_OEM_BASE | 0x99)
 
+int read_backup_cc_uv(void);
+void write_backup_cc_uv(int cc_reading);
+uint16_t read_backup_ocv_at_100(void);
+void write_backup_ocv_at_100(uint16_t ocv_reading);
+int read_backup_ocv_uv(void);
+void write_backup_ocv_uv(int ocv_backup);
 int set_restart_action(unsigned int reason, const char *msg);
 int set_restart_to_oem(unsigned int code, const char *msg);
 int set_restart_to_ramdump(const char *msg);
