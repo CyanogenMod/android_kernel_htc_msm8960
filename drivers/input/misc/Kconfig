@@ -702,6 +702,20 @@ config SENSORS_BMA250
 	help
 	  BMA250 G-sensor driver for HTC
 
+config SENSORS_BMA250_BOSCH
+	tristate "BMA250 accelerometer sensor support (M7)"
+	depends on I2C=y
+	help
+	  If you say yes here you get support for Bosch Sensortec's
+	  BMA250 acceleration sensor.
+
+config SIG_MOTION
+	bool "BMA250 (M7) Significant Motion support"
+	depends on SENSORS_BMA250_BOSCH
+	default y
+	help
+	  Enable BMA250 (M7) significant motion support
+
 config INPUT_CAPELLA_CM3629
 	tristate "CM3629 proximity and light sensor"
 	help

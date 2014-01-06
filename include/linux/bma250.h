@@ -17,6 +17,7 @@
 #define SLOPE_Z_INDEX 			7
 #define BMA250_MAX_DELAY		200
 #define BMA250_CHIP_ID			3
+#define BMA250E_CHIP_ID			0xF9
 #define BMA250_RANGE_SET		0
 #define BMA250_BW_SET			2
 
@@ -686,6 +687,7 @@
 		((regvar & ~bitname##__MSK) | ((val<<bitname##__POS)&bitname##__MSK))
 
 #define BMA250_I2C_NAME "bma250"
+#define BMA250_I2C_NAME_REMOVE_ECOMPASS "bma250_no_ecmps"
 
 #define BMAIO			0xA1
 
@@ -736,7 +738,9 @@ struct bma250_platform_data {
 	int calibration_mode;
 	int gs_kvalue;
 	unsigned int (*G_Sensor_Compass_POR)(void);
-
+#ifdef CONFIG_SENSORS_BMA250_BOSCH
+	short layouts[4][3][3];
+#endif
         
         u8 axis_map_x;
         u8 axis_map_y;
