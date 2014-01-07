@@ -947,7 +947,8 @@ int mpu3050_open(struct mldl_cfg *mldl_cfg,
 		 void *mlsl_handle,
 		 void *accel_handle,
 		 void *compass_handle,
-		 void *pressure_handle)
+		 void *pressure_handle
+		 )
 {
 	int result;
 	
@@ -1021,14 +1022,25 @@ int mpu3050_open(struct mldl_cfg *mldl_cfg,
 	if (mldl_cfg->accel && mldl_cfg->accel->init) {
 		result = mldl_cfg->accel->init(accel_handle,
 					       mldl_cfg->accel,
+#ifdef CONFIG_CIR_ALWAYS_READY
+					       &mldl_cfg->pdata->accel,
+					       mldl_cfg->pdata->power_LPM);
+#else
 					       &mldl_cfg->pdata->accel);
+#endif
+
 		ERROR_CHECK(result);
 	}
 
 	if (mldl_cfg->compass && mldl_cfg->compass->init) {
 		result = mldl_cfg->compass->init(compass_handle,
 						 mldl_cfg->compass,
+#ifdef CONFIG_CIR_ALWAYS_READY
+						 &mldl_cfg->pdata->compass,
+						 NULL);
+#else
 						 &mldl_cfg->pdata->compass);
+#endif
 		if (ML_SUCCESS != result) {
 			MPL_LOGE("mldl_cfg->compass->init returned %d\n",
 				result);
@@ -1038,7 +1050,12 @@ int mpu3050_open(struct mldl_cfg *mldl_cfg,
 	if (mldl_cfg->pressure && mldl_cfg->pressure->init) {
 		result = mldl_cfg->pressure->init(pressure_handle,
 						  mldl_cfg->pressure,
+#ifdef CONFIG_CIR_ALWAYS_READY
+						  &mldl_cfg->pdata->pressure,
+						  NULL);
+#else
 						  &mldl_cfg->pdata->pressure);
+#endif
 		if (ML_SUCCESS != result) {
 			MPL_LOGE("mldl_cfg->pressure->init returned %d\n",
 				result);

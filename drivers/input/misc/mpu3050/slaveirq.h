@@ -38,6 +38,9 @@
 
 void slaveirq_exit(struct ext_slave_platform_data *pdata);
 int slaveirq_init(struct i2c_adapter *slave_adapter,
+#ifdef CONFIG_CIR_ALWAYS_READY
+		  struct i2c_client  *client,
+#endif
 		struct ext_slave_platform_data *pdata,
 		char *name);
 
