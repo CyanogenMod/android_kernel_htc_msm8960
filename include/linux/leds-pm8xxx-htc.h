@@ -102,9 +102,13 @@ struct pm8xxx_led_data {
 	struct delayed_work		blink_delayed_work;
 	struct delayed_work 	fade_delayed_work;
 	struct work_struct 		led_work;
+	struct work_struct 		led_on_work;
+	struct work_struct 		led_blink_work;
 	struct alarm		   led_alarm;
 	void (*gpio_status_switch)(bool);
 	int		(*lpm_power)(int on);
+	int brightness;
+	int mode;
 };
 void pm8xxx_led_current_set_for_key(int brightness_key);
 
