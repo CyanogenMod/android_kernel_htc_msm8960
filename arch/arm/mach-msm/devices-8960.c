@@ -2560,6 +2560,19 @@ struct platform_device msm8960_cpudai_slimbus_2_tx = {
 	.id = 0x4005,
 };
 
+struct msm_mi2s_pdata mi2s_data = {
+	.rx_sd_lines = MSM_MI2S_SD0,
+	.tx_sd_lines = MSM_MI2S_SD3,
+};
+
+struct platform_device msm_cpudai_mi2s = {
+	.name	= "msm-dai-q6-mi2s",
+	.id	= -1,
+	.dev = {
+		.platform_data = &mi2s_data,
+	},
+};
+
 struct platform_device msm_cpudai_hdmi_rx = {
 	.name	= "msm-dai-q6-hdmi",
 	.id	= 8,

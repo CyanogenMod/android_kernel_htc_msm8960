@@ -688,6 +688,16 @@ struct platform_device apq_pcm_routing = {
 	.id	= -1,
 };
 
+struct platform_device apq_cpudai_pri_i2s_rx = {
+	.name	= "msm-dai-q6",
+	.id	= 0,
+};
+
+struct platform_device apq_cpudai_pri_i2s_tx = {
+	.name	= "msm-dai-q6",
+	.id	= 1,
+};
+
 struct platform_device apq_cpudai0 = {
 	.name	= "msm-dai-q6",
 	.id	= 0x4000,
