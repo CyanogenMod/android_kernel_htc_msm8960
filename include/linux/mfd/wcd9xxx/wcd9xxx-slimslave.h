@@ -105,7 +105,8 @@ int wcd9xxx_init_slimslave(struct wcd9xxx *wcd9xxx, u8 wcd9xxx_pgd_la);
 int wcd9xxx_deinit_slimslave(struct wcd9xxx *wcd9xxx);
 
 int wcd9xxx_cfg_slim_sch_rx(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,
-				unsigned int tot_ch, unsigned int rate);
+				unsigned int tot_ch, unsigned int rate,
+				unsigned int bit_width);
 int wcd9xxx_cfg_slim_sch_tx(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,
 				unsigned int tot_ch, unsigned int rate);
 int wcd9xxx_close_slim_sch_rx(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,

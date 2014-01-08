@@ -34,7 +34,8 @@ static struct snd_soc_dai_driver msm_dai_stub_dai = {
 	.playback = {
 		.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
 			SNDRV_PCM_RATE_16000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		.formats = (SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE),
 		.channels_min = 1,
 		.channels_max = 2,
 		.rate_min = 8000,

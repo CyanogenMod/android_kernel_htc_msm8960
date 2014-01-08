@@ -284,7 +284,8 @@ static int wcd9xxx_dealloc_slim_sh_ch_tx(struct wcd9xxx *wcd9xxx)
 
 /* Enable slimbus slave device for RX path */
 int wcd9xxx_cfg_slim_sch_rx(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,
-			    unsigned int ch_cnt, unsigned int rate)
+			    unsigned int ch_cnt, unsigned int rate,
+			    unsigned int bit_width)
 {
 	u8 i;
 	u16 grph;
@@ -374,7 +375,7 @@ int wcd9xxx_cfg_slim_sch_rx(struct wcd9xxx *wcd9xxx, unsigned int *ch_num,
 	prop.dataf = SLIM_CH_DATAF_NOT_DEFINED;
 	prop.auxf = SLIM_CH_AUXF_NOT_APPLICABLE;
 	prop.ratem = (rate/4000);
-	prop.sampleszbits = 16;
+	prop.sampleszbits = bit_width;
 
 	ret = slim_define_ch(wcd9xxx->slim, &prop, ch_h, ch_cnt, true, &grph);
 	if (ret < 0) {
