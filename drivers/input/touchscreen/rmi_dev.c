@@ -122,6 +122,17 @@ clean_up:
 	return ret_value;
 }
 
+/*
+ * rmi_char_dev_write: - use to write data into RMI stream
+ *
+ * @filep : file structure for write
+ * @buf: user-level buffer pointer contains data to be written
+ * @count: number of byte be be written
+ * @f_pos: offset (starting register address)
+ *
+ * @return number of bytes written from user buffer (buf) if succeeds
+ *         negative number if error occurs.
+ */
 static ssize_t rmi_char_dev_write(struct file *filp, const char __user *buf,
 		size_t count, loff_t *f_pos)
 {

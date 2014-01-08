@@ -25,6 +25,7 @@
 #define SYNAPTICS_3200_NAME "synaptics-3200"
 #define SYNAPTICS_FW_3_2_PACKRAT 1115999
 #define SYNAPTICS_FW_NOCAL_PACKRAT 1293981
+#define SYNAPTICS_FW_2IN1_PACKRAT 1396865
 
 
 #define SYN_CONFIG_SIZE 32 * 16
@@ -50,6 +51,8 @@
 #define CUS_LIFT_CTRL		3
 
 #define SENSOR_ID_CHECKING_EN	1 << 16
+#define PSENSOR_STATUS		0x03
+#define PHONE_STATUS		0x04
 
 enum {
 	SYNAPTICS_FLIP_X = 1UL << 0,
@@ -80,6 +83,7 @@ struct synaptics_i2c_rmi_platform_data {
 				/* If non-zero another array entry follows */
 	int (*power)(int on);	/* Only valid in first array entry */
 #ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_3K
+	int (*lpm_power)(int on);
 	struct synaptics_virtual_key *virtual_key;
 	uint8_t virtual_key_num;
 	struct kobject *vk_obj;
@@ -146,6 +150,8 @@ struct synaptics_i2c_rmi_platform_data {
 	uint8_t multitouch_calibration;
 	uint8_t psensor_detection;
 	uint8_t PixelTouchThreshold_bef_unlock;
+	uint8_t block_touch_time_near;
+	uint8_t block_touch_time_far;
 #endif
 };
 
