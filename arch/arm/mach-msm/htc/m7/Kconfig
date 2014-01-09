@@ -1,0 +1,10 @@
+config BOARD_HEADER_FILE
+	string "HTC board specific header file name"
+	default ""
+
+config MACH_M7_UL
+	depends on ARCH_APQ8064
+	select MACH_HTC
+	bool "HTC One"
+	help
+	  Support for the HTC M7 device.

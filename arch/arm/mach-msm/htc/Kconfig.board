@@ -14,5 +14,8 @@ source "arch/arm/mach-msm/htc/jet/Kconfig"
 # VILLE
 source "arch/arm/mach-msm/htc/ville/Kconfig"
 
+# M7
+source "arch/arm/mach-msm/htc/m7/Kconfig"
+
 config MACH_HTC_DUMMY
 	bool "NONE (No device)"
