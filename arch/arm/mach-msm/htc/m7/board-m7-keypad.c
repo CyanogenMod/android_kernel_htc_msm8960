@@ -32,10 +32,6 @@ module_param_named(keycaps, keycaps, charp, 0);
 
 static struct gpio_event_direct_entry m7_keypad_map[] = {
 	{
-		.gpio = PWR_KEY_MSMz,
-		.code = KEY_POWER,
-	},
-	{
 		.gpio = VOL_DOWNz,
 		.code = KEY_VOLUMEDOWN,
 	},
@@ -44,42 +40,6 @@ static struct gpio_event_direct_entry m7_keypad_map[] = {
 		.code = KEY_VOLUMEUP,
 	},
 };
-
-static uint32_t matirx_inputs_gpio_table[] = {
-	GPIO_CFG(PWR_KEY_MSMz, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_UP,
-		 GPIO_CFG_2MA),
-	GPIO_CFG(VOL_DOWNz, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_UP,
-		 GPIO_CFG_2MA),
-	GPIO_CFG(VOL_UPz, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_UP,
-		 GPIO_CFG_2MA),
-};
-
-static void m7_direct_inputs_gpio(void)
-{
-	int i = 0;
-
-	for (i = 0; i < ARRAY_SIZE(matirx_inputs_gpio_table); i++)
-		gpio_tlmm_config(matirx_inputs_gpio_table[i], GPIO_CFG_ENABLE);
-
-	return;
-}
-
-uint32_t hw_clr_gpio_table[] = {
-	GPIO_CFG(PWR_MISTOUCH, 0, GPIO_CFG_INPUT,
-		GPIO_CFG_PULL_UP, GPIO_CFG_2MA),
-	GPIO_CFG(PWR_MISTOUCH, 0, GPIO_CFG_OUTPUT,
-		GPIO_CFG_PULL_UP, GPIO_CFG_2MA),
-};
-
-static void m7_clear_hw_reset(void)
-{
-	printk(KERN_INFO "[KEY] %s ++++++\n", __func__);
-	gpio_tlmm_config(hw_clr_gpio_table[1], GPIO_CFG_ENABLE);
-	gpio_set_value(PWR_MISTOUCH, 0);
-	msleep(100);
-	gpio_tlmm_config(hw_clr_gpio_table[0], GPIO_CFG_ENABLE);
-	printk(KERN_INFO "[KEY] %s ------\n", __func__);
-}
 
 static struct gpio_event_input_info m7_keypad_power_info = {
 	.info.func = gpio_event_input_func,
@@ -92,8 +52,6 @@ static struct gpio_event_input_info m7_keypad_power_info = {
 # endif
 	.keymap = m7_keypad_map,
 	.keymap_size = ARRAY_SIZE(m7_keypad_map),
-	.setup_input_gpio = m7_direct_inputs_gpio,
-	.clear_hw_reset = m7_clear_hw_reset,
 };
 
 static struct gpio_event_info *m7_keypad_info[] = {
@@ -109,13 +67,12 @@ static struct gpio_event_platform_data m7_keypad_data = {
 static struct platform_device m7_keypad_device = {
 	.name = GPIO_EVENT_DEV_NAME,
 	.id = 0,
-	.dev		= {
-		.platform_data	= &m7_keypad_data,
+	.dev = {
+		.platform_data = &m7_keypad_data,
 	},
 };
 
 static struct keyreset_platform_data m7_reset_keys_pdata = {
-	
 	.keys_down = {
 		KEY_POWER,
 		KEY_VOLUMEDOWN,
@@ -136,4 +93,3 @@ int __init m7_init_keypad(void)
 
 	return platform_device_register(&m7_keypad_device);
 }
-
