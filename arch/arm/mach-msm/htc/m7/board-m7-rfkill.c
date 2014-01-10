@@ -29,7 +29,7 @@
 #include <asm/uaccess.h>
 
 #define BTLOCK_NAME     "btlock"
-#define BTLOCK_MINOR    MISC_DYNAMIC_MINOR 
+#define BTLOCK_MINOR    MISC_DYNAMIC_MINOR
 
 #define BTLOCK_TIMEOUT	2
 
@@ -74,7 +74,7 @@ void bcm_bt_unlock(int cookie)
 		PR("btlock released, cookie: %s\n", cookie_msg);
 	} else {
 		memcpy(owner_msg, &owner_cookie, sizeof(owner_cookie));
-		PR("ignore lock release,  cookie mismatch: %s owner %s \n", cookie_msg, 
+		PR("ignore lock release,  cookie mismatch: %s owner %s \n", cookie_msg,
 				owner_cookie == 0 ? "NULL" : owner_msg);
 	}
 }
@@ -96,17 +96,15 @@ static ssize_t btlock_write(struct file *file, const char __user *buffer, size_t
 
 	if (count < sizeof(struct btlock))
 		return -EINVAL;
-
-	if (copy_from_user(&lock_para, buffer, sizeof(struct btlock))) {
+	if (copy_from_user(&lock_para, buffer, sizeof(struct btlock)))
 		return -EFAULT;
-	}
 
 	if (lock_para.lock == 0) {
-		bcm_bt_unlock(lock_para.cookie);	
+		bcm_bt_unlock(lock_para.cookie);
 	} else if (lock_para.lock == 1) {
-		ret = bcm_bt_lock(lock_para.cookie);	
+		ret = bcm_bt_lock(lock_para.cookie);
 	} else if (lock_para.lock == 2) {
-		ret = bcm_bt_lock(lock_para.cookie);	
+		ret = bcm_bt_lock(lock_para.cookie);
 	}
 
 	return ret;
@@ -130,7 +128,6 @@ static int bcm_btlock_init(void)
 	int ret;
 
 	PR("init\n");
-
 	ret = misc_register(&btlock_misc);
 	if (ret != 0) {
 		PR("Error: failed to register Misc driver,  ret = %d\n", ret);
@@ -144,7 +141,6 @@ static int bcm_btlock_init(void)
 static void bcm_btlock_exit(void)
 {
 	PR("btlock_exit:\n");
-
 	misc_deregister(&btlock_misc);
 }
 
@@ -154,8 +150,8 @@ static const char bt_name[] = "bcm4334";
 extern unsigned int system_rev;
 
 struct pm8xxx_gpio_init {
-	unsigned			gpio;
-	struct pm_gpio			config;
+	unsigned	gpio;
+	struct pm_gpio	config;
 };
 
 #define PM8XXX_GPIO_INIT(_gpio, _dir, _buf, _val, _pull, _vin, _out_strength, \
@@ -190,28 +186,25 @@ struct pm8xxx_gpio_init m7_bt_pmic_gpio[] = {
 				PM_GPIO_FUNC_NORMAL, 0, 0),
 };
 
-
 static uint32_t m7_GPIO_bt_on_table[] = {
-
-	
 	GPIO_CFG(BT_UART_RTSz,
 				2,
 				GPIO_CFG_OUTPUT,
 				GPIO_CFG_NO_PULL,
 				GPIO_CFG_4MA),
-	
+
 	GPIO_CFG(BT_UART_CTSz,
 				2,
 				GPIO_CFG_INPUT,
 				GPIO_CFG_PULL_UP,
 				GPIO_CFG_4MA),
-	
+
 	GPIO_CFG(BT_UART_RX,
 				2,
 				GPIO_CFG_INPUT,
 				GPIO_CFG_PULL_UP,
 				GPIO_CFG_4MA),
-	
+
 	GPIO_CFG(BT_UART_TX,
 				2,
 				GPIO_CFG_OUTPUT,
@@ -220,26 +213,24 @@ static uint32_t m7_GPIO_bt_on_table[] = {
 };
 
 static uint32_t m7_GPIO_bt_off_table[] = {
-
-	
 	GPIO_CFG(BT_UART_RTSz,
 				0,
 				GPIO_CFG_INPUT,
 				GPIO_CFG_PULL_DOWN,
 				GPIO_CFG_4MA),
-	
+
 	GPIO_CFG(BT_UART_CTSz,
 				0,
 				GPIO_CFG_INPUT,
 				GPIO_CFG_PULL_DOWN,
 				GPIO_CFG_4MA),
-	
+
 	GPIO_CFG(BT_UART_RX,
 				0,
 				GPIO_CFG_INPUT,
 				GPIO_CFG_PULL_DOWN,
 				GPIO_CFG_4MA),
-	
+
 	GPIO_CFG(BT_UART_TX,
 				0,
 				GPIO_CFG_INPUT,
@@ -250,6 +241,7 @@ static uint32_t m7_GPIO_bt_off_table[] = {
 static void config_bt_table(uint32_t *table, int len)
 {
 	int n, rc;
+
 	for (n = 0; n < len; n++) {
 		rc = gpio_tlmm_config(table[n], GPIO_CFG_ENABLE);
 		if (rc) {
@@ -264,66 +256,47 @@ static void m7_GPIO_config_bt_on(void)
 {
 	printk(KERN_INFO "[BT]== R ON ==\n");
 
-	
 	config_bt_table(m7_GPIO_bt_on_table,
 				ARRAY_SIZE(m7_GPIO_bt_on_table));
+
 	mdelay(2);
 
 	if (system_rev < XC) {
 		printk(KERN_INFO "[BT]XA XB\n");
-		
 		htc_BCM4335_wl_reg_ctl(BCM4335_WL_REG_ON, ID_BT);
-		
+
 		mdelay(5);
 	}
-
-	
 	gpio_set_value(PM8921_GPIO_PM_TO_SYS(BT_REG_ON), 0);
-	mdelay(5);
-
-	
-	gpio_set_value(PM8921_GPIO_PM_TO_SYS(BT_WAKE), 0); 
 
 	mdelay(5);
-	
+
+	gpio_set_value(PM8921_GPIO_PM_TO_SYS(BT_WAKE), 0);
+
+	mdelay(5);
+
 	gpio_set_value(PM8921_GPIO_PM_TO_SYS(BT_REG_ON), 1);
 
 	mdelay(1);
-
 }
 
 static void m7_GPIO_config_bt_off(void)
 {
 	if (system_rev < XC) {
-		
 		htc_BCM4335_wl_reg_ctl(BCM4335_WL_REG_OFF, ID_BT);
 		mdelay(5);
 	}
 
-	
 	gpio_set_value(PM8921_GPIO_PM_TO_SYS(BT_REG_ON), 0);
+
 	mdelay(1);
 
-	
 	config_bt_table(m7_GPIO_bt_off_table,
 				ARRAY_SIZE(m7_GPIO_bt_off_table));
+
 	mdelay(2);
 
-	
-	
-
-	
-
-	
-	
-
-	
-
-
-	
-
-	
-	gpio_set_value(PM8921_GPIO_PM_TO_SYS(BT_WAKE), 0); 
+	gpio_set_value(PM8921_GPIO_PM_TO_SYS(BT_WAKE), 0);
 
 	printk(KERN_INFO "[BT]== R OFF ==\n");
 }
@@ -345,11 +318,9 @@ static struct rfkill_ops m7_rfkill_ops = {
 static int m7_rfkill_probe(struct platform_device *pdev)
 {
 	int rc = 0;
-	bool default_state = true;  
-	int i=0;
+	bool default_state = true;
+	int i = 0;
 
-	
-	
 	mdelay(2);
 
 	for( i = 0; i < ARRAY_SIZE(m7_bt_pmic_gpio); i++) {
@@ -359,22 +330,15 @@ static int m7_rfkill_probe(struct platform_device *pdev)
 			pr_info("[bt] %s: Config ERROR: GPIO=%u, rc=%d\n",
 				__func__, m7_bt_pmic_gpio[i].gpio, rc);
 	}
-
 	bcm_btlock_init();
-
 	bluetooth_set_power(NULL, default_state);
-
 	bt_rfk = rfkill_alloc(bt_name, &pdev->dev, RFKILL_TYPE_BLUETOOTH,
 				&m7_rfkill_ops, NULL);
 	if (!bt_rfk) {
 		rc = -ENOMEM;
 		goto err_rfkill_alloc;
 	}
-
 	rfkill_set_states(bt_rfk, default_state, false);
-
-	
-
 	rc = rfkill_register(bt_rfk);
 	if (rc)
 		goto err_rfkill_reg;
@@ -391,7 +355,6 @@ static int m7_rfkill_remove(struct platform_device *dev)
 {
 	rfkill_unregister(bt_rfk);
 	rfkill_destroy(bt_rfk);
-
 	bcm_btlock_exit();
 
 	return 0;
