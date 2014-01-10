@@ -1,4 +1,4 @@
-/* linux/arch/arm/mach-msm/board-deluxe_r-wifi.h
+/* linux/arch/arm/mach-msm/board-m7-wifi.h
  *
  * Copyright (C) 2008 HTC Corporation.
  *
@@ -13,3 +13,6 @@
  */
 
 extern unsigned char *get_wifi_nvs_ram(void);
+extern int m7_wifi_power(int on);
+extern int m7_wifi_reset(int on);
+extern int m7_wifi_set_carddetect(int on);
