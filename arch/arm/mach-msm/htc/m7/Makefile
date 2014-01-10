@@ -11,3 +11,4 @@ obj-$(CONFIG_MACH_M7_UL) += board-m7-rfkill.o
 obj-$(CONFIG_MACH_M7_UL) += board-m7-wifi.o
 obj-$(CONFIG_MACH_M7_UL) += display/
 CFLAGS_board-m7-display.o += -Idrivers/video
+CFLAGS_board-m7-audio.o += -Isound/soc/msm
