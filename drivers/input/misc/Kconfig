@@ -734,4 +734,11 @@ config SENSORS_R3GD20
 
 	  Say Y here if you have a device containing the r3gd20 chip.
 
+config R3GD20_NEW_SENSOR_TYPE
+	bool "R3GD20 New Sensor type"
+	depends on SENSORS_R3GD20
+	default n
+	help
+	  Enable R3GD20 new sensor type
+
 source "drivers/input/misc/mpu3050/Kconfig"

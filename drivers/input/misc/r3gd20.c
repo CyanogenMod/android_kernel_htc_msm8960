@@ -132,6 +132,11 @@
 #define HTC_SUSPEND 1
 #define HTC_ATTR 1
 
+#ifdef CONFIG_R3GD20_NEW_SENSOR_TYPE
+#define FIFO_LEVEL_MESK		0x1F
+#endif
+
+
 #define HW_WAKE_UP_TIME 160
 
 #define WHOAMI_R3GD20		0x00D4	
@@ -156,7 +161,6 @@ static const struct output_rate odr_table[] = {
 	{	11,	ODR095|BW00},
 };
 
-static int use_smbus;
 
 static const struct r3gd20_gyr_platform_data default_r3gd20_gyr_pdata = {
 	.fs_range = R3GD20_GYR_FS_2000DPS,
@@ -213,6 +217,8 @@ struct r3gd20_data {
 	int cali_data_x;
 	int cali_data_y;
 	int cali_data_z;
+
+	int is_suspended;
 };
 
 #ifdef HTC_WQ
@@ -228,7 +234,7 @@ static int r3gd20_i2c_read(struct r3gd20_data *gyr,
 	u8 reg = buf[0];
 	u8 cmd = reg;
 
-
+#if 0
 	if (use_smbus) {
 		if (len == 1) {
 			ret = i2c_smbus_read_byte_data(gyr->client, cmd);
@@ -266,7 +272,7 @@ static int r3gd20_i2c_read(struct r3gd20_data *gyr,
 		}
 		return len; 
 	}
-
+#endif 
 	
 	ret = i2c_master_send(gyr->client, &cmd, sizeof(cmd));
 	if (ret != sizeof(cmd))
@@ -282,7 +288,7 @@ static int r3gd20_i2c_write(struct r3gd20_data *gyr, u8 *buf, int len)
 
 	reg = buf[0];
 	value = buf[1];
-
+#if 0
 	if (use_smbus) {
 		if (len == 1) {
 			ret = i2c_smbus_write_byte_data(gyr->client, reg, value);
@@ -310,7 +316,7 @@ static int r3gd20_i2c_write(struct r3gd20_data *gyr, u8 *buf, int len)
 			return ret;
 		}
 	}
-
+#endif 
 	ret = i2c_master_send(gyr->client, buf, len+1);
 	return (ret == len+1) ? 0 : ret;
 }
@@ -555,8 +561,15 @@ static int r3gd20_update_odr(struct r3gd20_data *gyro,
 		if ((odr_table[i].poll_rate_ms <= poll_interval_ms) || (i == 0))
 			break;
 	}
-
+#ifdef CONFIG_R3GD20_NEW_SENSOR_TYPE
+	if (poll_interval_ms > 20) {
+		config[1] = 0x00;
+	} else {
+		config[1] = 0x40;
+	}
+#else
 	config[1] = odr_table[i].mask;
+#endif
 	config[1] |= (ENABLE_ALL_AXES + PM_NORMAL);
 
 	if (atomic_read(&gyro->enabled)) {
@@ -570,6 +583,25 @@ static int r3gd20_update_odr(struct r3gd20_data *gyro,
 
 	return err;
 }
+
+#ifdef CONFIG_R3GD20_NEW_SENSOR_TYPE
+static int r3gd20_get_status(struct r3gd20_data *gyro ,unsigned char *status)
+{
+	int err = 0;
+	unsigned char gyro_out[2];
+
+	gyro_out[0] = (FIFO_SRC_REG); 
+
+	err = r3gd20_i2c_read(gyro, gyro_out, 1);
+	if (err < 0)
+		E("%s: r3gd20_i2c_read() fails, err = %d\n", __func__, err);
+
+	status[0] = gyro_out[0] & FIFO_LEVEL_MESK;
+
+	return err;
+}
+#endif
+
 
 static int r3gd20_get_data(struct r3gd20_data *gyro,
 			     struct r3gd20_triple *data)
@@ -624,24 +656,101 @@ static void polling_do_work(struct work_struct *w)
 	struct r3gd20_data *gyro = g_gyro;
 	struct r3gd20_triple data_out;
 	int err;
+#ifdef CONFIG_R3GD20_NEW_SENSOR_TYPE
+	unsigned char status = 0;
+#endif
 
 	mutex_lock(&gyro->lock);
+
+#ifdef CONFIG_R3GD20_NEW_SENSOR_TYPE
+	err = r3gd20_get_status(gyro, &status);
+	if (err < 0)
+		dev_err(&gyro->client->dev, "get_gyroscope_status failed\n");
+	else {
+		while(status > 0){
+			err = r3gd20_get_data(gyro, &data_out);
+			if (err < 0)
+				dev_err(&gyro->client->dev, "get_gyroscope_data failed\n");
+			else
+				r3gd20_report_values(gyro, &data_out);
+			status --;
+		}
+	}
+#else
 	err = r3gd20_get_data(gyro, &data_out);
 	if (err < 0)
 		dev_err(&gyro->client->dev, "get_gyroscope_data failed\n");
 	else
 		r3gd20_report_values(gyro, &data_out);
 
+
+#endif
+
 	mutex_unlock(&gyro->lock);
 
-	DIF("interval = %d\n", gyro->input_poll_dev->
-					 poll_interval);
+	DIF("interval = %d, gyro->is_suspended = %d\n", gyro->input_poll_dev->
+					 poll_interval, gyro->is_suspended);
 
-	queue_delayed_work(gyro->gyro_wq, &polling_work,
-		msecs_to_jiffies(gyro->input_poll_dev->
-					 poll_interval));
+	if (gyro->is_suspended != 1) {
+		queue_delayed_work(gyro->gyro_wq, &polling_work,
+			msecs_to_jiffies(gyro->input_poll_dev->
+						 poll_interval));
+	}
 }
 #endif 
+
+#ifdef CONFIG_R3GD20_NEW_SENSOR_TYPE
+static int r3gd20_hw_init(struct r3gd20_data *gyro)
+{
+	int err;
+	u8 buf[6];
+
+	buf[0] = 0x20 ;
+	buf[1] = 0x40 | 0x08 | 0x07 | 0x30;
+	err = r3gd20_i2c_write(gyro, buf, 1);
+	if (err < 0) {
+		E("%s: r3gd20_i2c_write fails 111\n", __func__);
+		return err;
+	}
+
+	buf[0] = 0x23 ;
+	buf[1] = 0x20;
+	err = r3gd20_i2c_write(gyro, buf, 1);
+	if (err < 0) {
+		E("%s: r3gd20_i2c_write fails 222\n", __func__);
+		return err;
+	}
+
+	buf[0] = 0x24 ; 
+	buf[1] = 0x40;
+	err = r3gd20_i2c_write(gyro, buf, 1);
+	if (err < 0) {
+		E("%s: r3gd20_i2c_write fails 333\n", __func__);
+		return err;
+	}
+
+	buf[0] = FIFO_CTRL_REG; 
+	buf[1] = 0x40 | 0x1F;
+	err = r3gd20_i2c_write(gyro, buf, 1);
+	if (err < 0) {
+		E("%s: r3gd20_i2c_write fails 444\n", __func__);
+		return err;
+	}
+
+	buf[0] = 0x22 ; 
+	buf[1] = 0x00;
+	err = r3gd20_i2c_write(gyro, buf, 1);
+	if (err < 0) {
+		E("%s: r3gd20_i2c_write fails 444\n", __func__);
+		return err;
+	}
+
+	gyro->hw_initialized = 1;
+
+	return err;
+}
+
+#else 
 
 static int r3gd20_hw_init(struct r3gd20_data *gyro)
 {
@@ -671,6 +780,7 @@ static int r3gd20_hw_init(struct r3gd20_data *gyro)
 
 	return err;
 }
+#endif
 
 static void r3gd20_device_power_off(struct r3gd20_data *dev_data)
 {
@@ -1526,8 +1636,7 @@ static int r3gd20_probe(struct i2c_client *client,
 {
 	struct r3gd20_data *gyro;
 
-	u32 smbus_func = I2C_FUNC_SMBUS_BYTE_DATA |
-			I2C_FUNC_SMBUS_WORD_DATA | I2C_FUNC_SMBUS_I2C_BLOCK ;
+	
 
 	int err = -1;
 
@@ -1536,14 +1645,9 @@ static int r3gd20_probe(struct i2c_client *client,
 	
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		dev_warn(&client->dev, "client not i2c capable\n");
-		if (i2c_check_functionality(client->adapter, smbus_func)) {
-			use_smbus = 1;
-			dev_warn(&client->dev, "client using SMBUS\n");
-		} else {
-			err = -ENODEV;
-			dev_err(&client->dev, "client nor SMBUS capable\n");
-			goto err0;
-		}
+		
+		err = -ENODEV;
+		goto err0;
 	}
 
 	
@@ -1604,6 +1708,7 @@ static int r3gd20_probe(struct i2c_client *client,
 	gyro->resume_state[RES_FIFO_CTRL_REG] = ALL_ZEROES;
 
 	gyro->polling_enabled = true;
+	gyro->is_suspended = 0;
 
 	err = r3gd20_device_power_on(gyro);
 	if (err < 0) {
@@ -1691,6 +1796,14 @@ static int r3gd20_probe(struct i2c_client *client,
 	I("%s: %s probed: device created successfully\n",
 			__func__, R3GD20_GYR_DEV_NAME);
 
+#ifdef CONFIG_R3GD20_NEW_SENSOR_TYPE
+	I("%s: %s probed: New Sensor type enabled\n",
+			__func__, R3GD20_GYR_DEV_NAME);
+#else
+	I("%s: %s probed: New Sensor type disabled\n",
+			__func__, R3GD20_GYR_DEV_NAME);
+#endif
+
 	return 0;
 
 
@@ -1750,14 +1863,14 @@ static int r3gd20_suspend(struct i2c_client *client, pm_message_t mesg)
 	u8 buf[2];
 	int err = -1;
 
-	DIF("%s: ++\n", __func__);
+	data->is_suspended = 1;
+	I("%s++: data->is_suspended = %d\n", __func__, data->is_suspended);
 
 #if DEBUG
 	I("r3gd20_suspend\n");
 #endif 
 
 	
-		mutex_lock(&data->lock);
 		if (data->polling_enabled) {
 			D("polling disabled\n");
 #ifdef HTC_WQ
@@ -1768,6 +1881,7 @@ static int r3gd20_suspend(struct i2c_client *client, pm_message_t mesg)
 			
 		}
 
+		mutex_lock(&data->lock);
 #ifdef SLEEP
 		err = r3gd20_register_update(data, buf, CTRL_REG1,
 				0x0F, (ENABLE_NO_AXES | PM_NORMAL));
@@ -1779,7 +1893,10 @@ static int r3gd20_suspend(struct i2c_client *client, pm_message_t mesg)
 	
 
 #endif 
-	D("%s:--\n", __func__);
+	if (data && (data->pdata->power_LPM))
+		data->pdata->power_LPM(1);
+
+	I("%s:--\n", __func__);
 	return err;
 }
 
@@ -1790,7 +1907,7 @@ static int r3gd20_resume(struct i2c_client *client)
 	u8 buf[2];
 	int err = -1;
 
-	D("%s:++\n", __func__);
+	I("%s:++\n", __func__);
 #if DEBUG
 	I("r3gd20_resume\n");
 #endif 
@@ -1822,7 +1939,8 @@ static int r3gd20_resume(struct i2c_client *client)
 	}
 
 #endif 
-	D("%s:--\n", __func__);
+	data->is_suspended = 0;
+	I("%s--: data->is_suspended = %d\n", __func__, data->is_suspended);
 	return 0;
 }
 
