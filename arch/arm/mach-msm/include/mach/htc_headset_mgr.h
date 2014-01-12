@@ -189,9 +189,7 @@ enum {
 enum {
 	GOOGLE_USB_AUDIO_UNPLUG	= 0,
 	GOOGLE_USB_AUDIO_ANLG	= 1,
-#ifdef CONFIG_SUPPORT_USB_SPEAKER
 	GOOGLE_USB_AUDIO_DGTL	= 2,
-#endif
 };
 
 enum {
@@ -236,9 +234,7 @@ enum {
 	H2W_TVOUT		= 6,
 	USB_NO_HEADSET		= 7,
 	USB_AUDIO_OUT		= 8,
-#ifdef CONFIG_SUPPORT_USB_SPEAKER
 	USB_AUDIO_OUT_DGTL	= 9,
-#endif
 };
 
 struct hs_rpc_server_args_key {
