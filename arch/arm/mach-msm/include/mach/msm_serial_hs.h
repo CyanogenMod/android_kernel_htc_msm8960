@@ -39,6 +39,11 @@ struct msm_serial_hs_platform_data {
 	/* bool: inject char into rx tty on wakeup */
 	unsigned char inject_rx_on_wakeup;
 	char rx_to_inject;
+#ifdef CONFIG_SERIAL_MSM_HS_BRCM
+	int (*gpio_config)(int);
+	unsigned char bt_wakeup_pin;
+	unsigned char host_wakeup_pin;
+#endif
 	unsigned config_gpio;
 	int uart_tx_gpio;
 	int uart_rx_gpio;
@@ -48,6 +53,9 @@ struct msm_serial_hs_platform_data {
 	int uartdm_rx_buf_size;
 };
 
+#ifdef CONFIG_SERIAL_MSM_HS_BRCM
+extern void imc_msm_hs_request_clock_on(struct uart_port *uport);
+#endif
 unsigned int msm_hs_tx_empty(struct uart_port *uport);
 void msm_hs_request_clock_off(struct uart_port *uport);
 void msm_hs_request_clock_on(struct uart_port *uport);
