@@ -250,8 +250,11 @@ struct msm_camera_sensor_platform_info {
 	int vcm_pwd;
 	int vcm_enable;
 	int privacy_light;
+	enum msm_camera_pixel_order_default pixel_order_default;
 	enum sensor_flip_mirror_info mirror_flip;
 	void *privacy_light_info;
+	enum sensor_mount_angle sensor_mount_angle;
+	bool ews_enable;
 #endif
 };
 
@@ -275,8 +278,14 @@ struct msm_actuator_info {
 	int vcm_enable;
 #ifdef CONFIG_MACH_HTC
 	int use_rawchip_af;
+	int otp_diviation;
 	void (*vcm_wa_vreg_on) (void);
 	void (*vcm_wa_vreg_off) (void);
+	void (*oisbinder_i2c_add_driver) (void* i2c_client);
+	void (*oisbinder_open_init) (void);
+	void (*oisbinder_power_down) (void);
+	int32_t (*oisbinder_act_set_ois_mode) (int ois_mode);
+	int32_t (*oisbinder_mappingTbl_i2c_write) (int startup_mode, void * sensor_actuator_info);
 #endif
 };
 
@@ -313,16 +322,32 @@ struct msm_camera_sensor_info {
 	int pmic_gpio_enable;
 	struct msm_eeprom_info *eeprom_info;
 #ifdef CONFIG_MACH_HTC
+	struct msm_camera_csi_params csi_params;
+	uint16_t num_actuator_info_table;
+	struct msm_actuator_info **actuator_info_table;
 	struct msm_camera_gpio_conf *gpio_conf;
 	int (*camera_power_on)(void);
 	int (*camera_power_off)(void);
+	void (*camera_yushanii_probed)(enum htc_camera_image_type_board);
 	enum htc_camera_image_type_board htc_image;
 	int use_rawchip;
 	int hdr_mode;
 	int video_hdr_capability;
+	void (*camera_clk_switch)(void);
 	int power_down_disable;
+	int full_size_preview;
+	int cam_select_pin;
 	int mirror_mode;
+	int (*camera_pm8058_power)(int);
 	struct camera_flash_cfg* flash_cfg;
+	int gpio_set_value_force;
+	int dev_node;
+	int camera_platform;
+	uint8_t led_high_enabled;
+	uint32_t kpi_sensor_start;
+	uint32_t kpi_sensor_end;
+	uint8_t (*preview_skip_frame)(void);
+	int sensor_cut;
 #endif
 };
 
