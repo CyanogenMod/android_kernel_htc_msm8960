@@ -23,6 +23,7 @@
 #define DRIVER_HS_PMIC_RPC_KEY			(1 << 0)
 #define DRIVER_HS_PMIC_DYNAMIC_THRESHOLD	(1 << 1)
 #define DRIVER_HS_PMIC_ADC			(1 << 2)
+#define DRIVER_HS_PMIC_EDGE_IRQ			(1 << 3)
 
 #define HS_PMIC_HTC_CURRENT_THRESHOLD		500
 
@@ -94,6 +95,9 @@ struct htc_35mm_pmic_info {
 	unsigned int hpin_debounce;
 	unsigned int key_irq_type;
 	struct wake_lock hs_wake_lock;
+	struct class* htc_accessory_class;
+	struct device* pmic_dev;
+	struct hrtimer timer;
 };
 
 #endif

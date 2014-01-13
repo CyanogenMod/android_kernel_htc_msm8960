@@ -67,6 +67,7 @@
 
 #define DRIVER_HS_MGR_RPC_SERVER	(1 << 0)
 #define DRIVER_HS_MGR_FLOAT_DET		(1 << 1)
+#define DRIVER_HS_MGR_OLD_AJ		(1 << 2)
 
 #define DEBUG_FLAG_LOG		(1 << 0)
 #define DEBUG_FLAG_ADC		(1 << 1)
@@ -124,18 +125,20 @@
 #define HS_DELAY_SEC			1000
 #define HS_DELAY_MIC_BIAS		200
 #define HS_DELAY_MIC_DETECT		1000
-#define HS_DELAY_INSERT			500
+#define HS_DELAY_INSERT			300
 #define HS_DELAY_REMOVE			200
+#define HS_DELAY_REMOVE_LONG		500
 #define HS_DELAY_BUTTON			500
 #define HS_DELAY_1WIRE_BUTTON		800
 #define HS_DELAY_1WIRE_BUTTON_SHORT	20
-#define HS_DELAY_IRQ_INIT		(10 * HS_DELAY_SEC)
+#define HS_DELAY_IRQ_INIT		(15 * HS_DELAY_SEC)
 
 #define HS_JIFFIES_ZERO			msecs_to_jiffies(HS_DELAY_ZERO)
 #define HS_JIFFIES_MIC_BIAS		msecs_to_jiffies(HS_DELAY_MIC_BIAS)
 #define HS_JIFFIES_MIC_DETECT		msecs_to_jiffies(HS_DELAY_MIC_DETECT)
 #define HS_JIFFIES_INSERT		msecs_to_jiffies(HS_DELAY_INSERT)
 #define HS_JIFFIES_REMOVE		msecs_to_jiffies(HS_DELAY_REMOVE)
+#define HS_JIFFIES_REMOVE_LONG		msecs_to_jiffies(HS_DELAY_REMOVE_LONG)
 #define HS_JIFFIES_BUTTON		msecs_to_jiffies(HS_DELAY_BUTTON)
 #define HS_JIFFIES_1WIRE_BUTTON		msecs_to_jiffies(HS_DELAY_1WIRE_BUTTON)
 #define HS_JIFFIES_1WIRE_BUTTON_SHORT	msecs_to_jiffies(HS_DELAY_1WIRE_BUTTON_SHORT)
@@ -184,6 +187,7 @@ enum {
 	HEADSET_INDICATOR	= 7,
 	HEADSET_BEATS		= 8,
 	HEADSET_BEATS_SOLO	= 9,
+	HEADSET_UART		= 10,
 };
 
 enum {
@@ -203,11 +207,14 @@ enum {
 	HEADSET_REG_KEY_INT_ENABLE,
 	HEADSET_REG_KEY_ENABLE,
 	HEADSET_REG_INDICATOR_ENABLE,
+	HEADSET_REG_UART_SET,
 	HEADSET_REG_1WIRE_INIT,
 	HEADSET_REG_1WIRE_QUERY,
 	HEADSET_REG_1WIRE_READ_KEY,
 	HEADSET_REG_1WIRE_DEINIT,
 	HEADSET_REG_1WIRE_REPORT_TYPE,
+	HEADSET_REG_1WIRE_OPEN,
+	HEADSET_REG_HS_INSERT,
 };
 
 enum {
@@ -277,11 +284,14 @@ struct hs_notifier_func {
 	int (*key_int_enable)(int);
 	void (*key_enable)(int);
 	int (*indicator_enable)(int);
+	void (*uart_set)(int);
 	int (*hs_1wire_init)(void);
 	int (*hs_1wire_query)(int);
 	int (*hs_1wire_read_key)(void);
 	int (*hs_1wire_deinit)(void);
 	int (*hs_1wire_report_type)(char **);
+	int (*hs_1wire_open)(void);
+	int (*hs_insert)(int);
 };
 
 struct htc_headset_mgr_platform_data {
@@ -356,7 +366,7 @@ void headset_ext_button(int headset_type, int key_code, int press);
 
 void hs_notify_driver_ready(char *name);
 void hs_notify_hpin_irq(void);
-int hs_notify_plug_event(int insert);
+int hs_notify_plug_event(int insert, unsigned int intr_id);
 int hs_notify_key_event(int key_code);
 int hs_notify_key_irq(void);
 
