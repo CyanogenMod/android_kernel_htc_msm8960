@@ -318,7 +318,8 @@ static struct gamma_curvy smd_gamma_tbl = {
 };
 #endif
 
-static int ville_send_display_cmds(struct dsi_cmd_desc *cmd, int cnt)
+static int ville_send_display_cmds(struct dsi_cmd_desc *cmd, int cnt,
+		bool clk_ctrl)
 {
 	int ret = 0;
 	struct dcs_cmd_req cmdreq;
@@ -326,6 +327,8 @@ static int ville_send_display_cmds(struct dsi_cmd_desc *cmd, int cnt)
 	cmdreq.cmds = cmd;
 	cmdreq.cmds_cnt = cnt;
 	cmdreq.flags = CMD_REQ_COMMIT;
+	if (clk_ctrl)
+		cmdreq.flags |= CMD_CLK_CTRL;
 	cmdreq.rlen = 0;
 	cmdreq.cb = NULL;
 
@@ -357,9 +360,10 @@ static int mipi_ville_lcd_on(struct platform_device *pdev)
 	}
 
 	if (panel_type == PANEL_ID_VILLE_SAMSUNG_SG ||
-			panel_type == PANEL_ID_VILLE_SAMSUNG_SG_C2 ||
-			panel_type == PANEL_ID_VILLE_AUO) {
-		ville_send_display_cmds(cmd_on_cmds, cmd_on_cmds_count);
+			panel_type == PANEL_ID_VILLE_SAMSUNG_SG_C2) {
+		ville_send_display_cmds(cmd_on_cmds, cmd_on_cmds_count, false);
+	} else if (panel_type == PANEL_ID_VILLE_AUO) {
+		ville_send_display_cmds(cmd_on_cmds, cmd_on_cmds_count, true);
 	} else {
 		pr_err("%s: panel_type is not supported!(%d)\n",
 			__func__, panel_type);
@@ -385,7 +389,8 @@ static int mipi_ville_lcd_off(struct platform_device *pdev)
 		return 0;
 
 	if (panel_type != PANEL_ID_NONE)
-		ville_send_display_cmds(display_off_cmds, display_off_cmds_count);
+		ville_send_display_cmds(display_off_cmds,
+				display_off_cmds_count, false);
 
 	mipi_lcd_on = 0;
 
@@ -505,8 +510,10 @@ inline void mipi_dsi_set_backlight(struct msm_fb_data_type *mfd, int level)
 	else if (panel_type == PANEL_ID_VILLE_SAMSUNG_SG)
 		ville_shrink_pwm(mfd->bl_level);
 
-	if (panel_type == PANEL_ID_VILLE_SAMSUNG_SG || panel_type == PANEL_ID_VILLE_SAMSUNG_SG_C2)
-		ville_send_display_cmds(ville_cmd_backlight_cmds, ARRAY_SIZE(ville_cmd_backlight_cmds));
+	if (panel_type == PANEL_ID_VILLE_SAMSUNG_SG ||
+			panel_type == PANEL_ID_VILLE_SAMSUNG_SG_C2)
+		ville_send_display_cmds(ville_cmd_backlight_cmds,
+				ARRAY_SIZE(ville_cmd_backlight_cmds), true);
 }
 
 static void mipi_ville_set_backlight(struct msm_fb_data_type *mfd)
