@@ -1540,6 +1540,9 @@ struct msm_actuator_get_ois_cal_info_t {
 	int8_t cal_method;
 	int8_t cal_current_point;
 	int8_t cal_max_point;
+#if (CONFIG_HTC_CAMERA_HAL_VERSION >= 2)
+	int8_t bypass_ois_cal;
+#endif
 };
 
 struct msm_actuator_get_vcm_cal_info_t {
@@ -1603,6 +1606,13 @@ struct msm_actuator_cfg_data {
 	uint8_t is_af_supported;
 	uint8_t is_ois_supported;
     uint8_t is_cal_supported; 
+#if (CONFIG_HTC_CAMERA_HAL_VERSION == 3)
+	int8_t enable_focus_step_log;
+	uint8_t small_step_damping;
+	uint8_t medium_step_damping;
+	uint8_t big_step_damping;
+	uint8_t is_af_infinity_supported;
+#endif
 	union {
 		struct msm_actuator_move_params_t move;
 		struct msm_actuator_set_info_t set_info;
@@ -1753,7 +1763,7 @@ struct img_plane_info {
 
 #define MSM_CAM_V4L2_IOCTL_GET_EVENT_PAYLOAD \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 5, struct msm_camera_v4l2_ioctl_t *)
-	
+
 #define MSM_CAM_IOCTL_SEND_EVENT \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 6, struct v4l2_event)
 

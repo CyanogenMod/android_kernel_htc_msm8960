@@ -1943,6 +1943,11 @@ static int msm_open(struct file *f)
 		}
 
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+		if (pmctl->client) {
+			pr_info("%s: pmctl->client(%p) not null\n", __func__, (void*)(pmctl->client));
+			ion_client_destroy(pmctl->client);
+			pmctl->client = NULL;
+		}
 		{
 			char ion_debug_name[64];
 			snprintf(ion_debug_name, 64, "%u", task_pid_nr(current->group_leader));
@@ -3382,6 +3387,16 @@ config_setup_fail:
 	return rc;
 
 }
+
+static void msm_cam_server_send_error_evt(
+		struct msm_cam_media_controller *pmctl, int evt_type)
+{
+	struct v4l2_event v4l2_ev;
+	v4l2_ev.type = evt_type;
+	ktime_get_ts(&v4l2_ev.timestamp);
+	v4l2_event_queue(pmctl->pcam_ptr->pvdev, &v4l2_ev);
+}
+
 static void msm_cam_server_subdev_notify(struct v4l2_subdev *sd,
 				unsigned int notification, void *arg)
 {
@@ -3389,6 +3404,7 @@ static void msm_cam_server_subdev_notify(struct v4l2_subdev *sd,
 	struct msm_sensor_ctrl_t *s_ctrl;
 	struct msm_camera_sensor_info *sinfo;
 	struct msm_camera_device_platform_data *camdev;
+	struct msm_cam_media_controller *p_mctl = NULL;
 	uint8_t csid_core = 0;
 
 	if (notification == NOTIFY_CID_CHANGE ||
@@ -3492,7 +3508,15 @@ static void msm_cam_server_subdev_notify(struct v4l2_subdev *sd,
 	case NOTIFY_GESTURE_CAM_EVT:
 		rc = v4l2_subdev_call(g_server_dev.gesture_device,
 			core, ioctl, VIDIOC_MSM_GESTURE_CAM_EVT, arg);
-		break;		
+		break;
+	case NOTIFY_VFE_CAMIF_ERROR: {
+		p_mctl = msm_camera_get_mctl(g_server_dev.pcam_active->mctl_handle);
+		if (p_mctl)
+			msm_cam_server_send_error_evt(p_mctl,
+				V4L2_EVENT_PRIVATE_START +
+				MSM_CAM_APP_NOTIFY_ERROR_EVENT);
+		break;
+	}
 	default:
 		break;
 	}
@@ -4138,7 +4162,7 @@ error:
 	kobject_del(camera_attrs_obj);
 	return ret;
 }
-extern unsigned int system_rev;
+extern unsigned system_rev;
 
 static int __devinit msm_camera_probe(struct platform_device *pdev)
 {

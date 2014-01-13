@@ -218,6 +218,8 @@ int32_t msm_actuator_af_power_down(struct msm_actuator_ctrl_t *a_ctrl)
 {
 	int32_t rc = 0;
 	LINFO("%s called\n", __func__);
+	if (!a_ctrl->step_position_table)
+	    return rc;
 
 	if (a_ctrl->step_position_table[a_ctrl->curr_step_pos] !=
 		a_ctrl->initial_code) {
@@ -246,6 +248,9 @@ int32_t msm_actuator_config(
 	case CFG_GET_ACTUATOR_INFO:
 		cdata.is_af_supported = 1;
 		cdata.is_ois_supported = a_ctrl->actuator_ext_ctrl.is_ois_supported;
+#if (CONFIG_HTC_CAMERA_HAL_VERSION == 3)
+		cdata.is_af_infinity_supported = a_ctrl->actuator_ext_ctrl.is_af_infinity_supported;
+#endif
 		cdata.cfg.get_info = a_ctrl->get_info;
 		if (copy_to_user((void *)argp,
 				 &cdata,
@@ -254,6 +259,9 @@ int32_t msm_actuator_config(
 		break;
 	case CFG_SET_ACTUATOR_INFO:
 		a_ctrl->set_info = cdata.cfg.set_info;
+#if (CONFIG_HTC_CAMERA_HAL_VERSION == 3)
+		a_ctrl->enable_focus_step_log = cdata.enable_focus_step_log;
+#endif
 		rc = a_ctrl->func_tbl.actuator_init_table(a_ctrl);
 		if (rc < 0)
 			LERROR("%s init table failed %d\n", __func__, rc);
@@ -348,6 +356,9 @@ int32_t msm_actuator_config(
 	case CFG_SET_OIS_CALIBRATION:
 		if (a_ctrl->actuator_ext_ctrl.is_ois_supported) {
 			if (a_ctrl->func_tbl.actuator_set_ois_calibration != NULL) {
+#if (CONFIG_HTC_CAMERA_HAL_VERSION >= 2)
+				cdata.cfg.get_osi_cal_info.bypass_ois_cal = false;
+#endif
 				rc = a_ctrl->func_tbl.actuator_set_ois_calibration(a_ctrl, &cdata.cfg.get_osi_cal_info);
 				if (rc < 0) {
 					LERROR("%s set ois calibration failed %d\n", __func__, rc);
@@ -358,8 +369,17 @@ int32_t msm_actuator_config(
 						rc = -EFAULT;
 				}
 			} else {
+#if (CONFIG_HTC_CAMERA_HAL_VERSION >= 2)
+				pr_info("%s a_ctrl->func_tbl.actuator_set_ois_calibration is NULL  ,  bypass ois calibration\n", __func__);
+				cdata.cfg.get_osi_cal_info.bypass_ois_cal = true;
+				if (copy_to_user((void *)argp,
+					&cdata,
+					sizeof(struct msm_actuator_cfg_data)))
+					rc = -EFAULT;
+#else
 				LERROR("%s a_ctrl->func_tbl.actuator_set_ois_calibration is NULL\n", __func__);
 				rc = -EFAULT;
+#endif
 			}
 		} else {
 			LINFO("%s ois is not supported\n", __func__);

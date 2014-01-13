@@ -9,6 +9,19 @@ config MSM_CAMERA_V4L2
           native APIs are used through /dev/config0, /dev/frame0,
           and /dev/control0.
 
+config HTC_CAMERA_HAL_VERSION
+	depends on MSM_CAMERA && MACH_HTC
+	int "HTC Camera HAL version support"
+	default 3 if ARCH_APQ8064 && MACH_M7_UL
+	default 2 if ARCH_APQ8064 && MACH_MONARUDO
+	default 1 if !ARCH_APQ8064 && ARCH_MSM8960
+	---help---
+	  This controls the version of the HTC camera HAL the
+	  kernel driver should be compatible with.
+	  MSM8960 devices should use version 1
+	  MONARUDO should use version 2
+	  M7 should use version 3
+
 comment "Camera Sensor Selection"
 config MT9T013
 	bool "Sensor mt9t013 (BAYER 3M)"
