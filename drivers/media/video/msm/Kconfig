@@ -279,11 +279,11 @@ config RAWCHIP
 	  ST Yushan rawchip
 
 config RAWCHIPII
-        bool "RawchipII"
-        depends on MSM_CAMERA
-        default n
-        ---help---
-          ST Yushan rawchipII
+	bool "RawchipII"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  ST Yushan rawchipII
 
 config CAMERA_IMAGE_NONE_BOARD
 	bool "CameraImageNoneBoard"
