@@ -177,6 +177,30 @@ static void mdm_do_first_power_on(struct mdm_modem_drv *mdm_drv)
 	} else
 		gpio_direction_output(mdm_drv->ap2mdm_status_gpio, 1);
 
+#ifdef CONFIG_MACH_HTC
+	if (GPIO_IS_VALID(mdm_drv->ap2mdm_pmic_reset_n_gpio)) {
+		pr_debug("%s: Pulling AP2MDM_RESET_N gpio low\n", __func__);
+		gpio_direction_output(mdm_drv->ap2mdm_pmic_reset_n_gpio, 0);
+		usleep_range(5000, 10000);
+		pr_debug("%s: Pulling AP2MDM_RESET_N gpio high\n", __func__);
+		gpio_direction_output(mdm_drv->ap2mdm_pmic_reset_n_gpio, 1);
+		msleep(40);
+	}
+
+	if (GPIO_IS_VALID(mdm_drv->mdm2ap_hsic_ready_gpio)) {
+		i = 100;
+		while (!gpio_get_value(mdm_drv->mdm2ap_hsic_ready_gpio) &&
+				i > 0) {
+			msleep(10);
+			i -= 10;
+			pr_debug("%s: Waiting for AP2MDM_HSIC_READY gpio\n",
+					__func__);
+		};
+		if (!gpio_get_value(mdm_drv->mdm2ap_hsic_ready_gpio))
+			pr_err("%s: AP2MDM_HSIC_READY timeout!\n", __func__);
+	}
+#endif
+
 	if (!GPIO_IS_VALID(mdm_drv->mdm2ap_pblrdy))
 		goto start_mdm_peripheral;
 
@@ -264,6 +288,9 @@ static void mdm_status_changed(struct mdm_modem_drv *mdm_drv, int value)
 		if (GPIO_IS_VALID(mdm_drv->ap2mdm_wakeup_gpio))
 			gpio_direction_output(mdm_drv->ap2mdm_wakeup_gpio, 1);
 	}
+#ifdef CONFIG_MACH_HTC
+	mdm_drv->mdm_hsic_reconnected = 1;
+#endif
 }
 
 static void mdm_image_upgrade(struct mdm_modem_drv *mdm_drv, int type)

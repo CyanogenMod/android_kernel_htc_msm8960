@@ -151,6 +151,38 @@ void msm_set_restart_mode(int mode)
 EXPORT_SYMBOL(msm_set_restart_mode);
 
 #ifdef CONFIG_MACH_HTC
+static unsigned ap2mdm_pmic_reset_n_gpio = -1;
+void register_ap2mdm_pmic_reset_n_gpio(unsigned gpio)
+{
+	ap2mdm_pmic_reset_n_gpio = gpio;
+}
+EXPORT_SYMBOL(register_ap2mdm_pmic_reset_n_gpio);
+
+static void mdm_power_off(void)
+{
+	int i;
+
+	if (gpio_is_valid(ap2mdm_pmic_reset_n_gpio)) {
+		pr_info("%s: Powering off MDM", __func__);
+		gpio_direction_output(ap2mdm_pmic_reset_n_gpio, 0);
+		for (i = 0; i < 2; i++) {
+			pet_watchdog();
+			mdelay(1000);
+		}
+		pr_info("%s: Powered off MDM", __func__);
+	}
+}
+
+static void mdm_wait_self_refresh(void)
+{
+	int i;
+
+	for (i = 0; i < 2; i++) {
+		pet_watchdog();
+		mdelay(1000);
+	}
+}
+
 static void msm_flush_console(void)
 {
 	unsigned long flags;
@@ -285,6 +317,9 @@ static void __msm_power_off(int lower_pshold)
 	set_dload_mode(0);
 #endif
 	pm8xxx_reset_pwr_off(0);
+#ifdef CONFIG_MACH_HTC
+	mdm_power_off();
+#endif
 
 	if (lower_pshold) {
 		__raw_writel(0, PSHOLD_CTL_SU);
@@ -462,6 +497,13 @@ reset:
 #endif /* CONFIG_LGE_CRASH_HANDLER */
 
 #ifdef CONFIG_MACH_HTC
+	if (!(get_radio_flag() & RADIO_FLAG_USB_UPLOAD) ||
+			((get_restart_reason() != RESTART_REASON_RAMDUMP) &&
+			 (get_restart_reason() != (RESTART_REASON_OEM_BASE | 0x99))))
+		mdm_power_off();
+	else
+		mdm_wait_self_refresh();
+
 	msm_flush_console();
 #endif
 
