@@ -3379,6 +3379,11 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	/* Select free running MCLK as input clock of cm_dll_sdc4 */
 	clk |= (2 << 23);
 
+#ifdef CONFIG_MMC_MSM_SDC3_PAD_PWR_SWITCH
+	if (ios->vdd && host->pdev_id == 3)
+		host->io_pad_pwr_switch = 1;
+#endif
+
 	if (host->io_pad_pwr_switch)
 		clk |= IO_PAD_PWR_SWITCH;
 

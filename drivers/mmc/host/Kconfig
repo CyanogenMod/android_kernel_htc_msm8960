@@ -508,6 +508,13 @@ config MMC_MSM_SDC3_WP_SUPPORT
 	help
 	  Select Y to enable write protection support for Slot 3.
 
+config MMC_MSM_SDC3_PAD_PWR_SWITCH
+	boolean "Qualcomm SDC3 enable pad_pwr_switch (HTC SDIO WiFi)"
+	depends on MMC_MSM_SDC3_SUPPORT
+	default n
+	help
+	  Select Y to enable pad_pwr_switch for HTC SDIO WiFi
+
 config MMC_MSM_SDC4_SUPPORT
 	boolean "Qualcomm SDC4 support"
 	depends on MMC_MSM
