@@ -8,3 +8,17 @@ config MACH_M7_UL
 	bool "HTC One"
 	help
 	  Support for the HTC M7 device.
+
+config CABC_DIMMING_SWITCH
+	depends on MACH_M7_UL
+	bool "Enable panel CABC dimming switch"
+	default y
+	help
+	  Enable CABC dimming switch.
+
+config SRE_CONTROL
+	depends on MACH_M7_UL
+	bool "Enable panel SRE control"
+	default y
+	help
+	  Enable SRE control.

@@ -98,7 +98,7 @@ static char samsung_ctrl_negative_gamma[70] = {
 static char samsung_password_l3[3] = { 0xFC, 0x5A, 0x5A };
 static char samsung_cmd_test[5] = { 0xFF, 0x00, 0x00, 0x00, 0x20};
 static char samsung_panel_exit_sleep[2] = {0x11, 0x00};
-#ifdef CABC_DIMMING_SWITCH
+#ifdef CONFIG_CABC_DIMMING_SWITCH
 static char samsung_bl_ctrl[2] = {0x53, 0x24};
 #else
 static char samsung_bl_ctrl[2] = {0x53, 0x2C};
@@ -316,7 +316,7 @@ static char deep_standby_off[2] = {0xB1, 0x01};
 
 static char unlock[] = {0xB0, 0x00};
 static char display_brightness[] = {0x51, 0xFF};
-#ifdef CABC_DIMMING_SWITCH
+#ifdef CONFIG_CABC_DIMMING_SWITCH
 static char led_pwm_en[] = {0x53, 0x04};
 #else
 static char led_pwm_en[] = {0x53, 0x0C};
@@ -497,7 +497,7 @@ static int send_display_cmds(struct dsi_cmd_desc *cmd, int cnt,
 	return ret;
 }
 
-#ifdef CABC_DIMMING_SWITCH
+#ifdef CONFIG_CABC_DIMMING_SWITCH
 static char dsi_dim_on[] = {0x53, 0x2C};
 static char dsi_dim_off[] = {0x53, 0x24};
 static char dsi_sharp_cmd_dim_on[] = {0x53, 0x0C};
@@ -627,7 +627,7 @@ static void m7_color_enhance(struct msm_fb_data_type *mfd, int on)
 }
 #endif
 
-#ifdef SRE_CONTROL
+#ifdef CONFIG_SRE_CONTROL
 static char SRE_Manual1[] = {0xBB, 0x01, 0x00, 0x00};
 static char SRE_Manual2[] = {0xBB, 0x01, 0x03, 0x02};
 static char SRE_Manual3[] = {0xBB, 0x01, 0x08, 0x05};
@@ -1090,7 +1090,7 @@ static void m7_set_backlight(struct msm_fb_data_type *mfd)
 		}
 	}
 
-#ifdef CABC_DIMMING_SWITCH
+#ifdef CONFIG_CABC_DIMMING_SWITCH
 	if (samsung_ctrl_brightness[1] == 0 ||
 			display_brightness[1] == 0 ||
 			write_display_brightness[2] == 0) {
@@ -1130,7 +1130,7 @@ static void sharp_renesas_panel_init(void)
 	display_off_cmds_count = ARRAY_SIZE(sharp_display_off_cmds);
 	backlight_cmds = renesas_cmd_backlight_cmds;
 	backlight_cmds_count = ARRAY_SIZE(renesas_cmd_backlight_cmds);
-#ifdef CABC_DIMMING
+#ifdef CONFIG_CABC_DIMMING_SWITCH
 	dim_on_cmds = renesas_dim_on_cmds;
 	dim_on_cmds_count = ARRAY_SIZE(renesas_dim_on_cmds);
 	dim_off_cmds = renesas_dim_off_cmds;
@@ -1157,7 +1157,7 @@ static void sony_panel_init(void)
 	display_off_cmds_count = ARRAY_SIZE(sony_display_off_cmds);
 	backlight_cmds = renesas_cmd_backlight_cmds;
 	backlight_cmds_count = ARRAY_SIZE(renesas_cmd_backlight_cmds);
-#ifdef CABC_DIMMING
+#ifdef CONFIG_CABC_DIMMING_SWITCH
 	dim_on_cmds = renesas_dim_on_cmds;
 	dim_on_cmds_count = ARRAY_SIZE(renesas_dim_on_cmds);
 	dim_off_cmds = renesas_dim_off_cmds;
@@ -1224,7 +1224,7 @@ static void samsung_panel_init(void)
 	display_on_cmds_count = ARRAY_SIZE(samsung_display_on_cmds);
 	display_off_cmds = samsung_display_off_cmds;
 	display_off_cmds_count = ARRAY_SIZE(samsung_display_off_cmds);
-#ifdef CABC_DIMMING
+#ifdef CONFIG_CABC_DIMMING_SWITCH
 	dim_on_cmds = samsung_dim_on_cmds;
 	dim_on_cmds_count = ARRAY_SIZE(samsung_dim_on_cmds);
 	dim_off_cmds = samsung_dim_off_cmds;
@@ -1251,7 +1251,7 @@ static void sharp_panel_init(void)
 	display_off_cmds_count = ARRAY_SIZE(sharp_display_off_cmds);
 	backlight_cmds = sharp_cmd_backlight_cmds;
 	backlight_cmds_count = ARRAY_SIZE(sharp_cmd_backlight_cmds);
-#ifdef CABC_DIMMING
+#ifdef CONFIG_CABC_DIMMING_SWITCH
 	dim_on_cmds = sharp_cmd_dim_on_cmds;
 	dim_on_cmds_count = ARRAY_SIZE(sharp_cmd_dim_on_cmds);
 	dim_off_cmds = sharp_cmd_dim_off_cmds;
@@ -1263,7 +1263,7 @@ static void sharp_panel_init(void)
 	color_en_off_cmds = sharp_renesas_c1_color_enhance_off_cmds;
 	color_en_off_cmds_count = ARRAY_SIZE(sharp_renesas_c1_color_enhance_off_cmds);
 #endif
-#ifdef SRE_CONTROL
+#ifdef CONFIG_SRE_CONTROL
 	sre_ctrl_cmds = sharp_renesas_sre_ctrl_cmds;
 	sre_ctrl_cmds_count = ARRAY_SIZE(sharp_renesas_sre1_ctrl_cmds);
 #endif
@@ -1294,7 +1294,7 @@ static void jdi_renesas_panel_init(void)
 	display_off_cmds_count = ARRAY_SIZE(jdi_display_off_cmds);
 	backlight_cmds = samsung_cmd_backlight_cmds;
 	backlight_cmds_count = ARRAY_SIZE(samsung_cmd_backlight_cmds);
-#ifdef CABC_DIMMING
+#ifdef CONFIG_CABC_DIMMING_SWITCH
 	dim_on_cmds = jdi_renesas_dim_on_cmds;
 	dim_on_cmds_count = ARRAY_SIZE(jdi_renesas_dim_on_cmds);
 	dim_off_cmds = jdi_renesas_dim_off_cmds;
@@ -1306,7 +1306,7 @@ static void jdi_renesas_panel_init(void)
 	color_en_off_cmds = sharp_renesas_c1_color_enhance_off_cmds;
 	color_en_off_cmds_count = ARRAY_SIZE(sharp_renesas_c1_color_enhance_off_cmds);
 #endif
-#ifdef SRE_CONTROL
+#ifdef CONFIG_SRE_CONTROL
 	sre_ctrl_cmds = sharp_renesas_sre_ctrl_cmds;
 	sre_ctrl_cmds_count = ARRAY_SIZE(sharp_renesas_sre1_ctrl_cmds);
 #endif
@@ -1381,13 +1381,13 @@ static struct msm_fb_panel_data m7_panel_data = {
 #ifdef COLOR_ENHANCE
 	.color_enhance = m7_color_enhance,
 #endif
-#ifdef CABC_DIMMING_SWITCH
+#ifdef CONFIG_CABC_DIMMING_SWITCH
 	.dimming_on = m7_dim_on,
 #endif
 #ifdef CABC_LEVEL_CONTROL
 	.set_cabc = m7_set_cabc,
 #endif
-#ifdef SRE_CONTROL
+#ifdef CONFIG_SRE_CONTROL
 	.sre_ctrl = m7_sre_ctrl,
 #endif
 #ifdef MDP_GAMMA

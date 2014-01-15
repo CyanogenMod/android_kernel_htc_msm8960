@@ -217,6 +217,16 @@ struct msm_fb_data_type {
 	uint32 sec_mapped;
 	uint32 sec_active;
 	uint32 max_map_size;
+#ifdef CONFIG_CABC_DIMMING_SWITCH
+	struct workqueue_struct *dimming_wq;
+	struct work_struct dimming_work;
+	struct timer_list dimming_update_timer;
+#endif
+#ifdef CONFIG_SRE_CONTROL
+	struct workqueue_struct *sre_wq;
+	struct work_struct sre_work;
+	struct timer_list sre_update_timer;
+#endif
 };
 struct msm_fb_backup_type {
 	struct fb_info info;

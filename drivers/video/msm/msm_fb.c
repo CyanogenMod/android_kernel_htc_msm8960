@@ -62,6 +62,15 @@
 #undef CONFIG_HAS_EARLYSUSPEND
 #endif
 
+#ifdef CONFIG_INPUT_CAPELLA_CM3629
+extern int get_lightsensoradc(void);
+#else
+static inline int get_lightsensoradc(void)
+{
+	return 0;
+}
+#endif
+
 static unsigned char *fbram;
 static unsigned char *fbram_phys;
 static int fbram_size;
@@ -384,10 +393,56 @@ static void msm_fb_remove_sysfs(struct platform_device *pdev)
 	sysfs_remove_group(&mfd->fbi->dev->kobj, &msm_fb_attr_group);
 }
 
+#ifdef CONFIG_CABC_DIMMING_SWITCH
+static void dimming_do_work(struct work_struct *work)
+{
+	struct msm_fb_panel_data *pdata;
+	struct msm_fb_data_type *mfd = container_of(work,
+			struct msm_fb_data_type, dimming_work);
+
+	pdata = (struct msm_fb_panel_data *) mfd->pdev->dev.platform_data;
+
+	if (pdata && pdata->dimming_on)
+		pdata->dimming_on(mfd);
+}
+
+static void dimming_update(unsigned long data)
+{
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *) data;
+	queue_work(mfd->dimming_wq, &mfd->dimming_work);
+}
+#endif
+
+#ifdef CONFIG_SRE_CONTROL
+static void sre_do_work(struct work_struct *work)
+{
+	struct msm_fb_panel_data *pdata;
+	struct msm_fb_data_type *mfd = container_of(work,
+			struct msm_fb_data_type, sre_work);
+
+	pdata = (struct msm_fb_panel_data *) mfd->pdev->dev.platform_data;
+
+	if (pdata && pdata->sre_ctrl) {
+		pdata->sre_ctrl(mfd, get_lightsensoradc());
+		mod_timer(&mfd->sre_update_timer,
+				jiffies + msecs_to_jiffies(1000));
+	}
+}
+
+static void sre_update(unsigned long data)
+{
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *) data;
+	queue_work(mfd->sre_wq, &mfd->sre_work);
+}
+#endif
+
 static void bl_workqueue_handler(struct work_struct *work);
 
 static int msm_fb_probe(struct platform_device *pdev)
 {
+#if defined(CONFIG_CABC_DIMMING_SWITCH) || defined(CONFIG_SRE_CONTROL)
+	struct msm_fb_panel_data *pdata;
+#endif
 	struct msm_fb_data_type *mfd;
 	int rc;
 	int err = 0;
@@ -494,6 +549,31 @@ static int msm_fb_probe(struct platform_device *pdev)
 		}
 	}
 
+#ifdef CONFIG_CABC_DIMMING_SWITCH
+	pdata = (struct msm_fb_panel_data *) mfd->pdev->dev.platform_data;
+	if (pdata && pdata->dimming_on) {
+		INIT_WORK(&mfd->dimming_work, dimming_do_work);
+		mfd->dimming_wq = create_workqueue("dimming_wq");
+		if (!mfd->dimming_wq)
+			pr_err("%s: cannot create dimming workqueue", __func__);
+		else
+			setup_timer(&mfd->dimming_update_timer,
+					dimming_update, (unsigned long) mfd);
+	}
+#endif
+
+#ifdef CONFIG_SRE_CONTROL
+	pdata = (struct msm_fb_panel_data *) mfd->pdev->dev.platform_data;
+	if (pdata && pdata->sre_ctrl) {
+		INIT_WORK(&mfd->sre_work, sre_do_work);
+		mfd->sre_wq = create_workqueue("sre_wq");
+		if (!mfd->sre_wq)
+			pr_err("%s: cannot create sre_wq", __func__);
+		else
+			setup_timer(&mfd->sre_update_timer,
+					sre_update, (unsigned long) mfd);
+	}
+#endif
 
 	return 0;
 }
@@ -2069,6 +2149,9 @@ static int msm_fb_pan_display(struct fb_var_screeninfo *var,
 static int msm_fb_pan_display_sub(struct fb_var_screeninfo *var,
 			      struct fb_info *info)
 {
+#if defined(CONFIG_CABC_DIMMING_SWITCH) || defined(CONFIG_SRE_CONTROL)
+	struct msm_fb_panel_data *pdata;
+#endif
 	struct mdp_dirty_region dirty;
 	struct mdp_dirty_region *dirtyPtr = NULL;
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
@@ -2164,6 +2247,19 @@ static int msm_fb_pan_display_sub(struct fb_var_screeninfo *var,
 		pr_err("%s: unmap secure res failed\n", __func__);
 
 	up(&msm_fb_pan_sem);
+
+#ifdef CONFIG_CABC_DIMMING_SWITCH
+	pdata = (struct msm_fb_panel_data *) mfd->pdev->dev.platform_data;
+	if (pdata && pdata->dimming_on)
+		mod_timer(&mfd->dimming_update_timer,
+				jiffies + msecs_to_jiffies(1000));
+#endif
+#ifdef CONFIG_SRE_CONTROL
+	pdata = (struct msm_fb_panel_data *) mfd->pdev->dev.platform_data;
+	if (pdata && pdata->sre_ctrl)
+		mod_timer(&mfd->sre_update_timer,
+				jiffies + msecs_to_jiffies(50));
+#endif
 
 	if (!bl_updated)
 		schedule_delayed_work(&mfd->backlight_worker,
