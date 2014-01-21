@@ -1063,5 +1063,6 @@ uint16_t voc_get_session_id(char *name);
 int voc_start_playback(uint32_t set);
 int voc_start_record(uint32_t port_id, uint32_t set);
 int voc_set_ext_ec_ref(uint16_t port_id, bool state);
+int voc_update_amr_vocoder_rate(uint32_t session_id);
 
 #endif
