@@ -32,6 +32,7 @@
 #include <linux/gpio.h>
 #include <linux/akm8975.h>
 #include <linux/module.h>
+#include <linux/mutex.h>
 
 #ifndef HTC_VERSION
 #include <linux/i2c/ak8973.h>
@@ -55,6 +56,7 @@ int Gyro_samplerate_status = 1;
 static DECLARE_WAIT_QUEUE_HEAD(open_wq);
 static atomic_t open_flag;
 static bool Gyro_init_fail = 0;
+static DEFINE_MUTEX(ewtzmu2_power_lock);
 
 struct _ewtzmu_data {
 	rwlock_t lock;
@@ -351,6 +353,12 @@ static int EWTZMU2_ReadSensorData(char *buf, int bufsize)
 		return EW_CLIENT_ERROR;
 	}
 
+	if (atomic_read(&off_status_hal)) {
+		E("Fail to read sensor data. Device is powered off.\n");
+		*buf = 0;
+		return EW_DEVICE_POWERED_OFF;
+	}
+
 	read_lock(&ewtzmu_data.lock);
 	mode = ewtzmu_data.mode;
 	read_unlock(&ewtzmu_data.lock);
@@ -401,6 +409,12 @@ static int EWTZMU2_ReadSensorDataFIFO(unsigned char *buf, int bufsize)
 	if (!ewtzmu_i2c_client) {
 		*buf = 0;
 		return EW_CLIENT_ERROR;
+	}
+
+	if (atomic_read(&off_status_hal)) {
+		E("Failed to read sensor data. Device is powered off.\n");
+		*buf = 0;
+		return EW_DEVICE_POWERED_OFF;
 	}
 
 	read_lock(&ewtzmu_data.lock);
@@ -770,9 +784,12 @@ static int EWTZMU2_Power_Off(void)
 {
 	u8 databuf[10];
 	int res = 0;
+
+	mutex_lock(&ewtzmu2_power_lock);
 	ewtzmumid_data.config_gyro_diag_gpios(1);
 	if (!ewtzmu_i2c_client) {
 		E("%s, ewtzmu_i2c_client < 0 \n", __func__);
+		mutex_unlock(&ewtzmu2_power_lock);
 		return -2;
 	}
 	
@@ -785,6 +802,8 @@ static int EWTZMU2_Power_Off(void)
 		hr_msleep(10);
 	}
 	gpio_set_value(ewtzmumid_data.sleep_pin, 1);
+	atomic_set(&off_status_hal, 1);
+	mutex_unlock(&ewtzmu2_power_lock);
 	I("%s\n", __func__);
 	return 0;
 }
@@ -795,10 +814,12 @@ static int EWTZMU2_Power_On(void)
 	int res = 0;
 	int i = 0;
 
+	mutex_lock(&ewtzmu2_power_lock);
 	ewtzmumid_data.config_gyro_diag_gpios(0);
 	if (!ewtzmu_i2c_client) {
 		E("%s, ewtzmu_i2c_client < 0 \n", __func__);
-	return -2;
+		mutex_unlock(&ewtzmu2_power_lock);
+		return -2;
 	}
 	gpio_set_value(ewtzmumid_data.sleep_pin, 0);
 	while (1) {
@@ -824,6 +845,8 @@ static int EWTZMU2_Power_On(void)
 	}
 	i = 0;
 	EWTZMU2_Chip_Set_SampleRate(Gyro_samplerate_status);
+	atomic_set(&off_status_hal, 0);
+	mutex_unlock(&ewtzmu2_power_lock);
 	I("%s end\n", __func__);
 	return 0;
 }
@@ -1212,7 +1235,6 @@ static long ewtzmu2_ioctl(struct file *file, unsigned int cmd, unsigned long arg
 		!atomic_read(&la_status) && !atomic_read(&gv_status) &&
 		!atomic_read(&o_status) && !atomic_read(&off_status_hal)) {
 
-				atomic_set(&off_status_hal, 1);
 				I("cal_Gyro power off:g_status=%d"
 					"off_status_hal=%d\n",
 					atomic_read(&g_status),
@@ -1222,7 +1244,6 @@ static long ewtzmu2_ioctl(struct file *file, unsigned int cmd, unsigned long arg
 			atomic_read(&la_status) || atomic_read(&gv_status) ||
 			atomic_read(&o_status))  && atomic_read(&off_status_hal)) {
 
-				atomic_set(&off_status_hal, 0);
 				I("Cal_Gyro power on:g_status=%d"
 					"off_status_hal=%d\n",
 					atomic_read(&g_status),
@@ -2067,7 +2088,6 @@ static long ewtzmu2hal_ioctl(struct file *file, unsigned int cmd, unsigned long 
 				atomic_read(&g_status),
 				atomic_read(&off_status_hal));
 				if (!atomic_read(&off_status_hal)) {
-					atomic_set(&off_status_hal, 1);
 					ret = EWTZMU2_Power_Off();
 				}
 			} else if ((atomic_read(&g_status) || atomic_read(&rv_status) || atomic_read(&la_status) || atomic_read(&gv_status) || atomic_read(&o_status))) {
@@ -2077,7 +2097,6 @@ static long ewtzmu2hal_ioctl(struct file *file, unsigned int cmd, unsigned long 
 					atomic_read(&g_status),
 					atomic_read(&off_status_hal));
 				if (atomic_read(&off_status_hal)) {
-					atomic_set(&off_status_hal, 0);
 					ret = EWTZMU2_Power_On();
 				}
 			}
@@ -2497,7 +2516,6 @@ const struct i2c_device_id *id)
 	if (data->pdata->config_gyro_diag_gpios != NULL)
 		ewtzmumid_data.config_gyro_diag_gpios =
 		data->pdata->config_gyro_diag_gpios;
-	atomic_set(&off_status_hal, 1);
 	EWTZMU2_Power_Off();
 
 	init_waitqueue_head(&open_wq);
