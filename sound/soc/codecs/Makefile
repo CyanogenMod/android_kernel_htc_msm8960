@@ -48,7 +48,11 @@ snd-soc-twl4030-objs := twl4030.o
 snd-soc-twl6040-objs := twl6040.o
 snd-soc-uda134x-objs := uda134x.o
 snd-soc-uda1380-objs := uda1380.o
+ifdef CONFIG_SND_SOC_WCD9304_M4
+snd-soc-wcd9304-objs := wcd9304_m4.o wcd9304-tables.o
+else
 snd-soc-wcd9304-objs := wcd9304.o wcd9304-tables.o
+endif
 snd-soc-wcd9310-objs := wcd9310.o wcd9310-tables.o
 snd-soc-cs8427-objs := cs8427.o
 snd-soc-wcd9320-objs := wcd9320.o wcd9320-tables.o
