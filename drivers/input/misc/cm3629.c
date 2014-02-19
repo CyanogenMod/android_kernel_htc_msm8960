@@ -31,7 +31,6 @@
 #include <asm/uaccess.h>
 #include <asm/mach-types.h>
 #include <linux/cm3629.h>
-#include <linux/pl_sensor.h>
 #include <linux/capella_cm3602.h>
 #include <asm/setup.h>
 #include <linux/wakelock.h>
@@ -67,12 +66,9 @@ static int min_adc = 255;
 static int psensor_open_count = 0;
 static int record_adc[6] = {0};
 static int avg_min_adc = 0;
-static int pocket_thd = 0;
 static int p_status;
 static int p_irq_status;
 static int prev_correction;
-static int ps_near;
-static int pocket_mode_flag, psensor_enable_by_touch;
 static int phone_status;
 static int oncall = 0;
 static uint8_t sensor_chipId[3] = {0};
@@ -138,7 +134,6 @@ struct cm3629_info {
 	uint8_t ps_conf2_val_from_board;
 	uint8_t ps_conf3_val;
 	uint8_t ps_calibration_rule; 
-	int ps_pocket_mode;
 	unsigned long j_start;
 	unsigned long j_end;
 	int mfg_mode;
@@ -515,7 +510,6 @@ static void report_near_do_work(struct work_struct *w)
 
 	input_report_abs(lpi->ps_input_dev, ABS_DISTANCE, 0);
 	input_sync(lpi->ps_input_dev);
-	blocking_notifier_call_chain(&psensor_notifier_list, 2 + oncall, NULL);
 }
 
 static void report_psensor_input_event(struct cm3629_info *lpi, int interrupt_flag)
@@ -525,7 +519,6 @@ static void report_psensor_input_event(struct cm3629_info *lpi, int interrupt_fl
 	uint8_t ps1_adc = 0;
 	uint8_t ps2_adc = 0;
 	int val, ret = 0;
-	int index = 0;
 
 	if (interrupt_flag > 1 && lpi->ps_enable == 0) {
 		D("[PS][cm3629] P-sensor disable but intrrupt occur, "
@@ -542,20 +535,6 @@ static void report_psensor_input_event(struct cm3629_info *lpi, int interrupt_fl
 	D("%s: j_end = %lu", __func__, lpi->j_end);
 #endif
 	ret = get_ps_adc_value(&ps1_adc, &ps2_adc);
-	if (pocket_mode_flag == 1 || psensor_enable_by_touch == 1) {
-		D("[PS][cm3629] pocket_mode_flag: %d, psensor_enable_by_touch: %d, add delay = 7ms\n", pocket_mode_flag, psensor_enable_by_touch);
-		mdelay(7); 
-		while (index <= 10 && ps1_adc == 0) {
-			D("[PS][cm3629]ps1_adc = 0 retry");
-			get_ps_adc_value(&ps1_adc, &ps2_adc);
-			if(ps1_adc != 0) {
-				D("[PS][cm3629]retry work");
-				break;
-			}
-			mdelay(1);
-			index++;
-		}
-	}
 	if (lpi->ps_select == CM3629_PS2_ONLY) {
 		ps_thd_set = lpi->ps2_thd_set + 1;
 		ps_adc = ps2_adc;
@@ -582,14 +561,6 @@ static void report_psensor_input_event(struct cm3629_info *lpi, int interrupt_fl
 
 	if (lpi->ps_debounce == 1 && lpi->mfg_mode != MFG_MODE) {
 		if (val == 0) {
-			if (lpi->dynamical_threshold == 1 && val == 0
-				&& pocket_mode_flag != 1 && psensor_enable_by_touch != 1 &&
-					time_before(lpi->j_end, (lpi->j_start + NEAR_DELAY_TIME))) {
-				lpi->ps_pocket_mode = 1;
-				blocking_notifier_call_chain(&psensor_notifier_list, 2 + oncall, NULL);
-				D("[PS][cm3629] Ignore NEAR event\n");
-				return;
-			}
 			D("[PS][cm3629] delay proximity %s, ps_adc=%d, High thd= %d, interrupt_flag %d\n",
 			  val ? "FAR" : "NEAR", ps_adc, ps_thd_set, interrupt_flag);
 			queue_delayed_work(lpi->lp_wq, &report_near_work,
@@ -603,18 +574,8 @@ static void report_psensor_input_event(struct cm3629_info *lpi, int interrupt_fl
 	}
 	D("[PS][cm3629] proximity %s, ps_adc=%d, High thd= %d, interrupt_flag %d, calibration %d\n",
 	  val ? "FAR" : "NEAR", ps_adc, ps_thd_set, interrupt_flag, psensor_cali);
-	if (lpi->dynamical_threshold == 1 && val == 0 && lpi->mfg_mode != MFG_MODE &&
-			pocket_mode_flag != 1 && psensor_enable_by_touch != 1 &&
-				time_before(lpi->j_end, (lpi->j_start + NEAR_DELAY_TIME))) {
-		blocking_notifier_call_chain(&psensor_notifier_list, val + 2 + oncall, NULL);
-		lpi->ps_pocket_mode = 1;
-		D("[PS][cm3629] Ignore NEAR event\n");
-	} else {
-		
-		input_report_abs(lpi->ps_input_dev, ABS_DISTANCE, val);
-		input_sync(lpi->ps_input_dev);
-		blocking_notifier_call_chain(&psensor_notifier_list, val + 2 + oncall, NULL);
-	}
+	input_report_abs(lpi->ps_input_dev, ABS_DISTANCE, val);
+	input_sync(lpi->ps_input_dev);
 }
 
 static void enable_als_interrupt(void)
@@ -784,7 +745,7 @@ static void sensor_irq_do_work(struct work_struct *work)
 			report_psensor_input_event(lpi, 2);
 			p_irq_status = 1;
 		}
-		p_status = (lpi->ps_pocket_mode | p_irq_status);
+		p_status = p_irq_status;
 	}
 
 	if (((add & CM3629_ALS_IF_L) == CM3629_ALS_IF_L) ||
@@ -906,10 +867,6 @@ static void polling_do_work(struct work_struct *w)
 	D("lpi->ps_enable = %d\n", lpi->ps_enable);
 #endif
 	lpi->j_end = jiffies;
-	if (time_after(lpi->j_end, (lpi->j_start + 3* HZ))){
-		lpi->ps_pocket_mode = 0;
-		p_status = (lpi->ps_pocket_mode | p_irq_status);
-	}
 	if (lpi->ps_enable == 0)
 		return;
 
@@ -942,14 +899,11 @@ static void polling_do_work(struct work_struct *w)
 				record_adc[i] = avg_min_adc;
 		} else {
 			record_adc[5] = min_adc;
-			pocket_thd = 0;
 			for (i = 1 ;i <= 5; i++) {
 				avg_min_adc = avg_min_adc + record_adc[i];
-				pocket_thd = pocket_thd + record_adc[i-1];
 			}
 			D("[PS][cm3629] %s: record_adc[1-5]: %d, %d, %d, %d, %d\n", __func__, record_adc[1], record_adc[2], record_adc[3], record_adc[4], record_adc[5]);
 			avg_min_adc = avg_min_adc / 5;
-			pocket_thd = pocket_thd / 5 + lpi->ps_th_add;
 			if ((min_adc - avg_min_adc) >= lpi->ps_th_add)
 				avg_min_adc = min_adc;
 		}
@@ -1108,7 +1062,6 @@ static int psensor_enable(struct cm3629_info *lpi)
 		return 0;
 	}
 	sensor_lpm_power(0);
-	blocking_notifier_call_chain(&psensor_notifier_list, 1 + oncall, NULL);
 	lpi->j_start = jiffies;
 
 	
@@ -1117,13 +1070,11 @@ static int psensor_enable(struct cm3629_info *lpi)
 
 	psensor_initial_cmd(lpi);
 
-	if (lpi->dynamical_threshold == 1 && lpi->mfg_mode != MFG_MODE &&
-			pocket_mode_flag != 1 && psensor_enable_by_touch != 1 ) {
+	if (lpi->dynamical_threshold == 1 && lpi->mfg_mode != MFG_MODE) {
 		
 		D("[PS][cm3629] default report FAR ");
 		input_report_abs(lpi->ps_input_dev, ABS_DISTANCE, 1);
 		input_sync(lpi->ps_input_dev);
-		blocking_notifier_call_chain(&psensor_notifier_list, 1 + 2 + oncall, NULL);
 	} else
 		report_psensor_input_event(lpi, 0);
 
@@ -1153,8 +1104,7 @@ static int psensor_enable(struct cm3629_info *lpi)
 		mutex_unlock(&ps_enable_mutex);
 		return ret;
 	}
-	if (lpi->dynamical_threshold == 1 && lpi->mfg_mode != MFG_MODE &&
-		pocket_mode_flag != 1 && psensor_enable_by_touch != 1 ) {
+	if (lpi->dynamical_threshold == 1 && lpi->mfg_mode != MFG_MODE) {
 
 			ret = get_stable_ps_adc_value(&ps_adc1, &ps_adc2);
 			while (index <= 10 && ps_adc1 == 0) {
@@ -1199,7 +1149,6 @@ static int psensor_disable(struct cm3629_info *lpi)
 	}
 	lpi->ps_conf1_val = lpi->ps_conf1_val_from_board;
 	lpi->ps_conf2_val = lpi->ps_conf2_val_from_board;
-	lpi->ps_pocket_mode = 0;
 	ret = irq_set_irq_wake(lpi->irq, 0);
 	if (ret < 0) {
 		pr_err(
@@ -1224,10 +1173,9 @@ static int psensor_disable(struct cm3629_info *lpi)
 	ret = _cm3629_I2C_Write2(lpi->cm3629_slave_address,
 				PS_config_ms, cmd, 3);
 
-	blocking_notifier_call_chain(&psensor_notifier_list, 0 + oncall, NULL);
 	lpi->ps_enable = 0;
 
-	if (lpi->dynamical_threshold == 1 && lpi->mfg_mode != MFG_MODE && pocket_mode_flag != 1 && psensor_enable_by_touch != 1 ) {
+	if (lpi->dynamical_threshold == 1 && lpi->mfg_mode != MFG_MODE) {
 		cancel_delayed_work(&polling_work);
 		if ((psensor_open_count >= 2) && (record_adc[5] < Max_open_value)) {
 			for (i = 0; i < 5; i++)
@@ -1621,8 +1569,8 @@ static ssize_t ps_adc_show(struct device *dev,
 	}
 
 	ret = sprintf(buf, "ADC[0x%02X], ENABLE = %d, intr_pin = %d, "
-		      "ps_pocket_mode = %d, model = %s, ADC2[0x%02X]\n",
-		      ps_adc1, lpi->ps_enable, int_gpio, lpi->ps_pocket_mode,
+		      "model = %s, ADC2[0x%02X]\n",
+		      ps_adc1, lpi->ps_enable, int_gpio,
 		      (lpi->model == CAPELLA_CM36282) ? "CM36282" : "CM36292",
 		      ps_adc2);
 
@@ -2517,74 +2465,6 @@ err_free_ps_input_device:
 	return ret;
 }
 
-int power_key_check_in_pocket(void)
-{
-	struct cm3629_info *lpi = lp_info;
-	int ls_dark;
-
-	uint32_t ls_adc = 0;
-	int ls_level = 0;
-	int i;
-	uint8_t ps1_adc = 0;
-	uint8_t ps2_adc = 0;
-	int ret = 0;
-
-	if (!is_probe_success) {
-		D("[cm3629] %s return by cm3629 probe fail\n", __func__);
-		return 0;
-	}
-	pocket_mode_flag = 1;
-	D("[cm3629] %s +++\n", __func__);
-	mutex_lock(&als_get_adc_mutex);
-	get_ls_adc_value(&ls_adc, 0);
-	enable_als_interrupt();
-	mutex_unlock(&als_get_adc_mutex);
-	for (i = 0; i < 10; i++) {
-		if (ls_adc <= (*(lpi->adc_table + i))) {
-			ls_level = i;
-			if (*(lpi->adc_table + i))
-				break;
-		}
-		if (i == 9) {
-			ls_level = i;
-			break;
-		}
-	}
-	ls_dark = (ls_level <= lpi->dark_level) ? 1 : 0;
-	D("[cm3629] %s ls_adc = %d, ls_level = %d, ls_dark %d\n", __func__, ls_adc, ls_level, ls_dark);
-
-	psensor_enable(lpi);
-	ret = get_ps_adc_value(&ps1_adc, &ps2_adc);
-	if (ps1_adc > pocket_thd)
-		ps_near = 1;
-	else
-		ps_near = 0;
-	D("[cm3629] %s ps1_adc = %d, pocket_thd = %d, ps_near = %d\n", __func__, ps1_adc, pocket_thd, ps_near);
-	psensor_disable(lpi);
-	pocket_mode_flag = 0;
-	return (ls_dark && ps_near);
-}
-
-int psensor_enable_by_touch_driver(int on)
-{
-	struct cm3629_info *lpi = lp_info;
-
-	if (!is_probe_success) {
-		D("[PS][cm3629] %s return by cm3629 probe fail\n", __func__);
-		return 0;
-	}
-	psensor_enable_by_touch = 1;
-
-	D("[PS][cm3629] %s on:%d\n", __func__, on);
-	if (on) {
-		psensor_enable(lpi);
-	} else {
-		psensor_disable(lpi);
-	}
-
-	psensor_enable_by_touch = 0;
-	return 0;
-}
 static int cm3629_read_chip_id(struct cm3629_info *lpi)
 {
 	uint8_t chip_id[3] = {0};
@@ -2815,11 +2695,9 @@ static int cm3629_probe(struct i2c_client *client,
 	wake_lock_init(&(lpi->ps_wake_lock), WAKE_LOCK_SUSPEND, "proximity");
 
 	psensor_set_kvalue(lpi);
-	pocket_thd = lpi->ps1_thd_set;
 	if (lpi->dynamical_threshold == 1) {
 	        lpi->ps1_thd_set = lpi->ps1_thd_set + 50;
 		lpi->original_ps_thd_set = lpi->ps1_thd_set;
-		pocket_thd = lpi->ps1_thd_set;
 	}
 	ret = cm3629_setup(lpi);
 	if (ret < 0) {

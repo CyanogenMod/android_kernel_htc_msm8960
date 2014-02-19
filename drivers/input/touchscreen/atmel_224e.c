@@ -30,7 +30,6 @@
 #include <linux/jiffies.h>
 #include <mach/msm_hsusb.h>
 #include <linux/stat.h>
-#include <linux/pl_sensor.h>
 #if defined(CONFIG_TOUCH_KEY_FILTER)
 #include <linux/input/cy8c_cs.h>
 #endif
@@ -120,7 +119,6 @@ struct atmel_ts_data {
 	uint8_t status;
 	uint8_t cable_vbus_status;
 	uint8_t diag_command;
-	uint8_t psensor_status;
 	uint8_t noiseLine_status;
 	uint8_t *ATCH_EXT;
 	int pre_data[11];
@@ -1450,25 +1448,6 @@ static void atmel_ts_cable_vbus_work_func(struct work_struct *work)
 }
 #endif
 
-static int psensor_tp_status_handler_func(struct notifier_block *this,
-	unsigned long status, void *unused)
-{
-	struct atmel_ts_data *ts;
-
-	ts = private_ts;
-	printk(KERN_INFO "[TP]psensor status %d -> %lu\n",
-		ts->psensor_status, status);
-	if (ts->psensor_status == 0) {
-		if (status == 1)
-			ts->psensor_status = status;
-		else
-			ts->psensor_status = 0;
-	} else
-		ts->psensor_status = status;
-
-	return NOTIFY_OK;
-}
-
 #if defined(CONFIG_TOUCH_KEY_FILTER)
 static int touchkey_tp_status_handler_func(struct notifier_block *this,
 						unsigned long status, void *unused)
@@ -1666,10 +1645,6 @@ static struct notifier_block wlc_status_handler = {
 };
 #endif
 #endif
-
-static struct notifier_block psensor_status_handler = {
-	.notifier_call = psensor_tp_status_handler_func,
-};
 
 #if defined(CONFIG_TOUCH_KEY_FILTER)
 static struct notifier_block touchkey_status_handler = {
@@ -2346,8 +2321,6 @@ static int atmel_224e_ts_probe(struct i2c_client *client, const struct i2c_devic
 	dev_info(&client->dev, "[TP]Start touchscreen %s in interrupt mode\n",
 			ts->input_dev->name);
 
-	register_notifier_by_psensor(&psensor_status_handler);
-
 #if defined(CONFIG_TOUCH_KEY_FILTER)
 	register_notifier_by_touchkey(&touchkey_status_handler);
 #endif
@@ -2407,7 +2380,7 @@ static int atmel_224e_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 	disable_irq(client->irq);
 
 	cancel_delayed_work_sync(&ts->unlock_work);
-	if (ts->pre_data[0] == RECALIB_UNLOCK && ts->psensor_status)
+	if (ts->pre_data[0] == RECALIB_UNLOCK)
 		confirm_calibration(ts, 0, 3);
 
 #if defined(CONFIG_TOUCHSCREEN_ATMEL_DETECT_USB_VBUS)
@@ -2420,12 +2393,10 @@ static int atmel_224e_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 	ts->finger_count = 0;
 	ts->first_pressed = 0;
 
-	if (ts->psensor_status == 0) {
-		ts->pre_data[0] = RECALIB_NEED;
-		i2c_atmel_write(client,
-			get_object_address(ts, GEN_ACQUISITIONCONFIG_T8) + T8_CFG_ATCHCALST,
-			ts->ATCH_EXT, 4);
-	}
+	ts->pre_data[0] = RECALIB_NEED;
+	i2c_atmel_write(client,
+		get_object_address(ts, GEN_ACQUISITIONCONFIG_T8) + T8_CFG_ATCHCALST,
+		ts->ATCH_EXT, 4);
 
 	if (ts->workaround & TW_SHIFT)
 		i2c_atmel_write_byte_data(ts->client,
@@ -2452,7 +2423,7 @@ static int atmel_224e_ts_resume(struct i2c_client *client)
 			T9_CFG_YHICLIP, ts->config_setting[NONE].config_T9[T9_CFG_YHICLIP]);
 
 	if (ts->pre_data[0] == RECALIB_NEED) {
-		if (ts->call_tchthr[0] && ts->psensor_status == 2 && !ts->wlc_status) {
+		if (ts->call_tchthr[0] && !ts->wlc_status) {
 			printk(KERN_INFO "[TP]raise touch threshold\n");
 			i2c_atmel_write_byte_data(ts->client,
 				get_object_address(ts, TOUCH_MULTITOUCHSCREEN_T9) + T9_CFG_TCHTHR,
@@ -2481,8 +2452,6 @@ static int atmel_224e_ts_resume(struct i2c_client *client)
 	}
 
 	if (ts->pre_data[0] != RECALIB_NEED) {
-		printk(KERN_INFO "[TP]resume in call, psensor status %d\n",
-			ts->psensor_status);
 		queue_work(ts->atmel_wq, &ts->check_delta_work);
 	} else {
 		msleep(1);
