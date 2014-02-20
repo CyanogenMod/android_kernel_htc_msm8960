@@ -1318,7 +1318,6 @@ static int synaptics_power_LPM(int on)
 			return rc;
 		}
 		pr_info("[TP] %s: leave LPM mode\n", __func__);
-		usleep(10);
 	}
 	mutex_unlock(&tp_lock);
 	return rc;
@@ -4249,7 +4248,6 @@ static int capella_pl_sensor_lpm_power(uint8_t enable)
 			return rc;
 		}
 		pr_info("[PS][cm3629] %s: leave lmp,OK\n", __func__);
-		usleep(10);
 	}
 	mutex_unlock(&pl_sensor_lock);
 	pr_info("[PS][cm3629] %s: pl_sensor_lock unlock 4\n", __func__);
