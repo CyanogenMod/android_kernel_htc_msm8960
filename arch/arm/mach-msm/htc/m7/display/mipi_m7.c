@@ -932,7 +932,7 @@ static int m7_lcd_off(struct platform_device *pdev)
 static int m7_display_on(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
-	bool clk_ctrl;
+	bool clk_ctrl = false;
 
 	mfd = platform_get_drvdata(pdev);
 	if (!mfd)
@@ -951,7 +951,7 @@ static int m7_display_on(struct platform_device *pdev)
 static int m7_display_off(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
-	bool clk_ctrl;
+	bool clk_ctrl = false;
 
 	mfd = platform_get_drvdata(pdev);
 
