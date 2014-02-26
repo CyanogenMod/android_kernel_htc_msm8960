@@ -215,6 +215,41 @@ int tps61310_flashlight_control(int mode)
 		gpio_set_value_cansleep(this_tps61310->strb1, 1);
 		tps61310_i2c_command(0x01, 0x40);
 	break;
+	case FL_MODE_VIDEO_TORCH:
+		tps61310_i2c_command(0x05, 0x6A);
+		tps61310_i2c_command(0x00, 0x04);
+		gpio_set_value_cansleep(this_tps61310->strb0, 0);
+		gpio_set_value_cansleep(this_tps61310->strb1, 1);
+		tps61310_i2c_command(0x01, 0x40);
+	break;
+	case FL_MODE_VIDEO_TORCH_1:
+		tps61310_i2c_command(0x05, 0x6A);
+		tps61310_i2c_command(0x00, 0x01);
+		gpio_set_value_cansleep(this_tps61310->strb0, 0);
+		gpio_set_value_cansleep(this_tps61310->strb1, 1);
+		tps61310_i2c_command(0x01, 0x40);
+	break;
+	case FL_MODE_VIDEO_TORCH_2:
+		tps61310_i2c_command(0x05, 0x6A);
+		tps61310_i2c_command(0x00, 0x02);
+		gpio_set_value_cansleep(this_tps61310->strb0, 0);
+		gpio_set_value_cansleep(this_tps61310->strb1, 1);
+		tps61310_i2c_command(0x01, 0x40);
+	break;
+	case FL_MODE_VIDEO_TORCH_3:
+		tps61310_i2c_command(0x05, 0x6A);
+		tps61310_i2c_command(0x00, 0x03);
+		gpio_set_value_cansleep(this_tps61310->strb0, 0);
+		gpio_set_value_cansleep(this_tps61310->strb1, 1);
+		tps61310_i2c_command(0x01, 0x40);
+	break;
+	case FL_MODE_VIDEO_TORCH_4:
+		tps61310_i2c_command(0x05, 0x6A);
+		tps61310_i2c_command(0x00, 0x04);
+		gpio_set_value_cansleep(this_tps61310->strb0, 0);
+		gpio_set_value_cansleep(this_tps61310->strb1, 1);
+		tps61310_i2c_command(0x01, 0x40);
+	break;
 	case FL_MODE_TORCH:
 		tps61310_i2c_command(0x05, 0x6A);
 		tps61310_i2c_command(0x00, 0x05);
@@ -328,6 +363,13 @@ int tps61310_flashlight_control(int mode)
 					   msecs_to_jiffies(this_tps61310->flash_sw_timeout));
 	break;
 	case FL_MODE_PRE_FLASH:
+		tps61310_i2c_command(0x05, 0x6B);
+		tps61310_i2c_command(0x00, 0x12);
+		gpio_set_value_cansleep(this_tps61310->strb0, 0);
+		gpio_set_value_cansleep(this_tps61310->strb1, 1);
+		tps61310_i2c_command(0x01, 0x40);
+	break;
+	case FL_MODE_VIDEO_TORCH:
 		tps61310_i2c_command(0x05, 0x6B);
 		tps61310_i2c_command(0x00, 0x12);
 		gpio_set_value_cansleep(this_tps61310->strb0, 0);
