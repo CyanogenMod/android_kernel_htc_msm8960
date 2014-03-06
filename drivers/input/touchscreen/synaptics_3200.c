@@ -129,6 +129,7 @@ struct synaptics_ts_data {
 	uint8_t block_touch_time_near;
 	uint8_t block_touch_time_far;
 	uint8_t block_touch_event;
+	atomic_t keypad_enable;
 };
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -993,6 +994,8 @@ static int synaptics_input_register(struct synaptics_ts_data *ts)
 	set_bit(KEY_APP_SWITCH, ts->input_dev->keybit);
 	set_bit(INPUT_PROP_DIRECT, ts->input_dev->propbit);
 
+	atomic_set(&ts->keypad_enable, 1);
+
 	printk(KERN_INFO "[TP] input_set_abs_params: mix_x %d, max_x %d, min_y %d, max_y %d\n",
 		ts->layout[0], ts->layout[1], ts->layout[2], ts->layout[3]);
 
@@ -1784,6 +1787,39 @@ static ssize_t set_en_sr(struct device *dev, struct device_attribute *attr,
 
 static DEVICE_ATTR(sr_en, S_IWUSR, 0, set_en_sr);
 
+static ssize_t keypad_enable_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct synaptics_ts_data *ts = gl_ts;
+
+	return sprintf(buf, "%d\n", atomic_read(&ts->keypad_enable));
+}
+
+static ssize_t keypad_enable_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct synaptics_ts_data *ts = gl_ts;
+
+	unsigned int val = 0;
+	sscanf(buf, "%d", &val);
+	val = (val == 0 ? 0 : 1);
+	atomic_set(&ts->keypad_enable, val);
+	if (val) {
+		set_bit(KEY_BACK, ts->input_dev->keybit);
+		set_bit(KEY_MENU, ts->input_dev->keybit);
+		set_bit(KEY_HOME, ts->input_dev->keybit);
+	} else {
+		clear_bit(KEY_BACK, ts->input_dev->keybit);
+		clear_bit(KEY_MENU, ts->input_dev->keybit);
+		clear_bit(KEY_HOME, ts->input_dev->keybit);
+	}
+	input_sync(ts->input_dev);
+
+	return count;
+}
+
+static DEVICE_ATTR(keypad_enable, S_IRUGO|S_IWUSR, keypad_enable_show, keypad_enable_store);
+
 static struct kobject *android_touch_kobj;
 
 static int synaptics_touch_sysfs_init(void)
@@ -1810,7 +1846,8 @@ static int synaptics_touch_sysfs_init(void)
 		sysfs_create_file(android_touch_kobj, &dev_attr_pdt.attr) ||
 		sysfs_create_file(android_touch_kobj, &dev_attr_htc_event.attr) ||
 		sysfs_create_file(android_touch_kobj, &dev_attr_reset.attr) ||
-		sysfs_create_file(android_touch_kobj, &dev_attr_sr_en.attr)
+		sysfs_create_file(android_touch_kobj, &dev_attr_sr_en.attr) ||
+		sysfs_create_file(android_touch_kobj, &dev_attr_keypad_enable.attr)
 #ifdef SYN_WIRELESS_DEBUG
 		|| sysfs_create_file(android_touch_kobj, &dev_attr_enabled.attr)
 #endif
@@ -2424,6 +2461,10 @@ static void synaptics_ts_button_func(struct synaptics_ts_data *ts)
 
 	ret = i2c_syn_read(ts->client,
 		get_address_base(ts, 0x1A, DATA_BASE), &data, 1);
+	if (!atomic_read(&ts->keypad_enable)) {
+		return;
+	}
+
 	if (data) {
 		vk_press = 1;
 		if (ts->button) {
