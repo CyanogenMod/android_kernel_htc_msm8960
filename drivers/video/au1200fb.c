@@ -1239,11 +1239,7 @@ static int au1200fb_fb_mmap(struct fb_info *info, struct vm_area_struct *vma)
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 	pgprot_val(vma->vm_page_prot) |= _CACHE_MASK; /* CCA=7 */
 
-	vma->vm_flags |= VM_IO;
-
 	return vm_iomap_memory(vma, fbdev->fb_phys, fbdev->fb_len);
-
-	return 0;
 }
 
 static void set_global(u_int cmd, struct au1200_lcd_global_regs_t *pdata)
