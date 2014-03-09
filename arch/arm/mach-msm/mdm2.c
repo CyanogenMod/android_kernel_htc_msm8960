@@ -107,6 +107,11 @@ static void mdm_power_down_common(struct mdm_modem_drv *mdm_drv)
 
 	mdm_peripheral_disconnect(mdm_drv);
 
+#ifdef CONFIG_MACH_HTC
+	if (GPIO_IS_VALID(mdm_drv->ap2mdm_status_gpio))
+		gpio_set_value(mdm_drv->ap2mdm_status_gpio, 0);
+#endif
+
 	/* Wait for the modem to complete its power down actions. */
 	for (i = 20; i > 0; i--) {
 		if (gpio_get_value(mdm_drv->mdm2ap_status_gpio) == 0) {
