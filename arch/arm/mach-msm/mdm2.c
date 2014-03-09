@@ -193,11 +193,10 @@ static void mdm_do_first_power_on(struct mdm_modem_drv *mdm_drv)
 	}
 
 	if (GPIO_IS_VALID(mdm_drv->mdm2ap_hsic_ready_gpio)) {
-		i = 100;
-		while (!gpio_get_value(mdm_drv->mdm2ap_hsic_ready_gpio) &&
-				i > 0) {
+		gpio_direction_output(mdm_drv->ap2mdm_status_gpio, 1);
+		for (i = 0; !gpio_get_value(mdm_drv->mdm2ap_hsic_ready_gpio)
+				&& i < 10; i++) {
 			msleep(10);
-			i -= 10;
 			pr_debug("%s: Waiting for AP2MDM_HSIC_READY gpio\n",
 					__func__);
 		};
