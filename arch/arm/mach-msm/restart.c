@@ -313,13 +313,13 @@ static struct notifier_block notify_efs_sync_notifier = {
 static void __msm_power_off(int lower_pshold)
 {
 	printk(KERN_CRIT "[K] Powering off the SoC\n");
+#ifdef CONFIG_MACH_HTC
+	mdm_power_off();
+#endif
 #ifdef CONFIG_MSM_DLOAD_MODE
 	set_dload_mode(0);
 #endif
 	pm8xxx_reset_pwr_off(0);
-#ifdef CONFIG_MACH_HTC
-	mdm_power_off();
-#endif
 
 	if (lower_pshold) {
 		__raw_writel(0, PSHOLD_CTL_SU);
