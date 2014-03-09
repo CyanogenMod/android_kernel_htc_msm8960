@@ -622,7 +622,6 @@ static long mdm_modem_ioctl(struct file *filp, unsigned int cmd,
 		break;
 	case HTC_POWER_OFF_CHARM:
 		atomic_set(&mdm_drv->mdm_ready, 0);
-		mdm_drv->mdm_hsic_reconnected = 0;
 		if (GPIO_IS_VALID(mdm_drv->ap2mdm_kpdpwr_n_gpio))
 			gpio_direction_output(mdm_drv->ap2mdm_kpdpwr_n_gpio, 0);
 		if (GPIO_IS_VALID(mdm_drv->ap2mdm_pmic_reset_n_gpio))

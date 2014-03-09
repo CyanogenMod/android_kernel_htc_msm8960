@@ -288,9 +288,6 @@ static void mdm_status_changed(struct mdm_modem_drv *mdm_drv, int value)
 		if (GPIO_IS_VALID(mdm_drv->ap2mdm_wakeup_gpio))
 			gpio_direction_output(mdm_drv->ap2mdm_wakeup_gpio, 1);
 	}
-#ifdef CONFIG_MACH_HTC
-	mdm_drv->mdm_hsic_reconnected = 1;
-#endif
 }
 
 static void mdm_image_upgrade(struct mdm_modem_drv *mdm_drv, int type)

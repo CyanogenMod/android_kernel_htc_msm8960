@@ -56,7 +56,6 @@ struct mdm_modem_drv {
 	struct mutex peripheral_status_lock;
 	int device_id;
 #ifdef CONFIG_MACH_HTC
-	int mdm_hsic_reconnected;
 	unsigned ap2mdm_pmic_reset_n_gpio;
 	unsigned mdm2ap_hsic_ready_gpio;
 	unsigned ap2mdm_ipc1_gpio;
