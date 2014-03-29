@@ -1425,6 +1425,7 @@ static int lightsensor_update_table(struct cm3629_info *lpi)
 static int lightsensor_enable(struct cm3629_info *lpi)
 {
 	int ret = 0;
+	int delay = 0;
 	char cmd[3] = {0};
 
 	mutex_lock(&als_enable_mutex);
@@ -1444,6 +1445,16 @@ static int lightsensor_enable(struct cm3629_info *lpi)
 		"[LS][cm3629 error]%s: set auto light sensor fail\n",
 		__func__);
 	else {
+		if (sensor_chipId[0] != 0x29)
+			delay = 80;
+		else
+			delay = 50;
+
+		if (lpi->mfg_mode != MFG_MODE)
+			delay *= 2;
+
+		hr_msleep(delay);
+
 		input_report_abs(lpi->ls_input_dev, ABS_MISC, -1);
 		input_sync(lpi->ls_input_dev);
 		report_lsensor_input_event(lpi, 1);
