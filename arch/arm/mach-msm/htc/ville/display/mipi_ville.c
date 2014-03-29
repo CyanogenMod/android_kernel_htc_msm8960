@@ -12,7 +12,6 @@ static int display_off_cmds_count = 0;
 static int cmd_on_cmds_count = 0;
 static int mipi_ville_lcd_init(void);
 static void mipi_ville_set_backlight(struct msm_fb_data_type *mfd);
-static int cur_bl_level = 0;
 
 static char enter_sleep[2] = {0x10, 0x00}; /* DTYPE_DCS_WRITE */
 static char exit_sleep[2] = {0x11, 0x00}; /* DTYPE_DCS_WRITE */
@@ -555,7 +554,7 @@ static unsigned char ville_shrink_pwm_c2(int val)
 	return val;
 }
 
-inline void mipi_dsi_set_backlight(struct msm_fb_data_type *mfd, int level)
+static void mipi_ville_set_backlight(struct msm_fb_data_type *mfd)
 {
 	struct mipi_panel_info *mipi;
 
@@ -575,13 +574,6 @@ inline void mipi_dsi_set_backlight(struct msm_fb_data_type *mfd, int level)
 	default:
 		break;
 	}
-}
-
-static void mipi_ville_set_backlight(struct msm_fb_data_type *mfd)
-{
-	mipi_dsi_set_backlight(mfd, mfd->bl_level);
-
-	cur_bl_level = mfd->bl_level;
 }
 
 static int __devinit mipi_ville_lcd_probe(struct platform_device *pdev)

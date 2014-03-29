@@ -10,7 +10,6 @@
 static struct msm_panel_common_pdata *mipi_elite_pdata;
 static int mipi_elite_lcd_init(void);
 static struct dcs_cmd_req cmdreq;
-static int bl_level_prevset = 1;
 // Selected codes
 static struct dsi_cmd_desc *elite_video_on_cmds = NULL;
 int elite_video_on_cmds_count = 0;
@@ -1509,7 +1508,6 @@ static int mipi_elite_lcd_off(struct platform_device *pdev)
 	if (panel_type != PANEL_ID_NONE)
 		elite_send_display_cmds(elite_display_off_cmds, elite_display_off_cmds_count);
 
-	bl_level_prevset = 0;
 	mipi_lcd_on = 0;
 
 	return 0;
@@ -1535,12 +1533,11 @@ static unsigned char elite_shrink_pwm(int val)
 	return shrink_br;
 }
 
-inline void mipi_dsi_set_backlight(struct msm_fb_data_type *mfd, int level)
+static void mipi_elite_set_backlight(struct msm_fb_data_type *mfd)
 {
 	led_pwm1[1] = elite_shrink_pwm(mfd->bl_level);
 
-	if (mfd->bl_level == 0 ||
-			board_mfg_mode() == 4 ||
+	if (mfd->bl_level == 0 || board_mfg_mode() == 4 ||
 			(board_mfg_mode() == 5 && !(htc_battery_get_zcharge_mode()%2))) {
 		led_pwm1[1] = 0;
 	}
@@ -1562,13 +1559,6 @@ inline void mipi_dsi_set_backlight(struct msm_fb_data_type *mfd, int level)
 	cmdreq.cb = NULL;
 
 	mipi_dsi_cmdlist_put(&cmdreq);
-
-	bl_level_prevset = mfd->bl_level;
-}
-
-static void mipi_elite_set_backlight(struct msm_fb_data_type *mfd)
-{
-	mipi_dsi_set_backlight(mfd, mfd->bl_level);
 }
 
 static void mipi_elite_per_panel_fcts_init(void)

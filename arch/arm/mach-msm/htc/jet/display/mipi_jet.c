@@ -8,7 +8,6 @@
 
 static struct msm_panel_common_pdata *mipi_jet_pdata;
 static int mipi_jet_lcd_init(void);
-static int bl_level_prevset = 1;
 // Selected codes
 static struct dsi_cmd_desc *jet_video_on_cmds = NULL;
 int jet_video_on_cmds_count = 0;
@@ -3139,7 +3138,6 @@ static int mipi_jet_lcd_off(struct platform_device *pdev)
 				jet_display_off_cmds_count);
 	}
 
-	bl_level_prevset = 0;
 	mipi_lcd_on = 0;
 
 	return 0;
@@ -3165,7 +3163,7 @@ static unsigned char jet_shrink_pwm(int val)
 	return shrink_br;
 }
 
-inline void mipi_dsi_set_backlight(struct msm_fb_data_type *mfd, int level)
+static void mipi_jet_set_backlight(struct msm_fb_data_type *mfd)
 {
 	led_pwm1[1] = jet_shrink_pwm(mfd->bl_level);
 
@@ -3173,13 +3171,6 @@ inline void mipi_dsi_set_backlight(struct msm_fb_data_type *mfd, int level)
 		jet_send_display_cmds(disable_dim, ARRAY_SIZE(disable_dim));
 
 	jet_send_display_cmds(jet_cmd_backlight_cmds, jet_cmd_backlight_cmds_count);
-
-	bl_level_prevset = mfd->bl_level;
-}
-
-static void mipi_jet_set_backlight(struct msm_fb_data_type *mfd)
-{
-	mipi_dsi_set_backlight(mfd, mfd->bl_level);
 }
 
 static void mipi_jet_per_panel_fcts_init(void)
