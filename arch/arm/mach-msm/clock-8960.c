@@ -4548,7 +4548,7 @@ static struct clk_freq_tbl clk_tbl_aif_osr_393[] = {
 	F_AIF_OSR( 8192000, pll4, 4, 1,  12),
 	F_AIF_OSR(12288000, pll4, 4, 1,   8),
 	F_AIF_OSR(24576000, pll4, 4, 1,   4),
-#ifdef CONFIG_MACH_M7_UL
+#if defined(CONFIG_MACH_M7_UL) || defined(CONFIG_MACH_M4_UL)
 	F_AIF_OSR(18432000, pll4, 4, 3,  16),
 #endif
 	F_AIF_OSR(27000000, pxo,  1, 0,   0),
