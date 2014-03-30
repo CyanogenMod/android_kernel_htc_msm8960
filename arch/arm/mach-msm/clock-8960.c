@@ -4350,7 +4350,11 @@ static struct rcg_clk vcodec_clk = {
 		.dbg_name = "vcodec_clk",
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP3(LOW,  100000000, NOMINAL, 200000000,
+#ifdef CONFIG_MACH_M4_UL
+				  HIGH, 266670000),
+#else
 				  HIGH, 228571000),
+#endif
 		CLK_INIT(vcodec_clk.c),
 		.depends = &vcodec_axi_clk.c,
 	},
@@ -4384,6 +4388,9 @@ static struct clk_freq_tbl clk_tbl_vpe[] = {
 	F_VPE( 96000000, pll8,  4),
 	F_VPE(100000000, pll2,  8),
 	F_VPE(160000000, pll2,  5),
+#ifdef CONFIG_MACH_M4_UL
+	F_VPE(200000000, pll2,  4),
+#endif
 	F_END
 };
 
@@ -4407,7 +4414,11 @@ static struct rcg_clk vpe_clk = {
 	.c = {
 		.dbg_name = "vpe_clk",
 		.ops = &clk_ops_rcg,
+#ifdef CONFIG_MACH_M4_UL
+		VDD_DIG_FMAX_MAP2(LOW, 76800000, NOMINAL, 200000000),
+#else
 		VDD_DIG_FMAX_MAP2(LOW, 76800000, NOMINAL, 160000000),
+#endif
 		CLK_INIT(vpe_clk.c),
 		.depends = &vpe_axi_clk.c,
 	},
