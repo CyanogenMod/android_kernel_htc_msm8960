@@ -3400,10 +3400,17 @@ static int sitar_get_channel_map(struct snd_soc_dai *dai,
 		}
 	} else if (dai->id == AIF1_CAP) {
 		*tx_num = sitar_dai[dai->id - 1].capture.channels_max;
+#ifdef CONFIG_MACH_M4_UL
+		tx_slot[0] = tx_ch[2 + cnt];
+		tx_slot[1] = tx_ch[3 + cnt];
+		tx_slot[2] = tx_ch[cnt];
+		tx_slot[3] = tx_ch[1 + cnt];
+#else
 		tx_slot[0] = tx_ch[cnt];
 		tx_slot[1] = tx_ch[4 + cnt];
 		tx_slot[2] = tx_ch[2 + cnt];
 		tx_slot[3] = tx_ch[3 + cnt];
+#endif
 	}
 	return 0;
 }
