@@ -828,7 +828,7 @@ static int sii9234_remove(struct i2c_client *client)
 	if(1)
 		debugfs_remove(dbg_entry_dir);
 
-#ifndef CONFIG_HAS_EARLYSUSPEND
+#ifdef CONFIG_HAS_EARLYSUSPEND
 	unregister_early_suspend(&pInfo->early_suspend);
 #endif
 	destroy_workqueue(pInfo->wq);
@@ -845,7 +845,7 @@ static struct i2c_driver sii9234_driver = {
 	.id_table = sii9234_i2c_id,
 	.probe = sii9234_probe,
 	.remove = sii9234_remove,
-#ifndef CONFIG_HAS_EARLYSUSPEND
+#ifdef CONFIG_HAS_EARLYSUSPEND
 	.suspend = sii9234_suspend,
 	.resume = sii9234_resume,
 #endif
