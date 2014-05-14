@@ -91,6 +91,9 @@
 #endif
 #include <mach/htc_headset_mgr.h>
 #include <mach/htc_headset_pmic.h>
+#ifdef CONFIG_HTC_HEADSET_ONE_WIRE
+#include <mach/htc_headset_one_wire.h>
+#endif
 #include <mach/cable_detect.h>
 
 #include "timer.h"
@@ -1241,6 +1244,61 @@ static struct platform_device htc_battery_pdev = {
 };
 #endif /* CONFIG_HTC_BATT_8960 */
 
+#ifdef CONFIG_HTC_HEADSET_ONE_WIRE
+static uint32_t headset_gpio[] = {
+	GPIO_CFG(VILLE_GPIO_AUD_1WIRE_DO, 1, GPIO_CFG_OUTPUT,
+		 GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+	GPIO_CFG(VILLE_GPIO_AUD_1WIRE_DI, 1, GPIO_CFG_INPUT,
+		 GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
+	GPIO_CFG(VILLE_GPIO_AUD_LEVEL_SHIFTER_ENz, 0, GPIO_CFG_OUTPUT,
+		 GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+};
+
+static uint32_t headset_cpu_gpio[] = {
+	GPIO_CFG(VILLE_GPIO_AUD_1WIRE_DI, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL,
+		 GPIO_CFG_2MA),
+	GPIO_CFG(VILLE_GPIO_AUD_1WIRE_DO, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,
+		 GPIO_CFG_2MA),
+	GPIO_CFG(VILLE_GPIO_AUD_1WIRE_DI, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL,
+		 GPIO_CFG_2MA),
+	GPIO_CFG(VILLE_GPIO_AUD_1WIRE_DO, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL,
+		 GPIO_CFG_2MA),
+};
+
+static void headset_init(void)
+{
+
+	pr_info("[HS_BOARD] (%s) Headset initiation\n", __func__);
+
+	gpio_tlmm_config(headset_gpio[0], GPIO_CFG_ENABLE);
+	gpio_tlmm_config(headset_gpio[1], GPIO_CFG_ENABLE);
+	gpio_tlmm_config(headset_gpio[2], GPIO_CFG_ENABLE);
+	gpio_set_value(VILLE_GPIO_AUD_LEVEL_SHIFTER_ENz, 1);
+}
+
+static void uart_tx_gpo(int mode)
+{
+	switch (mode) {
+		case 0:
+			gpio_tlmm_config(headset_cpu_gpio[1], GPIO_CFG_ENABLE);
+			gpio_set_value_cansleep(VILLE_GPIO_AUD_1WIRE_DO, 0);
+			break;
+		case 1:
+			gpio_tlmm_config(headset_cpu_gpio[1], GPIO_CFG_ENABLE);
+			gpio_set_value_cansleep(VILLE_GPIO_AUD_1WIRE_DO, 1);
+			break;
+		case 2:
+			gpio_tlmm_config(headset_cpu_gpio[3], GPIO_CFG_ENABLE);
+			break;
+	}
+}
+
+static void uart_lv_shift_en(int enable)
+{
+	gpio_set_value_cansleep(VILLE_GPIO_AUD_LEVEL_SHIFTER_ENz, enable);
+}
+#endif
+
 /* HTC_HEADSET_PMIC Driver */
 static struct htc_headset_pmic_platform_data htc_headset_pmic_data = {
 	.driver_flag		= DRIVER_HS_PMIC_ADC,
@@ -1284,9 +1342,30 @@ static struct platform_device htc_headset_pmic = {
 	},
 };
 
+#ifdef CONFIG_HTC_HEADSET_ONE_WIRE
+static struct htc_headset_1wire_platform_data htc_headset_1wire_data = {
+	.tx_level_shift_en	= 91,
+	.uart_sw		= 0,
+	.one_wire_remote	={0x7E, 0x7F, 0x7D, 0x7F, 0x7B, 0x7F},
+	.remote_press		= 0,
+	.onewire_tty_dev	= "/dev/ttyHSL1",
+};
+
+static struct platform_device htc_headset_one_wire = {
+	.name	= "HTC_HEADSET_1WIRE",
+	.id	= -1,
+	.dev	= {
+		.platform_data	= &htc_headset_1wire_data,
+	},
+};
+#endif
+
 /* HTC_HEADSET_MGR Driver */
 static struct platform_device *headset_devices[] = {
 	&htc_headset_pmic,
+#ifdef CONFIG_HTC_HEADSET_ONE_WIRE
+	&htc_headset_one_wire,
+#endif
 	/* Please put the headset detection driver on the last */
 };
 
@@ -1342,6 +1421,11 @@ static struct htc_headset_mgr_platform_data htc_headset_mgr_data = {
 	.headset_devices	= headset_devices,
 	.headset_config_num	= ARRAY_SIZE(htc_headset_mgr_config),
 	.headset_config		= htc_headset_mgr_config,
+#ifdef CONFIG_HTC_HEADSET_ONE_WIRE
+	.headset_init		= headset_init,
+	.uart_tx_gpo		= uart_tx_gpo,
+	.uart_lv_shift_en	= uart_lv_shift_en,
+#endif
 };
 
 static struct platform_device htc_headset_mgr = {
