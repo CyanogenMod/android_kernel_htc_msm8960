@@ -1801,6 +1801,7 @@ static struct cm3629_platform_data cm36282_pdata = {
 			CM3629_PS2_INT_DIS | CM3629_PS1_INT_DIS,
 	.ps_conf3_val = CM3629_PS2_PROL_32,
 	.dark_level = 3,
+	.dynamical_threshold = 1,
 	.mapping_table = cm3629_mapping_table,
 	.mapping_size = ARRAY_SIZE(cm3629_mapping_table),
 };
