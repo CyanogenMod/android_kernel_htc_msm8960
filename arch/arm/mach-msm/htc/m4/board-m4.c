@@ -796,7 +796,7 @@ static void __init msm8930_allocate_memory_regions(void)
 }
 
 #ifdef CONFIG_HTC_BATT_8960
-static int critical_alarm_voltage_mv[] = {3000, 3200, 3400};
+static int critical_alarm_voltage_mv[] = {3000, 3100, 3200, 3400};
 
 static struct htc_battery_platform_data htc_battery_pdev_data = {
 	.guage_driver = 0,
@@ -807,6 +807,7 @@ static struct htc_battery_platform_data htc_battery_pdev_data = {
 	.critical_alarm_vol_cols = sizeof(critical_alarm_voltage_mv) / sizeof(int), 
 	.overload_vol_thr_mv = 4000,
 	.overload_curr_thr_ma = 0,
+	.smooth_chg_full_delay_min = 1,
 	/* charger */
 	.icharger.name = "pm8921",
 	.icharger.get_charging_source = pm8921_get_charging_source,
@@ -823,6 +824,9 @@ static struct htc_battery_platform_data htc_battery_pdev_data = {
 						cable_detect_register_notifier,
 	.icharger.dump_all = pm8921_dump_all,
 	.icharger.get_attr_text = pm8921_charger_get_attr_text,
+	.icharger.max_input_current = pm8921_set_hsml_target_ma,
+	.icharger.is_safty_timer_timeout = pm8921_is_chg_safety_timer_timeout,
+	.icharger.is_battery_full_eoc_stop = pm8921_is_batt_full_eoc_stop,
 	/* gauge */
 	.igauge.name = "pm8921",
 	.igauge.get_battery_voltage = pm8921_get_batt_voltage,
@@ -892,6 +896,16 @@ static struct sf_lut pc_sf_id_1 = {
 	.sf 	= {
 				{100}
 	}
+};
+
+static struct sf_lut rbatt_est_ocv_id_1 = {
+	.rows 		= 1,
+	.cols		= 2,
+	.row_entries	= {20, 40},
+	.percent	= {100},
+	.sf		= {
+				{340, 210}
+	},
 };
 
 static struct pc_temp_ocv_lut pc_temp_ocv_id_1 = {
@@ -985,6 +999,7 @@ struct pm8921_bms_battery_data  bms_battery_data_id_1 = {
 	.pc_temp_ocv_lut	= &pc_temp_ocv_id_1,
 	.pc_sf_lut		= &pc_sf_id_1,
 	.rbatt_sf_lut		= &rbatt_sf_id_1,
+	.rbatt_est_ocv_lut	= &rbatt_est_ocv_id_1,
 	.default_rbatt_mohm		=172,
 	.delta_rbatt_mohm     = 0,
 };
@@ -1010,6 +1025,16 @@ static struct sf_lut pc_sf_id_2 = {
 	.sf		= {
 			{100}
 	}
+};
+
+static struct sf_lut rbatt_est_ocv_id_2 = {
+	.rows		= 1,
+	.cols		= 2,
+	.row_entries	= {20, 40},
+	.percent	= {100},
+	.sf		= {
+				{340, 210}
+	},
 };
 
 static struct pc_temp_ocv_lut  pc_temp_ocv_id_2 = {
@@ -1099,6 +1124,7 @@ struct pm8921_bms_battery_data  bms_battery_data_id_2 = {
 	.pc_temp_ocv_lut	= &pc_temp_ocv_id_2,
 	.pc_sf_lut		= &pc_sf_id_2,
 	.rbatt_sf_lut		= &rbatt_sf_id_2,
+	.rbatt_est_ocv_lut	= &rbatt_est_ocv_id_2,
 	.default_rbatt_mohm		=178,
 	.delta_rbatt_mohm     = 0,
 };
@@ -2921,7 +2947,7 @@ static struct platform_device msm_tsens_device = {
 
 static struct msm_thermal_data msm_thermal_pdata = {
 	.sensor_id = 9,
-	.poll_ms = 250,
+	.poll_ms = 1000,
 	.limit_temp_degC = 60,
 	.temp_hysteresis_degC = 10,
 	.freq_step = 2,

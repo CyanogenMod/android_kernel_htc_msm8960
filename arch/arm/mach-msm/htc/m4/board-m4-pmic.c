@@ -340,6 +340,9 @@ static struct pm8921_charger_platform_data pm8921_chg_pdata __devinitdata = {
 	.warm_bat_voltage	= 4000,
 	.mbat_in_gpio		= 94,
 	.is_embeded_batt	= 1,
+	.eoc_ibat_thre_ma	= 50,
+	.cable_in_irq		= MSM_GPIO_TO_INT(MSM_CABLE_INz),
+	.cable_in_gpio		= MSM_CABLE_INz,
 	.thermal_mitigation	= pm8921_therm_mitigation,
 	.thermal_levels		= ARRAY_SIZE(pm8921_therm_mitigation),
 	.cold_thr = PM_SMBC_BATT_TEMP_COLD_THR__HIGH,
@@ -456,6 +459,9 @@ static struct pm8921_bms_platform_data pm8921_bms_pdata __devinitdata = {
 	.v_failure		= 3000,
 	.max_voltage_uv		= MAX_VOLTAGE_MV * 1000,
 	.rconn_mohm		= 0,
+	.store_batt_data_soc_thre	= 95,
+	.criteria_sw_est_ocv	= 86400000,
+	.rconn_mohm_sw_est_ocv	= 10,
 };
 
 static struct pm8xxx_vibrator_platform_data pm8xxx_vib_pdata = {
