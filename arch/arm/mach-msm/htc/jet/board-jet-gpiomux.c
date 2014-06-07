@@ -94,12 +94,14 @@ static struct msm_gpiomux_config jet_gsbi_configs[] __initdata = {
 		.gpio      = JET_GPIO_TP_I2C_DAT,	/* GSBI3 I2C QUP SDA */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gsbi3,
+			[GPIOMUX_ACTIVE] = &gsbi3,
 		},
 	},
 	{
 		.gpio      = JET_GPIO_TP_I2C_CLK,	/* GSBI3 I2C QUP SCL */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gsbi3,
+			[GPIOMUX_ACTIVE] = &gsbi3,
 		},
 	},
 #if 0
@@ -132,12 +134,14 @@ static struct msm_gpiomux_config jet_gsbi_configs[] __initdata = {
 		.gpio	   = JET_GPIO_AC_I2C_SDA,	/* GSBI8 I2C QUP SDA */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gsbi8,
+			[GPIOMUX_ACTIVE] = &gsbi8,
 		},
 	},
 	{
 		.gpio	   = JET_GPIO_AC_I2C_SCL,	/* GSBI8 I2C QUP SCL */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gsbi8,
+			[GPIOMUX_ACTIVE] = &gsbi8,
 		},
 	},
 #if 0
@@ -174,12 +178,14 @@ static struct msm_gpiomux_config jet_gsbi_configs[] __initdata = {
 		.gpio      = JET_GPIO_SR_I2C_DAT,	/* GSBI12 I2C QUP SDA */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gsbi12,
+			[GPIOMUX_ACTIVE] = &gsbi12,
 		},
 	},
 	{
 		.gpio      = JET_GPIO_SR_I2C_CLK,	/* GSBI12 I2C QUP SCL */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gsbi12,
+			[GPIOMUX_ACTIVE] = &gsbi12,
 		},
 	},
 };
