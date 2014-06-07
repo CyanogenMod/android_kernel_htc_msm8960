@@ -139,8 +139,8 @@ unsigned skuid;
 static void config_flashlight_gpios(void)
 {
 	static uint32_t flashlight_gpio_table[] = {
-		GPIO_CFG(32, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-		GPIO_CFG(33, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+		GPIO_CFG(JET_GPIO_TORCH_FLASHz, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+		GPIO_CFG(JET_GPIO_DRIVER_EN, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
 	};
 
 	gpio_tlmm_config(flashlight_gpio_table[0], GPIO_CFG_ENABLE);
@@ -149,10 +149,10 @@ static void config_flashlight_gpios(void)
 
 static struct TPS61310_flashlight_platform_data jet_flashlight_data = {
 	.gpio_init = config_flashlight_gpios,
-	.tps61310_strb0 = 33,
-	.tps61310_strb1 = 32,
-	.led_count = 1,
+	.tps61310_strb0 = JET_GPIO_DRIVER_EN,
+	.tps61310_strb1 = JET_GPIO_TORCH_FLASHz,
 	.flash_duration_ms = 600,
+	.mode_pin_suspend_state_low = 1,
 };
 
 static struct i2c_board_info i2c_tps61310_flashlight[] = {
