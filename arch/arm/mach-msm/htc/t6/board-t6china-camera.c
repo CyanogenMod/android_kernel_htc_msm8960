@@ -226,7 +226,7 @@ static struct gpiomux_setting cam_settings[] = {
 		.pull = GPIOMUX_PULL_NONE,
 	},
 
-#if defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY)
+#if defined(CONFIG_MACH_T6_TL) || defined(CONFIG_MACH_T6_DWG) || defined(CONFIG_MACH_T6_DUG)
 	{
 		.func = GPIOMUX_FUNC_2,
 		.drv = GPIOMUX_DRV_16MA,
@@ -912,6 +912,7 @@ static struct msm_camera_sensor_platform_info sensor_vd6869_board_info = {
 	.mount_angle = 90,
 	.pixel_order_default = MSM_CAMERA_PIXEL_ORDER_GR,
 	.mirror_flip = CAMERA_SENSOR_NONE,
+	.board_control_reset_pin = 1,
 	.sensor_reset_enable = 1,
 	.sensor_reset = CAM_PIN_GPIO_CAM_PWDN,
 	.sensor_pwd = 0,
@@ -1067,6 +1068,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_vd6869_data = {
 	.hdr_mode = NON_HDR_MODE,
 	.video_hdr_capability = HDR_MODE,
 	.flash_cfg = &msm_camera_sensor_vd6869_flash_cfg,
+	.dual_camera =1,
 };
 
 #endif
@@ -1199,6 +1201,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_as0260_data = {
 	.htc_image = HTC_CAMERA_IMAGE_NONE_BOARD,
 	.hdr_mode = NON_HDR_MODE,
 	.video_hdr_capability = NON_HDR_MODE,
+	.dual_camera = 1,
 };
 
 #endif
@@ -1230,6 +1233,7 @@ static struct msm_camera_sensor_platform_info sensor_ov4688_board_info = {
 	.mount_angle = 90,
 	.pixel_order_default = MSM_CAMERA_PIXEL_ORDER_GR,
 	.mirror_flip = CAMERA_SENSOR_MIRROR,
+	.board_control_reset_pin = 1,
 	.sensor_reset_enable = 1,
 	.sensor_reset = CAM_PIN_GPIO_CAM_PWDN,
 	.sensor_pwd = 0,
@@ -1385,6 +1389,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_ov4688_data = {
 	.hdr_mode = NON_HDR_MODE,
 	.video_hdr_capability = HDR_MODE,
 	.flash_cfg = &msm_camera_sensor_ov4688_flash_cfg,
+	.dual_camera = 1,
 };
 
 #endif

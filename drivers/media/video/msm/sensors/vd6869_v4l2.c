@@ -5009,6 +5009,22 @@ static int vd6869_cut10_init_otp(struct msm_sensor_ctrl_t *s_ctrl){
 	int i,rc = 0;
 	uint16_t read_data = 0;
 
+	for(i = 0 ;i < OTP_WAIT_TIMEOUT; i++) {
+	rc = msm_camera_i2c_read(
+			s_ctrl->sensor_i2c_client,
+			0x32a6,&read_data,
+			MSM_CAMERA_I2C_BYTE_DATA);
+
+	if (0x01==read_data) {
+		pr_info("%s exit boot mode\n", __func__);
+		break;
+	}
+	if (rc<0) {
+		pr_err("%s read 0x32a6 error\n", __func__);
+		break;
+	}
+	mdelay(1);
+	}
 	
 	for(i = 0 ;i < OTP_WAIT_TIMEOUT; i++) {
 		rc = msm_camera_i2c_write_tbl(
@@ -5037,15 +5053,6 @@ static int vd6869_cut10_init_otp(struct msm_sensor_ctrl_t *s_ctrl){
 		if(rc < 0){
 			pr_err("%s read OTP status error",__func__);
 		} else if(read_data == 0x00){
-			rc = vd6869_shut_down_otp(s_ctrl,0x4584,0x00);
-			if(rc < 0)
-				return rc;
-			rc = vd6869_shut_down_otp(s_ctrl,0x44c0,0x00);
-			if(rc < 0)
-				return rc;
-			rc = vd6869_shut_down_otp(s_ctrl,0x4500,0x00);
-			if(rc < 0)
-				return rc;
 			break;
 		}
 		mdelay(1);
@@ -5086,22 +5093,29 @@ static int vd6869_cut10_init_otp_NO_ECC(struct msm_sensor_ctrl_t *s_ctrl){
 		if(rc < 0){
 			pr_err("%s read OTP status error",__func__);
 		} else if(read_data == 0x00){
-			rc = vd6869_shut_down_otp(s_ctrl,0x4584,0x00);
-			if(rc < 0)
-				return rc;
-			rc = vd6869_shut_down_otp(s_ctrl,0x44c0,0x00);
-			if(rc < 0)
-				return rc;
-			rc = vd6869_shut_down_otp(s_ctrl,0x4500,0x00);
-			if(rc < 0)
-				return rc;
-			break;
+				break;
 		}
 		mdelay(1);
 	}
 	return rc;
 }
 
+static int vd6869_cut10_deinit_otp(struct msm_sensor_ctrl_t *s_ctrl)
+{
+	int rc = 0;
+
+	rc = vd6869_shut_down_otp(s_ctrl,0x4584,0x00);
+	if(rc < 0)
+		return rc;
+	rc = vd6869_shut_down_otp(s_ctrl,0x44c0,0x00);
+	if(rc < 0)
+		return rc;
+	rc = vd6869_shut_down_otp(s_ctrl,0x4500,0x00);
+	if(rc < 0)
+		return rc;
+
+	return rc;
+}
 
 
 
@@ -5132,6 +5146,11 @@ const static short ois_addr[3][VD6869_LITEON_OIS_OTP_SIZE] = {
 };
 #endif
 
+#define VD6869_OTP_ADDRESS_START  (0x33fa)
+#define VD6869_OTP_ADDRESS_END (0x37f9)
+#define VD6869_OTP_SIZE (VD6869_OTP_ADDRESS_END-VD6869_OTP_ADDRESS_START+1)
+static uint8_t all_otp_data[VD6869_OTP_SIZE];
+
 int vd6869_read_fuseid_liteon(struct sensor_cfg_data *cdata,
 	struct msm_sensor_ctrl_t *s_ctrl, bool first)
 {
@@ -5161,17 +5180,14 @@ int vd6869_read_fuseid_liteon(struct sensor_cfg_data *cdata,
 			}
 			if(vd6869_s_ctrl.ews_enable){
 				if (ews_data[0]==0 && ews_data[1]==0 && ews_data[2]==0 && ews_data[3]==1) {
-					vd6869_cut10_init_otp(s_ctrl);				
 					pr_info("%s: Apply OTP ECC enable", __func__);
 				} else {
 					
 					vd6869_cut10_init_otp_NO_ECC(s_ctrl);
 					pr_info("%s: Apply OTP ECC disable", __func__);
 				}
-			}else {
-                vd6869_cut10_init_otp(s_ctrl);              
+			}else
 				pr_info("%s: Apply OTP ECC enable, vd6869_s_ctrl.ews_enable=%d", __func__, vd6869_s_ctrl.ews_enable);
-            }
 		}
 
         
@@ -5231,7 +5247,8 @@ int vd6869_read_fuseid_liteon(struct sensor_cfg_data *cdata,
 		HtcActOisBinder_set_OIS_OTP(ois_otp, VD6869_LITEON_OIS_OTP_SIZE);
 	}
 #endif
-
+	if (board_mfg_mode())
+		msm_read_all_otp_data (s_ctrl->sensor_i2c_client, VD6869_OTP_ADDRESS_START,all_otp_data,VD6869_OTP_SIZE);
 
     }
     
@@ -5239,10 +5256,7 @@ int vd6869_read_fuseid_liteon(struct sensor_cfg_data *cdata,
     cdata->sensor_ver = otp[2];
 
     if (board_mfg_mode()) {
-        if(vd6869_s_ctrl.ews_enable) 
-            msm_dump_otp_to_file (PLATFORM_DRIVER_NAME, old_otp_addr[valid_layer], otp, VD6869_LITEON_OTP_SIZE);
-        else
-            msm_dump_otp_to_file (PLATFORM_DRIVER_NAME, new_otp_addr[valid_layer], otp, VD6869_LITEON_OTP_SIZE);
+	msm_dump_otp_to_file (PLATFORM_DRIVER_NAME, valid_layer, VD6869_OTP_ADDRESS_START, all_otp_data, VD6869_OTP_SIZE);
     }
     
     cdata->cfg.fuse.fuse_id_word1 = 0;
@@ -5370,9 +5384,12 @@ int vd6869_read_fuseid_sharp(struct sensor_cfg_data *cdata,
     		HtcActOisBinder_set_OIS_OTP(ois_otp, VD6869_LITEON_OIS_OTP_SIZE);
     	}
     #endif
+	if (board_mfg_mode())
+	    msm_read_all_otp_data (s_ctrl->sensor_i2c_client, VD6869_OTP_ADDRESS_START, all_otp_data,VD6869_OTP_SIZE);
+
     }
     if (board_mfg_mode())
-        msm_dump_otp_to_file (PLATFORM_DRIVER_NAME, sharp_otp_addr[valid_layer], otp, sizeof (otp));
+        msm_dump_otp_to_file (PLATFORM_DRIVER_NAME, valid_layer, VD6869_OTP_ADDRESS_START, all_otp_data, VD6869_OTP_SIZE);
 
     vd6869_year_mon = otp[0];
     vd6869_date = otp[1];
@@ -5763,7 +5780,7 @@ int vd6869_read_fuseid(struct sensor_cfg_data *cdata,
 			rc = vd6869_read_fuseid_sharp (cdata,s_ctrl,first);
 			break;
 		case 0x2:
-		#if defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY)
+		#if defined(CONFIG_MACH_M4_UL) || defined(CONFIG_MACH_M4_U) || defined(CONFIG_MACH_ZIP_CL)
 		    if (board_mfg_mode())
 		        rc = vd6869_read_fuseid_liteon_mfg (cdata,s_ctrl,first);
 		#endif
@@ -5774,6 +5791,11 @@ int vd6869_read_fuseid(struct sensor_cfg_data *cdata,
 			break;
 	}
 
+	if (first) {
+		if (s_ctrl->sensordata->sensor_cut == 1) {
+			rc = vd6869_cut10_deinit_otp(s_ctrl);
+		}
+	}
 	first = false;
 	return rc;
 }
@@ -5801,7 +5823,7 @@ int32_t vd6869_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 
 	pr_info("vd6869_power_down,sdata->htc_image=%d",sdata->htc_image);
 	if (!sdata->use_rawchip && (sdata->htc_image != HTC_CAMERA_IMAGE_YUSHANII_BOARD)) {
-		rc = msm_camio_clk_enable(CAMIO_CAM_MCLK_CLK);
+		rc = msm_camio_clk_enable(sdata, CAMIO_CAM_MCLK_CLK);
 		if (rc < 0) {
 			pr_info("%s: msm_camio_sensor_clk_on failed:%d\n",
 			 __func__, rc);
@@ -5855,7 +5877,7 @@ enable_sensor_power_up_failed:
 	else
 		sdata->camera_power_off();
 enable_power_on_failed:
-	msm_camio_clk_disable(CAMIO_CAM_MCLK_CLK);
+	msm_camio_clk_disable(sdata, CAMIO_CAM_MCLK_CLK);
 enable_mclk_failed:
 	return rc;
 }
@@ -5883,7 +5905,7 @@ int32_t vd6869_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 		pr_info("%s: msm_sensor_power_down failed\n", __func__);
 
 	if (!sdata->use_rawchip && (sdata->htc_image != HTC_CAMERA_IMAGE_YUSHANII_BOARD)) {
-		msm_camio_clk_disable(CAMIO_CAM_MCLK_CLK);
+		msm_camio_clk_disable(sdata, CAMIO_CAM_MCLK_CLK);
 		if (rc < 0)
 			pr_info("%s: msm_camio_sensor_clk_off failed:%d\n",
 				 __func__, rc);

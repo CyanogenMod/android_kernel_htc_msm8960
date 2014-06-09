@@ -101,7 +101,7 @@ ilp0100_error Ilp0100_loggingClose()
 ilp0100_error Ilp0100_loggingStart(uint8_t DebugLevel)
 {
 	ilp0100_error Status = ILP0100_ERROR_NONE;
-	uint32_t CurrentTime;
+	uint32_t CurrentTime=0;
 
 	if(pIlp0100DebugBuffer==0) {
 		
@@ -128,7 +128,7 @@ ilp0100_error Ilp0100_loggingStart(uint8_t DebugLevel)
 ilp0100_error Ilp0100_loggingStop()
 {
 	ilp0100_error Status = ILP0100_ERROR_NONE;
-	uint32_t CurrentTime;
+	uint32_t CurrentTime=0;
 
 	Status = Ilp0100_GetTimeStamp(&CurrentTime);
 	if(Status == ILP0100_ERROR_NONE){
@@ -144,7 +144,7 @@ ilp0100_error Ilp0100_loggingStop()
 ilp0100_error Ilp0100_logDebugMessageStart(const char* pFunctionName)
 {
 	ilp0100_error Status = ILP0100_ERROR_NONE;
-	uint32_t CurrentTime;
+	uint32_t CurrentTime=0;
 
 	Status = Ilp0100_GetTimeStamp(&CurrentTime);
 	if(Status==ILP0100_ERROR_NONE){
@@ -168,7 +168,7 @@ ilp0100_error Ilp0100_logDebugMessageEnd()
 ilp0100_error Ilp0100_logErrorMessageStart(const char* pFunctionName)
 {
 	ilp0100_error Status = ILP0100_ERROR_NONE;
-	uint32_t CurrentTime;
+	uint32_t CurrentTime=0;
 
 	Status = Ilp0100_GetTimeStamp(&CurrentTime);
 	if(Status==ILP0100_ERROR_NONE){
@@ -242,7 +242,7 @@ ilp0100_error Ilp0100_loggingReadBack(uint8_t* pDebugLog, uint32_t* pLogSize)
 ilp0100_error Ilp0100_loggingFunctionStart(const char* pFunctionName, void **pFuncArguments)
 {
 	ilp0100_error Status = ILP0100_ERROR_NONE;
-	uint32_t CurrentTime;
+	uint32_t CurrentTime=0;
 	bool_t isCoreFunc;
 
 	if(Ilp0100DebugStarted){
@@ -283,7 +283,7 @@ ilp0100_error Ilp0100_loggingFunctionStart(const char* pFunctionName, void **pFu
 ilp0100_error Ilp0100_loggingFunctionEnd(const char* pFunctionName, ilp0100_error ReturnedValue, void **pFuncArguments)
 {
 	ilp0100_error Status = ILP0100_ERROR_NONE;
-	uint32_t 	  CurrentTime;
+	uint32_t 	  CurrentTime=0;
 	uint8_t		  FuncOK;
 
 	if(Ilp0100DebugStarted){
@@ -315,7 +315,7 @@ ilp0100_error Ilp0100_loggingFunctionEnd(const char* pFunctionName, ilp0100_erro
 ilp0100_error Ilp0100_loggingFunctionIlpAccess(const char* pFunctionName, uint16_t RegisterName, uint16_t Count, uint8_t *pData, ilp0100_error ReturnedValue)
 {
 	ilp0100_error Status = ILP0100_ERROR_NONE;
-	uint32_t CurrentTime;
+	uint32_t CurrentTime=0;
 
 	void *pFuncArguments[]={(void*)&RegisterName, (void*)&Count, (void*)pData};
 

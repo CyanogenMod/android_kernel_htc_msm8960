@@ -926,6 +926,7 @@ static struct msm_camera_i2c_client ov2722_sensor_i2c_client = {
 int32_t ov2722_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	int rc;
+	struct sensor_cfg_data cdata;
 	struct msm_camera_sensor_info *sdata = NULL;
 	pr_info("%s\n", __func__);
 
@@ -948,7 +949,7 @@ int32_t ov2722_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	}
 
 	if (!sdata->use_rawchip && (sdata->htc_image != HTC_CAMERA_IMAGE_YUSHANII_BOARD)) {
-		rc = msm_camio_clk_enable(CAMIO_CAM_MCLK_CLK);
+		rc = msm_camio_clk_enable(sdata, CAMIO_CAM_MCLK_CLK);
 		if (rc < 0) {
 			return rc;
 		}
@@ -960,6 +961,15 @@ int32_t ov2722_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 #endif
 
 	ov2722_sensor_open_init(sdata);
+	if (s_ctrl->func_tbl->sensor_i2c_read_fuseid == NULL) {
+		rc = -EFAULT;
+		return rc;
+	}
+	rc = s_ctrl->func_tbl->sensor_i2c_read_fuseid(&cdata, s_ctrl);
+	if (rc < 0) {
+		return rc;
+	}
+
 	pr_info("%s end\n", __func__);
 
 	return 0;  
@@ -984,7 +994,7 @@ int32_t ov2722_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 	}
 
 	if (!sdata->use_rawchip && (sdata->htc_image != HTC_CAMERA_IMAGE_YUSHANII_BOARD)) {
-		msm_camio_clk_disable(CAMIO_CAM_MCLK_CLK);
+		msm_camio_clk_disable(sdata, CAMIO_CAM_MCLK_CLK);
 	}
 	rc = sdata->camera_power_off();
 	if (rc < 0) {

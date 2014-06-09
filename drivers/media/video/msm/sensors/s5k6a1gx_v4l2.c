@@ -277,7 +277,7 @@ int32_t s5k6a1gx_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 		return rc;
 	}
 
-	rc = msm_camio_clk_enable(CAMIO_CAM_MCLK_CLK);
+	rc = msm_camio_clk_enable(sdata, CAMIO_CAM_MCLK_CLK);
 	if (rc < 0) {
 		return rc;
 	}
@@ -306,7 +306,7 @@ int32_t s5k6a1gx_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 		return -EIO;
 	}
 
-	msm_camio_clk_disable(CAMIO_CAM_MCLK_CLK);
+	msm_camio_clk_disable(sdata, CAMIO_CAM_MCLK_CLK);
 
 	rc = sdata->camera_power_off();
 	if (rc < 0) {

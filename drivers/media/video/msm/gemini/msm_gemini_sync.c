@@ -216,6 +216,7 @@ int msm_gemini_evt_get(struct msm_gemini_device *pgmn_dev,
 		return -EAGAIN;
 	}
 
+	memset(&ctrl_cmd, 0, sizeof(ctrl_cmd));
 	ctrl_cmd.type = buf_p->vbuf.type;
 	kfree(buf_p);
 
@@ -464,6 +465,8 @@ int msm_gemini_input_buf_enqueue(struct msm_gemini_device *pgmn_dev,
 		(int) buf_cmd.vaddr, buf_cmd.y_len);
 
 	if (pgmn_dev->op_mode == MSM_GEMINI_MODE_REALTIME_ENCODE) {
+		if(buf_cmd.y_off == 0)
+			return 0;
 		rc = msm_iommu_map_contig_buffer(
 			(unsigned long)buf_cmd.y_off, CAMERA_DOMAIN, GEN_POOL,
 			((buf_cmd.y_len + buf_cmd.cbcr_len + 4095) & (~4095)),

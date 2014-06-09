@@ -171,6 +171,11 @@ int  YushanII_set_default_IQ(struct msm_sensor_ctrl_t *sensor)
 	if (sensor->func_tbl->sensor_yushanII_set_IQ)
 	    sensor->func_tbl->sensor_yushanII_set_IQ (sensor,&channel_offset,&tone_map,&disable_defcor,&cls);
 
+	if (sensor->is_black_level_calibration_ongoing) {
+	    channel_offset=0;
+	    pr_info("[CAM] %s: force channel offset to 0 in black level ongoing mode.",__func__);
+	}
+
 	YushanII_set_channel_offset(channel_offset);
 	YushanII_set_tone_mapping(tone_map);
 	YushanII_set_defcor(disable_defcor);
@@ -653,9 +658,9 @@ int YushanII_power_up(const struct msm_camera_rawchip_info *pdata)
 	}
 
 #ifdef CONFIG_RAWCHIP_MCLK
-	rc = msm_camio_clk_enable(CAMIO_CAM_RAWCHIP_MCLK_CLK);
+	rc = msm_camio_clk_enable(0, CAMIO_CAM_RAWCHIP_MCLK_CLK);
 #else
-	rc = msm_camio_clk_enable(CAMIO_CAM_MCLK_CLK);
+	rc = msm_camio_clk_enable(0, CAMIO_CAM_MCLK_CLK);
 #endif
 
 	if (rc < 0) {
@@ -679,9 +684,9 @@ int YushanII_power_up(const struct msm_camera_rawchip_info *pdata)
 
 enable_reset_failed:
 #ifdef CONFIG_RAWCHIP_MCLK
-	rc = msm_camio_clk_disable(CAMIO_CAM_RAWCHIP_MCLK_CLK);
+	rc = msm_camio_clk_disable(0, CAMIO_CAM_RAWCHIP_MCLK_CLK);
 #else
-	rc = msm_camio_clk_disable(CAMIO_CAM_MCLK_CLK);
+	rc = msm_camio_clk_disable(0, CAMIO_CAM_MCLK_CLK);
 #endif
 
 enable_mclk_failed:
@@ -707,9 +712,9 @@ int YushanII_power_down(const struct msm_camera_rawchip_info *pdata)
 	mdelay(1);
 
 #ifdef CONFIG_RAWCHIP_MCLK
-	rc = msm_camio_clk_disable(CAMIO_CAM_RAWCHIP_MCLK_CLK);
+	rc = msm_camio_clk_disable(0, CAMIO_CAM_RAWCHIP_MCLK_CLK);
 #else
-	rc = msm_camio_clk_disable(CAMIO_CAM_MCLK_CLK);
+	rc = msm_camio_clk_disable(0, CAMIO_CAM_MCLK_CLK);
 #endif
 
 	if (rc < 0)
@@ -967,6 +972,7 @@ static unsigned int YushanII_fops_poll(struct file *filp,
 int YushanII_got_INT0(void __user *argp){
 	struct yushanii_stats_event_ctrl event;
 	static int got_short = 0;	
+	memset(&event,0,sizeof(struct yushanii_stats_event_ctrl));
 
 	Ilp0100_interruptReadStatus(&pInterruptId, INTR_PIN_0);
 	
@@ -1079,10 +1085,10 @@ int YushanII_set_defcor(int disable_defcor){
 	Ilp0100_structDefcorParams DefcorParams;
 	pr_info("[CAM] %s, set disable defcor correction:%d", __func__, disable_defcor);
 
-	DefcorParams.BlackStrength = 15;
-	DefcorParams.CoupletThreshold = 200;
-	DefcorParams.SingletThreshold = 11;
-	DefcorParams.WhiteStrength = 15;
+	DefcorParams.BlackStrength = 16;
+	DefcorParams.CoupletThreshold = 150;
+	DefcorParams.SingletThreshold = 20;
+	DefcorParams.WhiteStrength = 16;
 
 	if (disable_defcor == 1) {
 		DefcorConfig.Mode = OFF;
@@ -1098,6 +1104,61 @@ int YushanII_set_defcor(int disable_defcor){
 	return 0;
 }
 
+static int YushanII_set_defcor_level(void __user *argp) {
+	Ilp0100_structDefcorConfig DefcorConfig;
+	Ilp0100_structDefcorParams DefcorParams;
+
+	defcor_level_t defcor_level;
+	bool_t defcorParamsUpdate = FALSE;
+
+	if(copy_from_user(&defcor_level, argp,
+		sizeof(defcor_level_t))) {
+		pr_err("[CAM] copy from user error\n");
+		return -EFAULT;
+	}
+
+	switch(defcor_level) {
+	case DEFCOR_LEVEL_0:
+		DefcorConfig.Mode = OFF;
+		defcorParamsUpdate = FALSE;
+		break;
+	case DEFCOR_LEVEL_1:
+		DefcorConfig.Mode = SINGLET_AND_COUPLET;
+		DefcorParams.BlackStrength = 16;
+		DefcorParams.CoupletThreshold = 150;
+		DefcorParams.SingletThreshold = 20;
+		DefcorParams.WhiteStrength = 16;
+		defcorParamsUpdate = TRUE;
+		break;
+	case DEFCOR_LEVEL_2:
+		DefcorConfig.Mode = SINGLET_AND_COUPLET;
+		DefcorParams.BlackStrength = 16;
+		DefcorParams.CoupletThreshold = 200;
+		DefcorParams.SingletThreshold = 12;
+		DefcorParams.WhiteStrength = 16;
+		defcorParamsUpdate = TRUE;
+		break;
+	default:
+		DefcorConfig.Mode = SINGLET_AND_COUPLET;
+		DefcorParams.BlackStrength = 16;
+		DefcorParams.CoupletThreshold = 150;
+		DefcorParams.SingletThreshold = 20;
+		DefcorParams.WhiteStrength = 16;
+		defcorParamsUpdate = TRUE;
+		break;
+	}
+
+
+	Ilp0100_configDefcorShortOrNormal(DefcorConfig);
+	Ilp0100_configDefcorLong(DefcorConfig);
+
+	if (defcorParamsUpdate) {
+		Ilp0100_updateDefcorShortOrNormal(DefcorParams);
+		Ilp0100_updateDefcorLong(DefcorParams);
+	}
+
+	return 0;
+}
 
 void YushanII_correct_StaturatedPixel(
 	Ilp0100_structGlaceStatsData *glace_long,GlaceStatsData *glace)
@@ -1122,6 +1183,7 @@ void YushanII_correct_StaturatedPixel(
 
 int YushanII_read_stats(void __user *argp,unsigned int cmd){
 	GlaceStatsData glace;
+	memset(&glace,0,sizeof(GlaceStatsData));
 	switch(cmd){
 		case YUSHANII_GET_LOGN_GLACE:
 			Ilp0100_readBackGlaceStatisticsLong(&glace_long);
@@ -1497,6 +1559,11 @@ static long YushanII_fops_ioctl(struct file *filp, unsigned int cmd,
 		break;
 	case YUSHANII_SET_HDR_FACTOR:
 		rc = YushanII_set_hdr_factor(argp);
+		if(rc < 0)
+			pr_info("%s:%d cmd = %d, rc =%d\n", __func__, __LINE__, _IOC_NR(cmd), rc);
+		break;
+	case YUSHANII_SET_DEFCOR_LEVEL:
+		rc = YushanII_set_defcor_level(argp);
 		if(rc < 0)
 			pr_info("%s:%d cmd = %d, rc =%d\n", __func__, __LINE__, _IOC_NR(cmd), rc);
 		break;

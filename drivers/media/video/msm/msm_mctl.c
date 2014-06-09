@@ -205,7 +205,10 @@ static int msm_get_sensor_info(
 	else
 		info.use_rawchip = RAWCHIP_DISABLE;
 	
-	
+#if (CONFIG_HTC_CAMERA_HAL_VERSION == 4)
+	info.dual_camera = sdata->dual_camera;
+#endif
+
 	if (copy_to_user((void *)arg,
 				&info,
 				sizeof(struct msm_camsensor_info))) {
@@ -227,6 +230,10 @@ static int msm_mctl_set_vfe_output_mode(struct msm_cam_media_controller
 	} else {
 		pr_info("%s: mctl=0x%p, vfe output mode =0x%x",
 		  __func__, p_mctl, p_mctl->vfe_output_mode);
+		if (p_mctl->vfe_output_mode == VFE_OUTPUTS_RDI0)
+			msm_camera_set_rdi0_mctl(p_mctl);
+		else
+			msm_camera_set_pix0_mctl(p_mctl);
 	}
 	return rc;
 }
@@ -241,7 +248,7 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 		return -EINVAL;
 	}
 	D("%s:%d: cmd %d\n", __func__, __LINE__, cmd);
-
+	atomic_set(&p_mctl->dispatch_command, 1);
 	
 	switch (cmd) {
 		
@@ -254,6 +261,11 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 			core, ioctl, VIDIOC_MSM_SENSOR_CFG, argp);
 			break;
 
+	case MSM_CAM_IOCTL_SENSOR_INTERFACE_CFG:
+		rc = v4l2_subdev_call(p_mctl->sensor_sdev,
+			core, ioctl, VIDIOC_MSM_SENSOR_INTERFACE_CFG, argp);
+			break;
+
 	case MSM_CAM_IOCTL_SENSOR_V4l2_S_CTRL: {
 			struct v4l2_control v4l2_ctrl;
 			CDBG("subdev call\n");
@@ -261,6 +273,7 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 				(void *)argp,
 				sizeof(struct v4l2_control))) {
 				CDBG("copy fail\n");
+				atomic_set(&p_mctl->dispatch_command, 0);
 				return -EFAULT;
 			}
 			CDBG("subdev call ok\n");
@@ -301,12 +314,13 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 			(void *)argp,
 			sizeof(struct msm_actuator_cfg_data))) {
 			ERR_COPY_FROM_USER();
+			atomic_set(&p_mctl->dispatch_command, 0);
 			return -EFAULT;
 		}
 		cdata.is_af_supported = 0;
 		cdata.is_ois_supported = 0;
 		cdata.is_cal_supported = 0; 
-#if (CONFIG_HTC_CAMERA_HAL_VERSION == 3)
+#if (CONFIG_HTC_CAMERA_HAL_VERSION >= 3)
 		cdata.small_step_damping = 0;
 		cdata.medium_step_damping = 0;
 		cdata.big_step_damping = 0;
@@ -324,7 +338,7 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 			cdata.is_af_supported = 1;
 			cdata.is_ois_supported = p_mctl->actctrl->is_ois_supported;
 			cdata.is_cal_supported = p_mctl->actctrl->is_cal_supported; 
-#if (CONFIG_HTC_CAMERA_HAL_VERSION == 3)
+#if (CONFIG_HTC_CAMERA_HAL_VERSION >= 3)
 			cdata.small_step_damping = p_mctl->actctrl->small_step_damping;
 			cdata.medium_step_damping = p_mctl->actctrl->medium_step_damping;
 			cdata.big_step_damping = p_mctl->actctrl->big_step_damping;
@@ -457,6 +471,7 @@ static int msm_mctl_cmd(struct msm_cam_media_controller *p_mctl,
 	}
 	D("%s: !!! cmd = %d, rc = %d\n",
 		__func__, _IOC_NR(cmd), rc);
+	atomic_set(&p_mctl->dispatch_command, 0);
 	return rc;
 }
 
@@ -742,7 +757,18 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 			goto sensor_sdev_failed;
 		}
 
-		
+		if (s_ctrl->func_tbl->sensor_mode_init == NULL) {
+			rc = -EFAULT;
+			goto sensor_sdev_failed;
+		}
+
+		s_ctrl->first_init = 0;
+		rc = s_ctrl->func_tbl->sensor_mode_init (s_ctrl, MSM_SENSOR_REG_INIT, 0);
+		if (rc < 0) {
+			pr_err("%s: sensor_mode_init failed: %d\n", __func__, rc);
+			goto sensor_sdev_failed;
+		}
+
 		if (p_mctl->actctrl->a_init_table)
 			rc = p_mctl->actctrl->a_init_table();
 
@@ -835,10 +861,28 @@ register_sdev_failed:
 static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 {
 	int rc = 0;
-	struct msm_sensor_ctrl_t *s_ctrl = get_sctrl(p_mctl->sensor_sdev);
-	struct msm_camera_sensor_info *sinfo =
-		(struct msm_camera_sensor_info *) s_ctrl->sensordata;
-	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
+	struct msm_sensor_ctrl_t *s_ctrl=NULL;
+	struct msm_camera_sensor_info *sinfo=NULL;
+	struct msm_camera_device_platform_data *camdev=NULL;
+	if (!p_mctl) {
+		pr_err("%s p_mctl is null\n", __func__);
+		return -EFAULT;
+	}
+	s_ctrl = get_sctrl(p_mctl->sensor_sdev);
+	if (!s_ctrl) {
+		pr_err("%s s_ctrl is null\n", __func__);
+		return -EFAULT;
+	}
+	sinfo = (struct msm_camera_sensor_info *) s_ctrl->sensordata;
+	if (!sinfo) {
+		pr_err("%s sinfo is null\n", __func__);
+		return -EFAULT;
+	}
+	camdev = sinfo->pdata;
+	if (!camdev) {
+		pr_err("%s camdev is null\n", __func__);
+		return -EFAULT;
+	}
 
 #if 0 
 	v4l2_subdev_call(p_mctl->sensor_sdev, core, ioctl,
@@ -877,7 +921,35 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 			VIDIOC_MSM_CSIPHY_RELEASE, NULL);
 	}
 
-	
+	if (p_mctl) {
+		if (!p_mctl->axi_sdev) {
+			pr_err("%s axi_sdev is null\n", __func__);
+			return -EFAULT;
+		}
+		if (p_mctl == (struct msm_cam_media_controller *)
+				v4l2_get_subdev_hostdata(p_mctl->axi_sdev)) {
+			if (p_mctl == msm_camera_get_rdi0_mctl() && msm_camera_get_pix0_mctl())
+				v4l2_set_subdev_hostdata(p_mctl->axi_sdev, msm_camera_get_pix0_mctl());
+			else if (p_mctl == msm_camera_get_pix0_mctl() && msm_camera_get_rdi0_mctl())
+				v4l2_set_subdev_hostdata(p_mctl->axi_sdev, msm_camera_get_rdi0_mctl());
+		}
+	}
+	else {
+		pr_err("%s p_mctl is null\n", __func__);
+	}
+	if (p_mctl && p_mctl->isp_sdev) {
+		if (p_mctl == (struct msm_cam_media_controller *)
+				v4l2_get_subdev_hostdata(p_mctl->isp_sdev->sd)) {
+			if (p_mctl == msm_camera_get_rdi0_mctl() && msm_camera_get_pix0_mctl())
+				v4l2_set_subdev_hostdata(p_mctl->isp_sdev->sd, msm_camera_get_pix0_mctl());
+			else if (p_mctl == msm_camera_get_pix0_mctl() && msm_camera_get_rdi0_mctl())
+				v4l2_set_subdev_hostdata(p_mctl->isp_sdev->sd, msm_camera_get_rdi0_mctl());
+		}
+	}
+	else {
+		pr_err("%s p_mctl->isp_sdev is null\n", __func__);
+	}
+
 	if(p_mctl->actctrl->actrl_vcm_on_mut)
 		mutex_lock(p_mctl->actctrl->actrl_vcm_on_mut);
 
@@ -1022,6 +1094,7 @@ int msm_mctl_init(struct msm_cam_v4l2_device *pcam)
 	pmctl->actctrl = &pcam->actctrl;
 	pmctl->sensor_sdev = pcam->sensor_sdev;
 	pmctl->sdata = pcam->sdata;
+	atomic_set(&pmctl->dispatch_command, 0);
 
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	if (pmctl->client) {
@@ -1047,6 +1120,11 @@ int msm_mctl_free(struct msm_cam_v4l2_device *pcam)
 		pr_err("%s: invalid mctl controller", __func__);
 		return -EINVAL;
 	}
+
+	if (pmctl == msm_camera_get_rdi0_mctl())
+		msm_camera_set_rdi0_mctl(NULL);
+	else if (pmctl == msm_camera_get_pix0_mctl())
+		msm_camera_set_pix0_mctl(NULL);
 
 	mutex_destroy(&pmctl->lock);
 	

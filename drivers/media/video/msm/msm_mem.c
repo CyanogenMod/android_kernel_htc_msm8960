@@ -128,6 +128,7 @@ static int msm_pmem_table_add(struct hlist_head *ptype,
 
 	unsigned long len;
 	struct msm_pmem_region *region;
+	void *vaddr;
 
 	region = kmalloc(sizeof(struct msm_pmem_region), GFP_KERNEL);
 	if (!region)
@@ -139,6 +140,13 @@ static int msm_pmem_table_add(struct hlist_head *ptype,
 	if (ion_map_iommu(client, region->handle, CAMERA_DOMAIN, GEN_POOL,
 				  SZ_4K, 0, &paddr, &len, 0, 0) < 0)
 		goto out2;
+
+	vaddr = ion_map_kernel(client, region->handle);
+	if (IS_ERR_OR_NULL(vaddr)) {
+		pr_err("%s: could not get virtual address\n", __func__);
+		return 0;
+	}
+	region->vaddr = (unsigned long) vaddr;
 
 #elif CONFIG_ANDROID_PMEM
 	rc = get_pmem_file(info->fd, &paddr, &kvstart, &len, &file);

@@ -407,6 +407,7 @@ struct msm_camera_device_platform_data msm_camera_csi_device_data[] = {
 #ifdef CONFIG_MSM_CAMERA_FLASH
 static int m4_flashlight_control(int mode)
 {
+	pr_info("%s, linear led, mode=%d", __func__, mode);
 #ifdef CONFIG_FLASHLIGHT_TPS61310
 	return tps61310_flashlight_control(mode);
 #else
@@ -432,6 +433,10 @@ static int msm8930_rawchip_vreg_on(void)
 
 	mdelay(5);
 
+	rc = gpio_set(MSM_RAW_1V2_EN, 1);
+	if (rc < 0)
+		goto RAW_FAIL_1V2;
+
 	rc = gpio_set(MSM_RAW_1V15_EN,1);
 	if (rc<0)
 		goto RAW_FAIL_1V15;
@@ -439,7 +444,10 @@ static int msm8930_rawchip_vreg_on(void)
 	return rc;
 
 RAW_FAIL_1V15:
-	gpio_set (MSM_RAW_1V8_EN,0);
+	gpio_set (MSM_RAW_1V2_EN,0);
+
+RAW_FAIL_1V2:
+	gpio_set(MSM_V_CAM_D1V8_EN, 0);
 
 	return rc;
 }
@@ -450,6 +458,7 @@ static int msm8930_rawchip_vreg_off(void)
 	pr_info("%s\n", __func__);
 
 	rc = gpio_set(MSM_RAW_1V8_EN,0);
+	rc = gpio_set(MSM_RAW_1V2_EN,0);
 	rc = gpio_set(MSM_RAW_1V15_EN,0);
 
 	return rc;
@@ -1278,6 +1287,7 @@ static struct i2c_board_info lc898212_actuator_i2c_info = {
 
 static struct msm_actuator_info lc898212_actuator_info = {
 	.board_info     = &lc898212_actuator_i2c_info,
+	.cam_name       = MSM_ACTUATOR_MAIN_CAM_1,
 	.bus_id         = MSM_8930_GSBI4_QUP_I2C_BUS_ID,
 	.vcm_pwd        = MSM_CAM_VCM_PD,
 	.vcm_enable     = 1,
@@ -1313,13 +1323,13 @@ static int msm8930_vd6869_vreg_on(void)
 	if (rc<0)
 		goto enable_vd6869_io1v8_fail;
 
-	rc = gpio_set (MSM_RAW_1V2_EN,1);
+	rc = gpio_set (MSM_CAM_D1V2_EN,1);
 	if (rc<0)
-		goto RAW_FAIL_1V2;
+		goto enable_vd6869_d1v2_fail;
 
 	return rc;
 
-RAW_FAIL_1V2:
+enable_vd6869_d1v2_fail:
 	gpio_set (MSM_CAMIO_1V8_EN,0);
 
 enable_vd6869_io1v8_fail:
@@ -1345,7 +1355,7 @@ static int msm8930_vd6869_vreg_off(void)
 	gpio_set (MSM_CAM_VCM_PD,0);
 
 	camera_sensor_power_disable(reg_8038_l17);
-	gpio_set (MSM_RAW_1V2_EN,0);
+	gpio_set (MSM_CAM_D1V2_EN,0);
 
 	return rc;
 }
@@ -1551,13 +1561,13 @@ static int msm8930_ov4688_vreg_on(void)
 	if (rc < 0)
 		goto enable_ov4688_io1v8_fail;
 
-	rc = gpio_set (MSM_RAW_1V2_EN,1);
+	rc = gpio_set (MSM_CAM_D1V2_EN,1);
 	if (rc<0)
-		goto RAW_FAIL_1V2;
+		goto enable_ov4688_d1v2_fail;
 
 	return rc;
 
-RAW_FAIL_1V2:
+enable_ov4688_d1v2_fail:
 	gpio_set (MSM_CAMIO_1V8_EN,0);
 
 enable_ov4688_io1v8_fail:
@@ -1583,7 +1593,7 @@ static int msm8930_ov4688_vreg_off(void)
 	gpio_set (MSM_CAM_VCM_PD,0);
 
 	camera_sensor_power_disable(reg_8038_l17);
-	gpio_set (MSM_RAW_1V2_EN,0);
+	gpio_set (MSM_CAM_D1V2_EN,0);
 
 	return rc;
 }
@@ -1801,10 +1811,6 @@ static int msm8930_s5k6a2ya_vreg_on(void)
 	gpio_free(MSM_CAMIO_1V8_EN);
 	udelay(50);
 
-	rc = gpio_set (MSM_RAW_1V2_EN,1);
-	if (rc<0)
-		goto RAW_FAIL_1V2;
-
 	rc = gpio_request(MSM_CAM2_RSTz, "s5k6a2ya");
 	pr_info("[CAM] reset pin gpio_request, %d\n", MSM_CAM2_RSTz);
 	if (rc < 0) {
@@ -1818,8 +1824,6 @@ static int msm8930_s5k6a2ya_vreg_on(void)
 	return rc;
 
 enable_s5k6a2ya_rst_fail:
-	gpio_set (MSM_RAW_1V2_EN,0);
-RAW_FAIL_1V2:
 	rc = gpio_request(MSM_CAMIO_1V8_EN, "V_CAMIO_1V8_EN");
 	if (rc < 0)
 		pr_err("[CAM] GPIO(%d) request failed", MSM_CAMIO_1V8_EN);
@@ -1873,7 +1877,6 @@ static int msm8930_s5k6a2ya_vreg_off(void)
 		gpio_direction_output(MSM_CAMIO_1V8_EN, 0);
 		gpio_free(MSM_CAMIO_1V8_EN);
 	}
-	gpio_set (MSM_RAW_1V2_EN,0);
 
 	rc = gpio_request(MSM_CAM_VCM_PD, "CAM_VCM_PD");
 	pr_info("[CAM] vcm pd gpio_request, %d\n", MSM_CAM_VCM_PD);

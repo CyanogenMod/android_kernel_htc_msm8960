@@ -248,7 +248,7 @@ int32_t msm_actuator_config(
 	case CFG_GET_ACTUATOR_INFO:
 		cdata.is_af_supported = 1;
 		cdata.is_ois_supported = a_ctrl->actuator_ext_ctrl.is_ois_supported;
-#if (CONFIG_HTC_CAMERA_HAL_VERSION == 3)
+#if (CONFIG_HTC_CAMERA_HAL_VERSION >= 3)
 		cdata.is_af_infinity_supported = a_ctrl->actuator_ext_ctrl.is_af_infinity_supported;
 #endif
 		cdata.cfg.get_info = a_ctrl->get_info;
@@ -259,7 +259,7 @@ int32_t msm_actuator_config(
 		break;
 	case CFG_SET_ACTUATOR_INFO:
 		a_ctrl->set_info = cdata.cfg.set_info;
-#if (CONFIG_HTC_CAMERA_HAL_VERSION == 3)
+#if (CONFIG_HTC_CAMERA_HAL_VERSION >= 3)
 		a_ctrl->enable_focus_step_log = cdata.enable_focus_step_log;
 #endif
 		rc = a_ctrl->func_tbl.actuator_init_table(a_ctrl);

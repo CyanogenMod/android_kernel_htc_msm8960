@@ -25,7 +25,7 @@
 #include <mach/board.h>
 #include <media/msm_camera.h>
 #include <mach/msm_subsystem_map.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 
 #define CONFIG_MSM_CAMERA_DEBUG
 #ifdef CONFIG_MSM_CAMERA_DEBUG
@@ -106,6 +106,7 @@ enum vfe_resp_msg {
 	VFE_MSG_V2X_CAPTURE,
 	VFE_MSG_OUTPUT_PRIMARY,
 	VFE_MSG_OUTPUT_SECONDARY,
+	VFE_MSG_OUTPUT_TERTIARY1,
 };
 
 enum vpe_resp_msg {
@@ -124,15 +125,6 @@ enum msm_stereo_state {
 	STEREO_SNAP_BUFFER2_PROCESSING,
 	STEREO_RAW_SNAP_IDLE,
 	STEREO_RAW_SNAP_STARTED,
-};
-
-enum msm_ispif_intftype {
-	PIX0,
-	RDI0,
-	PIX1,
-	RDI1,
-	PIX2,
-	RDI2,
 };
 
 enum msm_ispif_vc {
@@ -363,7 +355,7 @@ struct msm_actuator_ctrl {
 	int (*a_config)(void __user *);
 	int is_ois_supported;
 	int is_cal_supported; 
-#if (CONFIG_HTC_CAMERA_HAL_VERSION == 3)
+#if (CONFIG_HTC_CAMERA_HAL_VERSION >= 3)
 	int small_step_damping;
 	int medium_step_damping;
 	int big_step_damping;
@@ -657,8 +649,8 @@ int msm_camio_enable(struct platform_device *dev);
 int msm_camio_vpe_clk_enable(uint32_t);
 int msm_camio_vpe_clk_disable(void);
 
-int  msm_camio_clk_enable(enum msm_camio_clk_type clk);
-int  msm_camio_clk_disable(enum msm_camio_clk_type clk);
+int  msm_camio_clk_enable(struct msm_camera_sensor_info* sinfo,enum msm_camio_clk_type clk);
+int  msm_camio_clk_disable(struct msm_camera_sensor_info* sinfo,enum msm_camio_clk_type clk);
 int  msm_camio_clk_config(uint32_t freq);
 void msm_camio_clk_rate_set(int rate);
 int msm_camio_vfe_clk_rate_set(int rate);

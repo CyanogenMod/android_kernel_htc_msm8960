@@ -173,6 +173,7 @@ int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
 	unsigned long kvstart;
 #endif
 	unsigned long paddr = 0;
+	void *vaddr;
 	if (mem->phyaddr != 0)
 		return 0;
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
@@ -186,6 +187,13 @@ int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
 	if (rc < 0)
 		ion_free(client, mem->ion_handle);
 
+	vaddr = ion_map_kernel(client, mem->ion_handle);
+	if (IS_ERR_OR_NULL(vaddr)) {
+		pr_err("%s: could not get virtual address\n", __func__);
+		return 0;
+	}
+	mem->arm_vaddr = vaddr;
+	D("arm_vaddr=0x%lx\n", (unsigned long) mem->arm_vaddr);
 #elif CONFIG_ANDROID_PMEM
 	rc = get_pmem_file((int)mem->vaddr, (unsigned long *)&mem->phyaddr,
 					&kvstart, &len, &mem->file);

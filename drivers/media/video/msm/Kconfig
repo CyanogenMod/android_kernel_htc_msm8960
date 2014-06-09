@@ -12,8 +12,9 @@ config MSM_CAMERA_V4L2
 config HTC_CAMERA_HAL_VERSION
 	depends on MSM_CAMERA && MACH_HTC
 	int "HTC Camera HAL version support"
-	default 3 if ARCH_APQ8064 && MACH_M7_UL
-	default 3 if ARCH_APQ8064 && MACH_T6_UL
+	default 4 if ARCH_APQ8064 && MACH_M7_UL
+	default 4 if ARCH_APQ8064 && MACH_T6_UL
+	default 4 if ARCH_MSM8930 && MACH_M4_UL
 	default 2 if ARCH_APQ8064 && MACH_MONARUDO
 	default 1 if !ARCH_APQ8064 && ARCH_MSM8960
 	---help---
