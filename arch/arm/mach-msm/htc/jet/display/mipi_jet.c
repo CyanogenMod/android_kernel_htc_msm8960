@@ -3058,7 +3058,8 @@ static struct dsi_cmd_desc auo_panel_video_mode_cmds_c3_1[] = {
 	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
 };
 
-static int jet_send_display_cmds(struct dsi_cmd_desc *cmd, int cnt)
+static int jet_send_display_cmds(struct dsi_cmd_desc *cmd, int cnt,
+		bool clk_ctrl)
 {
 	int ret = 0;
 	struct dcs_cmd_req cmdreq;
@@ -3066,6 +3067,8 @@ static int jet_send_display_cmds(struct dsi_cmd_desc *cmd, int cnt)
 	cmdreq.cmds = cmd;
 	cmdreq.cmds_cnt = cnt;
 	cmdreq.flags = CMD_REQ_COMMIT;
+	if (clk_ctrl)
+		cmdreq.flags |= CMD_CLK_CTRL;
 	cmdreq.rlen = 0;
 	cmdreq.cb = NULL;
 
@@ -3093,10 +3096,10 @@ static int mipi_jet_lcd_on(struct platform_device *pdev)
 	mipi = &mfd->panel_info.mipi;
 
 	jet_send_display_cmds(nvt_LowTemp_wrkr_enter,
-			ARRAY_SIZE(nvt_LowTemp_wrkr_enter));
+			ARRAY_SIZE(nvt_LowTemp_wrkr_enter), false);
 
 	jet_send_display_cmds(nvt_LowTemp_wrkr_exit,
-			ARRAY_SIZE(nvt_LowTemp_wrkr_exit));
+			ARRAY_SIZE(nvt_LowTemp_wrkr_exit), false);
 
 	gpio_set_value(JET_GPIO_LCD_RSTz, 0);
 	msleep(1);
@@ -3105,10 +3108,12 @@ static int mipi_jet_lcd_on(struct platform_device *pdev)
 
 	if (panel_type != PANEL_ID_NONE) {
 		if (mipi->mode == DSI_VIDEO_MODE) {
-			jet_send_display_cmds(jet_video_on_cmds, jet_video_on_cmds_count);
+			jet_send_display_cmds(jet_video_on_cmds,
+					jet_video_on_cmds_count, false);
 			pr_info("%s: panel_type video mode (%d)", __func__, panel_type);
 		} else {
-			jet_send_display_cmds(jet_command_on_cmds, jet_command_on_cmds_count);
+			jet_send_display_cmds(jet_command_on_cmds,
+					jet_command_on_cmds_count, false);
 			pr_info("%s: panel_type command mode (%d)", __func__, panel_type);
 		}
 	} else
@@ -3135,7 +3140,7 @@ static int mipi_jet_lcd_off(struct platform_device *pdev)
 	if (panel_type != PANEL_ID_NONE) {
 		pr_info("%s\n", __func__);
 		jet_send_display_cmds(jet_display_off_cmds,
-				jet_display_off_cmds_count);
+				jet_display_off_cmds_count, false);
 	}
 
 	mipi_lcd_on = 0;
@@ -3168,9 +3173,11 @@ static void mipi_jet_set_backlight(struct msm_fb_data_type *mfd)
 	led_pwm1[1] = jet_shrink_pwm(mfd->bl_level);
 
 	if (mfd->bl_level == 0)
-		jet_send_display_cmds(disable_dim, ARRAY_SIZE(disable_dim));
+		jet_send_display_cmds(disable_dim,
+				ARRAY_SIZE(disable_dim), false);
 
-	jet_send_display_cmds(jet_cmd_backlight_cmds, jet_cmd_backlight_cmds_count);
+	jet_send_display_cmds(jet_cmd_backlight_cmds,
+			jet_cmd_backlight_cmds_count, true);
 }
 
 static void mipi_jet_per_panel_fcts_init(void)
@@ -3266,7 +3273,7 @@ void mipi_jet_enable_ic_cabc(int cabc, bool dim_on, struct msm_fb_data_type *mfd
 	else if (cabc == 3)
 		cabc_cmds = cabc_on_moving;
 
-	jet_send_display_cmds(dim_cmds, ARRAY_SIZE(dim_cmds));
+	jet_send_display_cmds(dim_cmds, ARRAY_SIZE(dim_cmds), false);
 }
 #endif
 
