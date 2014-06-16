@@ -396,7 +396,7 @@ static int diagcharmdm_write(struct file *file, const char __user *buf,
 			}
 			driver->in_busy_hsic_write = 1;
 			driver->in_busy_hsic_read_on_device = 0;
-			err = diag_bridge_write(driver->user_space_mdm_data,
+			err = diag_bridge_write(0, driver->user_space_mdm_data,
 							 payload_size);
 			if (err) {
 				pr_err("diag: err sending mask to MDM: %d\n",
@@ -422,7 +422,7 @@ static int diagcharmdm_write(struct file *file, const char __user *buf,
 #endif
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 		if (driver->hsic_ch) {
-			diag_bridge_write(driver->user_space_mdm_data, payload_size);
+			diag_bridge_write(0, driver->user_space_mdm_data, payload_size);
 			queue_work(diag_bridge[HSIC].wq, &driver->diag_read_hsic_work);
 		}
 #endif

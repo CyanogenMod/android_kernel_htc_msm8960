@@ -58,6 +58,7 @@
 #include <asm/unistd.h>
 #include <asm/pgtable.h>
 #include <asm/mmu_context.h>
+#include <htc_debug/stability/htc_process_debug.h>
 
 static void exit_mm(struct task_struct * tsk);
 
@@ -866,7 +867,9 @@ do_group_exit(int exit_code)
 	struct signal_struct *sig = current->signal;
 
 	BUG_ON(exit_code & 0x80); 
-
+#ifdef CONFIG_HTC_PROCESS_DEBUG
+	do_group_exit_debug_dump(exit_code);
+#endif
 	if (signal_group_exit(sig))
 		exit_code = sig->group_exit_code;
 	else if (!thread_group_empty(current)) {

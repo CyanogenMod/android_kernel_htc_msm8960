@@ -292,7 +292,7 @@ static void vid_enc_output_frame_done(struct video_client_ctx *client_ctx,
 		ion_flag = vidc_get_fd_info(client_ctx, BUFFER_TYPE_OUTPUT,
 					pmem_fd, kernel_vaddr, buffer_index,
 					&buff_handle);
-		if (ion_flag == CACHED && buff_handle) {
+		if (ion_flag == ION_FLAG_CACHED && buff_handle) {
 			msm_ion_do_cache_op(client_ctx->user_ion_client,
 				buff_handle,
 				(unsigned long *) kernel_vaddr,
@@ -556,7 +556,6 @@ static int vid_enc_open(struct inode *inode, struct file *file)
 	INFO(" msm_vidc_enc: Inside %s()", __func__);
 
 	mutex_lock(&vid_enc_device_p->lock);
-	keep_dig_voltage_low_in_idle(true);
 	start_cmd = 0;
 	stop_cmd = 0;
 	client_count = vcd_get_num_of_clients();
@@ -619,6 +618,9 @@ static int vid_enc_open(struct inode *inode, struct file *file)
 		mutex_unlock(&vid_enc_device_p->lock);
 		return rc;
 	}
+
+	keep_dig_voltage_low_in_idle(true);
+
 	file->private_data = client_ctx;
 	mutex_unlock(&vid_enc_device_p->lock);
 	return rc;

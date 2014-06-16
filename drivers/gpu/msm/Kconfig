@@ -99,7 +99,7 @@ config MSM_KGSL_DISABLE_SHADOW_WRITES
 
 config MSM_KGSL_KILL_HANG_PROCESS
 	bool "Enable killing recoverable gpu hang process routine"
-	default y
+	default n
 	---help---
 	We only enable this config in CRC branch.
 

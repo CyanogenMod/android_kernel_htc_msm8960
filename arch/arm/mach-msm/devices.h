@@ -458,3 +458,5 @@ extern struct platform_device msm8960_device_perf_lock;
 extern struct platform_device msm8930_device_perf_lock;
 extern struct platform_device msm8930aa_device_perf_lock;
 #endif
+
+extern struct dev_avtimer_data dev_avtimer_pdata;

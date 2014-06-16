@@ -20,8 +20,8 @@
 
 #include <linux/types.h>
 #include <linux/device.h>
-#include <linux/msm_mdp.h>
-#include <mach/msm_fb.h>
+#include <linux/fb.h>
+#include <linux/minifb.h>
 #include <linux/switch.h>
 #include <linux/workqueue.h>
 #include <linux/kthread.h>
@@ -71,8 +71,6 @@ unsigned short *test_frame;
 
 #define htc_mode_info2(fmt, args...) \
 	printk(KERN_INFO "[projector2] " pr_fmt(fmt), ## args)
-
-extern struct msmfb_disp_projector_info disp_pjt_info;
 
 static DEFINE_MUTEX(hsml_header_lock);
 
@@ -382,8 +380,6 @@ static void projector2_send_multitouch_event(struct projector2_dev *dev,
 	touch2_event_func(dev, content, event->num_touch);
 }
 
-extern char *get_fb_addr(void);
-
 static void projector2_send_fb(struct projector2_dev *dev)
 {
 
@@ -393,11 +389,16 @@ static void projector2_send_fb(struct projector2_dev *dev)
 		dev->hsml_proto->set_display_info.wWidth * (dev->bitsPixel / 8);
 
 	char *frame = NULL;
+	unsigned long frameSize = 0;
 
-	if (dev->hsml_proto->debug_mode)
+	if (dev->hsml_proto->debug_mode) {
 		frame = (char *)test_frame;
-	else
-		frame = get_fb_addr();
+	} else {
+		if (minifb_lockbuf((void **)&frame, &frameSize, MINIFB_REPEAT) < 0) {
+			pr_warn("%s: no frame\n", __func__);
+			return;
+		}
+	}
 
 	if (frame == NULL) {
 		printk(KERN_WARNING "send_fb: frame == NULL\n");
@@ -422,6 +423,9 @@ static void projector2_send_fb(struct projector2_dev *dev)
 			break;
 		}
 	}
+
+	if (!dev->hsml_proto->debug_mode)
+		minifb_unlockbuf();
 }
 
 static void projector2_send_fb2(struct projector2_dev *dev)
@@ -429,28 +433,26 @@ static void projector2_send_fb2(struct projector2_dev *dev)
 	struct usb_request *req;
 	int xfer;
 
-	static char *frame,*pre_frame;
+	char *frame;
+	unsigned long frameSize = 0;
 	int count = dev->hsml_proto->set_display_info.wHeight *
 		dev->hsml_proto->set_display_info.wWidth * (dev->bitsPixel / 8);
 
 
-	if (dev->hsml_proto->debug_mode)
+	if (dev->hsml_proto->debug_mode) {
 		frame = (char *)test_frame;
-	else
-		frame = get_fb_addr();
+	} else {
+		if (minifb_lockbuf((void**)&frame, &frameSize, MINIFB_REPEAT) < 0)
+			return;
+	}
 
 	if (frame == NULL)
 		return;
 
-	if (frame == pre_frame)
-		return;
-
 	if (dev->online && send_hsml_header07(dev) < 0) {
 		printk(KERN_WARNING "%s: failed to send hsml header\n", __func__);
-		return;
+		goto unlock;
 	}
-
-	pre_frame = frame;
 
 	while (count > 0 && dev->online) {
 		while (!(req = projector2_req_get(dev, &dev->tx_idle))) {
@@ -477,6 +479,10 @@ static void projector2_send_fb2(struct projector2_dev *dev)
 			break;
 		}
 	}
+
+unlock:
+	if (!dev->hsml_proto->debug_mode)
+		minifb_unlockbuf();
 }
 
 void projector2_send_fb_do_work(struct work_struct *work)
@@ -924,13 +930,19 @@ static int projector2_function_setup(struct usb_function *f, const struct usb_ct
 			value = 0;
 			break;
 
-		case HSML_08_REQ_GET_SERVER_DISPLAY:
-			printk(KERN_INFO "device(%d, %d)\n",
-					disp_pjt_info.device_width,
-					disp_pjt_info.device_height);
+		case HSML_08_REQ_GET_SERVER_DISPLAY: {
+			int maxSize = 0;
+			struct fb_info *info;
+			info = registered_fb[0];
+			if (!info) {
+				pr_warn("%s: Can not access framebuffer\n", __func__);
+			} else {
+				pr_info("device(%d, %d)\n", info->var.xres, info->var.yres);
+				maxSize = info->var.xres * info->var.yres;
+			}
+
 			for (i = 0; i <= 26; i++) {
-				if ((display_setting[i][0] * display_setting[i][1]) <=
-					(disp_pjt_info.device_height * disp_pjt_info.device_width))
+				if ((display_setting[i][0] * display_setting[i][1]) <= maxSize)
 					ret |= (1 << i);
 			}
 
@@ -941,7 +953,7 @@ static int projector2_function_setup(struct usb_function *f, const struct usb_ct
 			memcpy(cdev->req->buf, ptr, w_length);
 			value = w_length;
 			break;
-
+		}
 		case HSML_08_REQ_SET_SERVER_CONFIGURATION:
 		case HSML_08_REQ_SET_SERVER_DISPLAY:
 			cdev->gadget->ep0->driver_data = dev;

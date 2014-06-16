@@ -69,7 +69,7 @@ void connect_bridge(int process_cable, int index)
 		driver->in_busy_hsic_write = 0;
 		
 		if (!driver->hsic_device_opened) {
-			err = diag_bridge_open(&hsic_diag_bridge_ops);
+			err = diag_bridge_open(0, &hsic_diag_bridge_ops);
 			if (err) {
 				pr_err("diag: HSIC channel open error: %d\n",
 					  err);
@@ -164,7 +164,7 @@ int diagfwd_read_complete_bridge(struct diag_request *diag_read_ptr)
 
 		int err;
 		driver->in_busy_hsic_write = 1;
-		err = diag_bridge_write(diag_bridge[HSIC].usb_buf_out,
+		err = diag_bridge_write(0, diag_bridge[HSIC].usb_buf_out,
 					diag_bridge[HSIC].read_len);
 		if (err) {
 			pr_err_ratelimited("diag: mdm data on HSIC write err: %d\n",

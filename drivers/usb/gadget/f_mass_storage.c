@@ -1670,8 +1670,16 @@ static int do_reserve(struct fsg_common *common, struct fsg_buffhd *bh)
 			schedule_work(&ums_adb_state_change_work);
 		break;
 		case 0x03: 
-			cancel_delayed_work(&common->cdev->cdusbcmd_vzw_unmount_work);
-			printk(KERN_INFO "[USB] cancel unmount cd rom\n");
+			common->cdev->unmount_cdrom_mask &= ~(1<<3);
+			if (!common->cdev->unmount_cdrom_mask)
+				cancel_delayed_work(&common->cdev->cdusbcmd_vzw_unmount_work);
+			printk(KERN_INFO "[USB] cancel unmount BAP cdrom,mask 0x%x\n",common->cdev->unmount_cdrom_mask);
+			break;
+		case 0x04: 
+			common->cdev->unmount_cdrom_mask &= ~(1<<4);
+			if (!common->cdev->unmount_cdrom_mask)
+				cancel_delayed_work(&common->cdev->cdusbcmd_vzw_unmount_work);
+			printk(KERN_INFO "[USB] cancel unmount HSM rom,mask 0x%x\n",common->cdev->unmount_cdrom_mask);
 			break;
 		default:
 			printk(KERN_DEBUG "Unknown hTC specific command..."

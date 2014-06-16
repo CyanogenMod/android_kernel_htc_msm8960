@@ -16,7 +16,7 @@
 #define DOCK_STATE_THREE_POGO_DOCK		(1 << 7)
 #endif
 #define DOCK_DET_DELAY		HZ/4
-#ifdef CONFIG_MACH_DUMMY
+#ifdef CONFIG_MACH_TC2
 #define ADC_RETRY 5
 #else
 #define ADC_RETRY 3

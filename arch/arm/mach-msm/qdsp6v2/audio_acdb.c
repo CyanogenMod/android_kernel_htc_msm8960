@@ -666,7 +666,7 @@ static int register_memory(void)
 	}
 
 	kvptr = ion_map_kernel(acdb_data.ion_client,
-		acdb_data.ion_handle, 0);
+		acdb_data.ion_handle);
 	if (IS_ERR_OR_NULL(kvptr)) {
 		pr_err("%s: Could not get kernel virt addr!!!\n", __func__);
 		result = PTR_ERR(kvptr);
@@ -774,7 +774,7 @@ static long acdb_ioctl(struct file *f,
 		goto done;
 	}
 
-	if (size <= 0) {
+	if ((size <= 0) || (size > sizeof(data))) {
 		pr_err("%s: Invalid size sent to driver: %d\n",
 			__func__, size);
 		result = -EFAULT;
@@ -872,7 +872,7 @@ done:
 static int acdb_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	int result = 0;
-	int size = vma->vm_end - vma->vm_start;
+	uint32_t size = vma->vm_end - vma->vm_start;
 
 	pr_debug("%s\n", __func__);
 

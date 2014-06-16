@@ -539,6 +539,7 @@ struct posix_acl;
 
 #ifdef CONFIG_FUSE_SD
 #define AID_SDCARD_RW 1015
+#define AID_SDCARD_R  1028
 #endif
 
 struct inode {
@@ -1203,10 +1204,8 @@ struct super_block {
 	
 	int s_readonly_remount;
 
-#ifdef CONFIG_ASYNC_FSYNC
-	#define FLAG_ASYNC_FSYNC	0x1
+#define FLAG_ASYNC_FSYNC	0x1
 	unsigned int fsync_flags;
-#endif
 };
 
 extern void prune_icache_sb(struct super_block *sb, int nr_to_scan);

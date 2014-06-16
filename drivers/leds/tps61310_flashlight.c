@@ -729,12 +729,14 @@ static void fl_lcdev_brightness_set(struct led_classdev *led_cdev,
 static void flashlight_early_suspend(struct early_suspend *handler)
 {
 	FLT_INFO_LOG("%s\n", __func__);
-	if (this_tps61310 != NULL && this_tps61310->mode_status)
-		flashlight_turn_off();
-	if (this_tps61310->power_save)
-		gpio_set_value_cansleep(this_tps61310->power_save, 0);
-	if (this_tps61310->power_save_2)
-		gpio_set_value_cansleep(this_tps61310->power_save_2, 0);
+	if (this_tps61310 != NULL){
+		if(this_tps61310->mode_status)
+			flashlight_turn_off();
+		if (this_tps61310->power_save)
+			gpio_set_value_cansleep(this_tps61310->power_save, 0);
+		if (this_tps61310->power_save_2)
+			gpio_set_value_cansleep(this_tps61310->power_save_2, 0);
+	}
 }
 
 static void flashlight_late_resume(struct early_suspend *handler)

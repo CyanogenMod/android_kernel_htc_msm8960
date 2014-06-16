@@ -299,7 +299,7 @@
 #define INT_WCNSS_A11		RIVA_APSS_SPARE_IRQ
 #define INT_WCNSS_A11_SMSM	RIVA_APPS_WLAN_SMSM_IRQ
 
-#if defined (CONFIG_MACH_M7_UL) || defined (CONFIG_MACH_M7_WLS) || defined(CONFIG_MACH_M7_WLV) || defined(CONFIG_MACH_M7_DCG) || defined(CONFIG_MACH_M7_DUG) || defined(CONFIG_MACH_DUMMY)
+#if defined (CONFIG_MACH_M7_UL) || defined (CONFIG_MACH_M7_WLS) || defined(CONFIG_MACH_M7_WLV) || defined(CONFIG_MACH_M7_DCG) || defined(CONFIG_MACH_M7_DUG) || defined(CONFIG_MACH_M7_DTU)
 #define INT_KEY_HP			(GIC_SPI_START + 313)
 #endif
 

@@ -502,7 +502,98 @@ get_channel_retry:
 	return 0;
 }
 
+#define VSDB_BW_ALLOCATE_ENABLE 1
+int wldev_miracast_tuning(
+	struct net_device *dev, int mode)
+{
+	int error = 0;
+	int ampdu_mpdu;
+	int roam_off;
+#ifdef VSDB_BW_ALLOCATE_ENABLE
+	int mchan_algo;
+	int mchan_bw;
+#endif 
+
+	WLDEV_ERROR(("mode: %d\n", mode));
+
+	if (mode == 0) {
+		
+		ampdu_mpdu = -1;	
+#if defined(ROAM_ENABLE)
+		roam_off = 0;	
+#elif defined(DISABLE_BUILTIN_ROAM)
+		roam_off = 1;	
+#endif
+#ifdef VSDB_BW_ALLOCATE_ENABLE
+		mchan_algo = 0;	
+		mchan_bw = 50;	
+#endif 
+	}
+	else if (mode == 1) {
+		
+		ampdu_mpdu = 8;	
+#if defined(ROAM_ENABLE) || defined(DISABLE_BUILTIN_ROAM)
+		roam_off = 1; 
+#endif
+#ifdef VSDB_BW_ALLOCATE_ENABLE
+		mchan_algo = 1;	
+		mchan_bw = 35;	
+#endif 
+	}
+	else if (mode == 2) {
+		
+		ampdu_mpdu = -1;	
+#if defined(ROAM_ENABLE) || defined(DISABLE_BUILTIN_ROAM)
+		roam_off = 1; 
+#endif
+#ifdef VSDB_BW_ALLOCATE_ENABLE
+		mchan_algo = 0;	
+		mchan_bw = 50;	
+#endif 
+	}
+	else {
+		WLDEV_ERROR(("Unknown mode: %d\n", mode));
+		return -1;
+	}
+
+	
+	error = wldev_iovar_setint(dev, "ampdu_mpdu", ampdu_mpdu);
+	if (error) {
+		WLDEV_ERROR(("Failed to set ampdu_mpdu: mode:%d, error:%d\n",
+			mode, error));
+		return -1;
+	}
+
+#if defined(ROAM_ENABLE) || defined(DISABLE_BUILTIN_ROAM)
+	error = wldev_iovar_setint(dev, "roam_off", roam_off);
+	if (error) {
+		WLDEV_ERROR(("Failed to set roam_off: mode:%d, error:%d\n",
+			mode, error));
+		return -1;
+	}
+#endif 
+
+#ifdef VSDB_BW_ALLOCATE_ENABLE
+	error = wldev_iovar_setint(dev, "mchan_algo", mchan_algo);
+	if (error) {
+		WLDEV_ERROR(("Failed to set mchan_algo: mode:%d, error:%d\n",
+			mode, error));
+		return -1;
+	}
+
+	error = wldev_iovar_setint(dev, "mchan_bw", mchan_bw);
+	if (error) {
+		WLDEV_ERROR(("Failed to set mchan_bw: mode:%d, error:%d\n",
+			mode, error));
+		return -1;
+	}
+#endif 
+
+	return error;
+}
+
 #ifdef CUSTOMER_HW_ONE
+
 static s32 wldev_ioctl_no_memset(
 	struct net_device *dev, u32 cmd, void *arg, u32 len, u32 set)
 {

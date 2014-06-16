@@ -43,6 +43,7 @@
 #include <linux/leds.h>
 #include <linux/pm_runtime.h>
 #include <linux/sync.h>
+#include <linux/minifb.h>
 #include <linux/sw_sync.h>
 #include <linux/file.h>
 
@@ -145,7 +146,6 @@ static int mem_mapped = 0;
 char *get_fb_addr(void)
 {
 	int i;
-
 	if (!usb_pjt_info.latest_offset) {
 		printk(KERN_WARNING "%s: wrong address sent via ioctl?\n", __func__);
 		return 0;
@@ -4625,6 +4625,19 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = msmfb_display_commit(info, argp);
 		break;
 
+	case MSMFB_USBFB_INIT:
+		ret = minifb_ioctl_handler(MINIFB_INIT, argp);
+		break;
+	case MSMFB_USBFB_TERMINATE:
+		ret = minifb_ioctl_handler(MINIFB_TERMINATE, argp);
+		break;
+	case MSMFB_USBFB_QUEUE_BUFFER:
+		ret = minifb_ioctl_handler(MINIFB_QUEUE_BUFFER, argp);
+		break;
+	case MSMFB_USBFB_DEQUEUE_BUFFER:
+		ret = minifb_ioctl_handler(MINIFB_DEQUEUE_BUFFER, argp);
+		break;
+
 	case MSMFB_METADATA_GET:
 		ret = copy_from_user(&mdp_metadata, argp, sizeof(mdp_metadata));
 		if (ret)
@@ -4705,7 +4718,7 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 						usb_pjt_client, usb_pjt_handle[i], tmp_info.latest_offset);
 					break;
 				}
-				virt_addr[i] = ion_map_kernel(usb_pjt_client, usb_pjt_handle[i], ionflag);
+				virt_addr[i] = ion_map_kernel(usb_pjt_client, usb_pjt_handle[i]);
 				mem_fd[i] = tmp_info.latest_offset;
 				usb_pjt_info.latest_offset = tmp_info.latest_offset;
 				MSM_FB_INFO("%s: fd = %d, virt %p\n", __func__, mem_fd[i], virt_addr[i]);

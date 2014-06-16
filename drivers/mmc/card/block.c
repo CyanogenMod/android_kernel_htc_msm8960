@@ -1280,7 +1280,7 @@ static int sd_blk_err_check(struct mmc_card *card,
 		u32 status;
 		int i = 0, err = 0;
 		unsigned int msec = 0;
-		unsigned long delay = jiffies + HZ;
+		unsigned long delay = jiffies + 3 * HZ;
 		do {
 			if (fls(i) > 11) {
 				msec = (unsigned int)fls(i >> 11);

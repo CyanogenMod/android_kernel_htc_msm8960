@@ -357,6 +357,39 @@ static void usb_wwan_indat_callback(struct urb *urb)
 	if (status && (status != -ENOENT)) {
 		dbg("%s: nonzero status: %d on endpoint %02x.",
 		    __func__, status, endpoint);
+
+		
+		
+		
+		if (status == -EPROTO) {
+			usb_anchor_urb(urb, &portdata->submitted);
+			err = usb_submit_urb(urb, GFP_ATOMIC);
+			if (err) {
+				usb_unanchor_urb(urb);
+				if (err != -EPERM) {
+					printk(KERN_ERR "%s: resubmit read urb failed. "
+						"(%d)", __func__, err);
+					
+					
+#ifdef HTC_PM_DBG
+					if (usb_pm_debug_enabled)
+						usb_mark_intf_last_busy(port->serial->interface, false);
+#endif
+					
+					usb_mark_last_busy(port->serial->dev);
+				}
+			} else {
+				
+#ifdef HTC_PM_DBG
+				if (usb_pm_debug_enabled)
+					usb_mark_intf_last_busy(port->serial->interface, false);
+#endif
+				
+				usb_mark_last_busy(port->serial->dev);
+			}
+		}
+		
+
 	} else {
 		tty = tty_port_tty_get(&port->port);
 		if (tty) {

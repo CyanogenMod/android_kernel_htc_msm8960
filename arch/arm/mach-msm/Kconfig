@@ -239,6 +239,122 @@ config ARCH_APQ8064_M7
 	select MSM_CPU_PWRCTL
 	select MSM_IOMMU_GPU_SYNC
 
+config ARCH_APQ8064_M7DXG
+	bool "APQ8064_M7DXG"
+	select ARCH_MSM_KRAITMP
+	select GPIO_MSM_V2
+	select ARM_GIC
+	select CPU_V7
+	select MSM_SCM if SMP
+	select MSM_GPIOMUX
+	select MSM_REMOTE_SPINLOCK_SFPB
+	select MSM_PIL
+	select MSM_QDSP6_APR
+	select MSM_QDSP6_CODECS
+	select MSM_AUDIO_QDSP6 if SND_SOC
+	select MULTI_IRQ_HANDLER
+	select MSM_RPM
+	select MSM_SPM_V2
+	select MSM_L2_SPM
+	select MSM_PM8X60 if PM
+	select CPU_HAS_L2_PMU
+	select HOLES_IN_ZONE if SPARSEMEM
+	select CLEANCACHE
+	select QCACHE
+	select MIGHT_HAVE_PCI
+	select ARCH_SUPPORTS_MSI
+	select ARM_HAS_SG_CHAIN
+	select MSM_KRAIT_WFE_FIXUP
+	select MSM_CPU_PWRCTL
+	select MSM_IOMMU_GPU_SYNC
+
+config ARCH_APQ8064_T6DXG
+	bool "APQ8064_T6DXG"
+	select ARCH_MSM_KRAITMP
+	select GPIO_MSM_V2
+	select ARM_GIC
+	select CPU_V7
+	select MSM_SCM if SMP
+	select MSM_GPIOMUX
+	select MSM_REMOTE_SPINLOCK_SFPB
+	select MSM_PIL
+	select MSM_QDSP6_APR
+	select MSM_QDSP6_CODECS
+	select MSM_AUDIO_QDSP6 if SND_SOC
+	select MULTI_IRQ_HANDLER
+	select MSM_RPM
+	select MSM_SPM_V2
+	select MSM_L2_SPM
+	select MSM_PM8X60 if PM
+	select CPU_HAS_L2_PMU
+	select HOLES_IN_ZONE if SPARSEMEM
+	select CLEANCACHE
+	select QCACHE
+	select MIGHT_HAVE_PCI
+	select ARCH_SUPPORTS_MSI
+	select ARM_HAS_SG_CHAIN
+	select MSM_KRAIT_WFE_FIXUP
+	select MSM_CPU_PWRCTL
+	select MSM_IOMMU_GPU_SYNC
+
+config ARCH_APQ8064_DLXP
+	bool "APQ8064_DLXP"
+	select ARCH_MSM_KRAITMP
+	select GPIO_MSM_V2
+	select ARM_GIC
+	select CPU_V7
+	select MSM_SCM if SMP
+	select MSM_GPIOMUX
+	select MSM_REMOTE_SPINLOCK_SFPB
+	select MSM_PIL
+	select MSM_QDSP6_APR
+	select MSM_QDSP6_CODECS
+	select MSM_AUDIO_QDSP6 if SND_SOC
+	select MULTI_IRQ_HANDLER
+	select MSM_RPM
+	select MSM_SPM_V2
+	select MSM_L2_SPM
+	select MSM_PM8X60 if PM
+	select CPU_HAS_L2_PMU
+	select HOLES_IN_ZONE if SPARSEMEM
+	select CLEANCACHE
+	select QCACHE
+	select MIGHT_HAVE_PCI
+	select ARCH_SUPPORTS_MSI
+	select ARM_HAS_SG_CHAIN
+	select MSM_KRAIT_WFE_FIXUP
+	select MSM_IOMMU_GPU_SYNC
+	select MSM_CPU_PWRCTL
+
+config ARCH_APQ8064_DLPDXG
+	bool "APQ8064_DLPDXG"
+	select ARCH_MSM_KRAITMP
+	select GPIO_MSM_V2
+	select ARM_GIC
+	select CPU_V7
+	select MSM_SCM if SMP
+	select MSM_GPIOMUX
+	select MSM_REMOTE_SPINLOCK_SFPB
+	select MSM_PIL
+	select MSM_QDSP6_APR
+	select MSM_QDSP6_CODECS
+	select MSM_AUDIO_QDSP6 if SND_SOC
+	select MULTI_IRQ_HANDLER
+	select MSM_RPM
+	select MSM_SPM_V2
+	select MSM_L2_SPM
+	select MSM_PM8X60 if PM
+	select CPU_HAS_L2_PMU
+	select HOLES_IN_ZONE if SPARSEMEM
+	select CLEANCACHE
+	select QCACHE
+	select MIGHT_HAVE_PCI
+	select ARCH_SUPPORTS_MSI
+	select ARM_HAS_SG_CHAIN
+	select MSM_KRAIT_WFE_FIXUP
+	select MSM_IOMMU_GPU_SYNC
+	select MSM_CPU_PWRCTL
+
 config ARCH_MSM8974
 	bool "MSM8974"
 	select ARCH_MSM_KRAITMP
@@ -323,11 +439,47 @@ config MACH_K2_U
 	help
 	  Support for the HTC K2_U
 
+config MACH_TC2
+	depends on ARCH_MSM8930
+	bool "TC2"
+	help
+	  Support for the HTC TC2
+
+config MACH_ZARA
+	depends on ARCH_MSM8930
+	bool "ZARA"
+	help
+	  Support for the HTC ZARA
+
 config MACH_K2_UL
 	depends on ARCH_MSM8930
 	bool "K2_UL"
 	help
 	  Support for the HTC K2_UL
+
+config MACH_M4_UL
+	depends on ARCH_MSM8930
+	bool "M4_UL"
+	help
+	  Support for the HTC M4_UL
+
+config MACH_M4_U
+	depends on ARCH_MSM8930
+	bool "M4_U"
+	help
+	  Support for the HTC M4
+
+config MACH_ZIP_CL
+	depends on ARCH_MSM8930
+	bool "ZIP_CL"
+	help
+	  Support for the HTC ZIP_CL
+
+config MACH_ZIP_CL_MI2S_DATA_SWITCH
+	depends on MACH_ZIP_CL
+	bool "ZIP_CL_MI2S_DATA_SWITCH"
+	help
+	  Support for the workaround for ZIP_CL MI2S data Input/Output switch
 
 config MACH_EVITA_UTL
         depends on ARCH_MSM8960
@@ -1156,6 +1308,12 @@ config HTC_ONMODE_CHARGING
 	help
 		support on mode charing icon
 
+config DUTY_CYCLE_LIMIT
+	bool "Duty cycle limit charging support"
+	default n
+	help
+		support on duty cycle limit charging
+
 config BUILD_EDIAG
         bool "Build in embedded diag fixes"
         default n
@@ -1625,6 +1783,26 @@ config MSM_IPC_ROUTER_SMD_XPRT
 	bool "MSM SMD XPRT Layer"
 	help
 	  SMD Transport Layer for IPC Router
+
+config MSM_IPC_ROUTER_HSIC_XPRT
+	depends on USB_QCOM_IPC_BRIDGE
+	depends on MSM_IPC_ROUTER
+	bool "MSM HSIC XPRT Layer"
+	help
+	  HSIC Transport Layer that enables off-chip communication of
+	  IPC Router. When the HSIC endpoint becomes available, this layer
+	  registers the transport with IPC Router and enable message
+	  exchange.
+
+config MSM_IPC_ROUTER_SECURITY
+	depends on MSM_IPC_ROUTER
+	bool "MSM IPC Router Security support"
+	help
+	  This feature of IPC Router will enforce security rules
+	  configured by a security script from the user-space. IPC Router
+	  once configured with the security rules will ensure that the
+	  sender of the message to a service belongs to the relevant
+	  Linux group as configured by the security script.
 
 config MSM_ONCRPCROUTER_DEBUG
 	depends on MSM_ONCRPCROUTER
@@ -2619,6 +2797,21 @@ config MSM_L1_ERR_PANIC
 
 	  For production builds, you should probably say 'N' here.
 
+config MSM_L1_RECOV_ERR_PANIC
+	bool "Panic on recoverable L1 cache errors"
+	depends on MSM_CACHE_ERP && MSM_L1_ERR_PANIC
+	help
+	  Certain CPU designs may be able to automatically recover from certain
+	  kinds of L1 cache errors, even though the L1 cache itself may not
+	  support error correction. These errors should not result in any kind
+	  of corruption, but their presence is nevertheless an indication of
+	  poor system health. To cause the kernel to panic whenever a
+	  recoverable L1 cache error is detected, say 'Y' here. This may be
+	  useful as a debugging technique if general system instability is
+	  suspected.
+
+	  For production builds, you should definitely say 'N' here.
+
 config MSM_L1_ERR_LOG
 	bool "Log CPU ERP events to system memory"
 	depends on MSM_CACHE_ERP
@@ -2836,11 +3029,89 @@ config MACH_M7_DUG
         help
           Support for the HTC APQ8064 M7_DUG.
 
+config MACH_M7_DTU
+        depends on ARCH_APQ8064
+        bool "APQ8064 M7_DTU"
+        help
+          Support for the HTC APQ8064 M7_DTU.
+
+config MACH_M7C_DTU
+        depends on ARCH_APQ8064
+        bool "APQ8064 M7C_DTU"
+        help
+          Support for the HTC APQ8064 M7C_DTU.
+
+config MACH_M7C_DUG
+        depends on ARCH_APQ8064
+        bool "APQ8064 M7C_DUG"
+        help
+          Support for the HTC APQ8064 M7C_DUG.
+
+config MACH_M7C_DWG
+        depends on ARCH_APQ8064
+        bool "APQ8064 M7C_DWG"
+        help
+          Support for the HTC APQ8064 M7C_DWG.
+
+config MACH_T6_TL
+        depends on ARCH_APQ8064
+        bool "APQ8064 T6_TL"
+        help
+          Support for the HTC APQ8064 T6_TL.
+
+config MACH_T6_DUG
+        depends on ARCH_APQ8064
+        bool "APQ8064 T6_DUG"
+        help
+          Support for the HTC APQ8064 T6_DUG.
+
+config MACH_T6_DWG
+        depends on ARCH_APQ8064
+        bool "APQ8064 T6_DWG"
+        help
+          Support for the HTC APQ8064 T6_DWG.
+
 config MACH_M7_EVM
         depends on ARCH_APQ8064
         bool "APQ8064 M7_EVM"
         help
           Support for the HTC APQ8064 M7_EVM.
+
+config MACH_DLXP_WL
+	depends on ARCH_APQ8064
+	bool "APQ8064 DLXP_WL"
+	help
+	  Support for the HTC APQ8064 DLXP_WL.
+
+config MACH_DLXP_UL
+	depends on ARCH_APQ8064
+	bool "APQ8064 DLXP_UL"
+	help
+	  Support for the HTC APQ8064 DLXP_UL.
+
+config MACH_DLXP_U
+	depends on ARCH_APQ8064
+	bool "APQ8064 DLXP_U"
+	help
+	  Support for the HTC APQ8064 DLXP_U.
+
+config MACH_DLP_DUG
+	depends on ARCH_APQ8064
+	bool "APQ8064 DLP_DUG"
+	help
+	  Support for the HTC APQ8064 DLP_DUG.
+
+config MACH_DLP_DWG
+	depends on ARCH_APQ8064
+	bool "APQ8064 DLP_DWG"
+	help
+	  Support for the HTC APQ8064 DLP_DWG.
+
+config MACH_DLP_DTU
+	depends on ARCH_APQ8064
+	bool "APQ8064 DLP_DTU"
+	help
+	  Support for the HTC APQ8064 DLP_DTU.
 
 config QSC_MODEM
         default n
@@ -2877,6 +3148,12 @@ config MSM_NONSMD_PACKET_FILTER
 	help
 	  The white TCP port list is updated in attribute
 	  repying on RIL to notify modem.
+
+config MONITOR_STREAMING_PORT_SOCKET
+	bool "monitor streaming port"
+	default n
+	help
+	  Monitor if any streaming port is connected
 
 config IO_FOOTPRINT
 	bool "Trace I/O for each CPU"

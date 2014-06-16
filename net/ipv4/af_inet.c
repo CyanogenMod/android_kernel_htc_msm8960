@@ -139,6 +139,12 @@ static DEFINE_SPINLOCK(inetsw_lock);
 void (*record_probe_data_fp)(struct sock *sk, int type, size_t size, unsigned long long t_pre) = NULL; 
 EXPORT_SYMBOL(record_probe_data_fp);
 #endif
+
+#ifdef CONFIG_MONITOR_STREAMING_PORT_SOCKET
+extern void sock_connect_hook(struct socket *sock,struct sockaddr *address, int addrlen);
+extern void sock_disconnect_hook(struct socket *sock);
+#endif  
+
 struct ipv4_config ipv4_config;
 EXPORT_SYMBOL(ipv4_config);
 
@@ -414,6 +420,11 @@ int inet_release(struct socket *sock)
 		if (record_probe_data_fp)
 			record_probe_data_fp(sk, 6, 0,0);
 #endif
+
+#ifdef CONFIG_MONITOR_STREAMING_PORT_SOCKET
+		sock_disconnect_hook(sock);
+#endif  
+
 		sk->sk_prot->close(sk, timeout);
 	}
 	return 0;
@@ -534,6 +545,12 @@ static long inet_wait_for_connect(struct sock *sk, long timeo)
 		release_sock(sk);
 		timeo = schedule_timeout(timeo);
 		lock_sock(sk);
+#ifdef CONFIG_HTC_NETWORK_MODIFY
+		if (!sk->sk_wq) {
+			pr_info("[NET] %s: socket connection state: %d. current process: %s, pid: %d.\n", __func__, sk->sk_state, current->comm, current->pid);
+			return timeo;
+		}
+#endif
 		if (signal_pending(current) || !timeo)
 			break;
 		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
@@ -585,6 +602,11 @@ int inet_stream_connect(struct socket *sock, struct sockaddr *uaddr,
 		if(record_probe_data_fp)
 			record_probe_data_fp(sk, 4, 0,0);
 #endif
+
+#ifdef CONFIG_MONITOR_STREAMING_PORT_SOCKET
+		sock_connect_hook(sock, uaddr, addr_len);
+#endif  
+
 		sock->state = SS_CONNECTING;
 		
 		if (sk != NULL)
@@ -609,7 +631,7 @@ int inet_stream_connect(struct socket *sock, struct sockaddr *uaddr,
 			if (sk->__sk_common.skc_rcv_saddr)
 				printk(KERN_ERR "[NET]skc_rcv_saddr=0x%08X\n",sk->__sk_common.skc_rcv_saddr);
 
-			goto out;
+			goto sock_error;
 		}
 #endif
 
@@ -814,6 +836,11 @@ int inet_shutdown(struct socket *sock, int how)
 	
 	sk->sk_state_change(sk);
 	release_sock(sk);
+
+#ifdef CONFIG_MONITOR_STREAMING_PORT_SOCKET
+	sock_disconnect_hook(sock);
+#endif  
+
 	return err;
 }
 EXPORT_SYMBOL(inet_shutdown);

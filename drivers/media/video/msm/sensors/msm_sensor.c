@@ -78,8 +78,13 @@ static int oem_sensor_init(void *arg)
 #ifdef CONFIG_RAWCHIP
 	if (s_ctrl->sensordata->use_rawchip) {
 		rawchip_data.sensor_name = s_ctrl->sensordata->sensor_name;
-		rawchip_data.datatype = s_ctrl->curr_csi_params->csid_params.lut_params.vc_cfg->dt;
-		rawchip_data.lane_cnt = s_ctrl->curr_csi_params->csid_params.lane_cnt;
+		if (s_ctrl->curr_csi_params) {
+			rawchip_data.datatype = s_ctrl->curr_csi_params->csid_params.lut_params.vc_cfg->dt;
+			rawchip_data.lane_cnt = s_ctrl->curr_csi_params->csid_params.lane_cnt;
+		}
+		else {
+		pr_info("%s: s_ctrl->curr_csi_params is null\n", __func__);
+		}
 		rawchip_data.pixel_clk = s_ctrl->msm_sensor_reg->output_settings[res].op_pixel_clk;
 		rawchip_data.mirror_flip = s_ctrl->mirror_flip;
 
@@ -691,6 +696,10 @@ int32_t msm_sensor_setting_parallel(struct msm_sensor_ctrl_t *s_ctrl,
 	pr_info("%s: update_type=%d, res=%d\n", __func__, update_type, res);
 
 	if (update_type == MSM_SENSOR_REG_INIT) {
+		if (s_ctrl->first_init)   {
+			pr_info("%s: MSM_SENSOR_REG_INIT already inited\n", __func__);
+			return rc;
+		}
 		mutex_lock(s_ctrl->sensor_first_mutex);  
 
 #ifdef CONFIG_RAWCHIPII
@@ -1152,8 +1161,13 @@ static int oem_sensor_init_ov(void *arg)
 #ifdef CONFIG_RAWCHIP
 		if (s_ctrl->sensordata->use_rawchip) {
 			rawchip_data.sensor_name = s_ctrl->sensordata->sensor_name;
-			rawchip_data.datatype = s_ctrl->curr_csi_params->csid_params.lut_params.vc_cfg->dt;
-			rawchip_data.lane_cnt = s_ctrl->curr_csi_params->csid_params.lane_cnt;
+			if (s_ctrl->curr_csi_params) {
+				rawchip_data.datatype = s_ctrl->curr_csi_params->csid_params.lut_params.vc_cfg->dt;
+				rawchip_data.lane_cnt = s_ctrl->curr_csi_params->csid_params.lane_cnt;
+			}
+			else {
+			pr_info("%s: s_ctrl->curr_csi_params is null\n", __func__);
+			}
 			rawchip_data.pixel_clk = s_ctrl->msm_sensor_reg->output_settings[res].op_pixel_clk;
 			rawchip_data.mirror_flip = s_ctrl->mirror_flip;
 
@@ -1207,6 +1221,10 @@ int32_t msm_sensor_setting_parallel_ov(struct msm_sensor_ctrl_t *s_ctrl,
 	pr_info("%s: update_type=%d, res=%d\n", __func__, update_type, res);
 
 	if (update_type == MSM_SENSOR_REG_INIT) {
+		if (s_ctrl->first_init)   {
+			pr_info("%s: MSM_SENSOR_REG_INIT already inited\n", __func__);
+			return rc;
+		}
 		mutex_lock(s_ctrl->sensor_first_mutex);  
 
 #ifdef CONFIG_RAWCHIPII
@@ -2353,7 +2371,21 @@ struct file* msm_fopen(const char* path, int flags, int rights) {
 
     return filp;
 }
-void msm_dump_otp_to_file(const char* sensor_name, const short* add, const uint8_t* data, size_t count)  
+
+void msm_read_all_otp_data(struct msm_camera_i2c_client* client,short start_address, uint8_t* buffer, size_t count)
+{
+    int i=0, rc=0;
+    uint16_t read_data=0;
+
+    for (i=start_address; i<start_address+count; ++i) {
+        rc = msm_camera_i2c_read (client, i, &read_data, MSM_CAMERA_I2C_BYTE_DATA);
+        if (rc < 0){
+          pr_err("%s: msm_camera_i2c_read 0x%x failed\n", __func__, i);
+        }
+        *buffer++= (uint8_t)read_data;
+    }
+}
+void msm_dump_otp_to_file (const char* sensor_name, int valid_layer, short start_address, uint8_t* buffer, size_t count)  
 {  
     uint8_t *path= "/data/otp.txt";  
     struct file* f = msm_fopen (path, O_CREAT|O_RDWR|O_TRUNC, 0666);  
@@ -2366,12 +2398,15 @@ void msm_dump_otp_to_file(const char* sensor_name, const short* add, const uint8
         len = sprintf (buf,"%s\n",sensor_name);  
         msm_fwrite (f,offset,buf,len);  
         offset += len;  
-  
-        for (i=0; i<count; ++i) {  
-            len = sprintf (buf,"0x%x 0x%x\n",add[i],data[i]);  
+        len = sprintf (buf,"valid layer=%d\n",valid_layer);  
+        msm_fwrite (f,offset,buf,len);  
+        offset += len;  
+
+        for (i=start_address; i<start_address+count; ++i) {
+            len = sprintf (buf,"0x%x 0x%x\n",i,*buffer++);  
             msm_fwrite (f,offset,buf,len);  
             offset += len;  
-        }  
+        }
         msm_fclose (f);  
     } else {  
         pr_err ("%s: fail to open file\n", __func__);  

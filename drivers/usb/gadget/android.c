@@ -325,6 +325,7 @@ static void android_work(struct work_struct *data)
 		pr_info("%s: sent uevent %s\n", __func__, uevent_envp[0]);
 		if (dev->pdata->vzw_unmount_cdrom) {
 			cancel_delayed_work(&cdev->cdusbcmd_vzw_unmount_work);
+			cdev->unmount_cdrom_mask = 1 << 3 | 1 << 4;
 			schedule_delayed_work(&cdev->cdusbcmd_vzw_unmount_work,30 * HZ);
 		}
 	} else {
@@ -345,31 +346,8 @@ static void android_work(struct work_struct *data)
 	}
 }
 
-static void android_enable(struct android_dev *dev)
-{
-	struct usb_composite_dev *cdev = dev->cdev;
-
-	if (WARN_ON(!dev->disable_depth))
-		return;
-
-	if (--dev->disable_depth == 0) {
-		usb_add_config(cdev, &android_config_driver,
-					android_bind_config);
-		usb_gadget_connect(cdev->gadget);
-	}
-}
-
-static void android_disable(struct android_dev *dev)
-{
-	struct usb_composite_dev *cdev = dev->cdev;
-
-	if (dev->disable_depth++ == 0) {
-		usb_gadget_disconnect(cdev->gadget);
-		
-		usb_ep_dequeue(cdev->gadget->ep0, cdev->req);
-		usb_remove_config(cdev, &android_config_driver);
-	}
-}
+static void android_enable(struct android_dev *dev);
+static void android_disable(struct android_dev *dev);
 
 
 static ssize_t func_en_show(struct device *dev, struct device_attribute *attr,
@@ -492,6 +470,67 @@ static struct android_usb_function adb_function = {
 	.cleanup	= adb_function_cleanup,
 	.bind_config	= adb_function_bind_config,
 };
+
+static int restart_adbd;
+static void adb_ready_callback(void)
+{
+	struct android_dev *dev = _android_dev;
+	struct adb_data *data = adb_function.config;
+
+	if (dev)
+		mutex_lock(&dev->mutex);
+	else
+		pr_err("adb_ready_callback: data->dev is NULL");
+
+	data->opened = true;
+
+	if (dev && WARN_ON(!dev->disable_depth))
+		return;
+	
+	
+	if (dev && (--dev->disable_depth == 0) && restart_adbd)
+		android_enable(dev);
+
+	if (dev)
+		mutex_unlock(&dev->mutex);
+	restart_adbd = 0;
+}
+
+static void adb_closed_callback(void)
+{
+	struct android_dev *dev = _android_dev;
+	struct adb_data *data = adb_function.config;
+
+	if (!dev)
+		pr_err("adb_closed_callback: data->dev is NULL");
+
+	if (dev)
+		mutex_lock(&dev->mutex);
+
+	data->opened = false;
+
+	
+	
+	if (dev && (dev->disable_depth++ == 0) && restart_adbd)
+		android_disable(dev);
+
+	if (dev)
+		mutex_unlock(&dev->mutex);
+}
+
+
+static void adb_read_timeout(void)
+{
+	struct android_dev *dev = _android_dev;
+
+	pr_info("%s: adb read timeout, re-connect to PC\n", __func__);
+
+	if (dev) {
+		android_disable(dev);
+		mdelay(100);
+		android_enable(dev);
+	}
+}
 
 
 static int rmnet_smd_function_bind_config(struct android_usb_function *f,
@@ -1283,7 +1322,7 @@ static int ncm_function_bind_config(struct android_usb_function *f,
 
     if (c->cdev->gadget)
         c->cdev->gadget->miMaxMtu = ETH_FRAME_LEN_MAX - ETH_HLEN;
-	ret = gether_setup_name(c->cdev->gadget, ncm->ethaddr, "usb");
+	ret = gether_setup_name(c->cdev->gadget, ncm->ethaddr, "ncm");
 	if (ret) {
 		pr_err("%s: gether_setup failed\n", __func__);
 		return ret;
@@ -2241,6 +2280,23 @@ static ssize_t remote_wakeup_store(struct device *pdev,
 	return size;
 }
 
+static ssize_t restart_adbd_store(struct device *pdev,
+		struct device_attribute *attr, const char *buff, size_t size)
+{
+	int enable = 0;
+
+	sscanf(buff, "%d", &enable);
+
+	pr_debug("restart_adbd = %d\n", enable);
+
+	if (enable)
+		restart_adbd = 1;
+	else
+		restart_adbd = 0;
+
+	return size;
+}
+
 static ssize_t
 functions_show(struct device *pdev, struct device_attribute *attr, char *buf)
 {
@@ -2398,6 +2454,23 @@ out:
 	return snprintf(buf, PAGE_SIZE, "%s\n", state);
 }
 
+static ssize_t bugreport_debug_store(struct device *pdev,
+		struct device_attribute *attr, const char *buff, size_t size)
+{
+	int enable = 0, ats = 0;
+	sscanf(buff, "%d", &enable);
+	ats = board_get_usb_ats();
+
+	if (enable && ats)
+		bugreport_debug = 1;
+	else {
+		bugreport_debug = 0;
+		del_timer(&adb_read_timer);
+	}
+	pr_info("bugreport_debug = %d, enable=%d, ats = %d\n", bugreport_debug, enable, ats);
+	return size;
+}
+
 #define DESCRIPTOR_ATTR(field, format_string)				\
 static ssize_t								\
 field ## _show(struct device *dev, struct device_attribute *attr,	\
@@ -2442,21 +2515,48 @@ static DEVICE_ATTR(field, S_IRUGO | S_IWUSR, field ## _show, field ## _store);
 
 static DEVICE_ATTR(functions, S_IRUGO | S_IWUSR, functions_show,
 						 functions_store);
+static DEVICE_ATTR(restart_adbd, 0664, NULL, restart_adbd_store);
 static DEVICE_ATTR(pm_qos, S_IRUGO | S_IWUSR,
 		pm_qos_show, pm_qos_store);
 static DEVICE_ATTR(state, S_IRUGO, state_show, NULL);
 static DEVICE_ATTR(remote_wakeup, S_IRUGO | S_IWUSR,
 		remote_wakeup_show, remote_wakeup_store);
+static DEVICE_ATTR(bugreport_debug, 0664, NULL, bugreport_debug_store);
 
 static struct device_attribute *android_usb_attributes[] = {
 	&dev_attr_functions,
+	&dev_attr_restart_adbd,
 	&dev_attr_pm_qos,
 	&dev_attr_state,
 	&dev_attr_remote_wakeup,
+	&dev_attr_bugreport_debug,
 	NULL
 };
 
 #include "htc_attr.c"
+
+static void android_enable(struct android_dev *dev)
+{
+	struct usb_composite_dev *cdev = dev->cdev;
+
+	mutex_lock(&function_bind_sem);
+	usb_add_config(cdev, &android_config_driver,
+			android_bind_config);
+	usb_gadget_connect(cdev->gadget);
+	mutex_unlock(&function_bind_sem);
+}
+
+static void android_disable(struct android_dev *dev)
+{
+	struct usb_composite_dev *cdev = dev->cdev;
+
+	mutex_lock(&function_bind_sem);
+	usb_gadget_disconnect(cdev->gadget);
+	
+	usb_ep_dequeue(cdev->gadget->ep0, cdev->req);
+	usb_remove_config(cdev, &android_config_driver);
+	mutex_unlock(&function_bind_sem);
+}
 
 
 static int android_bind_config(struct usb_configuration *c)
@@ -2765,7 +2865,7 @@ static struct platform_driver android_platform_driver = {
 	.remove = android_remove,
 };
 
-
+char *board_cid(void);
 static void android_usb_init_work(struct work_struct *data)
 {
 	struct android_dev *dev = _android_dev;
@@ -2777,9 +2877,13 @@ static void android_usb_init_work(struct work_struct *data)
 #ifdef CONFIG_SENSE_4_PLUS
 	
 	if (board_mfg_mode() != 2) {
-		ret = android_enable_function(dev, "mtp");
-		if (ret)
-			pr_err("android_usb: Cannot enable '%s'", "mtp");
+		if (!strncmp(board_cid(), "GOOGL", 5))
+			USB_INFO("[USB] Stockui project, don't enable mtp as default function\n");
+		else {
+			ret = android_enable_function(dev, "mtp");
+			if (ret)
+				pr_err("android_usb: Cannot enable '%s'", "mtp");
+		}
 	}
 #endif
 	ret = android_enable_function(dev, "mass_storage");

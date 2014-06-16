@@ -190,7 +190,7 @@ void dhd_os_prefree(void *osh, void *addr, uint size);
 #endif 
 
 #ifndef DHD_SDALIGN
-#define DHD_SDALIGN	32
+#define DHD_SDALIGN	4
 #endif
 
 typedef struct reorder_info {
@@ -955,6 +955,7 @@ extern void dhd_state_set_flags(struct dhd_pub *dhd_pub, dhd_attach_states_t fla
 extern void dhd_info_send_hang_message(dhd_pub_t *dhdp);
 extern int dhd_set_pktfilter(dhd_pub_t *dhd, int add, int id, int offset, char *mask, char *pattern);
 extern int wl_android_set_pktfilter(struct net_device *dev, struct dd_pkt_filter_s *data);
+extern void wl_android_enable_pktfilter(struct net_device *dev, int multicastlock);
 extern void dhd_info_send_hang_message(dhd_pub_t *dhdp);
 extern int net_os_send_rssilow_message(struct net_device *dev);
 void wl_android_traffic_monitor(struct net_device *dev);

@@ -527,12 +527,23 @@ struct page *find_or_create_page(struct address_space *mapping,
 {
 	struct page *page;
 	int err;
+	gfp_t gfp_notmask = 0;
+
 repeat:
 	page = find_lock_page(mapping, index);
 	if (!page) {
-		page = __page_cache_alloc(gfp_mask);
+retry:
+		page = __page_cache_alloc(gfp_mask & ~gfp_notmask);
 		if (!page)
 			return NULL;
+
+		if (is_cma_pageblock(page)) {
+			__free_page(page);
+			gfp_notmask |= __GFP_MOVABLE;
+			goto retry;
+		}
+
+
 		err = add_to_page_cache_lru(page, mapping, index,
 			(gfp_mask & GFP_RECLAIM_MASK));
 		if (unlikely(err)) {
@@ -1721,9 +1732,17 @@ repeat:
 	if (page)
 		goto found;
 
+retry:
 	page = __page_cache_alloc(gfp_mask & ~gfp_notmask);
 	if (!page)
 		return NULL;
+
+	if (is_cma_pageblock(page)) {
+		__free_page(page);
+		gfp_notmask |= __GFP_MOVABLE;
+		goto retry;
+	}
+
 	status = add_to_page_cache_lru(page, mapping, index,
 						GFP_KERNEL & ~gfp_notmask);
 	if (unlikely(status)) {

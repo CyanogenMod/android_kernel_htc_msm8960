@@ -741,6 +741,18 @@ int __init board_wifi_setting(char *s)
 }
 __setup("wificd=", board_wifi_setting);
 
+char model_id[32];
+char *board_get_mid(void)
+{
+	return model_id;
+}
+static int __init board_set_mid(char *mid)
+{
+	strncpy(model_id, mid, sizeof(model_id));
+	return 1;
+}
+__setup("androidboot.mid=", board_set_mid);
+
 int get_wifi_setting(void)
 {
 	return wifi_setting;

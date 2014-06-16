@@ -36,8 +36,8 @@
 static unsigned int	no_ctrl_ports;
 
 static const char	*ctrl_bridge_names[] = {
-	"dun_ctrl_hsic0",
-	"rmnet_ctrl_hsic0"
+	"serial_hsic_ctrl",
+	"rmnet_hsic_ctrl"
 };
 
 #define CTRL_BRIDGE_NAME_MAX_LEN	20
@@ -335,19 +335,35 @@ static void ghsic_ctrl_status(void *ctxt, unsigned int ctrl_bits)
 		gser->send_modem_ctrl_bits(gser, ctrl_bits);
 }
 
+static int ghsic_ctrl_get_port_id(const char *pdev_name)
+{
+	struct gctrl_port	*port;
+	int			i;
+
+	for (i = 0; i < no_ctrl_ports; i++) {
+		port = gctrl_ports[i].port;
+		if (!strncmp(port->brdg.name, pdev_name, BRIDGE_NAME_MAX_LEN))
+			return i;
+	}
+
+	return -EINVAL;
+}
+
 static int ghsic_ctrl_probe(struct platform_device *pdev)
 {
 	struct gctrl_port	*port;
 	unsigned long		flags;
+	int			id;
 
 	pr_debug("%s: name:%s\n", __func__, pdev->name);
 
-	if (pdev->id >= no_ctrl_ports) {
-		pr_err("%s: invalid port: %d\n", __func__, pdev->id);
+	id = ghsic_ctrl_get_port_id(pdev->name);
+	if (id < 0 || id >= no_ctrl_ports) {
+		pr_err("%s: invalid port: %d\n", __func__, id);
 		return -EINVAL;
 	}
 
-	port = gctrl_ports[pdev->id].port;
+	port = gctrl_ports[id].port;
 	set_bit(CH_READY, &port->bridge_sts);
 
 	
@@ -365,15 +381,17 @@ static int ghsic_ctrl_remove(struct platform_device *pdev)
 	struct gserial		*gser = NULL;
 	struct grmnet		*gr = NULL;
 	unsigned long		flags;
+	int			id;
 
 	pr_debug("%s: name:%s\n", __func__, pdev->name);
 
-	if (pdev->id >= no_ctrl_ports) {
-		pr_err("%s: invalid port: %d\n", __func__, pdev->id);
+	id = ghsic_ctrl_get_port_id(pdev->name);
+	if (id < 0 || id >= no_ctrl_ports) {
+		pr_err("%s: invalid port: %d\n", __func__, id);
 		return -EINVAL;
 	}
 
-	port = gctrl_ports[pdev->id].port;
+	port = gctrl_ports[id].port;
 
 	spin_lock_irqsave(&port->port_lock, flags);
 	if (!port->port_usb) {
@@ -440,7 +458,7 @@ static int gctrl_port_alloc(int portno, enum gadget_type gtype)
 	INIT_WORK(&port->connect_w, ghsic_ctrl_connect_w);
 	INIT_WORK(&port->disconnect_w, gctrl_disconnect_w);
 
-	port->brdg.ch_id = portno;
+	port->brdg.name = (char*)ctrl_bridge_names[portno];;
 	port->brdg.ctx = port;
 	port->brdg.ops.send_pkt = ghsic_ctrl_receive;
 	if (port->gtype == USB_GADGET_SERIAL)

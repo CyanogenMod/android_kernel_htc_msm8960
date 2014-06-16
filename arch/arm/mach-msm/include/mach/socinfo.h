@@ -109,7 +109,9 @@ uint32_t socinfo_get_pmic_die_revision(void);
 int __init socinfo_init(void) __must_check;
 const int read_msm_cpu_type(void);
 const int get_core_count(void);
+const int cpu_is_krait(void);
 const int cpu_is_krait_v1(void);
+const int cpu_is_krait_v2(void);
 const int cpu_is_krait_v3(void);
 
 static inline int cpu_is_msm7x01(void)

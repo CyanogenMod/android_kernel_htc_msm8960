@@ -223,6 +223,7 @@ int mdp4_overlay_writeback_off(struct platform_device *pdev)
 	outpdw(MDP_BASE + 0x100F4, 0x0);
 	mdp_clk_ctrl(0);
 
+	flush_work(&vctrl->clk_work);
 	pr_debug("%s-:\n", __func__);
 	return ret;
 }
@@ -494,6 +495,9 @@ void mdp4_writeback_overlay(struct msm_fb_data_type *mfd)
 {
 	struct vsycn_ctrl *vctrl;
 	struct mdp4_overlay_pipe *pipe;
+
+	if (!mfd)
+		return;
 
 	if (mfd && !mfd->panel_power_on)
 		return;
@@ -773,6 +777,9 @@ static int mdp4_wfd_dequeue_update(struct msm_fb_data_type *mfd,
 	struct mdp4_overlay_pipe *pipe;
 	struct msmfb_writeback_data_list *node = NULL;
 
+	if (!mfd)
+		return -EINVAL;
+
 	if (mfd && !mfd->panel_power_on)
 		return -EPERM;
 
@@ -826,6 +833,8 @@ static int mdp4_wfd_dequeue_update(struct msm_fb_data_type *mfd,
 static void mdp4_wfd_queue_wakeup(struct msm_fb_data_type *mfd,
 			struct msmfb_writeback_data_list *node)
 {
+	if (!mfd)
+		return;
 
 	if (mfd && !mfd->panel_power_on)
 		return;
@@ -961,8 +970,15 @@ void mdp4_writeback_play_kickoff(
 	struct mdp4_overlay_pipe *writeback_pipe;
 	unsigned long flags;
 
+	if (!mfd) {
+		pr_err("%s: mfd is NULL\n", __func__);
+		mdp_clk_ctrl(0);
+		return;
+	}
+
 	if (mfd && !mfd->panel_power_on) {
 		pr_err("%s: panel power is not on\n", __func__);
+		mdp_clk_ctrl(0);
 		return;
 	}
 
@@ -978,6 +994,7 @@ void mdp4_writeback_play_kickoff(
 
 	if (!writeback_pipe->ov_blt_addr) {
 		pr_err("%s: no writeback buffer\n", __func__);
+		mdp_clk_ctrl(0);
 		return;
 	}
 
@@ -987,6 +1004,7 @@ void mdp4_writeback_play_kickoff(
 	pr_debug("%s: pid=%d\n", __func__, current->pid);
 
 	mdp4_mixer_stage_commit(ov_pipe->mixer_num);
+	flush_work(&vctrl->clk_work);
 
 	spin_lock_irqsave(&vctrl->spin_lock, flags);
 	vctrl->ov_koff++;

@@ -157,13 +157,18 @@ static int wfd_allocate_ion_buffer(struct ion_client *client,
 	void *kvaddr, *phys_addr;
 	unsigned long size;
 	unsigned int alloc_regions = 0;
+        unsigned int flags = 0;
 	int rc;
 
-	alloc_regions = ION_HEAP(ION_CP_MM_HEAP_ID);
-	alloc_regions |= secure ? ION_SECURE :
-				ION_HEAP(ION_IOMMU_HEAP_ID);
+        if (secure) {
+            alloc_regions = ION_HEAP(ION_CP_MM_HEAP_ID);
+            flags |= ION_SECURE;
+        } else {
+            alloc_regions = (ION_HEAP(ION_CP_MM_HEAP_ID) | ION_HEAP(ION_IOMMU_HEAP_ID));
+        }
+
 	handle = ion_alloc(client,
-			mregion->size, SZ_4K, alloc_regions);
+			mregion->size, SZ_4K, alloc_regions, flags);
 
 	if (IS_ERR_OR_NULL(handle)) {
 		WFD_MSG_ERR("Failed to allocate input buffer\n");
@@ -171,7 +176,7 @@ static int wfd_allocate_ion_buffer(struct ion_client *client,
 		goto alloc_fail;
 	}
 
-	kvaddr = ion_map_kernel(client,	handle,	CACHED);
+	kvaddr = ion_map_kernel(client,	handle);
 
 	if (IS_ERR_OR_NULL(kvaddr)) {
 		WFD_MSG_ERR("Failed to get virtual addr\n");
@@ -470,10 +475,18 @@ int wfd_vidbuf_buf_init(struct vb2_buffer *vb)
 		(struct wfd_device *)video_drvdata(priv_data);
 	struct mem_info *minfo = vb2_plane_cookie(vb, 0);
 	struct mem_region mregion;
+	if (!minfo) {
+		pr_info("%s mem is null\n", __func__);
+		return -EINVAL;
+	}	
 	mregion.fd = minfo->fd;
 	mregion.offset = minfo->offset;
 	mregion.cookie = (u32)vb;
 	
+	if (!inst) {
+		pr_info("%s inst is null\n", __func__);
+		return -EINVAL;
+	}		
 	mregion.size =  inst->out_buf_size;
 
 	if (inst && !inst->vid_bufq.streaming) {
@@ -883,7 +896,7 @@ static int wfdioc_qbuf(struct file *filp, void *fh,
 	int rc = 0;
 	struct wfd_inst *inst = filp->private_data;
 	if (!inst || !b ||
-			(b->index < 0 || b->index >= inst->buf_count)) {
+			(b->index >= inst->buf_count)) {
 		WFD_MSG_ERR("Invalid input parameters to QBUF IOCTL\n");
 		return -EINVAL;
 	}
@@ -1305,6 +1318,10 @@ static int wfd_open(struct file *filp)
 
 	WFD_MSG_DBG("wfd_open: E\n");
 	wfd_dev = video_drvdata(filp);
+	if (!wfd_dev) {
+		pr_info("%s wfd_dev is null\n", __func__);
+		return -ENOMEM;
+	}
 
 	mutex_lock(&wfd_dev->dev_lock);
 	if (wfd_dev->in_use) {

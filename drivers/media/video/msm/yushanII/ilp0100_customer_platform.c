@@ -222,6 +222,12 @@ ilp0100_error Ilp0100_readFileInBuffer(struct msm_sensor_ctrl_t *s_ctrl, uint8_t
 		Ret = ILP0100_ERROR;
 		return Ret;
 	}
+	if (!fw_rawchip2) {
+		pr_info("fw_rawchip2 is null\n");
+		Ret = ILP0100_ERROR;
+		return Ret;
+	}
+	
 	Ilp0100_store_firmwarwe(fw_rawchip2);
 	rawchipII_data_fw = (unsigned char *)fw_rawchip2->data;
 	rawchipII_fw_size = (u32) fw_rawchip2->size;

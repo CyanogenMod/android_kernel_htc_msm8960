@@ -19,14 +19,16 @@
 #include <linux/poll.h>
 #include <linux/ratelimit.h>
 #include <linux/debugfs.h>
-#include "rmnet_usb_ctrl.h"
+#include "rmnet_usb.h"
 #include <mach/board_htc.h>
 
-#define DEVICE_NAME			"hsicctl"
+
+static char *rmnet_dev_names[MAX_RMNET_DEVS] = {"hsicctl"};
+module_param_array(rmnet_dev_names, charp, NULL, S_IRUGO | S_IWUSR);
 #define HTC_HSIC_DEVICE_NAME		"htc_hsicctl"
 
-#define NUM_CTRL_CHANNELS		4
 #define DEFAULT_READ_URB_LENGTH		0x1000
+#define UNLINK_TIMEOUT_MS		500 
 
 #define HTC_RMNET_IOCTL_DEFINE 0xCC
 #define HTC_RMNET_USB_SET_ITC _IOW(HTC_RMNET_IOCTL_DEFINE, 201, int)
@@ -108,7 +110,7 @@ static void log_rmnet_usb_ctrl_event(struct usb_interface	*intf, char * event, s
 struct ctrl_write_context {
 	struct timer_list timer;
 	unsigned long start_jiffies;
-	struct rmnet_ctrl_dev *dev;
+	struct ctrl_pkt *cpkt;
 };
 
 static void do_mdm_restart_delay_work_fn(struct work_struct *work)
@@ -169,7 +171,7 @@ enum {
 do { \
 	if ((ctl_msg_dbg_mask & MSM_USB_CTL_DUMP_BUFFER) || enable_ctl_msg_debug) \
 			print_hex_dump(KERN_INFO, prestr, DUMP_PREFIX_NONE, \
-					16, 1, buf, 11, false); \
+					16, 1, buf, 11 , false); \
 } while (0)
 
 #define DBG(x...) \
@@ -178,16 +180,20 @@ do { \
 				pr_info(x); \
 		} while (0)
 
-struct rmnet_ctrl_dev		*ctrl_dev[NUM_CTRL_CHANNELS];
-struct class			*ctrldev_classp;
-static dev_t			ctrldev_num;
+static int num_devs;
+static int insts_per_dev;
 struct device			*hsicdevicep;
 struct class			*hsicctrldev_classp;
 static int				htc_hsicctrldev_major;
 
+static struct rmnet_ctrl_dev **ctrl_devs;
+static struct class	*ctrldev_classp[MAX_RMNET_DEVS];
+static dev_t		ctrldev_num[MAX_RMNET_DEVS];
+
 struct ctrl_pkt {
 	size_t	data_size;
 	void	*data;
+	void	*ctxt;
 };
 
 struct ctrl_pkt_list_elem {
@@ -197,20 +203,38 @@ struct ctrl_pkt_list_elem {
 
 static void resp_avail_cb(struct urb *);
 
-static int is_dev_connected(struct rmnet_ctrl_dev *dev)
+static int rmnet_usb_ctrl_dmux(struct ctrl_pkt_list_elem *clist)
 {
-	if (dev) {
-		mutex_lock(&dev->dev_lock);
-		if (!dev->is_connected) {
-			mutex_unlock(&dev->dev_lock);
-			return 0;
-		}
-		mutex_unlock(&dev->dev_lock);
-		return 1;
-	}
-	return 0;
-}
+	struct mux_hdr	*hdr;
+	size_t		pad_len;
+	size_t		total_len;
+	unsigned int	mux_id;
 
+	hdr = (struct mux_hdr *)clist->cpkt.data;
+	pad_len = hdr->padding_info >> MUX_PAD_SHIFT;
+	if (pad_len > MAX_PAD_BYTES(4)) {
+		pr_err_ratelimited("%s: Invalid pad len %d\n", __func__,
+				pad_len);
+		return -EINVAL;
+	}
+
+	mux_id = hdr->mux_id;
+
+	if (!mux_id || mux_id > insts_per_dev) {
+		pr_err_ratelimited("%s: Invalid mux id %d\n", __func__, mux_id);
+		return -EINVAL;
+	}
+	total_len = le16_to_cpu(hdr->pkt_len_w_padding);
+	if (!total_len || !(total_len - pad_len)) {
+		pr_err_ratelimited("%s: Invalid pkt length %d\n", __func__,
+				total_len);
+		return -EINVAL;
+	}
+
+	clist->cpkt.data_size = total_len - pad_len;
+
+	return mux_id - 1;
+}
 #ifdef HTC_DEBUG_QMI_STUCK
 static struct urb	*expired_rcvurb = NULL;
 static void kill_rcv_urb_delay_work_fn(struct work_struct *work)
@@ -232,6 +256,14 @@ static void rmnet_usb_ctrl_read_timer_expire(unsigned long data)
 {
 	struct rmnet_ctrl_dev *dev = (struct rmnet_ctrl_dev *)data;
 
+	
+	if ( !dev ) {
+		expired_rcvurb = NULL;
+		pr_err("[RMNET][%s] dev is NULL\n", __func__);
+		return;
+	}
+	
+
 	dev_err(dev->devicep, "[RMNET][%s] %s rcv_timer expire !!! \n", __func__, dev->name);
 
 	
@@ -240,17 +272,42 @@ static void rmnet_usb_ctrl_read_timer_expire(unsigned long data)
 		log_rmnet_usb_ctrl_event(dev->intf, "Rx timeout", 0);
 	#endif	
 	
-
-	expired_rcvurb = dev->rcvurb;
-	schedule_delayed_work_on(0, &kill_rcv_urb_delay_work, 10);
+	if( NULL == expired_rcvurb ) {
+		pr_info("[RMNET][%s] Read urb %p expire\n", __func__, expired_rcvurb);
+		expired_rcvurb = dev->rcvurb;
+		schedule_delayed_work_on(0, &kill_rcv_urb_delay_work, 10);
+	}
 }
 #endif	
+
+static void rmnet_usb_ctrl_mux(unsigned int id, struct ctrl_pkt *cpkt)
+{
+	struct mux_hdr	*hdr;
+	size_t		len;
+	size_t		pad_len = 0;
+
+	hdr = (struct mux_hdr *)cpkt->data;
+	hdr->mux_id = id + 1;
+	len = cpkt->data_size - sizeof(struct mux_hdr) - MAX_PAD_BYTES(4);
+
+	
+	pad_len =  ALIGN(len, 4) - len;
+
+	hdr->pkt_len_w_padding = cpu_to_le16(len + pad_len);
+	hdr->padding_info = (pad_len << MUX_PAD_SHIFT) | MUX_CTRL_MASK;
+
+	cpkt->data_size = sizeof(struct mux_hdr) + hdr->pkt_len_w_padding;
+}
+
 static void get_encap_work(struct work_struct *w)
 {
 	struct usb_device	*udev;
 	struct rmnet_ctrl_dev	*dev =
 			container_of(w, struct rmnet_ctrl_dev, get_encap_work);
 	int			status;
+
+	if (!test_bit(RMNET_CTRL_DEV_READY, &dev->status))
+		return;
 
 	udev = interface_to_usbdev(dev->intf);
 
@@ -285,8 +342,10 @@ static void get_encap_work(struct work_struct *w)
 		dev->get_encap_failure_cnt++;
 		usb_unanchor_urb(dev->rcvurb);
 		usb_autopm_put_interface(dev->intf);
-		dev_err(dev->devicep,
-		"%s: Error submitting Read URB %d\n", __func__, status);
+		if (status != -ENODEV)
+			dev_err(dev->devicep,
+			"%s: Error submitting Read URB %d\n",
+			__func__, status);
 		goto resubmit_int_urb;
 	}
 
@@ -299,11 +358,12 @@ resubmit_int_urb:
 		status = usb_submit_urb(dev->inturb, GFP_KERNEL);
 		if (status) {
 			usb_unanchor_urb(dev->inturb);
-				dev_err(dev->devicep, "%s: Error re-submitting Int URB %d\n",
+			if (status != -ENODEV)
+				dev_err(dev->devicep,
+				"%s: Error re-submitting Int URB %d\n",
 				__func__, status);
 		}
 	}
-
 }
 
 static void notification_available_cb(struct urb *urb)
@@ -355,16 +415,13 @@ static void notification_available_cb(struct urb *urb)
 			usb_mark_intf_last_busy(dev->intf, false);
 #endif
 		
-		usb_mark_last_busy(udev);
-		queue_work(dev->wq, &dev->get_encap_work);
-
-		if (!dev->resp_available) {
-			dev->resp_available = true;
-			
-			if (dev->intf)
-				dev_info(&dev->intf->dev, "%s[%d]:dev->resp_available:%d\n", __func__, __LINE__, dev->resp_available);
+		if (!test_bit(RMNET_CTRL_DEV_READY, &dev->status)) {
+			set_bit(RMNET_CTRL_DEV_READY, &dev->status);
 			wake_up(&dev->open_wait_queue);
 		}
+
+		usb_mark_last_busy(udev);
+		queue_work(dev->wq, &dev->get_encap_work);
 
 		return;
 	default:
@@ -379,13 +436,14 @@ resubmit_int_urb:
 		usb_mark_intf_last_busy(dev->intf, false);
 #endif
 	
-	usb_mark_last_busy(udev);
 	usb_anchor_urb(urb, &dev->rx_submitted);
 	status = usb_submit_urb(urb, GFP_ATOMIC);
 	if (status) {
 		usb_unanchor_urb(urb);
-		dev_err(dev->devicep, "%s: Error re-submitting Int URB %d\n",
-		__func__, status);
+		if (status != -ENODEV)
+			dev_err(dev->devicep,
+			"%s: Error re-submitting Int URB %d\n",
+			__func__, status);
 	}
 
 	return;
@@ -395,9 +453,9 @@ static void resp_avail_cb(struct urb *urb)
 {
 	struct usb_device		*udev;
 	struct ctrl_pkt_list_elem	*list_elem = NULL;
-	struct rmnet_ctrl_dev		*dev = urb->context;
+	struct rmnet_ctrl_dev		*rx_dev, *dev = urb->context;
 	void				*cpkt;
-	int				status = 0;
+	int				ch_id, status = 0;
 	size_t				cpkt_size = 0;
 
 	udev = interface_to_usbdev(dev->intf);
@@ -407,15 +465,15 @@ static void resp_avail_cb(struct urb *urb)
 	del_timer(&dev->rcv_timer);
 	if (expired_rcvurb == urb) {
 		expired_rcvurb = NULL;
-		dev_err(&(dev->intf->dev), "[RMNET] %s(%d) urb->status:%d urb->actual_length:%u !!!\n", __func__, __LINE__, urb->status, urb->actual_length);
+		dev_err(dev->devicep, "[RMNET] %s(%d) urb->status:%d urb->actual_length:%u !!!\n", __func__, __LINE__, urb->status, urb->actual_length);
 		if (urb->status != 0) {
 			if (urb->actual_length > 0) {
-				dev_err(&(dev->intf->dev), "[RMNET] %s(%d) set urb->status 0 !!!\n", __func__, __LINE__);
+				dev_err(dev->devicep, "[RMNET] %s(%d) set urb->status 0 !!!\n", __func__, __LINE__);
 				urb->status = 0;
 			}
 			else {
-				dev_err(&(dev->intf->dev), "[RMNET] %s(%d) dev->inturb->anchor(%x) !!!\n", __func__, __LINE__, (dev->inturb) ? (unsigned int)dev->inturb->anchor : (unsigned int)(0xffffffff));
-				dev_err(&(dev->intf->dev), "[RMNET] %s(%d) goto resubmit_int_urb !!!\n", __func__, __LINE__);
+				dev_err(dev->devicep, "[RMNET] %s(%d) dev->inturb->anchor(%x) !!!\n", __func__, __LINE__, (dev->inturb) ? (unsigned int)dev->inturb->anchor : (unsigned int)(0xffffffff));
+				dev_err(dev->devicep, "[RMNET] %s(%d) goto resubmit_int_urb !!!\n", __func__, __LINE__);
 				goto resubmit_int_urb;
 			}
 		}
@@ -425,7 +483,6 @@ static void resp_avail_cb(struct urb *urb)
 	switch (urb->status) {
 	case 0:
 		
-		dev->get_encap_resp_cnt++;
 		break;
 
 	
@@ -474,11 +531,27 @@ static void resp_avail_cb(struct urb *urb)
 	}
 	memcpy(list_elem->cpkt.data, cpkt, cpkt_size);
 	list_elem->cpkt.data_size = cpkt_size;
-	spin_lock(&dev->rx_lock);
-	list_add_tail(&list_elem->list, &dev->rx_list);
-	spin_unlock(&dev->rx_lock);
 
-	wake_up(&dev->read_wait_queue);
+	rx_dev = dev;
+
+	if (test_bit(RMNET_CTRL_DEV_MUX_EN, &dev->status)) {
+		ch_id = rmnet_usb_ctrl_dmux(list_elem);
+		if (ch_id < 0) {
+			kfree(list_elem->cpkt.data);
+			kfree(list_elem);
+			goto resubmit_int_urb;
+		}
+
+		rx_dev = &ctrl_devs[dev->id][ch_id];
+	}
+
+	rx_dev->get_encap_resp_cnt++;
+
+	spin_lock(&rx_dev->rx_lock);
+	list_add_tail(&list_elem->list, &rx_dev->rx_list);
+	spin_unlock(&rx_dev->rx_lock);
+
+	wake_up(&rx_dev->read_wait_queue);
 
 resubmit_int_urb:
 	
@@ -488,16 +561,26 @@ resubmit_int_urb:
 #endif
 	
 	
-	if (!dev->inturb->anchor) {
-		usb_mark_last_busy(udev);
-		usb_anchor_urb(dev->inturb, &dev->rx_submitted);
-		status = usb_submit_urb(dev->inturb, GFP_ATOMIC);
-		if (status) {
-			usb_unanchor_urb(dev->inturb);
-			dev_err(dev->devicep, "%s: Error re-submitting Int URB %d\n",
-				__func__, status);
+	
+	
+	
+	if ( dev->inturb ) {
+		if (!dev->inturb->anchor) {
+			usb_mark_last_busy(udev);
+			usb_anchor_urb(dev->inturb, &dev->rx_submitted);
+			status = usb_submit_urb(dev->inturb, GFP_ATOMIC);
+			if (status) {
+				usb_unanchor_urb(dev->inturb);
+				if (status != -ENODEV)
+					dev_err(dev->devicep,
+					"%s: Error re-submitting Int URB %d\n",
+					__func__, status);
+			}
 		}
+	} else {
+		dev_err(dev->devicep, "%s: dev->inturb is NULL\n", __func__);
 	}
+	
 }
 
 int rmnet_usb_ctrl_start_rx(struct rmnet_ctrl_dev *dev)
@@ -508,29 +591,16 @@ int rmnet_usb_ctrl_start_rx(struct rmnet_ctrl_dev *dev)
 	retval = usb_submit_urb(dev->inturb, GFP_KERNEL);
 	if (retval < 0) {
 		usb_unanchor_urb(dev->inturb);
-		dev_err(dev->devicep, "%s Intr submit %d\n", __func__,
-				retval);
+		if (retval != -ENODEV)
+			dev_err(dev->devicep,
+			"%s Intr submit %d\n", __func__, retval);
 	}
 
 	return retval;
 }
 
-int rmnet_usb_ctrl_suspend(struct rmnet_ctrl_dev *dev)
- {
-	int ret = 0;
-	ret = work_busy(&dev->get_encap_work);
-	if (ret)
-		return -EBUSY;
-
-	usb_kill_anchored_urbs(&dev->rx_submitted);
-	return 0;
-}
-
-
 static int rmnet_usb_ctrl_alloc_rx(struct rmnet_ctrl_dev *dev)
 {
-	int	retval = -ENOMEM;
-
 	dev->rcvurb = usb_alloc_urb(0, GFP_KERNEL);
 	if (!dev->rcvurb) {
 		pr_err("%s: Error allocating read urb\n", __func__);
@@ -550,7 +620,7 @@ static int rmnet_usb_ctrl_alloc_rx(struct rmnet_ctrl_dev *dev)
 	}
 
 #ifdef HTC_DEBUG_QMI_STUCK
-	dev_err(dev->devicep, "%s init_timer rcv_timer\n", dev->name);
+	dev_info(dev->devicep, "%s init_timer rcv_timer\n", dev->name);
 	init_timer(&dev->rcv_timer);
 	dev->rcv_timer.function = rmnet_usb_ctrl_read_timer_expire;
 	dev->rcv_timer.data = (unsigned long)dev;
@@ -563,14 +633,14 @@ nomem:
 	kfree(dev->rcvbuf);
 	kfree(dev->in_ctlreq);
 
-	return retval;
+	return -ENOMEM;
 
 }
 static int rmnet_usb_ctrl_write_cmd(struct rmnet_ctrl_dev *dev)
 {
 	struct usb_device	*udev;
 
-	if (!is_dev_connected(dev))
+	if (!test_bit(RMNET_CTRL_DEV_READY, &dev->status))
 		return -ENODEV;
 
 	udev = interface_to_usbdev(dev->intf);
@@ -589,7 +659,8 @@ static void rmnet_usb_ctrl_write_timer_expire(unsigned long data)
 {
 	struct urb *urb = (struct urb *)data;
 	struct ctrl_write_context *context = urb->context;
-	struct rmnet_ctrl_dev	*dev = context->dev;
+	struct ctrl_pkt		*cpkt = context->cpkt;
+	struct rmnet_ctrl_dev	*dev = cpkt->ctxt;
 
 	pr_err("[%s] urb %p expired\n", __func__, urb);
 
@@ -609,10 +680,11 @@ static void ctrl_write_callback(struct urb *urb)
 {
 #ifdef HTC_DEBUG_QMI_STUCK
 	struct ctrl_write_context *context = urb->context;
-	struct rmnet_ctrl_dev	*dev = context->dev;
+	struct ctrl_pkt		*cpkt = context->cpkt;
 #else 
-	struct rmnet_ctrl_dev	*dev = urb->context;
+	struct ctrl_pkt		*cpkt = urb->context;
 #endif 
+	struct rmnet_ctrl_dev	*dev = cpkt->ctxt;
 
 #ifdef HTC_DEBUG_QMI_STUCK
 	del_timer(&context->timer);
@@ -635,13 +707,14 @@ static void ctrl_write_callback(struct urb *urb)
 	kfree(urb->transfer_buffer);
 	usb_free_urb(urb);
 	usb_autopm_put_interface_async(dev->intf);
+	kfree(cpkt);
 #ifdef HTC_DEBUG_QMI_STUCK
 	kfree(context);
 #endif	
 }
 
-static int rmnet_usb_ctrl_write(struct rmnet_ctrl_dev *dev, char *buf,
-		size_t size)
+static int rmnet_usb_ctrl_write(struct rmnet_ctrl_dev *dev,
+		struct ctrl_pkt *cpkt, size_t size)
 {
 	int			result;
 	struct urb		*sndurb;
@@ -651,7 +724,7 @@ static int rmnet_usb_ctrl_write(struct rmnet_ctrl_dev *dev, char *buf,
 	struct ctrl_write_context *context;
 #endif	
 
-	if (!is_dev_connected(dev))
+	if (!test_bit(RMNET_CTRL_DEV_READY, &dev->status))
 		return -ENETRESET;
 
 	udev = interface_to_usbdev(dev->intf);
@@ -677,7 +750,7 @@ static int rmnet_usb_ctrl_write(struct rmnet_ctrl_dev *dev, char *buf,
 		dev_err(dev->devicep, "Error allocating private data\n");
 		return -ENOMEM;
 	}
-	context->dev = dev;
+	context->cpkt = cpkt;
 #endif	
 
 	
@@ -686,15 +759,16 @@ static int rmnet_usb_ctrl_write(struct rmnet_ctrl_dev *dev, char *buf,
 	out_ctlreq->bRequest = USB_CDC_SEND_ENCAPSULATED_COMMAND;
 	out_ctlreq->wValue = 0;
 	out_ctlreq->wIndex = dev->intf->cur_altsetting->desc.bInterfaceNumber;
-	out_ctlreq->wLength = cpu_to_le16(size);
+	out_ctlreq->wLength = cpu_to_le16(cpkt->data_size);
 
 	usb_fill_control_urb(sndurb, udev,
 			     usb_sndctrlpipe(udev, 0),
-			     (unsigned char *)out_ctlreq, (void *)buf, size,
+			     (unsigned char *)out_ctlreq, (void *)cpkt->data,
+			     cpkt->data_size,
 #ifdef HTC_DEBUG_QMI_STUCK
 			     ctrl_write_callback, context);
 #else	
-			     ctrl_write_callback, dev);
+			     ctrl_write_callback, cpkt);
 #endif	
 
 	result = usb_autopm_get_interface(dev->intf);
@@ -727,7 +801,9 @@ static int rmnet_usb_ctrl_write(struct rmnet_ctrl_dev *dev, char *buf,
 	dev->snd_encap_cmd_cnt++;
 	result = usb_submit_urb(sndurb, GFP_KERNEL);
 	if (result < 0) {
-		dev_err(dev->devicep, "%s: Submit URB error %d\n",
+		if (result != -ENODEV)
+			dev_err(dev->devicep,
+			"%s: Submit URB error %d\n",
 			__func__, result);
 		dev->snd_encap_cmd_cnt--;
 		usb_autopm_put_interface(dev->intf);
@@ -749,28 +825,21 @@ static int rmnet_ctl_open(struct inode *inode, struct file *file)
 	int			retval = 0;
 	struct rmnet_ctrl_dev	*dev =
 		container_of(inode->i_cdev, struct rmnet_ctrl_dev, cdev);
-
+#ifdef HTC_MDM_RESTART_IF_RMNET_OPEN_TIMEOUT
+		extern void htc_ehci_trigger_mdm_restart(void);
+#endif
 	if (!dev)
 		return -ENODEV;
 
-	if (dev->is_opened) {
-		file->private_data = dev;
+	if (test_bit(RMNET_CTRL_DEV_OPEN, &dev->status))
 		goto already_opened;
-	}
 
-	
-	if (dev->is_connected) {
-		if (dev->intf)
-			dev_info(&dev->intf->dev, "%s[%d]:mdm_wait_timeout:%d resp_available:%d\n", __func__, __LINE__, dev->mdm_wait_timeout, dev->resp_available);
-	}
-
-	
-	if (dev->mdm_wait_timeout && !dev->resp_available) {
+	if (dev->mdm_wait_timeout &&
+			!test_bit(RMNET_CTRL_DEV_READY, &dev->status)) {
 		retval = wait_event_interruptible_timeout(
-					dev->open_wait_queue,
-					dev->resp_available,
-					msecs_to_jiffies(dev->mdm_wait_timeout *
-									1000));
+				dev->open_wait_queue,
+				test_bit(RMNET_CTRL_DEV_READY, &dev->status),
+				msecs_to_jiffies(dev->mdm_wait_timeout * 1000));
 		if (retval == 0) {
 			dev_err(dev->devicep, "%s: Timeout opening %s\n",
 						__func__, dev->name);
@@ -782,30 +851,25 @@ static int rmnet_ctl_open(struct inode *inode, struct file *file)
 		}
 	}
 
-	if (!dev->resp_available) {
+	if (!test_bit(RMNET_CTRL_DEV_READY, &dev->status)) {
 		dev_err(dev->devicep, "%s: Connection timedout opening %s\n",
 					__func__, dev->name);
 
 #ifdef HTC_MDM_RESTART_IF_RMNET_OPEN_TIMEOUT
-		if (dev->is_connected) {
-			extern void htc_ehci_trigger_mdm_restart(void);
-
-			if (jiffies_to_msecs(jiffies - dev->connected_jiffies) > RMNET_OPEN_TIMEOUT_MS) {
-				dev_err(&dev->intf->dev, "%s[%d]:dev->connected_jiffies:%lu jiffies:%lu\n", __func__, __LINE__, dev->connected_jiffies, jiffies);
-				dev_err(&dev->intf->dev, "%s[%d]:htc_ehci_trigger_mdm_restart!!!\n", __func__, __LINE__);
-				htc_ehci_trigger_mdm_restart();
-				msleep(500);
-			}
+		if ((dev->claimed) && jiffies_to_msecs(jiffies - dev->connected_jiffies) > RMNET_OPEN_TIMEOUT_MS) {
+			dev_err(dev->devicep, "%s[%d]:dev->connected_jiffies:%lu jiffies:%lu\n", __func__, __LINE__, dev->connected_jiffies, jiffies);
+			dev_err(dev->devicep, "%s[%d]:htc_ehci_trigger_mdm_restart!!!\n", __func__, __LINE__);
+			htc_ehci_trigger_mdm_restart();
+			msleep(500);
 		}
 #endif	
 
 		return -ETIMEDOUT;
 	}
 
-	mutex_lock(&dev->dev_lock);
-	dev->is_opened = 1;
-	mutex_unlock(&dev->dev_lock);
-
+	set_bit(RMNET_CTRL_DEV_OPEN, &dev->status);
+	dev_err(dev->devicep, "%s: Connection opened %s\n",
+					__func__, dev->name);
 	file->private_data = dev;
 
 already_opened:
@@ -819,6 +883,7 @@ static int rmnet_ctl_release(struct inode *inode, struct file *file)
 	struct ctrl_pkt_list_elem	*list_elem = NULL;
 	struct rmnet_ctrl_dev		*dev;
 	unsigned long			flag;
+	int				time;
 
 	dev = file->private_data;
 	if (!dev)
@@ -838,11 +903,11 @@ static int rmnet_ctl_release(struct inode *inode, struct file *file)
 	}
 	spin_unlock_irqrestore(&dev->rx_lock, flag);
 
-	mutex_lock(&dev->dev_lock);
-	dev->is_opened = 0;
-	mutex_unlock(&dev->dev_lock);
+	clear_bit(RMNET_CTRL_DEV_OPEN, &dev->status);
 
-	if (is_dev_connected(dev))
+	time = usb_wait_anchor_empty_timeout(&dev->tx_submitted,
+			UNLINK_TIMEOUT_MS);
+	if (!time)
 		usb_kill_anchored_urbs(&dev->tx_submitted);
 
 	file->private_data = NULL;
@@ -860,7 +925,7 @@ static unsigned int rmnet_ctl_poll(struct file *file, poll_table *wait)
 		return POLLERR;
 
 	poll_wait(file, &dev->read_wait_queue, wait);
-	if (!is_dev_connected(dev)) {
+	if (!test_bit(RMNET_CTRL_DEV_READY, &dev->status)) {
 		dev_dbg(dev->devicep, "%s: Device not connected\n",
 			__func__);
 		return POLLERR;
@@ -877,6 +942,7 @@ static ssize_t rmnet_ctl_read(struct file *file, char __user *buf, size_t count,
 {
 	int				retval = 0;
 	int				bytes_to_read;
+	unsigned int			hdr_len = 0;
 	struct rmnet_ctrl_dev		*dev;
 	struct ctrl_pkt_list_elem	*list_elem = NULL;
 	unsigned long			flags;
@@ -888,7 +954,7 @@ static ssize_t rmnet_ctl_read(struct file *file, char __user *buf, size_t count,
 	DBG("%s: Read from %s\n", __func__, dev->name);
 
 ctrl_read:
-	if (!is_dev_connected(dev)) {
+	if (!test_bit(RMNET_CTRL_DEV_READY, &dev->status)) {
 		dev_dbg(dev->devicep, "%s: Device not connected\n",
 			__func__);
 		return -ENETRESET;
@@ -898,8 +964,8 @@ ctrl_read:
 		spin_unlock_irqrestore(&dev->rx_lock, flags);
 
 		retval = wait_event_interruptible(dev->read_wait_queue,
-					!list_empty(&dev->rx_list) ||
-					!is_dev_connected(dev));
+				!list_empty(&dev->rx_list) ||
+				!test_bit(RMNET_CTRL_DEV_READY, &dev->status));
 		if (retval < 0)
 			return retval;
 
@@ -917,7 +983,10 @@ ctrl_read:
 	}
 	spin_unlock_irqrestore(&dev->rx_lock, flags);
 
-	if (copy_to_user(buf, list_elem->cpkt.data, bytes_to_read)) {
+	if (test_bit(RMNET_CTRL_DEV_MUX_EN, &dev->status))
+		hdr_len = sizeof(struct mux_hdr);
+
+	if (copy_to_user(buf, list_elem->cpkt.data + hdr_len, bytes_to_read)) {
 			dev_err(dev->devicep,
 				"%s: copy_to_user failed for %s\n",
 				__func__, dev->name);
@@ -944,7 +1013,10 @@ static ssize_t rmnet_ctl_write(struct file *file, const char __user * buf,
 		size_t size, loff_t *pos)
 {
 	int			status;
+	size_t			total_len;
 	void			*wbuf;
+	void			*actual_data;
+	struct ctrl_pkt		*cpkt;
 	struct rmnet_ctrl_dev	*dev = file->private_data;
 
 	if (!dev)
@@ -953,30 +1025,46 @@ static ssize_t rmnet_ctl_write(struct file *file, const char __user * buf,
 	if (size <= 0)
 		return -EINVAL;
 
-	if (!is_dev_connected(dev))
+	if (!test_bit(RMNET_CTRL_DEV_READY, &dev->status))
 		return -ENETRESET;
 
 	DBG("%s: Writing %i bytes on %s\n", __func__, size, dev->name);
 
-	wbuf = kmalloc(size , GFP_KERNEL);
-	if (!wbuf) {
-		dev_err(dev->devicep,
-			"%s(%d): kmalloc failed !!!\n",
-			__func__, __LINE__);
+	total_len = size;
+
+	if (test_bit(RMNET_CTRL_DEV_MUX_EN, &dev->status))
+		total_len += sizeof(struct mux_hdr) + MAX_PAD_BYTES(4);
+
+	wbuf = kmalloc(total_len , GFP_KERNEL);
+	if (!wbuf)
+		return -ENOMEM;
+
+	cpkt = kmalloc(sizeof(struct ctrl_pkt), GFP_KERNEL);
+	if (!cpkt) {
+		kfree(wbuf);
 		return -ENOMEM;
 	}
+	actual_data = cpkt->data = wbuf;
+	cpkt->data_size = total_len;
+	cpkt->ctxt = dev;
 
-	status = copy_from_user(wbuf , buf, size);
+	if (test_bit(RMNET_CTRL_DEV_MUX_EN, &dev->status)) {
+		actual_data = wbuf + sizeof(struct mux_hdr);
+		rmnet_usb_ctrl_mux(dev->ch_id, cpkt);
+	}
+
+	status = copy_from_user(actual_data, buf, size);
 	if (status) {
 		dev_err(dev->devicep,
 		"%s: Unable to copy data from userspace %d\n",
 		__func__, status);
 		kfree(wbuf);
+		kfree(cpkt);
 		return status;
 	}
 	DUMP_BUFFER("Write: ", size, buf);
 
-	status = rmnet_usb_ctrl_write(dev, wbuf, size);
+	status = rmnet_usb_ctrl_write(dev, cpkt, size);
 	if (status == size)
 		return size;
 
@@ -1068,10 +1156,182 @@ static const struct file_operations ctrldev_fops = {
 #define HSIC_FAST_INTERRUPT_LATENCY 1
 #define HSIC_SLOW_INTERRUPT_LATENCY 6
 
+#define ITC_BIT(nr)   (1UL << (nr))
+#define RMNET_CTRL_ITC_DISABLE 0
+#define RMNET_CTRL_ITC_ENABLE ITC_BIT(0)
+#define RMNET_CTRL_ITC_INIT ITC_BIT(1) 
+#define RMNET_CTRL_ITC_AP_START ITC_BIT(2) 
+#define RMNET_CTRL_ITC_AP_AUDIO ITC_BIT(2) 
+#define RMNET_CTRL_ITC_AP_ISIS ITC_BIT(3) 
+#define RMNET_CTRL_ITC_AP_VT ITC_BIT(4) 
+#define RMNET_CTRL_ITC_AP_MAX ITC_BIT(4) 
+#define RMNET_CTRL_ITC_AP_COUNT 3
+
+#define RMNET_CTRL_ITC_AUDIO_INIT RMNET_CTRL_ITC_AP_AUDIO | RMNET_CTRL_ITC_INIT
+#define RMNET_CTRL_ITC_AUDIO_ENABLE RMNET_CTRL_ITC_AP_AUDIO | RMNET_CTRL_ITC_ENABLE
+#define RMNET_CTRL_ITC_AUDIO_DISABLE RMNET_CTRL_ITC_AP_AUDIO | RMNET_CTRL_ITC_DISABLE
+#define RMNET_CTRL_ITC_ISIS_INIT RMNET_CTRL_ITC_AP_ISIS | RMNET_CTRL_ITC_INIT
+#define RMNET_CTRL_ITC_ISIS_ENABLE RMNET_CTRL_ITC_AP_ISIS | RMNET_CTRL_ITC_ENABLE
+#define RMNET_CTRL_ITC_ISIS_DISABLE RMNET_CTRL_ITC_AP_ISIS | RMNET_CTRL_ITC_DISABLE
+#define RMNET_CTRL_ITC_VT_INIT RMNET_CTRL_ITC_AP_VT | RMNET_CTRL_ITC_INIT
+#define RMNET_CTRL_ITC_VT_ENABLE RMNET_CTRL_ITC_AP_VT | RMNET_CTRL_ITC_ENABLE
+#define RMNET_CTRL_ITC_VT_DISABLE RMNET_CTRL_ITC_AP_VT | RMNET_CTRL_ITC_DISABLE
+unsigned int rmnet_ctrl_itc_catch = 0;
+
+inline void set_itc_bit(unsigned int* value, unsigned int bit)
+{
+	if (!value)
+	{
+		pr_err("[%s] value is null\n", __func__);
+		return;
+	}
+
+	(*value) |= bit;
+	return;
+}
+
+inline void clear_itc_bit(unsigned int* value, unsigned int bit)
+{
+	if (!value)
+	{
+		pr_err("[%s] value is null\n", __func__);
+		return;
+	}
+
+	if ( (*value) & bit )
+	{
+		(*value) &= ~bit;
+	}
+
+	return;
+}
+
+int rmnet_ctrl_set_itc_value_check(int value, int* p_enable, int* p_need_set)
+{
+	int ret = 0;
+	int enable = 0;
+	int is_init = 0;
+	int ap_bit = 0;
+	int need_set = 1;
+	int has_ap_in_catch = 0;
+	char ap_name[128] = {0};
+	int i = 0;
+
+	enable = (value & RMNET_CTRL_ITC_ENABLE) ? 1 : 0;
+	is_init = (value & RMNET_CTRL_ITC_INIT) ? 1 : 0;
+
+	for ( i = 0; i < RMNET_CTRL_ITC_AP_COUNT; i++)
+	{
+		if (value & (RMNET_CTRL_ITC_AP_START << i)) {
+			ap_bit = (RMNET_CTRL_ITC_AP_START << i);
+			break;
+		}
+	}
+
+	if ( !ap_bit ) 
+	{
+		
+		pr_err("[%s] can't find ap, value=[0x%x]\n", __func__, value);
+		enable = 0;
+		need_set = 0;
+		ret = -1;
+		goto end;
+	}
+
+	switch (ap_bit)
+	{
+		case RMNET_CTRL_ITC_AP_AUDIO:
+			sprintf( ap_name, "%s", "audio");
+			break;
+		case RMNET_CTRL_ITC_AP_ISIS:
+			sprintf( ap_name, "%s", "isis");
+			break;
+		case RMNET_CTRL_ITC_AP_VT:
+			sprintf( ap_name, "%s", "vt");
+			break;
+		default:
+			break;
+	}
+
+	pr_info("[%s] value=[0x%x], ap=[%s(0x%x)], enable=[%d], is_init=[%d], rmnet_ctrl_itc_catch=[0x%x]\n", __func__, value, ap_name, ap_bit, enable, is_init, rmnet_ctrl_itc_catch);
+
+	if ( is_init ) 
+	{
+		
+		
+		clear_itc_bit ( &rmnet_ctrl_itc_catch, ap_bit );
+		goto check_if_need_set_itc;
+	}
+
+	if (enable)
+	{
+		
+		set_itc_bit ( &rmnet_ctrl_itc_catch, ap_bit );
+	}
+	else
+	{
+		
+		
+		clear_itc_bit ( &rmnet_ctrl_itc_catch, ap_bit );
+	}
+
+
+check_if_need_set_itc:
+	
+	for ( i = 0; i < RMNET_CTRL_ITC_AP_COUNT; i++)
+	{
+		if (rmnet_ctrl_itc_catch & (RMNET_CTRL_ITC_AP_START << i)) {
+			has_ap_in_catch = (RMNET_CTRL_ITC_AP_START << i);
+			break;
+		}
+	}
+
+	if ( has_ap_in_catch )
+	{
+		enable = 1;
+	}
+	else
+	{
+		enable = 0;
+	}
+
+	
+
+	
+	if ( enable != ((rmnet_ctrl_itc_catch & RMNET_CTRL_ITC_ENABLE) ? 1 : 0 ) )
+	{
+		need_set = 1;
+		
+		if ( enable )
+		{
+			set_itc_bit ( &rmnet_ctrl_itc_catch, RMNET_CTRL_ITC_ENABLE );
+		}
+		else
+		{
+			
+			clear_itc_bit ( &rmnet_ctrl_itc_catch, RMNET_CTRL_ITC_ENABLE );
+		}
+	}
+	else
+	{
+		need_set = 0;
+	}
+
+	pr_info("[%s] need_set: value=[0x%x], ap=[%s(0x%x)], enable=[%d], is_init=[%d], rmnet_ctrl_itc_catch=[0x%x], has_ap_in_catch=[%d], need_set=[%d]\n", __func__, value, ap_name, ap_bit, enable, is_init, rmnet_ctrl_itc_catch, has_ap_in_catch, need_set);
+end:
+	*p_enable = enable;
+	*p_need_set = need_set;
+	return ret;
+}
+
+
 static int enable_shorten_itc_count = 0;
 static int rmnet_ctrl_set_itc( struct rmnet_ctrl_dev *dev, int value ) {
 	int ret = 0;
 	int enable = 0;
+	int is_oldversion = 0;
+	int check_itc_err = 0;
+	int need_set_itc = 0;
 	struct usb_device	*udev;
 
 	if (!dev) {
@@ -1084,31 +1344,50 @@ static int rmnet_ctrl_set_itc( struct rmnet_ctrl_dev *dev, int value ) {
 		return -ENODEV;
 	}
 
-	udev = interface_to_usbdev(dev->intf);
-
-	switch(value) {
-		case 1://enable
-			enable = 1;
-			break;
-		case 0://disable
-			enable = 0;
-			break;
-		default://other
-			pr_info("[%s][%s] value=[%d]\n", __func__, dev->name, value);
-			return -ENODEV;
-	}
 	
-
-	pr_info("[%s][%s] mutex_lock\n", __func__, dev->name);
 	mutex_lock(&dev->dev_lock);
 
-	if ( ! ( dev->is_opened && dev->resp_available ) ) {
-		pr_err("[%s] is_opened=[%d], resp_available=[%d]\n", __func__, dev->is_opened, dev->resp_available);
+	udev = interface_to_usbdev(dev->intf);
+
+	if ( value <= 1 ) {
+		is_oldversion = 1;
+	}
+
+	if ( is_oldversion ) {
+		switch(value) {
+			case 1://enable
+				enable = 1;
+				break;
+			case 0://disable
+				enable = 0;
+				break;
+			default://other
+				pr_info("[%s][%s] value=[%d]\n", __func__, dev->name, value);
+				mutex_unlock(&dev->dev_lock);
+				return -ENODEV;
+		}
+	} else {
+		check_itc_err = rmnet_ctrl_set_itc_value_check( value, &enable, &need_set_itc );
+		pr_info("[%s][%s] value=[%d], check_itc_err=[%d], enable=[%d], need_set_itc=[%d]\n", __func__, dev->name, value, check_itc_err, enable, need_set_itc);
+		if ( check_itc_err ) {
+			mutex_unlock(&dev->dev_lock);
+			return -ENODEV;
+		}
+		if ( need_set_itc == 0 ) {
+			mutex_unlock(&dev->dev_lock);
+			return ret;
+		}
+	}
+
+	
+
+	if (!(test_bit(RMNET_CTRL_DEV_OPEN, &dev->status) && test_bit(RMNET_CTRL_DEV_READY, &dev->status))) {
+		pr_err("[%s] is_opened=[%d], resp_available=[%d]\n", __func__, test_bit(RMNET_CTRL_DEV_OPEN, &dev->status), test_bit(RMNET_CTRL_DEV_READY, &dev->status));
 		mutex_unlock(&dev->dev_lock);
 		return -ENODEV;
 	}
-	pr_info("[%s] is_opened=[%d], resp_available=[%d]\n", __func__, dev->is_opened, dev->resp_available);
-	pr_info("[%s] enable_shorten_itc_count:%d enable:%d\n", __func__, enable_shorten_itc_count, enable);
+	pr_info("[%s] is_opened=[%d], resp_available=[%d], enable_shorten_itc_count=[%d], enable=[%d], is_oldversion=[%d]\n", __func__, test_bit(RMNET_CTRL_DEV_OPEN, &dev->status), test_bit(RMNET_CTRL_DEV_READY, &dev->status), enable_shorten_itc_count, enable, is_oldversion);
+	
 	if ( enable ) {
 		if (enable_shorten_itc_count == 0) {
 			
@@ -1119,9 +1398,10 @@ static int rmnet_ctrl_set_itc( struct rmnet_ctrl_dev *dev, int value ) {
 				return -ENODEV;
 			}
 
-			pr_info("[%s][%s] usb_set_interrupt_latency(1)+\n", __func__, dev->name);
+			pr_info("[%s][%s] usb_set_interrupt_latency(1)\n", __func__, dev->name);
+			
 			ret = usb_set_interrupt_latency(udev, HSIC_FAST_INTERRUPT_LATENCY);
-			pr_info("[%s][%s] usb_set_interrupt_latency-\n", __func__, dev->name);
+			
 			if ( dev->intf )
 				usb_autopm_put_interface(dev->intf);
 			else
@@ -1141,9 +1421,10 @@ static int rmnet_ctrl_set_itc( struct rmnet_ctrl_dev *dev, int value ) {
 					mutex_unlock(&dev->dev_lock);
 					return -ENODEV;
 				}
-				pr_info("[%s][%s] usb_set_interrupt_latency(6)+\n", __func__, dev->name);
+				pr_info("[%s][%s] usb_set_interrupt_latency(6)\n", __func__, dev->name);
+				
 				ret = usb_set_interrupt_latency(udev, HSIC_SLOW_INTERRUPT_LATENCY);
-				pr_info("[%s][%s] usb_set_interrupt_latency-\n", __func__, dev->name);
+				
 				if ( dev->intf )
 					usb_autopm_put_interface(dev->intf);
 				else
@@ -1152,7 +1433,7 @@ static int rmnet_ctrl_set_itc( struct rmnet_ctrl_dev *dev, int value ) {
 		}
 	}
 	mutex_unlock(&dev->dev_lock);
-	pr_info("[%s][%s] mutex_unlock\n", __func__, dev->name);
+	
 
 	return ret;
 }
@@ -1195,21 +1476,25 @@ static int rmnet_hsic_ctl_open(struct inode *inode, struct file *file)
 {
 	int			retval = 0;
 	struct rmnet_ctrl_dev *dev = NULL;
-	dev = ctrl_dev[0];
+
+	if (&ctrl_devs[0][0])
+		dev = &ctrl_devs[0][0];
+	else
+		return -ENODEV;
 
 	if (!dev || !file)
 		return -ENODEV;
 
-	if (dev->is_connected) {
+	if (test_bit(RMNET_CTRL_DEV_OPEN, &dev->status)) {
 		if (dev->intf)
-			dev_info(&dev->intf->dev, "%s[%d]:mdm_wait_timeout:%d resp_available:%d\n", __func__, __LINE__, dev->mdm_wait_timeout, dev->resp_available);
+			dev_info(&dev->intf->dev, "%s[%d]:mdm_wait_timeout:%d resp_available:%d\n", __func__, __LINE__, dev->mdm_wait_timeout, test_bit(RMNET_CTRL_DEV_READY, &dev->status));
 	}
 
 	
-	if (dev->mdm_wait_timeout && !dev->resp_available) {
+	if (dev->mdm_wait_timeout && !test_bit(RMNET_CTRL_DEV_READY, &dev->status)) {
 		retval = wait_event_interruptible_timeout(
 					dev->open_wait_queue,
-					dev->resp_available,
+					test_bit(RMNET_CTRL_DEV_READY, &dev->status),
 					msecs_to_jiffies(dev->mdm_wait_timeout *
 									1000));
 		if (retval == 0) {
@@ -1223,7 +1508,7 @@ static int rmnet_hsic_ctl_open(struct inode *inode, struct file *file)
 		}
 	}
 
-	if (!dev->resp_available) {
+	if (!test_bit(RMNET_CTRL_DEV_READY, &dev->status)) {
 		dev_err(dev->devicep, "%s: Connection timedout opening %s\n",
 					__func__, dev->name);
 
@@ -1257,50 +1542,42 @@ static const struct file_operations hsicctrldev_fops = {
 };
 
 int rmnet_usb_ctrl_probe(struct usb_interface *intf,
-		struct usb_host_endpoint *int_in, struct rmnet_ctrl_dev *dev)
+			 struct usb_host_endpoint *int_in,
+			 unsigned long rmnet_devnum,
+			 unsigned long *data)
 {
+	struct rmnet_ctrl_dev		*dev = NULL;
 	u16				wMaxPacketSize;
 	struct usb_endpoint_descriptor	*ep;
-	struct usb_device		*udev;
+	struct usb_device		*udev = interface_to_usbdev(intf);
 	int				interval;
-	int				ret = 0;
+	int				ret = 0, n;
 
-	udev = interface_to_usbdev(intf);
+	
+	for (n = 0; n < insts_per_dev; n++) {
+		dev = &ctrl_devs[rmnet_devnum][n];
+		if (!dev->claimed)
+			break;
+	}
 
-	if (!dev) {
-		pr_err("%s: Ctrl device not found\n", __func__);
+	if (!dev || n == insts_per_dev) {
+		pr_err("%s: No available ctrl devices for %lu\n", __func__,
+			rmnet_devnum);
 		return -ENODEV;
 	}
+
 	dev->int_pipe = usb_rcvintpipe(udev,
 		int_in->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK);
 
-	mutex_lock(&dev->dev_lock);
 	dev->intf = intf;
 
-	
-	dev->cbits_tolocal = ACM_CTRL_CD;
+	dev->id = rmnet_devnum;
 
-	
-	dev->cbits_tomdm = ACM_CTRL_DTR;
-	mutex_unlock(&dev->dev_lock);
-
-	dev->resp_available = false;
 	dev->snd_encap_cmd_cnt = 0;
 	dev->get_encap_resp_cnt = 0;
 	dev->resp_avail_cnt = 0;
 	dev->tx_ctrl_err_cnt = 0;
 	dev->set_ctrl_line_state_cnt = 0;
-
-	ret = usb_control_msg(udev, usb_rcvctrlpipe(udev, 0),
-			USB_CDC_REQ_SET_CONTROL_LINE_STATE,
-			(USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE),
-			dev->cbits_tomdm,
-			dev->intf->cur_altsetting->desc.bInterfaceNumber,
-			NULL, 0, USB_CTRL_SET_TIMEOUT);
-	if (ret < 0)
-		return ret;
-
-	dev->set_ctrl_line_state_cnt++;
 
 	dev->inturb = usb_alloc_urb(0, GFP_KERNEL);
 	if (!dev->inturb) {
@@ -1343,33 +1620,45 @@ int rmnet_usb_ctrl_probe(struct usb_interface *intf,
 #endif
 	
 	usb_mark_last_busy(udev);
-
-	
-	dev_info(&intf->dev, "%s[%d]:rmnet_usb_ctrl_start_rx dev->resp_available:%d\n", __func__, __LINE__, dev->resp_available);
-
 	ret = rmnet_usb_ctrl_start_rx(dev);
+	if (ret) {
+		usb_free_urb(dev->inturb);
+		kfree(dev->intbuf);
+		return ret;
+	}
 
 #ifdef HTC_MDM_RESTART_IF_RMNET_OPEN_TIMEOUT
 	if (!ret)
 		dev->connected_jiffies = jiffies;
 #endif	
 
-	if (!ret)
-		dev->is_connected = true;
+	dev->claimed = true;
 
-	return ret;
+	
+	if (*data)
+		set_bit(RMNET_CTRL_DEV_MUX_EN, &dev->status);
+
+	*data = (unsigned long)dev;
+
+	
+	if (test_bit(RMNET_CTRL_DEV_MUX_EN, &dev->status)) {
+		set_bit(RMNET_CTRL_DEV_READY, &dev->status);
+		wake_up(&dev->open_wait_queue);
+	}
+
+	return 0;
 }
 
 void rmnet_usb_ctrl_disconnect(struct rmnet_ctrl_dev *dev)
 {
+	dev->claimed = false;
+
+	clear_bit(RMNET_CTRL_DEV_READY, &dev->status);
 
 	mutex_lock(&dev->dev_lock);
-
 	
 	dev->cbits_tolocal = ~ACM_CTRL_CD;
-
 	dev->cbits_tomdm = ~ACM_CTRL_DTR;
-	dev->is_connected = false;
 	mutex_unlock(&dev->dev_lock);
 
 	wake_up(&dev->read_wait_queue);
@@ -1384,9 +1673,8 @@ void rmnet_usb_ctrl_disconnect(struct rmnet_ctrl_dev *dev)
 
 	kfree(dev->intbuf);
 	dev->intbuf = NULL;
-
 	
-	dev_info(&dev->intf->dev, "%s[%d]:dev->resp_available:%d\n", __func__, __LINE__, dev->resp_available);
+	dev_info(&dev->intf->dev, "%s[%d]:dev->resp_available:%d\n", __func__, __LINE__, test_bit(RMNET_CTRL_DEV_READY, &dev->status));
 }
 
 #if defined(CONFIG_DEBUG_FS)
@@ -1397,50 +1685,53 @@ static ssize_t rmnet_usb_ctrl_read_stats(struct file *file, char __user *ubuf,
 	struct rmnet_ctrl_dev	*dev;
 	char			*buf;
 	int			ret;
-	int			i;
+	int			i, n;
 	int			temp = 0;
 
 	buf = kzalloc(sizeof(char) * DEBUG_BUF_SIZE, GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
 
-	for (i = 0; i < NUM_CTRL_CHANNELS; i++) {
-		dev = ctrl_dev[i];
-		if (!dev)
-			continue;
-
-		temp += scnprintf(buf + temp, DEBUG_BUF_SIZE - temp,
-				"\n#ctrl_dev: %p     Name: %s#\n"
-				"snd encap cmd cnt         %u\n"
-				"resp avail cnt:           %u\n"
-				"get encap resp cnt:       %u\n"
-				"set ctrl line state cnt:  %u\n"
-				"tx_err_cnt:               %u\n"
-				"cbits_tolocal:            %d\n"
-				"cbits_tomdm:              %d\n"
-				"mdm_wait_timeout:         %u\n"
-				"zlp_cnt:                  %u\n"
-				"get_encap_failure_cnt     %u\n"
-				"dev opened:               %s\n",
-				dev, dev->name,
-				dev->snd_encap_cmd_cnt,
-				dev->resp_avail_cnt,
-				dev->get_encap_resp_cnt,
-				dev->set_ctrl_line_state_cnt,
-				dev->tx_ctrl_err_cnt,
-				dev->cbits_tolocal,
-				dev->cbits_tomdm,
-				dev->mdm_wait_timeout,
-				dev->zlp_cnt,
-				dev->get_encap_failure_cnt,
-				dev->is_opened ? "OPEN" : "CLOSE");
-
+	for (i = 0; i < num_devs; i++) {
+		for (n = 0; n < insts_per_dev; n++) {
+			dev = &ctrl_devs[i][n];
+			temp += scnprintf(buf + temp, DEBUG_BUF_SIZE - temp,
+					"\n#ctrl_dev: %p     Name: %s#\n"
+					"snd encap cmd cnt         %u\n"
+					"resp avail cnt:           %u\n"
+					"get encap resp cnt:       %u\n"
+					"set ctrl line state cnt:  %u\n"
+					"tx_err_cnt:               %u\n"
+					"cbits_tolocal:            %d\n"
+					"cbits_tomdm:              %d\n"
+					"mdm_wait_timeout:         %u\n"
+					"zlp_cnt:                  %u\n"
+					"get_encap_failure_cnt     %u\n"
+					"RMNET_CTRL_DEV_MUX_EN:    %d\n"
+					"RMNET_CTRL_DEV_OPEN:      %d\n"
+					"RMNET_CTRL_DEV_READY:     %d\n",
+					dev, dev->name,
+					dev->snd_encap_cmd_cnt,
+					dev->resp_avail_cnt,
+					dev->get_encap_resp_cnt,
+					dev->set_ctrl_line_state_cnt,
+					dev->tx_ctrl_err_cnt,
+					dev->cbits_tolocal,
+					dev->cbits_tomdm,
+					dev->mdm_wait_timeout,
+					dev->zlp_cnt,
+					dev->get_encap_failure_cnt,
+					test_bit(RMNET_CTRL_DEV_MUX_EN,
+							&dev->status),
+					test_bit(RMNET_CTRL_DEV_OPEN,
+							&dev->status),
+					test_bit(RMNET_CTRL_DEV_READY,
+							&dev->status));
+		}
 	}
 
 	ret = simple_read_from_buffer(ubuf, count, ppos, buf, temp);
-
 	kfree(buf);
-
 	return ret;
 }
 
@@ -1448,19 +1739,19 @@ static ssize_t rmnet_usb_ctrl_reset_stats(struct file *file, const char __user *
 		buf, size_t count, loff_t *ppos)
 {
 	struct rmnet_ctrl_dev	*dev;
-	int			i;
+	int			i, n;
 
-	for (i = 0; i < NUM_CTRL_CHANNELS; i++) {
-		dev = ctrl_dev[i];
-		if (!dev)
-			continue;
+	for (i = 0; i < num_devs; i++) {
+		for (n = 0; n < insts_per_dev; n++) {
+			dev = &ctrl_devs[i][n];
 
-		dev->snd_encap_cmd_cnt = 0;
-		dev->resp_avail_cnt = 0;
-		dev->get_encap_resp_cnt = 0;
-		dev->set_ctrl_line_state_cnt = 0;
-		dev->tx_ctrl_err_cnt = 0;
-		dev->zlp_cnt = 0;
+			dev->snd_encap_cmd_cnt = 0;
+			dev->resp_avail_cnt = 0;
+			dev->get_encap_resp_cnt = 0;
+			dev->set_ctrl_line_state_cnt = 0;
+			dev->tx_ctrl_err_cnt = 0;
+			dev->zlp_cnt = 0;
+		}
 	}
 	return count;
 }
@@ -1495,10 +1786,10 @@ static void rmnet_usb_ctrl_debugfs_init(void) { }
 static void rmnet_usb_ctrl_debugfs_exit(void) { }
 #endif
 
-int rmnet_usb_ctrl_init(void)
+int rmnet_usb_ctrl_init(int no_rmnet_devs, int no_rmnet_insts_per_dev)
 {
 	struct rmnet_ctrl_dev	*dev;
-	int			n;
+	int			i, n;
 	int			status;
 	int			ret = 0;
 
@@ -1514,94 +1805,111 @@ int rmnet_usb_ctrl_init(void)
 	if (get_radio_flag() & 0x0008)
 		enable_dbg_rmnet_usb_ctrl = true;
 #endif	
+	num_devs = no_rmnet_devs;
+	insts_per_dev = no_rmnet_insts_per_dev;
 
-	for (n = 0; n < NUM_CTRL_CHANNELS; ++n) {
+	ctrl_devs = kzalloc(num_devs * sizeof(*ctrl_devs), GFP_KERNEL);
+	if (!ctrl_devs)
+		return -ENOMEM;
 
-		dev = kzalloc(sizeof(*dev), GFP_KERNEL);
-		if (!dev) {
-			status = -ENOMEM;
-			goto error0;
-		}
-		
-		snprintf(dev->name, CTRL_DEV_MAX_LEN, "hsicctl%d", n);
+	for (i = 0; i < num_devs; i++) {
+		ctrl_devs[i] = kzalloc(insts_per_dev * sizeof(*ctrl_devs[i]),
+				       GFP_KERNEL);
+		if (!ctrl_devs[i])
+			return -ENOMEM;
 
-		dev->wq = create_singlethread_workqueue(dev->name);
-		if (!dev->wq) {
-			pr_err("unable to allocate workqueue");
-			kfree(dev);
-			goto error0;
-		}
-
-		mutex_init(&dev->dev_lock);
-		spin_lock_init(&dev->rx_lock);
-		init_waitqueue_head(&dev->read_wait_queue);
-		init_waitqueue_head(&dev->open_wait_queue);
-		INIT_LIST_HEAD(&dev->rx_list);
-		init_usb_anchor(&dev->tx_submitted);
-		init_usb_anchor(&dev->rx_submitted);
-		INIT_WORK(&dev->get_encap_work, get_encap_work);
-
-		status = rmnet_usb_ctrl_alloc_rx(dev);
-		if (status < 0) {
-			kfree(dev);
-			goto error0;
-		}
-
-		ctrl_dev[n] = dev;
-	}
-
-	status = alloc_chrdev_region(&ctrldev_num, 0, NUM_CTRL_CHANNELS,
-			DEVICE_NAME);
-	if (IS_ERR_VALUE(status)) {
-		pr_err("ERROR:%s: alloc_chrdev_region() ret %i.\n",
-		       __func__, status);
-		goto error0;
-	}
-
-	ctrldev_classp = class_create(THIS_MODULE, DEVICE_NAME);
-	if (IS_ERR(ctrldev_classp)) {
-		pr_err("ERROR:%s: class_create() ENOMEM\n", __func__);
-		status = -ENOMEM;
-		goto error1;
-	}
-	for (n = 0; n < NUM_CTRL_CHANNELS; ++n) {
-		cdev_init(&ctrl_dev[n]->cdev, &ctrldev_fops);
-		ctrl_dev[n]->cdev.owner = THIS_MODULE;
-
-		status = cdev_add(&ctrl_dev[n]->cdev, (ctrldev_num + n), 1);
-
+		status = alloc_chrdev_region(&ctrldev_num[i], 0, insts_per_dev,
+					     rmnet_dev_names[i]);
 		if (IS_ERR_VALUE(status)) {
-			pr_err("%s: cdev_add() ret %i\n", __func__, status);
-			kfree(ctrl_dev[n]);
-			goto error2;
+			pr_err("ERROR:%s: alloc_chrdev_region() ret %i.\n",
+				__func__, status);
+			return status;
 		}
 
-		ctrl_dev[n]->devicep =
-				device_create(ctrldev_classp, NULL,
-				(ctrldev_num + n), NULL,
-				DEVICE_NAME "%d", n);
-
-		if (IS_ERR(ctrl_dev[n]->devicep)) {
-			pr_err("%s: device_create() ENOMEM\n", __func__);
-			status = -ENOMEM;
-			cdev_del(&ctrl_dev[n]->cdev);
-			kfree(ctrl_dev[n]);
-			goto error2;
-		}
-		
-		status = device_create_file(ctrl_dev[n]->devicep,
-					&dev_attr_modem_wait);
-		if (status) {
-			device_destroy(ctrldev_classp,
-				MKDEV(MAJOR(ctrldev_num), n));
-			cdev_del(&ctrl_dev[n]->cdev);
-			kfree(ctrl_dev[n]);
-			goto error2;
+		ctrldev_classp[i] = class_create(THIS_MODULE,
+						 rmnet_dev_names[i]);
+		if (IS_ERR(ctrldev_classp[i])) {
+			pr_err("ERROR:%s: class_create() ENOMEM\n", __func__);
+			status = PTR_ERR(ctrldev_classp[i]);
+			return status;
 		}
 
-		dev_set_drvdata(ctrl_dev[n]->devicep, ctrl_dev[n]);
+		for (n = 0; n < insts_per_dev; n++) {
+			dev = &ctrl_devs[i][n];
+
+			
+			snprintf(dev->name, CTRL_DEV_MAX_LEN, "%s%d",
+				 rmnet_dev_names[i], n);
+
+			dev->wq = create_singlethread_workqueue(dev->name);
+			if (!dev->wq) {
+				pr_err("unable to allocate workqueue");
+				kfree(dev);
+				return -ENOMEM;
+			}
+
+			dev->ch_id = n;
+
+			mutex_init(&dev->dev_lock);
+			spin_lock_init(&dev->rx_lock);
+			init_waitqueue_head(&dev->read_wait_queue);
+			init_waitqueue_head(&dev->open_wait_queue);
+			INIT_LIST_HEAD(&dev->rx_list);
+			init_usb_anchor(&dev->tx_submitted);
+			init_usb_anchor(&dev->rx_submitted);
+			INIT_WORK(&dev->get_encap_work, get_encap_work);
+
+			cdev_init(&dev->cdev, &ctrldev_fops);
+			dev->cdev.owner = THIS_MODULE;
+
+			status = cdev_add(&dev->cdev, (ctrldev_num[i] + n), 1);
+			if (status) {
+				pr_err("%s: cdev_add() ret %i\n", __func__,
+					status);
+				destroy_workqueue(dev->wq);
+				kfree(dev);
+				return status;
+			}
+
+			dev->devicep = device_create(ctrldev_classp[i], NULL,
+						     (ctrldev_num[i] + n), NULL,
+						     "%s%d", rmnet_dev_names[i],
+						     n);
+			if (IS_ERR(dev->devicep)) {
+				pr_err("%s: device_create() returned %ld\n",
+					__func__, PTR_ERR(dev->devicep));
+				cdev_del(&dev->cdev);
+				destroy_workqueue(dev->wq);
+				kfree(dev);
+				return PTR_ERR(dev->devicep);
+			}
+
+			
+			status = device_create_file(dev->devicep,
+						    &dev_attr_modem_wait);
+			if (status) {
+				device_destroy(dev->devicep->class,
+					       dev->devicep->devt);
+				cdev_del(&dev->cdev);
+				destroy_workqueue(dev->wq);
+				kfree(dev);
+				return status;
+			}
+			dev_set_drvdata(dev->devicep, dev);
+
+			status = rmnet_usb_ctrl_alloc_rx(dev);
+			if (status) {
+				device_remove_file(dev->devicep,
+						   &dev_attr_modem_wait);
+				device_destroy(dev->devicep->class,
+					       dev->devicep->devt);
+				cdev_del(&dev->cdev);
+				destroy_workqueue(dev->wq);
+				kfree(dev);
+				return status;
+			}
+		}
 	}
-
 	rmnet_usb_ctrl_debugfs_init();
 	do {
 		pr_info("%s: register_chrdev\n", __func__);
@@ -1633,49 +1941,38 @@ int rmnet_usb_ctrl_init(void)
 
 	pr_info("rmnet usb ctrl Initialized.\n");
 	return 0;
-error2:
-		while (--n >= 0) {
-			cdev_del(&ctrl_dev[n]->cdev);
-			device_destroy(ctrldev_classp,
-				MKDEV(MAJOR(ctrldev_num), n));
-		}
-
-		class_destroy(ctrldev_classp);
-		n = NUM_CTRL_CHANNELS;
-error1:
-	unregister_chrdev_region(MAJOR(ctrldev_num), NUM_CTRL_CHANNELS);
-error0:
-	while (--n >= 0)
-		kfree(ctrl_dev[n]);
-
-	return status;
 }
 
-void rmnet_usb_ctrl_exit(void)
+static void free_rmnet_ctrl_dev(struct rmnet_ctrl_dev *dev)
 {
-	int	i;
+	kfree(dev->in_ctlreq);
+	kfree(dev->rcvbuf);
+	kfree(dev->intbuf);
+	usb_free_urb(dev->rcvurb);
+	usb_free_urb(dev->inturb);
+	device_remove_file(dev->devicep, &dev_attr_modem_wait);
+	cdev_del(&dev->cdev);
+	destroy_workqueue(dev->wq);
+	device_destroy(dev->devicep->class,
+		       dev->devicep->devt);
+}
 
-	for (i = 0; i < NUM_CTRL_CHANNELS; ++i) {
-		if (!ctrl_dev[i])
-			return;
+void rmnet_usb_ctrl_exit(int no_rmnet_devs, int no_rmnet_insts_per_dev)
+{
+	int i, n;
 
-		kfree(ctrl_dev[i]->in_ctlreq);
-		kfree(ctrl_dev[i]->rcvbuf);
-		kfree(ctrl_dev[i]->intbuf);
-		usb_free_urb(ctrl_dev[i]->rcvurb);
-		usb_free_urb(ctrl_dev[i]->inturb);
-#if defined(DEBUG)
-		device_remove_file(ctrl_dev[i]->devicep, &dev_attr_modem_wait);
-#endif
-		cdev_del(&ctrl_dev[i]->cdev);
-		destroy_workqueue(ctrl_dev[i]->wq);
-		kfree(ctrl_dev[i]);
-		ctrl_dev[i] = NULL;
-		device_destroy(ctrldev_classp, MKDEV(MAJOR(ctrldev_num), i));
+	for (i = 0; i < no_rmnet_devs; i++) {
+		for (n = 0; n < no_rmnet_insts_per_dev; n++)
+			free_rmnet_ctrl_dev(&ctrl_devs[i][n]);
+
+		kfree(ctrl_devs[i]);
+
+		class_destroy(ctrldev_classp[i]);
+		if (ctrldev_num[i])
+			unregister_chrdev_region(ctrldev_num[i], insts_per_dev);
 	}
 
-	class_destroy(ctrldev_classp);
-	unregister_chrdev_region(MAJOR(ctrldev_num), NUM_CTRL_CHANNELS);
+	kfree(ctrl_devs);
 
 	if ( hsicctrldev_classp != NULL ) {
 		pr_info("%s: device_destroy\n", __func__);
@@ -1690,6 +1987,5 @@ void rmnet_usb_ctrl_exit(void)
 		hsicdevicep = NULL;
 		enable_shorten_itc_count = 0;
 	}
-
 	rmnet_usb_ctrl_debugfs_exit();
 }

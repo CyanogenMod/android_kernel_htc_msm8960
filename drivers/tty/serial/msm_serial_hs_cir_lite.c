@@ -940,7 +940,7 @@ static void msm_hsl_release_port_cir(struct uart_port *port)
 		D("%s ()  uart_resource:port->line %d, ir\n", __func__, port->line);
 		uart_resource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	}
-	if (unlikely(!uart_resource))
+	if (unlikely(!uart_resource)||(!uart_resource))
 		return;
 	size = uart_resource->end - uart_resource->start + 1;
 
@@ -972,7 +972,7 @@ static int msm_hsl_request_port_cir(struct uart_port *port)
 		D("%s ():uart_resource :port->line %d, ir\n", __func__, port->line);
 		uart_resource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	}
-	if (unlikely(!uart_resource)) {
+	if (unlikely(!uart_resource)||(!uart_resource)) {
 		E("%s: can't get uartdm resource\n", __func__);
 		return -ENXIO;
 	}
@@ -1002,7 +1002,7 @@ static int msm_hsl_request_port_cir(struct uart_port *port)
 						IORESOURCE_MEM, 1);
 			D("%s ():gsbi_resource :port->line %d, ir\n", __func__, port->line);
 		}
-		if (unlikely(!gsbi_resource)) {
+		if (unlikely(!gsbi_resource)||(!gsbi_resource)) {
 			E("%s: can't get gsbi resource\n", __func__);
 			return -ENXIO;
 		}
@@ -1576,7 +1576,7 @@ printk(KERN_INFO "msm_serial_cir: get uartdm_clk\n");
 						     "uartdm_resource");
 	if (!uart_resource)
 		uart_resource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (unlikely(!uart_resource)) {
+	if (unlikely(!uart_resource)||(!uart_resource)) {
 		printk(KERN_ERR "getting uartdm_resource failed\n");
 		return -ENXIO;
 	}

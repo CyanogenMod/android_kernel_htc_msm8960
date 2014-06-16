@@ -368,7 +368,13 @@ int smb349_set_hsml_target_ma(int target_ma);
 int smb349_set_pwrsrc_and_charger_enable(enum htc_power_source_type src, bool chg_enable, bool pwrsrc_enable);
 int smb349_set_hc_mode(unsigned int enable);
 int smb349_switch_usbcs_mode(int mode);
+#ifdef CONFIG_DUTY_CYCLE_LIMIT
+int smb349_limit_charge_enable(int chg_limit_reason,
+			 int chg_limit_timer_sub_mask,
+			 int limit_charge_timer_ma);
+#else
 int smb349_limit_charge_enable(bool enable);
+#endif
 int smb349_is_batt_charge_enable(void);
 int smb349_get_charging_src(int *result);
 int smb349_get_charging_enabled(int *result);

@@ -64,12 +64,24 @@ typedef struct {
 	u32 len;
 } mem_chk_t;
 
+#define DEFINE_SCM_BUFFER(__n) \
+static char __n[PAGE_SIZE] __aligned(PAGE_SIZE);
+
+#define SCM_BUFFER_SIZE(__buf)	sizeof(__buf)
+
+#define SCM_BUFFER_PHYS(__buf)	virt_to_phys(__buf)
 #ifdef CONFIG_MSM_SCM
 extern int scm_call(u32 svc_id, u32 cmd_id, const void *cmd_buf, size_t cmd_len,
 		void *resp_buf, size_t resp_len);
 
+extern int scm_call_noalloc(u32 svc_id, u32 cmd_id, const void *cmd_buf,
+		size_t cmd_len, void *resp_buf, size_t resp_len,
+		void *scm_buf, size_t scm_buf_size);
+
+
 extern s32 scm_call_atomic1(u32 svc, u32 cmd, u32 arg1);
 extern s32 scm_call_atomic2(u32 svc, u32 cmd, u32 arg1, u32 arg2);
+extern s32 scm_call_atomic3(u32 svc, u32 cmd, u32 arg1, u32 arg2, u32 arg3);
 extern s32 scm_call_atomic4_3(u32 svc, u32 cmd, u32 arg1, u32 arg2, u32 arg3,
 		u32 arg4, u32 *ret1, u32 *ret2);
 
@@ -95,12 +107,25 @@ static inline int scm_call(u32 svc_id, u32 cmd_id, const void *cmd_buf,
 	return 0;
 }
 
+static inline int scm_call_noalloc(u32 svc_id, u32 cmd_id,
+		const void *cmd_buf, size_t cmd_len, void *resp_buf,
+		size_t resp_len, void *scm_buf, size_t scm_buf_size)
+{
+	return 0;
+}
+
 static inline s32 scm_call_atomic1(u32 svc, u32 cmd, u32 arg1)
 {
 	return 0;
 }
 
 static inline s32 scm_call_atomic2(u32 svc, u32 cmd, u32 arg1, u32 arg2)
+{
+	return 0;
+}
+
+static inline s32 scm_call_atomic3(u32 svc, u32 cmd, u32 arg1, u32 arg2,
+		u32 arg3)
 {
 	return 0;
 }

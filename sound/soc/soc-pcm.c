@@ -931,8 +931,10 @@ static int fe_path_get(struct snd_soc_pcm_runtime *fe,
 
 	list = kzalloc(sizeof(struct snd_soc_dapm_widget_list) +
 			sizeof(struct snd_soc_dapm_widget *), GFP_KERNEL);
-	if (list == NULL)
+	if (list == NULL){
+		dev_err(fe->dev, "%s: audio %s paths memory allocate failed \n", __func__, stream ? "capture" : "playback");
 		return -ENOMEM;
+	}
 
 	
 	paths = snd_soc_dapm_dai_get_connected_widgets(cpu_dai, stream, &list);

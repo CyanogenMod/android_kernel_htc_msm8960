@@ -2266,6 +2266,13 @@ config FB_VIRTUAL
 
 	  If unsure, say N.
 
+config FB_MINIFB
+	bool "Mini FB support"
+	depends on ION
+	default y if FB_MSM
+	---help---
+	This is a 'virtual' frame buffer devicefor some specific usage.
+
 config XEN_FBDEV_FRONTEND
 	tristate "Xen virtual frame buffer support"
 	depends on FB && XEN

@@ -175,6 +175,7 @@ struct usb_composite_dev {
 	struct work_struct cdusbcmdwork;
 	struct delayed_work cdusbcmd_vzw_unmount_work;
 	struct switch_dev compositesdev;
+	int unmount_cdrom_mask;
 };
 
 extern int usb_string_id(struct usb_composite_dev *c);

@@ -638,6 +638,7 @@ int mdp4_dtv_on(struct platform_device *pdev)
 			pr_warn("%s: dtv_pipe is NULL, dtv_set failed\n",
 				__func__);
 			mutex_unlock(&mfd->dma->ov_mutex);
+			mdp_clk_ctrl(0);
 			return -EINVAL;
 		}
 	}

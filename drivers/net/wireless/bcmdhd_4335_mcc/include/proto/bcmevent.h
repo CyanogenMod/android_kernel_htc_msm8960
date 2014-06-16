@@ -231,7 +231,7 @@ typedef BWL_PRE_PACKED_STRUCT struct bcm_event {
 #define WLC_E_CCA_CHAN_QUAL		124	
 
 #ifdef CUSTOMER_HW_ONE
-#if defined(BCM4335_CHIP)
+#if defined(BCM4335_CHIP) || defined(BCM4334_CHIP)
 #define WLC_E_HTC_OFFSET                200
 #define WLC_E_RSSI_LOW                  WLC_E_HTC_OFFSET + 0    
 #define WLC_E_LOAD_IND                  WLC_E_HTC_OFFSET + 1    

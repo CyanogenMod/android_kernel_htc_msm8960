@@ -464,6 +464,13 @@ static inline int usb_make_path(struct usb_device *dev, char *buf, size_t size)
 	.idProduct = (prod), \
 	.bInterfaceProtocol = (pr)
 
+#define USB_DEVICE_INTERFACE_NUMBER(vend, prod, num) \
+	.match_flags = USB_DEVICE_ID_MATCH_DEVICE | \
+		       USB_DEVICE_ID_MATCH_INT_NUMBER, \
+	.idVendor = (vend), \
+	.idProduct = (prod), \
+	.bInterfaceNumber = (num)
+
 #define USB_DEVICE_INFO(cl, sc, pr) \
 	.match_flags = USB_DEVICE_ID_MATCH_DEV_INFO, \
 	.bDeviceClass = (cl), \

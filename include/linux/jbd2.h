@@ -303,6 +303,7 @@ struct transaction_s
 		T_COMMIT,
 		T_COMMIT_DFLUSH,
 		T_COMMIT_JFLUSH,
+		T_COMMIT_CALLBACK,
 		T_FINISHED
 	}			t_state;
 
@@ -511,9 +512,6 @@ struct journal_s
 	unsigned int		j_failed_commit;
 
 	void *j_private;
-
-	
-	unsigned int		commit_callback_done;
 };
 
 #define JBD2_UNMOUNT	0x001	
@@ -767,7 +765,7 @@ static inline int jbd_space_needed(journal_t *journal)
 #define BJ_Types	7
 
 extern int jbd_blocks_per_page(struct inode *inode);
-extern atomic_t vfs_emergency_remount;
+
 #ifdef __KERNEL__
 
 #define buffer_trace_init(bh)	do {} while (0)

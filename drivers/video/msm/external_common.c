@@ -1249,6 +1249,12 @@ static void hdmi_edid_extract_extended_data_blocks(const uint8 *in_buf)
 	
 	uint8 const *etag = hdmi_edid_find_block(in_buf, start_offset, 7, &len);
 
+	if(etag == NULL){
+		external_common_state->pt_scan_info = 0;
+		external_common_state->it_scan_info = 0;
+		external_common_state->ce_scan_info = 0;
+		DEV_INFO("EDID: No extended data block\n");
+	}
 	while (etag != NULL) {
 		
 		if (len < 2) {

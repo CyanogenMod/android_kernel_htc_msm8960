@@ -47,7 +47,7 @@ struct ci13xxx_td {
 #define TD_CURR_OFFSET        (0x0FFFUL <<  0)
 #define TD_FRAME_NUM          (0x07FFUL <<  0)
 #define TD_RESERVED_MASK      (0x0FFFUL <<  0)
-};
+} __attribute__ ((packed, aligned(4)));
 
 struct ci13xxx_qh {
 	
@@ -64,7 +64,13 @@ struct ci13xxx_qh {
 	
 	u32 RESERVED;
 	struct usb_ctrlrequest   setup;
-} __attribute__ ((packed));
+} __attribute__ ((packed, aligned(4)));
+
+struct ci13xxx_multi_req {
+	unsigned             len;
+	unsigned             actual;
+	void                *buf;
+};
 
 struct ci13xxx_req {
 	struct usb_request   req;
@@ -74,6 +80,7 @@ struct ci13xxx_req {
 	dma_addr_t           dma;
 	struct ci13xxx_td   *zptr;
 	dma_addr_t           zdma;
+	struct ci13xxx_multi_req multi;
 };
 
 struct ci13xxx_ep {
@@ -94,10 +101,14 @@ struct ci13xxx_ep {
 	spinlock_t                            *lock;
 	struct device                         *device;
 	struct dma_pool                       *td_pool;
+	struct ci13xxx_td                     *last_zptr;
+	dma_addr_t                            last_zdma;
 	unsigned long dTD_update_fail_count;
 	unsigned long			      prime_fail_count;
 	int				      prime_timer_count;
 	struct timer_list		      prime_timer;
+
+	bool                                  multi_req;
 };
 
 struct ci13xxx;
@@ -117,6 +128,8 @@ struct ci13xxx_udc_driver {
 #define CI13XXX_CONTROLLER_REMOTE_WAKEUP_EVENT	3
 #define CI13XXX_CONTROLLER_RESUME_EVENT	        4
 #define CI13XXX_CONTROLLER_DISCONNECT_EVENT	    5
+#define CI13XXX_CONTROLLER_UDC_STARTED_EVENT		6
+
 	void	(*notify_event) (struct ci13xxx *udc, unsigned event);
 };
 
@@ -127,6 +140,7 @@ struct ci13xxx {
 	struct dma_pool           *qh_pool;   
 	struct dma_pool           *td_pool;   
 	struct usb_request        *status;    
+	void                      *status_buf;
 
 	struct usb_gadget          gadget;     
 	struct ci13xxx_ep          ci13xxx_ep[ENDPT_MAX]; 
@@ -145,6 +159,7 @@ struct ci13xxx {
 	int                        softconnect; 
 	unsigned long dTD_update_fail_count;
 	struct usb_phy            *transceiver; 
+	bool                      skip_flush; 
 };
 
 struct ci13xxx_platform_data {

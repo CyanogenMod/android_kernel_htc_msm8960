@@ -3293,6 +3293,30 @@ tracing_entries_write(struct file *filp, const char __user *ubuf,
 	return cnt;
 }
 
+#ifdef CONFIG_HTC_DEBUG_REPORT_MEMINFO
+unsigned long
+ftrace_total_pages(void)
+{
+	struct trace_array *tr = &global_trace;
+	int cpu;
+	unsigned long size = 0, expanded_size = 0, total;
+
+	mutex_lock(&trace_types_lock);
+	for_each_tracing_cpu(cpu) {
+		size += tr->entries >> 10;
+		if (!ring_buffer_expanded)
+			expanded_size += trace_buf_size;
+	}
+	if (ring_buffer_expanded)
+		total = size;
+	else
+		total = size + expanded_size;
+
+	mutex_unlock(&trace_types_lock);
+	return total >> (PAGE_SHIFT - 10);
+}
+#endif
+
 static ssize_t
 tracing_total_entries_read(struct file *filp, char __user *ubuf,
 				size_t cnt, loff_t *ppos)

@@ -888,7 +888,9 @@ static int voice_config_cvs_vocoder(struct voice_data *v)
 	}
 	
 	switch (common.mvs_info.media_type) {
-	case VSS_MEDIA_ID_EVRC_MODEM: {
+	case VSS_MEDIA_ID_EVRC_MODEM:
+	case VSS_MEDIA_ID_4GV_NB_MODEM:
+	case VSS_MEDIA_ID_4GV_WB_MODEM: {
 		struct cvs_set_cdma_enc_minmax_rate_cmd cvs_set_cdma_rate;
 
 		pr_debug("Setting EVRC min-max rate\n");
@@ -1349,7 +1351,8 @@ static int voice_send_cvs_register_cal_cmd(struct voice_data *v)
 
 	
 	get_all_vocstrm_cal(&cal_block);
-	if (cal_block.cal_size == 0)
+	if (cal_block.cal_size == 0 ||
+	    cal_block.cal_size > CVS_CAL_SIZE)
 		goto fail;
 
 	if (v == NULL) {
@@ -1749,7 +1752,8 @@ static int voice_send_cvp_register_cal_cmd(struct voice_data *v)
 
       
 	get_all_vocproc_cal(&cal_block);
-	if (cal_block.cal_size == 0)
+	if (cal_block.cal_size == 0 ||
+	    cal_block.cal_size > CVP_CAL_SIZE)
 		goto fail;
 
 	if (v == NULL) {
@@ -1881,7 +1885,8 @@ static int voice_send_cvp_register_vol_cal_table_cmd(struct voice_data *v)
 	get_all_vocvol_cal(&vol_block);
 	get_all_vocproc_cal(&voc_block);
 
-	if (vol_block.cal_size == 0)
+	if (vol_block.cal_size == 0 ||
+	    vol_block.cal_size > CVP_CAL_SIZE)
 		goto fail;
 
 	if (v == NULL) {
@@ -3174,8 +3179,9 @@ int voc_enable_cvp(uint16_t session_id)
 		if (common.ec_ref_ext == true) {
 			ret = voice_send_set_device_cmd_v2(v);
 			if (ret < 0) {
-				pr_err("%s:  set device V2 failed " \
-					"rc =%x\n", __func__, ret);
+				pr_err("%s: set device V2 failed\n"
+				       "rc =%x\n", __func__, ret);
+				goto fail;
 			}
 		} else {
 			ret = voice_send_set_device_cmd(v);
@@ -4112,7 +4118,7 @@ static int __init voice_init(void)
 		goto cont;
 	}
 	common.cvp_cal.handle = ion_alloc(common.client, CVP_CAL_SIZE, SZ_4K,
-					  ION_HEAP(ION_AUDIO_HEAP_ID));
+					  ION_HEAP(ION_AUDIO_HEAP_ID), 0);
 	if (IS_ERR_OR_NULL((void *) common.cvp_cal.handle)) {
 		pr_err("%s: ION memory allocation for CVP failed\n",
 			__func__);
@@ -4131,7 +4137,7 @@ static int __init voice_init(void)
 	}
 
 	common.cvp_cal.buf = ion_map_kernel(common.client,
-					common.cvp_cal.handle, 0);
+					common.cvp_cal.handle);
 	if (IS_ERR_OR_NULL((void *) common.cvp_cal.buf)) {
 		pr_err("%s: ION memory mapping for cvp failed\n", __func__);
 		common.cvp_cal.buf = NULL;
@@ -4142,7 +4148,7 @@ static int __init voice_init(void)
 	memset((void *)common.cvp_cal.buf, 0, CVP_CAL_SIZE);
 
 	common.cvs_cal.handle = ion_alloc(common.client, CVS_CAL_SIZE, SZ_4K,
-					 ION_HEAP(ION_AUDIO_HEAP_ID));
+					 ION_HEAP(ION_AUDIO_HEAP_ID), 0);
 	if (IS_ERR_OR_NULL((void *) common.cvs_cal.handle)) {
 		pr_err("%s: ION memory allocation for CVS failed\n",
 			__func__);
@@ -4159,7 +4165,7 @@ static int __init voice_init(void)
 	}
 
 	common.cvs_cal.buf = ion_map_kernel(common.client,
-					common.cvs_cal.handle, 0);
+					common.cvs_cal.handle);
 	if (IS_ERR_OR_NULL((void *) common.cvs_cal.buf)) {
 		pr_err("%s: ION memory mapping for cvs failed\n", __func__);
 		common.cvs_cal.buf = NULL;

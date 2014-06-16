@@ -1041,7 +1041,8 @@ config FB_MSM_CABC_LEVEL_CONTROL
 
 config FB_MSM_UNDERFLOW_WORKAROUND
 	bool "Display underflow workaround"
-	default y
+	default y if !TRACING
+	default n
 	---help---
 	  Force underflow color to black to avoid blue splash.
 	  Say Y here after CRC stage.

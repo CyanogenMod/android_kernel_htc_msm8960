@@ -68,6 +68,11 @@ struct usbnet {
 #		define EVENT_DEV_WAKING 6
 #		define EVENT_DEV_ASLEEP 7
 #		define EVENT_DEV_OPEN	8
+#define DBG_MSG_LEN   128
+#define DBG_MAX_MSG   500
+	unsigned int    dbg_idx;
+	rwlock_t        dbg_lock;
+	char     (dbgbuf[DBG_MAX_MSG])[DBG_MSG_LEN];   
 };
 
 static inline struct usb_driver *driver_of(struct usb_interface *intf)
@@ -123,6 +128,9 @@ struct driver_info {
 
 	
 	int	(*link_reset)(struct usbnet *);
+
+	
+	void (*rx_complete) (struct urb *);
 
 	
 	int	(*rx_fixup)(struct usbnet *dev, struct sk_buff *skb);
@@ -208,5 +216,7 @@ extern u32 usbnet_get_msglevel(struct net_device *);
 extern void usbnet_set_msglevel(struct net_device *, u32);
 extern void usbnet_get_drvinfo(struct net_device *, struct ethtool_drvinfo *);
 extern int usbnet_nway_reset(struct net_device *net);
+extern void usbnet_terminate_urbs(struct usbnet *dev);
+extern void rx_complete(struct urb *urb);
 
 #endif 

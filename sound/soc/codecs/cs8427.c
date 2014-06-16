@@ -321,6 +321,9 @@ static int snd_cs8427_send_corudata(struct cs8427 *obj,
 	memcpy(hw_data, ndata, count);
 	if (udata) {
 		memset(data, 0, sizeof(data));
+		if (count > sizeof(data)) {
+			count = sizeof(data);
+		}
 		if (memcmp(hw_data, data, count) == 0) {
 			chip->regmap[CS8427_REG_UDATABUF] &= ~CS8427_UBMMASK;
 			chip->regmap[CS8427_REG_UDATABUF] |= CS8427_UBMZEROS |

@@ -41,6 +41,8 @@
 #define pr_err(fmt, ...) pr_aud_err(fmt, ##__VA_ARGS__)
 
 static int cfilt_adjust_ms = 10;
+static int vote_done;
+
 module_param(cfilt_adjust_ms, int, 0644);
 MODULE_PARM_DESC(cfilt_adjust_ms, "delay after adjusting cfilt voltage in ms");
 
@@ -3926,6 +3928,8 @@ static int tabla_startup(struct snd_pcm_substream *substream,
 	if ((tabla_core != NULL) &&
 	    (tabla_core->dev != NULL) &&
 	    (tabla_core->dev->parent != NULL)) {
+		vote_done++;
+		pr_debug("pm_runtime get vote_done = %d : %s\n", vote_done, __func__);
 		pm_runtime_get_sync(tabla_core->dev->parent);
 		pr_info("%s: PM_Voting:true\n", __func__);
 	}
@@ -3948,15 +3952,17 @@ static void tabla_shutdown(struct snd_pcm_substream *substream,
 	if (dai->id <= NUM_CODEC_DAIS) {
 		if (tabla->dai[dai->id-1].ch_mask) {
 			active = 1;
-			pr_debug("%s(): Codec DAI: chmask[%d] = 0x%x\n",
-			__func__, dai->id-1, tabla->dai[dai->id-1].ch_mask);
+			pr_debug("%s(): Codec DAI: chmask[%d] = 0x%x vote_done = %d\n",
+			__func__, dai->id-1, tabla->dai[dai->id-1].ch_mask, vote_done);
 		}
 	}
 
 	if ((tabla_core != NULL) &&
 	    (tabla_core->dev != NULL) &&
 	    (tabla_core->dev->parent != NULL) &&
-	    (active == 0)) {
+	    (active == 0) && (vote_done != 0)) {
+		vote_done--;
+		pr_debug("pm_runtime put vote_done %d: %s\n", vote_done, __func__);
 		pr_info("%s: PM_Voting:false\n", __func__);
 		pm_runtime_mark_last_busy(tabla_core->dev->parent);
 		pm_runtime_put(tabla_core->dev->parent);
@@ -4717,6 +4723,9 @@ static int tabla_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 		if (event == SND_SOC_DAPM_POST_PMD && (tabla != NULL) &&
 		    (tabla->dev != NULL) &&
 		    (tabla->dev->parent != NULL)) {
+			vote_done--;
+			pr_debug("pm_runtime put intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS vote_done = %d : %s\n",
+				vote_done, __func__);
 			pr_info("%s: PM_Voting:false\n", __func__);
 			pm_runtime_mark_last_busy(tabla->dev->parent);
 			pm_runtime_put(tabla->dev->parent);
@@ -4799,6 +4808,9 @@ static int tabla_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 			if ((tabla != NULL) &&
 			    (tabla->dev != NULL) &&
 			    (tabla->dev->parent != NULL)) {
+				vote_done--;
+				pr_debug("pm_runtime put in PMD vote_done = %d :%s\n",
+					vote_done, __func__);
 				pr_info("%s: PM_Voting:false\n", __func__);
 				pm_runtime_mark_last_busy(tabla->dev->parent);
 				pm_runtime_put(tabla->dev->parent);
@@ -4826,6 +4838,9 @@ static int tabla_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 		if (event == SND_SOC_DAPM_POST_PMD && (tabla != NULL) &&
 		    (tabla->dev != NULL) &&
 		    (tabla->dev->parent != NULL)) {
+			vote_done--;
+			pr_debug("pm_runtime put intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS vote_done = %d : %s\n",
+				vote_done, __func__);
 			pr_info("%s: PM_Voting:false\n", __func__);
 			pm_runtime_mark_last_busy(tabla->dev->parent);
 			pm_runtime_put(tabla->dev->parent);
@@ -4897,6 +4912,9 @@ static int tabla_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 			if ((tabla != NULL) &&
 			    (tabla->dev != NULL) &&
 			    (tabla->dev->parent != NULL)) {
+				vote_done--;
+				pr_debug("pm_runtime put PMD vote_done = %d: %s\n",
+					vote_done, __func__);
 				pr_info("%s: PM_Voting:false\n", __func__);
 				pm_runtime_mark_last_busy(tabla->dev->parent);
 				pm_runtime_put(tabla->dev->parent);

@@ -70,7 +70,7 @@ static void diag_read_hsic_work_fn(struct work_struct *work)
 		if (buf_in_hsic) {
 			pr_debug("diag: read from HSIC\n");
 			num_reads_submitted++;
-			err = diag_bridge_read((char *)buf_in_hsic,
+			err = diag_bridge_read(0, (char *)buf_in_hsic,
 							READ_HSIC_BUF_SIZE);
 			if (err) {
 				num_reads_submitted--;
@@ -230,7 +230,7 @@ void diag_hsic_close(void)
 		driver->hsic_ch = 0;
 		if (driver->hsic_device_opened) {
 			driver->hsic_device_opened = 0;
-			diag_bridge_close();
+			diag_bridge_close(0);
 			pr_debug("diag: %s: closed successfully\n", __func__);
 		} else {
 			pr_debug("diag: %s: already closed\n", __func__);
@@ -249,8 +249,8 @@ int diagfwd_cancel_hsic(void)
 		if (driver->hsic_device_opened) {
 			driver->hsic_ch = 0;
 			driver->hsic_device_opened = 0;
-			diag_bridge_close();
-			err = diag_bridge_open(&hsic_diag_bridge_ops);
+			diag_bridge_close(0);
+			err = diag_bridge_open(0, &hsic_diag_bridge_ops);
 			if (err) {
 				pr_err("diag: HSIC channel open error: %d\n",
 					err);
@@ -356,9 +356,9 @@ static int diag_hsic_probe(struct platform_device *pdev)
 		if (driver->hsic_device_opened) {
 			
 			pr_warn("diag: HSIC channel already opened in probe\n");
-			diag_bridge_close();
+			diag_bridge_close(0);
 		}
-		err = diag_bridge_open(&hsic_diag_bridge_ops);
+		err = diag_bridge_open(0, &hsic_diag_bridge_ops);
 		if (err) {
 			pr_err("diag: could not open HSIC, err: %d\n", err);
 			driver->hsic_device_opened = 0;

@@ -2,7 +2,7 @@
  * drivers/gpu/ion/ion.c
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -72,24 +72,6 @@ struct ion_handle {
 };
 
 static void ion_iommu_release(struct kref *kref);
-
-static int ion_validate_buffer_flags(struct ion_buffer *buffer,
-					unsigned long flags)
-{
-	if (buffer->kmap_cnt || buffer->dmap_cnt || buffer->umap_cnt ||
-		buffer->iommu_map_cnt) {
-		if (buffer->flags != flags) {
-			pr_err("%s: buffer was already mapped with flags %lx,"
-				" cannot map with flags %lx\n", __func__,
-				buffer->flags, flags);
-			return 1;
-		}
-
-	} else {
-		buffer->flags = flags;
-	}
-	return 0;
-}
 
 static void ion_buffer_add(struct ion_device *dev,
 			   struct ion_buffer *buffer)
@@ -196,6 +178,7 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 
 	buffer->dev = dev;
 	buffer->size = len;
+	buffer->flags = flags;
 
 	table = buffer->heap->ops->map_dma(buffer->heap, buffer);
 	if (IS_ERR_OR_NULL(table)) {
@@ -372,7 +355,8 @@ static void ion_handle_add(struct ion_client *client, struct ion_handle *handle)
 }
 
 struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
-			     size_t align, unsigned int flags)
+			     size_t align, unsigned int heap_mask,
+			     unsigned int flags)
 {
 	struct rb_node *n;
 	struct ion_handle *handle;
@@ -397,10 +381,11 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 		if (!((1 << heap->type) & client->heap_mask))
 			continue;
 		
-		if (!((1 << heap->id) & flags))
+		if (!((1 << heap->id) & heap_mask))
 			continue;
 		
-		if (secure_allocation && (heap->type != ION_HEAP_TYPE_CP))
+		if (secure_allocation &&
+			(heap->type != (enum ion_heap_type) ION_HEAP_TYPE_CP))
 			continue;
 		buffer = ion_buffer_create(heap, dev, len, align, flags);
 		if (!IS_ERR_OR_NULL(buffer))
@@ -718,8 +703,7 @@ out:
 }
 EXPORT_SYMBOL(ion_unmap_iommu);
 
-void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle,
-			unsigned long flags)
+void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle)
 {
 	struct ion_buffer *buffer;
 	void *vaddr;
@@ -739,11 +723,6 @@ void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle,
 		       __func__);
 		mutex_unlock(&client->lock);
 		return ERR_PTR(-ENODEV);
-	}
-
-	if (ion_validate_buffer_flags(buffer, flags)) {
-		mutex_unlock(&client->lock);
-		return ERR_PTR(-EEXIST);
 	}
 
 	mutex_lock(&buffer->lock);
@@ -832,7 +811,7 @@ static int ion_debug_client_show(struct seq_file *s, void *unused)
 
 		if (type == ION_HEAP_TYPE_SYSTEM_CONTIG ||
 			type == ION_HEAP_TYPE_CARVEOUT ||
-			type == ION_HEAP_TYPE_CP)
+			type == (enum ion_heap_type) ION_HEAP_TYPE_CP)
 			seq_printf(s, " : %12lx", handle->buffer->priv_phys);
 		else
 			seq_printf(s, " : %12s", "N/A");
@@ -881,7 +860,7 @@ struct ion_client *ion_client_create(struct ion_device *dev,
 		pr_err("%s: Name cannot be null\n", __func__);
 		return ERR_PTR(-EINVAL);
 	}
-	name_len = strnlen(name, 64);
+	name_len = ION_CLIENT_NAME_LENGTH;
 
 	get_task_struct(current->group_leader);
 	task_lock(current->group_leader);
@@ -951,9 +930,7 @@ void ion_client_destroy(struct ion_client *client)
 	while ((n = rb_first(&client->handles))) {
 		struct ion_handle *handle = rb_entry(n, struct ion_handle,
 						     node);
-		mutex_lock(&client->lock);
 		ion_handle_destroy(&handle->ref);
-		mutex_unlock(&client->lock);
 	}
 	mutex_lock(&dev->lock);
 	if (client->task)
@@ -1176,9 +1153,12 @@ static int ion_share_set_flags(struct ion_client *client,
 {
 	struct ion_buffer *buffer;
 	bool valid_handle;
-	unsigned long ion_flags = ION_SET_CACHE(CACHED);
+	unsigned long ion_flags = 0;
 	if (flags & O_DSYNC)
-		ion_flags = ION_SET_CACHE(UNCACHED);
+		ion_flags = ION_SET_UNCACHED(ion_flags);
+	else
+		ion_flags = ION_SET_CACHED(ion_flags);
+
 
 	mutex_lock(&client->lock);
 	valid_handle = ion_handle_validate(client, handle);
@@ -1190,12 +1170,6 @@ static int ion_share_set_flags(struct ion_client *client,
 
 	buffer = handle->buffer;
 
-	mutex_lock(&buffer->lock);
-	if (ion_validate_buffer_flags(buffer, ion_flags)) {
-		mutex_unlock(&buffer->lock);
-		return -EEXIST;
-	}
-	mutex_unlock(&buffer->lock);
 	return 0;
 }
 
@@ -1272,14 +1246,14 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	struct ion_client *client = filp->private_data;
 
 	switch (cmd) {
-	case ION_IOC_ALLOC_NEW:
+	case ION_IOC_ALLOC:
 	{
-		struct ion_allocation_data_new data;
+		struct ion_allocation_data data;
 
 		if (copy_from_user(&data, (void __user *)arg, sizeof(data)))
 			return -EFAULT;
 		data.handle = ion_alloc(client, data.len, data.align,
-					     data.flags | data.heap_mask);
+					     data.heap_mask, data.flags);
 
 		if (IS_ERR(data.handle))
 			return PTR_ERR(data.handle);
@@ -1289,16 +1263,21 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		}
 		break;
-
 	}
-	case ION_IOC_ALLOC:
+	case ION_IOC_ALLOC_OLD:
 	{
-		struct ion_allocation_data data;
+		struct ion_allocation_data_old data;
+		unsigned int heap_mask = 0;
+		unsigned int flags = 0;
 
 		if (copy_from_user(&data, (void __user *)arg, sizeof(data)))
 			return -EFAULT;
+
+		heap_mask = data.flags & ~(ION_SECURE | ION_FLAG_CACHED);
+		flags = data.flags & (ION_SECURE | ION_FLAG_CACHED);
+
 		data.handle = ion_alloc(client, data.len, data.align,
-					     data.flags);
+				heap_mask, flags);
 
 		if (IS_ERR(data.handle))
 			return PTR_ERR(data.handle);
@@ -1352,8 +1331,10 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				   sizeof(struct ion_fd_data)))
 			return -EFAULT;
 		data.handle = ion_import_dma_buf(client, data.fd);
-		if (IS_ERR(data.handle))
+		if (IS_ERR(data.handle)) {
+			ret = PTR_ERR(data.handle);
 			data.handle = NULL;
+		}
 		if (copy_to_user((void __user *)arg, &data,
 				 sizeof(struct ion_fd_data)))
 			return -EFAULT;
@@ -1373,22 +1354,34 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		return dev->custom_ioctl(client, data.cmd, data.arg);
 	}
-	case ION_IOC_CLEAN_CACHES_OLD:
 	case ION_IOC_CLEAN_CACHES:
 		return client->dev->custom_ioctl(client,
 						ION_IOC_CLEAN_CACHES, arg);
-	case ION_IOC_INV_CACHES_OLD:
 	case ION_IOC_INV_CACHES:
 		return client->dev->custom_ioctl(client,
 						ION_IOC_INV_CACHES, arg);
-	case ION_IOC_CLEAN_INV_CACHES_OLD:
 	case ION_IOC_CLEAN_INV_CACHES:
 		return client->dev->custom_ioctl(client,
 						ION_IOC_CLEAN_INV_CACHES, arg);
-	case ION_IOC_GET_FLAGS_OLD:
 	case ION_IOC_GET_FLAGS:
 		return client->dev->custom_ioctl(client,
 						ION_IOC_GET_FLAGS, arg);
+	case ION_IOC_CLIENT_RENAME:
+	{
+		struct ion_client_name_data data;
+		int len;
+
+		if (copy_from_user(&data, (void __user *)arg,
+					sizeof(struct ion_client_name_data)))
+			return -EFAULT;
+		if(data.len < 0)
+			return -EFAULT;
+		len = (ION_CLIENT_NAME_LENGTH > data.len) ? data.len: ION_CLIENT_NAME_LENGTH;
+		if (copy_from_user(client->name, (void __user *)data.name, len))
+                        return -EFAULT;
+		client->name[len] = '\0';
+		break;
+	}
 	default:
 		return -ENOTTY;
 	}
@@ -1671,7 +1664,7 @@ int ion_secure_heap(struct ion_device *dev, int heap_id, int version,
 	mutex_lock(&dev->lock);
 	for (n = rb_first(&dev->heaps); n != NULL; n = rb_next(n)) {
 		struct ion_heap *heap = rb_entry(n, struct ion_heap, node);
-		if (heap->type != ION_HEAP_TYPE_CP)
+		if (heap->type != (enum ion_heap_type) ION_HEAP_TYPE_CP)
 			continue;
 		if (ION_HEAP(heap->id) != heap_id)
 			continue;
@@ -1695,7 +1688,7 @@ int ion_unsecure_heap(struct ion_device *dev, int heap_id, int version,
 	mutex_lock(&dev->lock);
 	for (n = rb_first(&dev->heaps); n != NULL; n = rb_next(n)) {
 		struct ion_heap *heap = rb_entry(n, struct ion_heap, node);
-		if (heap->type != ION_HEAP_TYPE_CP)
+		if (heap->type != (enum ion_heap_type) ION_HEAP_TYPE_CP)
 			continue;
 		if (ION_HEAP(heap->id) != heap_id)
 			continue;

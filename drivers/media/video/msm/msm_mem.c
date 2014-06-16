@@ -139,7 +139,7 @@ static int msm_pmem_table_add(struct hlist_head *ptype,
 	if (IS_ERR_OR_NULL(region->handle))
 		goto out1;
 	if (ion_map_iommu(client, region->handle, CAMERA_DOMAIN, GEN_POOL,
-				  SZ_4K, 0, &paddr, &len, UNCACHED, 0) < 0)
+				  SZ_4K, 0, &paddr, &len, 0 , 0) < 0)
 		goto out2;
 
 	rc = ion_handle_get_flags(client, region->handle, &ionflag);
@@ -148,7 +148,7 @@ static int msm_pmem_table_add(struct hlist_head *ptype,
 		return 0;
 	}
 	D("ionflag=%ld\n", ionflag);
-	vaddr = ion_map_kernel(client, region->handle, ionflag);
+	vaddr = ion_map_kernel(client, region->handle);
 	if (IS_ERR_OR_NULL(vaddr)) {
 		pr_err("%s: could not get virtual address\n", __func__);
 		return 0;

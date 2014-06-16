@@ -319,7 +319,11 @@ static int cable_detect_get_type(struct cable_detect_info *pInfo)
 		if (adc > -100 && adc < 100)
 			type = second_detect(pInfo);
 		else {
+#ifdef CONFIG_MACH_DUMMY
+			if (adc > 120 && adc < 220)
+#else
 			if (adc > 150 && adc < 220)
+#endif
 				type = DOCK_STATE_CAR;
 			else if (adc > 370 && adc < 440)
 				type = DOCK_STATE_USB_HEADSET;

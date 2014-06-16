@@ -42,6 +42,307 @@ static struct miscdevice portlist_misc = {
 
 static int htc_port_list_init_success = 0;
 
+#ifdef CONFIG_MONITOR_STREAMING_PORT_SOCKET
+struct streaming_port_list_elem {
+    struct list_head list;
+    __be16 port;
+};
+struct streaming_sock_list_elem {
+    struct list_head list;
+    struct socket * sock;
+    __be16 port;
+};
+
+static struct list_head streaming_port_list;
+static struct list_head streaming_sock_list;
+
+static DEFINE_MUTEX(streaming_port_list_lock);
+static DEFINE_MUTEX(streaming_sock_list_lock);
+
+static bool streaming_port_add(__be16 port)
+{
+    bool ret = false;
+    struct list_head *listptr = NULL;
+    struct streaming_port_list_elem *list_elem = NULL;
+    struct streaming_port_list_elem *new_list_elem = NULL;
+
+    if ( htc_port_list_init_success == 0 )
+        return ret;
+
+    mutex_lock(&streaming_port_list_lock);
+
+    
+    list_for_each(listptr, &streaming_port_list) {
+        list_elem = list_entry(listptr, struct streaming_port_list_elem, list);
+        if (list_elem && list_elem->port == port) {
+            pr_err("%s(%d): Port %d is already in the list!", __func__, __LINE__, be16_to_cpu(port));
+            goto exit_out;
+        }
+    }
+
+    
+    new_list_elem = kmalloc(sizeof(struct streaming_port_list_elem), GFP_KERNEL);
+    if (!new_list_elem) {
+        pr_err("%s(%d): new_list_elem alloc failed\n", __func__, __LINE__);
+        goto exit_out;
+    }
+    if (new_list_elem) {
+        new_list_elem->port = port;
+        list_add_tail(&new_list_elem->list, &streaming_port_list);
+        pr_info("%s(%d): Add port:%d\n", __func__, __LINE__, be16_to_cpu(port));
+        ret = true;
+    }
+
+exit_out:
+    mutex_unlock(&streaming_port_list_lock);
+
+    return ret;
+}
+
+static bool streaming_port_remove(__be16 port)
+{
+    bool ret = false;
+    struct list_head *listptr = NULL;
+    struct streaming_port_list_elem *list_elem = NULL;
+
+    if ( htc_port_list_init_success == 0 )
+        return ret;
+
+    mutex_lock(&streaming_port_list_lock);
+
+    list_for_each(listptr, &streaming_port_list) {
+        list_elem = list_entry(listptr, struct streaming_port_list_elem, list);
+        if (list_elem && list_elem->port == port) {
+            pr_info("%s(%d): Remove port:%d\n", __func__, __LINE__, be16_to_cpu(port));
+            list_del(&list_elem->list);
+            kfree(list_elem);
+            ret = true;
+            break;
+        }
+    }
+
+    mutex_unlock(&streaming_port_list_lock);
+
+    if (ret != true)
+        pr_err("%s(%d): Remove failed! Port:%d is not in list!\n", __func__, __LINE__, be16_to_cpu(port));
+    return ret;
+}
+
+bool is_in_streaming_port_list(__be16 port)
+{
+    bool ret = false;
+    struct list_head *listptr = NULL;
+    struct streaming_port_list_elem *list_elem = NULL;
+
+    if ( htc_port_list_init_success == 0 )
+        return ret;
+
+    mutex_lock(&streaming_port_list_lock);
+
+    list_for_each(listptr, &streaming_port_list) {
+        list_elem = list_entry(listptr, struct streaming_port_list_elem, list);
+        if (list_elem && list_elem->port == port) {
+            ret = true;
+            break;
+        }
+    }
+
+    mutex_unlock(&streaming_port_list_lock);
+
+    return ret;
+}
+
+
+static ssize_t streaming_port_show(struct device *dev,  struct device_attribute *attr,  char *buf)
+{
+    char *s = buf;
+    struct list_head *listptr;
+    struct streaming_port_list_elem *list_elem;
+
+    if ( htc_port_list_init_success == 0 )
+        return 0;
+
+    mutex_lock(&streaming_port_list_lock);
+
+    list_for_each(listptr, &streaming_port_list) {
+        list_elem = list_entry(listptr, struct streaming_port_list_elem, list);
+        if (list_elem && list_elem != NULL) {
+            s += sprintf(s, "%d ", be16_to_cpu(list_elem->port));
+        }
+    }
+
+    mutex_unlock(&streaming_port_list_lock);
+
+    return s - buf;
+}
+
+static ssize_t streaming_port_store(struct device *dev, struct device_attribute *attr,  const char *buf, size_t count)
+{
+    int num;
+    int ret;
+    __be16 port;
+
+    if ( htc_port_list_init_success == 0 )
+        return count;
+
+    if (!dev)
+        return -ENODEV;
+
+    ret = sscanf(buf, "%d", &num);
+    pr_info("%s(%d): ret:%d num:%d\n", __func__, __LINE__, ret, num);
+
+    if (ret > 0) {
+        if (num < 0) {
+            port = cpu_to_be16(0-num);
+            streaming_port_remove(port);
+        }
+        else {
+            port = cpu_to_be16(num);
+            streaming_port_add(port);
+        }
+    }
+
+    return count;
+}
+
+static bool streaming_sock_add(struct socket * sock, __be16 port)
+{
+    bool ret = false;
+    struct list_head *listptr = NULL;
+    struct streaming_sock_list_elem *list_elem = NULL;
+    struct streaming_sock_list_elem *new_list_elem = NULL;
+
+    if ( htc_port_list_init_success == 0 )
+        return ret;
+
+    mutex_lock(&streaming_sock_list_lock);
+
+    
+    list_for_each(listptr, &streaming_sock_list) {
+        list_elem = list_entry(listptr, struct streaming_sock_list_elem, list);
+        if (list_elem && list_elem->sock == sock) {
+            pr_err("%s(%d): sock %x is already in the list!", __func__, __LINE__, (unsigned int)sock);
+            goto exit_out;
+        }
+    }
+
+    
+    new_list_elem = kmalloc(sizeof(struct streaming_sock_list_elem), GFP_KERNEL);
+    if (!new_list_elem) {
+        pr_err("%s(%d): new_list_elem alloc failed\n", __func__, __LINE__);
+        goto exit_out;
+    }
+    if (new_list_elem) {
+        new_list_elem->sock = sock;
+        new_list_elem->port = port;
+        list_add_tail(&new_list_elem->list, &streaming_sock_list);
+        pr_info("%s(%d):Add sock:%x port:%d\n", __func__, __LINE__, (unsigned int)sock, be16_to_cpu(port));
+        ret = true;
+    }
+
+exit_out:
+    mutex_unlock(&streaming_sock_list_lock);
+
+    return ret;
+}
+
+static bool streaming_sock_remove(struct socket * sock)
+{
+    bool ret = false;
+    struct list_head *listptr = NULL;
+    struct streaming_sock_list_elem *list_elem = NULL;
+
+    if ( htc_port_list_init_success == 0 )
+        return ret;
+
+    mutex_lock(&streaming_sock_list_lock);
+
+    list_for_each(listptr, &streaming_sock_list) {
+        list_elem = list_entry(listptr, struct streaming_sock_list_elem, list);
+        if (list_elem && list_elem->sock == sock) {
+            pr_info("%s(%d):Remove sock:%x port:%d\n", __func__, __LINE__, (unsigned int)list_elem->sock, be16_to_cpu(list_elem->port));
+            list_del(&list_elem->list);
+            kfree(list_elem);
+            ret = true;
+            break;
+        }
+    }
+
+    mutex_unlock(&streaming_sock_list_lock);
+
+    return ret;
+}
+
+static ssize_t streaming_sock_show(struct device *dev,  struct device_attribute *attr,  char *buf)
+{
+    char *s = buf;
+    struct list_head *listptr;
+    struct streaming_sock_list_elem *list_elem;
+
+    if ( htc_port_list_init_success == 0 )
+        return 0;
+
+    mutex_lock(&streaming_sock_list_lock);
+
+    list_for_each(listptr, &streaming_sock_list) {
+        list_elem = list_entry(listptr, struct streaming_sock_list_elem, list);
+        if (list_elem && list_elem != NULL) {
+            s += sprintf(s, "%x ", (unsigned int)list_elem->sock);
+        }
+    }
+
+    mutex_unlock(&streaming_sock_list_lock);
+
+    return s - buf;
+}
+
+bool is_streaming_sock_connectted = false;
+
+static DEFINE_MUTEX(sock_connect_lock);
+void sock_connect_hook(struct socket *sock, struct sockaddr *address, int addrlen)
+{
+    struct sockaddr_in *usin = (struct sockaddr_in *)address;
+    __be16 conn_port = 0;
+    bool is_org_stream_sock_list_empty;
+
+    if (usin) {
+        conn_port = usin->sin_port;
+    }
+
+    mutex_lock(&sock_connect_lock);
+
+    if (is_in_streaming_port_list(conn_port)) {
+        is_org_stream_sock_list_empty = list_empty(&streaming_sock_list);
+        if (streaming_sock_add(sock, conn_port)) {
+            if (is_org_stream_sock_list_empty) {
+                is_streaming_sock_connectted = true;
+                pr_info("%s(%d): is_streaming_sock_connectted:%x\n", __func__, __LINE__, is_streaming_sock_connectted);
+            }
+        }
+    }
+
+    mutex_unlock(&sock_connect_lock);
+}
+EXPORT_SYMBOL(sock_connect_hook);
+
+void sock_disconnect_hook(struct socket *sock)
+{
+    mutex_lock(&sock_connect_lock);
+
+    if(!list_empty(&streaming_sock_list)) {
+        streaming_sock_remove(sock);
+
+        if(list_empty(&streaming_sock_list)) {
+            is_streaming_sock_connectted = false;
+            pr_info("%s(%d): is_streaming_sock_connectted:%x\n", __func__, __LINE__, is_streaming_sock_connectted);
+        }
+    }
+
+    mutex_unlock(&sock_connect_lock);
+}
+EXPORT_SYMBOL(sock_disconnect_hook);
+#endif  
+
 static ssize_t htc_show(struct device *dev,  struct device_attribute *attr,  char *buf)
 {
 	char *s = buf;
@@ -104,6 +405,10 @@ static ssize_t htc_store(struct device *dev, struct device_attribute *attr,  con
 
 static DEVICE_ATTR(flag, 0664, htc_show, htc_store);
 static DEVICE_ATTR(port, 0664, htcport_show, NULL);
+#ifdef CONFIG_MONITOR_STREAMING_PORT_SOCKET
+static DEVICE_ATTR(stream_port, 0664, streaming_port_show, streaming_port_store);
+static DEVICE_ATTR(stream_sock, 0664, streaming_sock_show, NULL);
+#endif  
 
 static int port_list_enable(int enable)
 {
@@ -148,7 +453,7 @@ static void update_port_list(void)
 
 static struct p_list *add_list(int no)
 {
-	struct p_list *ptr;
+	struct p_list *ptr = NULL;
 	struct list_head *listptr;
 	struct p_list *entry;
 	int get_list = 0;
@@ -276,6 +581,11 @@ static int __init port_list_init(void)
 	memset(&curr_port_list, 0, sizeof(curr_port_list));
 	INIT_LIST_HEAD(&curr_port_list.list);
 
+	#ifdef CONFIG_MONITOR_STREAMING_PORT_SOCKET
+	INIT_LIST_HEAD(&streaming_port_list);
+	INIT_LIST_HEAD(&streaming_sock_list);
+	#endif  
+
 	ret = misc_register(&portlist_misc);
 	if (ret < 0) {
 		printk(KERN_ERR "[Port list] failed to register misc device!\n");
@@ -311,7 +621,27 @@ static int __init port_list_init(void)
 		goto err_device_create_file;
 	}
 
+#ifdef CONFIG_MONITOR_STREAMING_PORT_SOCKET
+	
+	ret = device_create_file(portlist_misc.this_device, &dev_attr_stream_port);
+	if (ret < 0) {
+	    printk(KERN_ERR "[Port list] devices_create_file  dev_attr_stream_port failed!\n");
+	    goto err_device_create_file;
+	}
+
+	ret = device_create_file(portlist_misc.this_device, &dev_attr_stream_sock);
+	if (ret < 0) {
+	    printk(KERN_ERR "[Port list] devices_create_file  dev_attr_stream_sock failed!\n");
+	    goto err_device_create_file;
+	}
+#endif  
+
 	htc_port_list_init_success = 1;
+
+	#ifdef CONFIG_MONITOR_STREAMING_PORT_SOCKET
+	streaming_port_add(cpu_to_be16(1755));  
+	streaming_port_add(cpu_to_be16(554));   
+	#endif  
 
 	return 0;
 
@@ -335,6 +665,12 @@ static void __exit port_list_exit(void) {
 
 	device_remove_file(portlist_misc.this_device, &dev_attr_flag);
 	device_remove_file(portlist_misc.this_device, &dev_attr_port);
+
+#ifdef CONFIG_MONITOR_STREAMING_PORT_SOCKET
+	device_remove_file(portlist_misc.this_device, &dev_attr_stream_port);
+	device_remove_file(portlist_misc.this_device, &dev_attr_stream_sock);
+#endif  
+
 	device_destroy(p_class, 0);
 	class_destroy(p_class);
 

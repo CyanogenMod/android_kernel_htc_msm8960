@@ -60,4 +60,11 @@ config QPNP_PWM
           devices support Pulse Width Modulation output with user generated
           patterns. They share a lookup table with size of 64 entries.
 
+config MSM_AVTIMER
+	tristate "Avtimer Driver"
+	depends on ARCH_MSM8960
+	help
+	  This driver gets the Q6 out of power collapsed state and
+          exposes ioctl control to read avtimer tick.
+
 endmenu

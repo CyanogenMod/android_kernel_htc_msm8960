@@ -155,6 +155,7 @@ struct msm_bus_scale_pdata *bus_scale_table = NULL;
 uint32_t bus_perf_client = 0;
 
 static int screen_off = 0;
+int sta_connected = 0;
 static int traffic_stats_flag = TRAFFIC_STATS_NORMAL;
 static unsigned long current_traffic_count = 0;
 static unsigned long last_traffic_count = 0;
@@ -490,7 +491,7 @@ static int wl_android_get_band(struct net_device *dev, char *command, int total_
 }
 
 
-#if defined(PNO_SUPPORT) && !defined(WL_SCHED_SCAN) && !defined(CUSTOMER_HW_ONE)
+#if defined(PNO_SUPPORT) && !defined(WL_SCHED_SCAN) && defined(CUSTOMER_HW_ONE)
 #define PARAM_SIZE 50
 #define VALUE_SIZE 50
 static int
@@ -501,7 +502,7 @@ wls_parse_batching_cmd(struct net_device *dev, char *command, int total_len)
 	char *pos, *pos2, *token, *token2, *delim;
 	char param[PARAM_SIZE], value[VALUE_SIZE];
 	struct dhd_pno_batch_params batch_params;
-	DHD_PNO(("%s: command=%s, len=%d\n", __FUNCTION__, command, total_len));
+	DHD_ERROR(("%s: command=%s, len=%d\n", __FUNCTION__, command, total_len));
 	if (total_len < strlen(CMD_WLS_BATCHING)) {
 		DHD_ERROR(("%s argument=%d less min size\n", __FUNCTION__, total_len));
 		err = BCME_ERROR;
@@ -628,7 +629,7 @@ static int wl_android_set_pno_setup(struct net_device *dev, char *command, int t
 		0x00
 		};
 #endif 
-	DHD_PNO(("%s: command=%s, len=%d\n", __FUNCTION__, command, total_len));
+	DHD_ERROR(("%s: command=%s, len=%d\n", __FUNCTION__, command, total_len));
 
 	if (total_len < (strlen(CMD_PNOSETUP_SET) + sizeof(cmd_tlv_t))) {
 		DHD_ERROR(("%s argument=%d less min size\n", __FUNCTION__, total_len));
@@ -663,7 +664,7 @@ static int wl_android_set_pno_setup(struct net_device *dev, char *command, int t
 			}
 			str_ptr++;
 			pno_time = simple_strtoul(str_ptr, &str_ptr, 16);
-			DHD_PNO(("%s: pno_time=%d\n", __FUNCTION__, pno_time));
+			DHD_ERROR(("%s: pno_time=%d\n", __FUNCTION__, pno_time));
 
 			if (str_ptr[0] != 0) {
 				if ((str_ptr[0] != PNO_TLV_FREQ_REPEAT)) {
@@ -681,7 +682,7 @@ static int wl_android_set_pno_setup(struct net_device *dev, char *command, int t
 				}
 				str_ptr++;
 				pno_freq_expo_max = simple_strtoul(str_ptr, &str_ptr, 16);
-				DHD_PNO(("%s: pno_freq_expo_max=%d\n",
+				DHD_ERROR(("%s: pno_freq_expo_max=%d\n",
 					__FUNCTION__, pno_freq_expo_max));
 			}
 		}
@@ -917,6 +918,8 @@ wl_android_set_mac_address_filter(struct net_device *dev, const char* str)
 }
 #endif
 
+extern int msm_otg_setclk( int on);
+
 
 int wl_android_wifi_on(struct net_device *dev)
 {
@@ -969,13 +972,14 @@ int wl_android_wifi_on(struct net_device *dev)
 	}
 
 #ifdef CUSTOMER_HW_ONE
-if(bus_scale_table) {
-	 bus_perf_client =
-		 msm_bus_scale_register_client(bus_scale_table);
-	 if (!bus_perf_client)
-		 printf("%s: Failed to register BUS "
-				 "scaling client!!\n", __func__);
- }
+	if(bus_scale_table) {
+		bus_perf_client =
+			msm_bus_scale_register_client(bus_scale_table);
+		if (!bus_perf_client)
+			printf("%s: Failed to register BUS "
+					"scaling client!!\n", __func__);
+	}
+	
 exit:
 	mutex_unlock(&wl_wifionoff_mutex);
 #else
@@ -1032,6 +1036,8 @@ int wl_android_wifi_off(struct net_device *dev)
 	wlan_unlock_perf();
 	if (bus_perf_client)
 		msm_bus_scale_unregister_client(bus_perf_client);
+
+	
 	mutex_unlock(&wl_wifionoff_mutex);
 	bcm_mdelay(500);
 #else
@@ -1414,7 +1420,7 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 	}
 	command[priv_cmd.total_len] = '\0';
 
-	DHD_INFO(("%s: Android private cmd \"%s\" on %s\n", __FUNCTION__, command, ifr->ifr_name));
+	DHD_ERROR(("%s: Android private cmd \"%s\" on %s\n", __FUNCTION__, command, ifr->ifr_name));
 
 	if (strnicmp(command, CMD_START, strlen(CMD_START)) == 0) {
 		DHD_INFO(("%s, Received regular START command\n", __FUNCTION__));
@@ -1446,10 +1452,9 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 	else if (strnicmp(command, CMD_LINKSPEED, strlen(CMD_LINKSPEED)) == 0) {
 		bytes_written = wl_android_get_link_speed(net, command, priv_cmd.total_len);
 	}
-#if 0
 #ifdef PKT_FILTER_SUPPORT
 	else if (strnicmp(command, CMD_RXFILTER_START, strlen(CMD_RXFILTER_START)) == 0) {
-#if 0
+#if 1
 		snprintf(command, 3, "OK");
 		bytes_written = strlen("OK");
 #else
@@ -1457,7 +1462,7 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 #endif
 	}
 	else if (strnicmp(command, CMD_RXFILTER_STOP, strlen(CMD_RXFILTER_STOP)) == 0) {
-#if 0
+#if 1
 				snprintf(command, 3, "OK");
 				bytes_written = strlen("OK");
 #else
@@ -1476,7 +1481,9 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 			}
 		}
 #endif
-		wl_android_set_pktfilter(net, (struct dd_pkt_filter_s *)&command[32]);
+		
+		DHD_ERROR(("RXFILTER-ADD MULTICAST filter\n"));
+		wl_android_enable_pktfilter(net,1);
 		snprintf(command, 3, "OK");
 		bytes_written = strlen("OK");		
 #else
@@ -1495,7 +1502,9 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 			}
 		}
 #endif
-		wl_android_set_pktfilter(net, (struct dd_pkt_filter_s *)&command[32]);
+		
+		DHD_ERROR(("RXFILTER-REMOVE MULTICAST filter\n"));
+		wl_android_enable_pktfilter(net,0);
 		snprintf(command, 3, "OK");
 		bytes_written = strlen("OK");
 #else
@@ -1504,7 +1513,6 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 #endif
 	}
 #endif 
-#endif
 	else if (strnicmp(command, CMD_BTCOEXSCAN_START, strlen(CMD_BTCOEXSCAN_START)) == 0) {
 		
 	}
@@ -1570,7 +1578,7 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 #endif 
 
 
-#if defined(PNO_SUPPORT) && !defined(WL_SCHED_SCAN) && !defined(CUSTOMER_HW_ONE)
+#if defined(PNO_SUPPORT) && !defined(WL_SCHED_SCAN) && defined(CUSTOMER_HW_ONE)
 	else if (strnicmp(command, CMD_PNOSSIDCLR_SET, strlen(CMD_PNOSSIDCLR_SET)) == 0) {
 		bytes_written = dhd_dev_pno_stop_for_ssid(net);
 	}
@@ -1581,6 +1589,7 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 #endif 
 	else if (strnicmp(command, CMD_PNOENABLE_SET, strlen(CMD_PNOENABLE_SET)) == 0) {
 		int enable = *(command + strlen(CMD_PNOENABLE_SET) + 1) - '0';
+        printf("enter %s enable = %d\n ",__FUNCTION__,enable);
 		bytes_written = (enable)? 0 : dhd_dev_pno_stop_for_ssid(net);
 	}
 	else if (strnicmp(command, CMD_WLS_BATCHING, strlen(CMD_WLS_BATCHING)) == 0) {
@@ -2533,8 +2542,10 @@ int multi_core_locked = 0;
 void wlan_lock_multi_core(struct net_device *dev)
 {
 	dhd_pub_t *dhdp = bcmsdh_get_drvdata();
+	char buf[32];
 
-	wl_cfg80211_send_priv_event(dev, "PERF_LOCK");
+	sprintf(buf, "PERF_LOCK cpu=%u", (nr_cpu_ids <= 2)? nr_cpu_ids: 2);
+	wl_cfg80211_send_priv_event(dev, buf);
 	multi_core_locked = 1;
 	if (dhdp) {
 		dhd_sched_dpc(dhdp);
@@ -2567,10 +2578,10 @@ void wl_android_traffic_monitor(struct net_device *dev)
 	dhd_get_txrx_stats(dev, &rx_packets_count, &tx_packets_count);
 	current_traffic_count = rx_packets_count + tx_packets_count;
 
-	if ((current_traffic_count >= last_traffic_count && jiffies > last_traffic_count_jiffies) || screen_off) {
+	if ((current_traffic_count >= last_traffic_count && jiffies > last_traffic_count_jiffies) || screen_off || !sta_connected) {
         
-        if (screen_off) {
-            printf("set traffic = 0 and relase performace lock when screen off");
+        if (screen_off || !sta_connected) {
+            printf("set traffic = 0 and relase performace lock when %s", screen_off? "screen off": "disconnected");
             traffic_diff = 0;
         }
         else {

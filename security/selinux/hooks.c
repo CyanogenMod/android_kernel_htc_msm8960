@@ -2808,6 +2808,9 @@ static int selinux_file_permission(struct file *file, int mask)
 		
 		return 0;
 
+	if (unlikely(!fsec || !isec))
+		return 0;
+
 	if (sid == fsec->sid && fsec->isid == isec->sid &&
 	    fsec->pseqno == avc_policy_seqno())
 		

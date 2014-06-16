@@ -1863,8 +1863,13 @@ static int r3gd20_suspend(struct i2c_client *client, pm_message_t mesg)
 	u8 buf[2];
 	int err = -1;
 
-	data->is_suspended = 1;
-	I("%s++: data->is_suspended = %d\n", __func__, data->is_suspended);
+	if (data) {
+		data->is_suspended = 1;
+		I("%s++: data->is_suspended = %d\n", __func__, data->is_suspended);
+	} else {
+		E("%s: data = NULL\n", __func__);
+		return -EINVAL;
+	}
 
 #if DEBUG
 	I("r3gd20_suspend\n");
@@ -1893,7 +1898,7 @@ static int r3gd20_suspend(struct i2c_client *client, pm_message_t mesg)
 	
 
 #endif 
-	if (data && (data->pdata->power_LPM))
+	if (data->pdata->power_LPM)
 		data->pdata->power_LPM(1);
 
 	I("%s:--\n", __func__);

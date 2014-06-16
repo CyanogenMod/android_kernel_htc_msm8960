@@ -493,4 +493,13 @@ config MSM_RMNET_USB
 	To compile this driver as a module, choose M here: the module
 	will be called rmnet_usb. If unsure, choose N.
 
+config RIL_PCN001_HTC_QUEUE_URB_TO_DEFERRED_ANCHOR
+	tristate "RIL_PCN001_HTC_QUEUE_URB_TO_DEFERRED_ANCHOR"
+	depends on USB_USBNET
+	help
+	   Sometime the IE browser will return server error when user use wifi hotspot.
+	   It cause by the package will be drop by usbnet when device in suspend/resume process,
+	   usbnet will check device suspend/resume status,
+	   if device not finished the resume process, the urb will be drop.
+
 endmenu

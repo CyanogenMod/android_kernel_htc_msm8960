@@ -804,8 +804,10 @@ static int get_min_max_with_quirks(struct usb_mixer_elem_info *cval,
 	if (kctl)
 		volume_control_quirks(cval, kctl);
 
-	cval->dBmin = (convert_signed_value(cval, cval->min) * 100) / 256;
-	cval->dBmax = (convert_signed_value(cval, cval->max) * 100) / 256;
+	cval->dBmin =
+		(convert_signed_value(cval, cval->min) * 100) / (cval->res);
+	cval->dBmax =
+		(convert_signed_value(cval, cval->max) * 100) / (cval->res);
 	if (cval->dBmin > cval->dBmax) {
 		
 		if (cval->dBmin < 0)

@@ -26,7 +26,9 @@
 struct pm8xxx_debug_device {
 	struct mutex		debug_mutex;
 	struct device		*parent;
+#if 0 
 	struct dentry		*dir;
+#endif
 	int			addr;
 };
 
@@ -1850,8 +1852,10 @@ static int __devinit pm8xxx_debug_probe(struct platform_device *pdev)
 {
 	char *name = pdev->dev.platform_data;
 	struct pm8xxx_debug_device *debugdev;
+#if 0 
 	struct dentry *dir;
 	struct dentry *temp;
+#endif
 	int rc;
 
 	if (name == NULL) {
@@ -1874,7 +1878,7 @@ static int __devinit pm8xxx_debug_probe(struct platform_device *pdev)
 
 	debugdev->parent = pdev->dev.parent;
 	debugdev->addr = -1;
-
+#if 0 
 	dir = debugfs_create_dir(name, NULL);
 	if (dir == NULL || IS_ERR(dir)) {
 		pr_err("debugfs_create_dir failed: rc=%ld\n", PTR_ERR(dir));
@@ -1897,17 +1901,19 @@ static int __devinit pm8xxx_debug_probe(struct platform_device *pdev)
 		rc = PTR_ERR(temp);
 		goto file_error;
 	}
-
+#endif
 	pm8xxx_vreg_status_init(debugdev);
 	mutex_init(&debugdev->debug_mutex);
-
+#if 0 
 	debugdev->dir = dir;
+#endif
 	platform_set_drvdata(pdev, debugdev);
 
 	return 0;
-
+#if 0 
 file_error:
 	debugfs_remove_recursive(dir);
+#endif
 dir_error:
 	kfree(debugdev);
 
@@ -1919,7 +1925,9 @@ static int __devexit pm8xxx_debug_remove(struct platform_device *pdev)
 	struct pm8xxx_debug_device *debugdev = platform_get_drvdata(pdev);
 
 	if (debugdev) {
+#if 0 
 		debugfs_remove_recursive(debugdev->dir);
+#endif
 		mutex_destroy(&debugdev->debug_mutex);
 		kfree(debugdev);
 	}

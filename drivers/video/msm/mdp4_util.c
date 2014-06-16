@@ -2298,8 +2298,10 @@ u32 mdp4_allocate_writeback_buf(struct msm_fb_data_type *mfd, u32 mix_num)
 	if (!IS_ERR_OR_NULL(mfd->iclient)) {
 		pr_info("%s:%d ion based allocation mfd->mem_hid 0x%x\n",
 			__func__, __LINE__, mfd->mem_hid);
+
 		buf->ihdl = ion_alloc(mfd->iclient, buffer_size, SZ_4K,
-			mfd->mem_hid);
+					(mfd->mem_hid & ~ION_SECURE), (mfd->mem_hid & ION_SECURE));
+
 		if (!IS_ERR_OR_NULL(buf->ihdl)) {
 			if (mdp_iommu_split_domain) {
 				if (ion_map_iommu(mfd->iclient, buf->ihdl,
@@ -2621,14 +2623,16 @@ int mdp4_pcc_cfg(struct mdp_pcc_cfg_data *cfg_ptr)
 		break;
 	}
 
-	if (0x8 & cfg_ptr->ops)
+	if ((0x8 & cfg_ptr->ops) && (mdp_dma_op_mode != 0))
 		outpdw(mdp_dma_op_mode,
 			((inpdw(mdp_dma_op_mode) & ~(0x1<<10)) |
 						((0x8 & cfg_ptr->ops)<<10)));
-
-	outpdw(mdp_cfg_offset,
+	if (mdp_cfg_offset)
+		outpdw(mdp_cfg_offset,
 			((inpdw(mdp_cfg_offset) & ~(0x1<<29)) |
 						((cfg_ptr->ops & 0x1)<<29)));
+	else
+		return -EINVAL;
 
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 

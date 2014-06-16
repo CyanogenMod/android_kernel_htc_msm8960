@@ -39,6 +39,7 @@
 #include "kgsl_trace.h"
 #include "kgsl_sync.h"
 #include "adreno.h"
+#include "kgsl_htc.h"
 
 #undef MODULE_PARAM_PREFIX
 #define MODULE_PARAM_PREFIX "kgsl."
@@ -432,6 +433,7 @@ kgsl_create_context(struct kgsl_device_private *dev_priv)
 				"ctxts due to memstore limitation\n",
 				KGSL_MEMSTORE_MAX);
 		write_lock(&device->context_lock);
+		kgsl_dump_contextpid_locked(&dev_priv->device->context_idr);
 		idr_remove(&device->context_idr, id);
 		write_unlock(&device->context_lock);
 		ret = -ENOSPC;
@@ -578,6 +580,7 @@ static int kgsl_suspend_device(struct kgsl_device *device, pm_message_t state)
 		case KGSL_STATE_SLEEP:
 			
 			kgsl_pwrctrl_enable(device);
+            kgsl_pwrctrl_irq(device,KGSL_PWRFLAGS_ON);
 			
 			INIT_COMPLETION(device->hwaccess_gate);
 			device->ftbl->suspend_context(device);
@@ -961,7 +964,8 @@ static int kgsl_open(struct inode *inodep, struct file *filep)
 		result = device->ftbl->start(device);
 		if (result)
 			goto err_freedevpriv;
-
+		complete_all(&device->ft_gate);
+		complete_all(&device->hwaccess_gate);
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_ACTIVE);
 		kgsl_active_count_put(device);
 	}
@@ -2661,7 +2665,7 @@ err_put:
 static inline bool
 mmap_range_valid(unsigned long addr, unsigned long len)
 {
-	return (addr + len) > addr && (addr + len) < TASK_SIZE;
+	return ((ULONG_MAX - addr) > len) && ((addr + len) < TASK_SIZE);
 }
 
 static unsigned long

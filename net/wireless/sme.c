@@ -65,7 +65,7 @@ static void disconnect_work(struct work_struct *work)
 	if (!cfg80211_is_all_idle())
 		return;
 
-	regulatory_hint_disconnect();
+	
 }
 
 static DECLARE_WORK(cfg80211_disconnect_work, disconnect_work);
@@ -501,10 +501,6 @@ void __cfg80211_connect_result(struct net_device *dev, const u8 *bssid,
 	if (!country_ie)
 		return;
 
-	regulatory_hint_11d(wdev->wiphy,
-			    bss->channel->band,
-			    country_ie + 2,
-			    country_ie[1]);
 }
 
 void cfg80211_connect_result(struct net_device *dev, const u8 *bssid,

@@ -42,11 +42,11 @@ enum {
 };
 
 #ifdef CONFIG_CMA
+bool is_cma_pageblock(struct page *page);
 #  define is_migrate_cma(migratetype) unlikely((migratetype) == MIGRATE_CMA)
-#  define cma_wmark_pages(zone)	zone->min_cma_pages
 #else
+#  define is_cma_pageblock(page) false
 #  define is_migrate_cma(migratetype) false
-#  define cma_wmark_pages(zone) 0
 #endif
 
 #define for_each_migratetype_order(order, type) \
@@ -115,6 +115,7 @@ enum zone_stat_item {
 	NUMA_OTHER,		
 #endif
 	NR_ANON_TRANSPARENT_HUGEPAGES,
+	NR_FREE_CMA_PAGES,
 	NR_VM_ZONE_STAT_ITEMS };
 
 #define LRU_BASE 0
@@ -257,7 +258,7 @@ struct zone {
 	seqlock_t		span_seqlock;
 #endif
 #ifdef CONFIG_CMA
-	unsigned long		min_cma_pages;
+	bool			cma_alloc;
 #endif
 	struct free_area	free_area[MAX_ORDER];
 

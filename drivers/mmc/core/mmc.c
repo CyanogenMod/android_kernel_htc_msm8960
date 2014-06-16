@@ -23,6 +23,7 @@
 #include "mmc_ops.h"
 #include "sd_ops.h"
 
+extern char *board_get_mid(void);
 static const unsigned int tran_exp[] = {
 	10000,		100000,		1000000,	10000000,
 	0,		0,		0,		0
@@ -286,6 +287,12 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 			ext_csd[EXT_CSD_SEC_CNT + 2] << 16 |
 			ext_csd[EXT_CSD_SEC_CNT + 3] << 24;
 
+		if ((card->ext_csd.sectors > 33554432) && (!strncmp(board_get_mid(), "PN0772", 6)
+			|| !strncmp(board_get_mid(), "PN0752", 6)
+			|| !strncmp(board_get_mid(), "PN0781", 6)) )
+			card->ext_csd.sectors = 30535680;
+		else if ((card->ext_csd.sectors > 67108864) && (!strncmp(board_get_mid(), "PN0714001", 9)))
+			card->ext_csd.sectors = 61071360;
 		
 		if (card->ext_csd.sectors > (2u * 1024 * 1024 * 1024) / 512)
 			mmc_card_set_blockaddr(card);

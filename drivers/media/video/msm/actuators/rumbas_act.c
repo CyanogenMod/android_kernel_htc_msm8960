@@ -228,7 +228,7 @@ static uint8_t rumbas_select_ois_map_table(table_type op)
 			break;
 	}
 	rc = request_firmware(&fw, "ois_param", &(rumbas_act_t.i2c_client.client->dev));
-	if (rc!=0) {
+	if (rc!=0 || !fw) {
 		pr_info("[OIS] request_firmware: Debug file doesn't exist, use default table\n");
 	} else {
 		ois_data = (unsigned char *)fw->data;

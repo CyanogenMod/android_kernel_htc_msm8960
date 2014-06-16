@@ -794,7 +794,7 @@ static int check_modem_task_ready(int channel)
 		}
 		driver->in_busy_hsic_write = 1;
 		driver->in_busy_hsic_read_on_device = 0;
-		diag_bridge_write(phone_status, 4);
+		diag_bridge_write(0, phone_status, 4);
 		break;
 #endif
 #if defined(CONFIG_DIAG_SDIO_PIPE)
@@ -1124,7 +1124,7 @@ static ssize_t diag2arm9_write(struct file *fp, const char __user *buf,
 #if defined(CONFIG_DIAGFWD_BRIDGE_CODE)
 			driver->in_busy_hsic_write = 1;
 			driver->in_busy_hsic_read_on_device = 0;
-			ret = diag_bridge_write(ctxt->DM_buf, writed);
+			ret = diag_bridge_write(0, ctxt->DM_buf, writed);
 			if (ret) {
 				DIAG_INFO(": diag_bridge write failed %d\n", ret);
 				if ((-ESHUTDOWN) != ret)

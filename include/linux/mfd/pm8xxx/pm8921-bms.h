@@ -142,6 +142,9 @@ int pm8921_bms_get_batt_current(int *result);
 int pm8921_store_hw_reset_reason(int is_hw_reset);
 int pm8921_bms_get_batt_soc(int *result);
 int pm8921_bms_get_batt_cc(int *result);
+int pm8921_bms_store_battery_data_emmc(void);
+int pm8921_bms_store_battery_ui_soc(int soc_ui);
+int pm8921_bms_get_battery_ui_soc(void);
 int pm8921_bms_get_attr_text(char *buf, int size);
 #endif 
 #else
@@ -212,6 +215,18 @@ static inline int pm8921_bms_get_batt_soc(int *result)
 	return -ENXIO;
 }
 static inline int pm8921_bms_get_batt_cc(int *result)
+{
+	return -ENXIO;
+}
+static inline int pm8921_bms_store_battery_data_emmc(void)
+{
+	return -ENXIO;
+}
+static inline int pm8921_bms_store_battery_ui_soc(int soc_ui)
+{
+	return -ENXIO;
+}
+static inline int pm8921_bms_get_battery_ui_soc(void)
 {
 	return -ENXIO;
 }

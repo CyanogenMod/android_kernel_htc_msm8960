@@ -787,6 +787,7 @@ int msm_add_host(unsigned int host,
 void msm_hsusb_set_vbus_state(int online);
 void msm_otg_set_vbus_state(int online);
 enum usb_connect_type {
+	CONNECT_TYPE_NOTIFY = -3,
 	CONNECT_TYPE_CLEAR = -2,
 	CONNECT_TYPE_UNKNOWN = -1,
 	CONNECT_TYPE_NONE = 0,
@@ -871,4 +872,7 @@ extern int dying_processors_read_proc(char *page, char **start, off_t off,
 			   int count, int *eof, void *data);
 
 extern int get_partition_num_by_name(char *name);
+
+static DEFINE_MUTEX(function_bind_sem);
+
 #endif

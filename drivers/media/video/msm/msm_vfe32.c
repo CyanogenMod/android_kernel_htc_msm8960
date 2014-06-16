@@ -3080,6 +3080,10 @@ static void vfe32_process_reg_update_irq(void)
 
 				vfe32_ctrl->liveshot_state = VFE_STATE_STARTED;
 			}
+			else {
+				pr_info("%s output_mode 0x%x\n", __func__,
+					vfe32_ctrl->outpath.output_mode);
+			}
 			break;
 		case VFE_STATE_STARTED:
 			
@@ -3096,6 +3100,12 @@ static void vfe32_process_reg_update_irq(void)
 				vfe32_ctrl->liveshot_state = VFE_STATE_HW_STOP_REQUESTED;
 				msm_io_w_mb(1, vfe32_ctrl->vfebase +
 					VFE_REG_UPDATE_CMD);
+			}
+			else {
+				pr_info("%s output_mode 0x%x, vfe_capture_count=%d, recording_state=%d\n", __func__,
+					vfe32_ctrl->outpath.output_mode,
+					vfe32_ctrl->vfe_capture_count,
+					vfe32_ctrl->recording_state);
 			}
 			break;
 		case VFE_STATE_HW_STOP_REQUESTED:

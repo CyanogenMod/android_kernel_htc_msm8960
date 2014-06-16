@@ -567,8 +567,12 @@ static void ulpi_init(struct msm_otg *motg)
 		for (stmp = strsep(&buf, nextline) ; stmp != NULL ; stmp = strsep(&buf, nextline)) {
 			for (valtmp = strsep(&stmp, delim) ; stmp != NULL ; valtmp = strsep(&stmp, delim)) {
 				result = strsep(&valtmp, colon);
+				if (result == NULL)
+					break;
 				ret = strict_strtoul(result, 16, &addr);
 				result = strsep(&valtmp, colon);
+				if (result == NULL)
+					break;
 				ret = strict_strtoul(result, 16, &val);
 				USBH_INFO("ulpi: file write  0x%02x to 0x%02x", (int)val, (int)addr);
 				ulpi_write(&motg->phy, (int)val, (int)addr);
@@ -2119,6 +2123,7 @@ static void msm_chg_detect_work(struct work_struct *w)
 		vout = msm_chg_check_primary_det(motg);
 		line_state = readl_relaxed(USB_PORTSC) & PORTSC_LS;
 		dm_vlgc = line_state & PORTSC_LS_DM;
+		USBH_INFO("line_state = %x\n",line_state);
 		if (vout && !dm_vlgc) { 
 			if (test_bit(ID_A, &motg->inputs)) {
 				motg->chg_type = USB_ACA_DOCK_CHARGER;
@@ -2993,18 +2998,19 @@ static irqreturn_t msm_otg_irq(int irq, void *data)
 
 static void ac_detect_expired_work(struct work_struct *w)
 {
-	u32 delay = 0;
+	u32 delay = 0, line_state;
 	struct msm_otg *motg = the_msm_otg;
 	struct usb_phy *usb_phy = &motg->phy;
 
-	USBH_INFO("%s: count = %d, connect_type = %d\n", __func__,
-			motg->ac_detect_count, motg->connect_type);
+	line_state = readl(USB_PORTSC) & PORTSC_LS;
+	USBH_INFO("%s: count = %d, connect_type = %d, line_state = %x\n", __func__,
+			motg->ac_detect_count, motg->connect_type,line_state << 10);
 
 	if (motg->connect_type == CONNECT_TYPE_USB || motg->ac_detect_count >= 5)
 		return;
 
 	
-	if ((readl(USB_PORTSC) & PORTSC_LS) != PORTSC_LS) {
+	if (line_state != PORTSC_LS) {
 #ifdef CONFIG_CABLE_DETECT_ACCESSORY
 		if (cable_get_accessory_type() == DOCK_STATE_CAR
 			||cable_get_accessory_type() == DOCK_STATE_AUDIO_DOCK) {
@@ -3102,6 +3108,10 @@ void msm_otg_set_vbus_state(int online)
 		
 		if (motg->pdata->usb_uart_switch)
 			motg->pdata->usb_uart_switch(0);
+		if (motg->connect_type == 0) {
+			motg->connect_type = CONNECT_TYPE_NOTIFY;
+			queue_work(motg->usb_wq, &motg->notifier_work);
+		}
 	} else {
 		pr_debug("PMIC: BSV clear\n");
 		clear_bit(B_SESS_VLD, &motg->inputs);

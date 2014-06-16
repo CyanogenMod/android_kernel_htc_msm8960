@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,7 +15,7 @@
 #define ION_CP_COMMON_H
 
 #include <asm-generic/errno-base.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 
 #define ION_CP_V1	1
 #define ION_CP_V2	2

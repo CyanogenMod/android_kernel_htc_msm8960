@@ -249,7 +249,7 @@ static void adreno_perfcounter_start(struct adreno_device *adreno_dev)
 
 
 int adreno_perfcounter_read_group(struct adreno_device *adreno_dev,
-	struct kgsl_perfcounter_read_group *reads, unsigned int count)
+	struct kgsl_perfcounter_read_group __user *reads, unsigned int count)
 {
 	struct adreno_perfcounters *counters = adreno_dev->gpudev->perfcounters;
 	struct adreno_perfcount_group *group;
@@ -269,12 +269,6 @@ int adreno_perfcounter_read_group(struct adreno_device *adreno_dev,
 	if (reads == NULL || count == 0 || count > 100)
 		return -EINVAL;
 
-	
-	for (i = 0; i < count; i++) {
-		if (reads[i].groupid >= counters->group_count)
-			return -EINVAL;
-	}
-
 	list = kmalloc(sizeof(struct kgsl_perfcounter_read_group) * count,
 			GFP_KERNEL);
 	if (!list)
@@ -289,6 +283,11 @@ int adreno_perfcounter_read_group(struct adreno_device *adreno_dev,
 	
 	for (j = 0; j < count; j++) {
 		list[j].value = 0;
+		
+		if (list[j].groupid >= counters->group_count) {
+		ret = -EINVAL;
+		goto done;
+		}
 
 		group = &(counters->groups[list[j].groupid]);
 
@@ -481,13 +480,15 @@ static void adreno_cleanup_pt(struct kgsl_device *device,
 
 	kgsl_mmu_unmap(pagetable, &device->memstore);
 
+	kgsl_mmu_unmap(pagetable, &adreno_dev->pwron_fixup);
+
 	kgsl_mmu_unmap(pagetable, &device->mmu.setstate_memory);
 }
 
 static int adreno_setup_pt(struct kgsl_device *device,
 			struct kgsl_pagetable *pagetable)
 {
-	int result = 0;
+	int result;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
 
@@ -503,25 +504,20 @@ static int adreno_setup_pt(struct kgsl_device *device,
 	if (result)
 		goto unmap_memptrs_desc;
 
-	result = kgsl_mmu_map_global(pagetable, &device->mmu.setstate_memory);
+	result = kgsl_mmu_map_global(pagetable, &adreno_dev->pwron_fixup);
 	if (result)
 		goto unmap_memstore_desc;
 
+	result = kgsl_mmu_map_global(pagetable, &device->mmu.setstate_memory);
+	if (result)
+		goto unmap_pwron_fixup_desc;
+
 	device->mh.mpu_range = device->mmu.setstate_memory.gpuaddr +
 				device->mmu.setstate_memory.size;
-
-	if (adreno_is_a305(adreno_dev)) {
-		result = kgsl_mmu_map_global(pagetable,
-				&adreno_dev->on_resume_cmd);
-		if (result)
-			goto unmap_setstate_desc;
-		device->mh.mpu_range = device->mmu.setstate_memory.gpuaddr +
-				device->mmu.setstate_memory.size;
-	}
 	return result;
 
-unmap_setstate_desc:
-	kgsl_mmu_unmap(pagetable, &device->mmu.setstate_memory);
+unmap_pwron_fixup_desc:
+	kgsl_mmu_unmap(pagetable, &adreno_dev->pwron_fixup);
 
 unmap_memstore_desc:
 	kgsl_mmu_unmap(pagetable, &device->memstore);
@@ -1383,7 +1379,6 @@ adreno_probe(struct platform_device *pdev)
 		goto error_close_rb;
 
 	adreno_debugfs_init(device);
-	adreno_dev->on_resume_issueib = false;
 
 	adreno_ft_init_sysfs(device);
 
@@ -1410,8 +1405,6 @@ static int __devexit adreno_remove(struct platform_device *pdev)
 
 	kgsl_pwrscale_detach_policy(device);
 	kgsl_pwrscale_close(device);
-	if (adreno_is_a305(adreno_dev))
-		kgsl_sharedmem_free(&adreno_dev->on_resume_cmd);
 
 	adreno_ringbuffer_close(&adreno_dev->ringbuffer);
 	kgsl_device_platform_remove(device);
@@ -1486,6 +1479,11 @@ static int adreno_start(struct kgsl_device *device)
 	kgsl_pwrctrl_enable(device);
 
 	
+
+	
+	set_bit(ADRENO_DEVICE_PWRON, &adreno_dev->priv);
+
+	
 	if (adreno_is_a2xx(adreno_dev)) {
 		if (adreno_is_a20x(adreno_dev)) {
 			device->mh.mh_intf_cfg1 = 0;
@@ -1506,14 +1504,6 @@ static int adreno_start(struct kgsl_device *device)
 		ft_detect_regs[10] = A3XX_RBBM_PERFCTR_SP_5_LO;
 		ft_detect_regs[11] = A3XX_RBBM_PERFCTR_SP_5_HI;
 	}
-
-	if (adreno_is_a305(adreno_dev) &&
-			adreno_dev->on_resume_cmd.hostptr == NULL) {
-		status = kgsl_allocate_contiguous(&adreno_dev->on_resume_cmd,
-					PAGE_SIZE);
-		if (status)
-			goto error_clk_off;
-        }
 
 	status = kgsl_mmu_start(device);
 	if (status)
@@ -2313,8 +2303,15 @@ static int adreno_kill_suspect(struct kgsl_device *device, int pid)
 	char suspect_task_parent_comm[TASK_COMM_LEN+1];
 	int suspect_tgid;
 	struct task_struct *suspect_task = find_task_by_pid_ns(pid, &init_pid_ns);
-	struct task_struct *suspect_parent_task = suspect_task->group_leader;
+	struct task_struct *suspect_parent_task;
 	int i = 0;
+
+	if (suspect_task) {
+		suspect_parent_task = suspect_task->group_leader;
+	} else {
+		KGSL_DRV_ERR(device, "Cannot find task! suspect_task is NULL!\n");
+		return -EINVAL;
+	}
 
 	suspect_tgid = task_tgid_nr(suspect_task);
 	get_task_comm(suspect_task_comm, suspect_task);
@@ -2384,9 +2381,10 @@ adreno_dump_and_exec_ft(struct kgsl_device *device)
 			(unsigned int *) &context_id,
 			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
 			current_context));
+		read_lock(&device->context_lock);
 		context = idr_find(&device->context_idr, context_id);
-
 		gpu_hung_pid = context->dev_priv->process_priv->pid;
+		read_unlock(&device->context_lock);
 
 		
 		curr_pwrlevel = pwr->active_pwrlevel;
@@ -2802,7 +2800,7 @@ err:
 	KGSL_DRV_ERR(device, "spun too long waiting for RB to idle\n");
 	if (KGSL_STATE_DUMP_AND_FT != device->state &&
 		!adreno_dump_and_exec_ft(device)) {
-		wait_time = jiffies + ADRENO_IDLE_TIMEOUT;
+		wait_time = jiffies + msecs_to_jiffies(ADRENO_IDLE_TIMEOUT);
 		goto retry;
 	}
 	return -ETIMEDOUT;
@@ -2862,8 +2860,6 @@ static int adreno_suspend_context(struct kgsl_device *device)
 		adreno_drawctxt_switch(adreno_dev, NULL, 0);
 		status = adreno_idle(device);
 	}
-	if (adreno_is_a305(adreno_dev))
-		adreno_dev->on_resume_issueib = true;
 
 	return status;
 }
@@ -2920,6 +2916,9 @@ struct kgsl_memdesc *adreno_find_region(struct kgsl_device *device,
 
 	if (kgsl_gpuaddr_in_memdesc(&device->memstore, gpuaddr, size))
 		return &device->memstore;
+
+	if (kgsl_gpuaddr_in_memdesc(&adreno_dev->pwron_fixup, gpuaddr, size))
+		return &adreno_dev->pwron_fixup;
 
 	if (kgsl_gpuaddr_in_memdesc(&device->mmu.setstate_memory, gpuaddr,
 					size))
@@ -3080,7 +3079,7 @@ unsigned int adreno_ft_detect(struct kgsl_device *device,
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
-	unsigned int curr_reg_val[FT_DETECT_REGS_COUNT];
+	unsigned int curr_reg_val[FT_DETECT_REGS_COUNT] = {0};
 	unsigned int fast_hang_detected = 1;
 	unsigned int long_ib_detected = 1;
 	unsigned int i;

@@ -411,7 +411,7 @@ int rawchip_spi_write_2B1B(uint16_t addr, unsigned char data)
 
 int rawchip_spi_read_2B4B(uint16_t addr, uint32_t *data)
 {
-	unsigned char buffer[4], tx_buf[2], rx_buf[4];
+	unsigned char buffer[4], tx_buf[4], rx_buf[4];
 	int rc;
 	if (!rawchip_dev)
 		return -1;
@@ -429,6 +429,8 @@ int rawchip_spi_read_2B4B(uint16_t addr, uint32_t *data)
 
 	tx_buf[0] = 0x61;
 	tx_buf[1] = 0x00;
+	tx_buf[2] = 0x00; 
+	tx_buf[3] = 0x00; 
 
 	rx_buf[0] = 0x00;
 	rx_buf[1] = 0x00;

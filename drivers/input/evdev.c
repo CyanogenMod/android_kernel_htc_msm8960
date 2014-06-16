@@ -62,7 +62,8 @@ static void evdev_pass_event(struct evdev_client *client,
 	
 	spin_lock(&client->buffer_lock);
 
-	wake_lock_timeout(&client->wake_lock, 5 * HZ);
+	if(event->code == KEY_POWER)
+		wake_lock_timeout(&client->wake_lock, 5 * HZ);
 	client->buffer[client->head++] = *event;
 	client->head &= client->bufsize - 1;
 

@@ -248,7 +248,7 @@ static int constraint_expr_eval(struct context *scontext,
 	struct role_datum *r1, *r2;
 	struct mls_level *l1, *l2;
 	struct constraint_expr *e;
-	int s[CEXPR_MAXDEPTH];
+	int s[CEXPR_MAXDEPTH] = {0};
 	int sp = -1;
 
 	for (e = cexpr; e; e = e->next) {
@@ -929,9 +929,11 @@ static int context_struct_to_string(struct context *context, char **scontext, u3
 
 	if (context->len) {
 		*scontext_len = context->len;
-		*scontext = kstrdup(context->str, GFP_ATOMIC);
-		if (!(*scontext))
-			return -ENOMEM;
+		if (scontext) {
+			*scontext = kstrdup(context->str, GFP_ATOMIC);
+			if (!(*scontext))
+				return -ENOMEM;
+		}
 		return 0;
 	}
 

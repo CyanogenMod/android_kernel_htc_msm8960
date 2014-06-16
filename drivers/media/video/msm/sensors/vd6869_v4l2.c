@@ -5145,6 +5145,11 @@ const static short ois_addr[3][VD6869_LITEON_OIS_OTP_SIZE] = {
 };
 #endif
 
+#define VD6869_OTP_ADDRESS_START  (0x33fa)
+#define VD6869_OTP_ADDRESS_END (0x37f9)
+#define VD6869_OTP_SIZE (VD6869_OTP_ADDRESS_END-VD6869_OTP_ADDRESS_START+1)
+static uint8_t all_otp_data[VD6869_OTP_SIZE];
+
 int vd6869_read_fuseid_liteon(struct sensor_cfg_data *cdata,
 	struct msm_sensor_ctrl_t *s_ctrl, bool first)
 {
@@ -5242,6 +5247,8 @@ int vd6869_read_fuseid_liteon(struct sensor_cfg_data *cdata,
 		HtcActOisBinder_set_OIS_OTP(ois_otp, VD6869_LITEON_OIS_OTP_SIZE);
 	}
 #endif
+        if (board_mfg_mode())
+            msm_read_all_otp_data (s_ctrl->sensor_i2c_client, VD6869_OTP_ADDRESS_START,all_otp_data,VD6869_OTP_SIZE);
 
 
     }
@@ -5250,10 +5257,7 @@ int vd6869_read_fuseid_liteon(struct sensor_cfg_data *cdata,
     cdata->sensor_ver = otp[2];
 
     if (board_mfg_mode()) {
-        if(vd6869_s_ctrl.ews_enable) 
-            msm_dump_otp_to_file (PLATFORM_DRIVER_NAME, old_otp_addr[valid_layer], otp, VD6869_LITEON_OTP_SIZE);
-        else
-            msm_dump_otp_to_file (PLATFORM_DRIVER_NAME, new_otp_addr[valid_layer], otp, VD6869_LITEON_OTP_SIZE);
+        msm_dump_otp_to_file (PLATFORM_DRIVER_NAME, valid_layer, VD6869_OTP_ADDRESS_START, all_otp_data, VD6869_OTP_SIZE);
     }
     
     cdata->cfg.fuse.fuse_id_word1 = 0;
@@ -5381,9 +5385,11 @@ int vd6869_read_fuseid_sharp(struct sensor_cfg_data *cdata,
     		HtcActOisBinder_set_OIS_OTP(ois_otp, VD6869_LITEON_OIS_OTP_SIZE);
     	}
     #endif
+        if (board_mfg_mode())
+            msm_read_all_otp_data (s_ctrl->sensor_i2c_client, VD6869_OTP_ADDRESS_START, all_otp_data,VD6869_OTP_SIZE);
     }
     if (board_mfg_mode())
-        msm_dump_otp_to_file (PLATFORM_DRIVER_NAME, sharp_otp_addr[valid_layer], otp, sizeof (otp));
+        msm_dump_otp_to_file (PLATFORM_DRIVER_NAME, valid_layer, VD6869_OTP_ADDRESS_START, all_otp_data, VD6869_OTP_SIZE);
 
     vd6869_year_mon = otp[0];
     vd6869_date = otp[1];
@@ -5774,7 +5780,7 @@ int vd6869_read_fuseid(struct sensor_cfg_data *cdata,
 			rc = vd6869_read_fuseid_sharp (cdata,s_ctrl,first);
 			break;
 		case 0x2:
-		#if defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY)
+		#if defined(CONFIG_MACH_M4_UL) || defined(CONFIG_MACH_M4_U) || defined(CONFIG_MACH_ZIP_CL)
 		    if (board_mfg_mode())
 		        rc = vd6869_read_fuseid_liteon_mfg (cdata,s_ctrl,first);
 		#endif

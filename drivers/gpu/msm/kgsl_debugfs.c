@@ -17,12 +17,27 @@
 #include "kgsl.h"
 #include "kgsl_device.h"
 #include "kgsl_sharedmem.h"
+#include "kgsl_htc.h"
 
 #define KGSL_LOG_LEVEL_MAX     7
 
 struct dentry *kgsl_debugfs_dir;
 static struct dentry *pm_d_debugfs;
 struct dentry *proc_d_debugfs;
+
+static int ctx_dump_set(void* data, u64 val)
+{
+	struct kgsl_device *device = data;
+
+	read_lock(&device->context_lock);
+	kgsl_dump_contextpid_locked(&device->context_idr);
+	read_unlock(&device->context_lock);
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(ctx_dump_fops,
+		NULL,
+		ctx_dump_set, "%llu\n");
 
 static int pm_dump_set(void *data, u64 val)
 {
@@ -185,6 +200,8 @@ void kgsl_device_debugfs_init(struct kgsl_device *device)
 				&pwr_log_fops);
 	debugfs_create_file("memfree_history", 0444, device->d_debugfs, device,
 				&memfree_hist_fops);
+	debugfs_create_file("contexpid_dump",  0644, device->d_debugfs, device,
+				&ctx_dump_fops);
 
 	
 
@@ -308,16 +325,37 @@ static const struct file_operations process_mem_fops = {
 	.release = single_release,
 };
 
-void
+int
 kgsl_process_init_debugfs(struct kgsl_process_private *private)
 {
 	unsigned char name[16];
+	int ret = 0;
+	struct dentry *dentry;
 
 	snprintf(name, sizeof(name), "%d", private->pid);
 
 	private->debug_root = debugfs_create_dir(name, proc_d_debugfs);
-	debugfs_create_file("mem", 0400, private->debug_root, private,
+
+	if (!private->debug_root)
+		return -EINVAL;
+
+	private->debug_root->d_inode->i_uid = proc_d_debugfs->d_inode->i_uid;
+	private->debug_root->d_inode->i_gid = proc_d_debugfs->d_inode->i_gid;
+
+	dentry = debugfs_create_file("mem", 0400, private->debug_root, private,
 			    &process_mem_fops);
+
+	if (IS_ERR(dentry)) {
+		ret = PTR_ERR(dentry);
+
+		if (ret == -ENODEV)
+			ret = 0;
+	} else if (dentry) {
+		dentry->d_inode->i_uid = proc_d_debugfs->d_inode->i_uid;
+		dentry->d_inode->i_gid = proc_d_debugfs->d_inode->i_gid;
+	}
+
+	return ret;
 }
 
 void kgsl_core_debugfs_init(void)

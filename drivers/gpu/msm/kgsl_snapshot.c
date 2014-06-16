@@ -612,10 +612,7 @@ static ssize_t trigger_store(struct kgsl_device *device, const char *buf,
 {
 	if (device && count > 0) {
 		mutex_lock(&device->mutex);
-		if (!kgsl_active_count_get(device)) {
-				kgsl_device_snapshot(device, 0);
-				kgsl_active_count_put(device);
-		}
+		kgsl_device_snapshot(device, 0);
 		mutex_unlock(&device->mutex);
 	}
 

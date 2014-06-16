@@ -172,6 +172,13 @@ static ssize_t modem_silent_reset_info_store(struct device *dev,
 	msr_info_list[mdm_msr_index].msr_time = current_kernel_time();
 	snprintf(msr_info_list[mdm_msr_index].modem_errmsg, RD_BUF_SIZE, "%s", buf);
 	len = strlen(msr_info_list[mdm_msr_index].modem_errmsg);
+
+	if ( len == 0 )
+	{
+		spin_unlock_irqrestore(&msr_info_lock, flags);
+		return count;
+	}
+
 	if(msr_info_list[mdm_msr_index].modem_errmsg[len-1] == '\n')
 	{
 		msr_info_list[mdm_msr_index].modem_errmsg[len-1] = '\0';
@@ -1049,7 +1056,6 @@ int mdm_common_create(struct platform_device  *pdev,
 	if (!mdm_gpio_monitor_queue) {
 		pr_err("%s: could not create workqueue for monitoring GPIO status \n",
 			__func__);
-		destroy_workqueue(mdm_gpio_monitor_queue);
 	}
 	
 

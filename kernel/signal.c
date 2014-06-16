@@ -37,7 +37,7 @@
 #include <asm/unistd.h>
 #include <asm/siginfo.h>
 #include <asm/cacheflush.h>
-#include <htc_debug/stability/send_signal_debug.h>
+#include <htc_debug/stability/htc_process_debug.h>
 #include "audit.h"	
 
 static struct dying_pid dying_pid_buf[MAX_DYING_PROC_COUNT];
@@ -837,7 +837,7 @@ static int send_signal(int sig, struct siginfo *info, struct task_struct *t,
 			int group)
 {
 	int from_ancestor_ns = 0;
-#ifdef CONFIG_HTC_DEBUG_SEND_SIGNAL
+#ifdef CONFIG_HTC_PROCESS_DEBUG
 	send_signal_debug_dump(sig, t);
 #endif
 

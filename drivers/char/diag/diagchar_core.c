@@ -1844,7 +1844,8 @@ static int __init diagchar_init(void)
 								 GFP_KERNEL);
 	if (!diag_bridge)
 		pr_warning("diag: could not allocate memory for bridge\n");
-	driver->num_mdmclients = 1;
+	if (driver)
+		driver->num_mdmclients = 1;
 	init_waitqueue_head(&driver->mdmwait_q);
 	mutex_init(&driver->diagcharmdm_mutex);
 

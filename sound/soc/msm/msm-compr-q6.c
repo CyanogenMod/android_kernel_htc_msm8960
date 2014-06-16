@@ -1106,7 +1106,7 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 				}
 				rc = wait_event_timeout(the_locks.flush_wait,
 					prtd->cmd_ack, 5 * HZ);
-				if (rc < 0)
+				if (!rc)
 					pr_err("[%p] Flush cmd timeout\n", prtd);
 				atomic_set(&prtd->pending_buffer, 1);
 			

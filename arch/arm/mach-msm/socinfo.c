@@ -31,6 +31,7 @@ enum {
 	HW_PLATFORM_LIQUID  = 9,
 	
 	HW_PLATFORM_DRAGON	= 10,
+	HW_PLATFORM_QRD = 11,
 	HW_PLATFORM_INVALID
 };
 
@@ -43,7 +44,8 @@ const char *hw_platform[] = {
 	[HW_PLATFORM_SVLTE_SURF] = "SLVTE_SURF",
 	[HW_PLATFORM_MTP] = "MTP",
 	[HW_PLATFORM_LIQUID] = "Liquid",
-	[HW_PLATFORM_DRAGON] = "Dragon"
+	[HW_PLATFORM_DRAGON] = "Dragon",
+	[HW_PLATFORM_QRD] = "QRD",
 };
 
 enum {
@@ -876,12 +878,36 @@ const int read_msm_cpu_type(void)
 	};
 }
 
+const int cpu_is_krait(void)
+{
+	return ((read_cpuid_id() & 0xFF00FC00) == 0x51000400);
+}
+
 const int cpu_is_krait_v1(void)
 {
 	switch (read_cpuid_id()) {
 	case 0x510F04D0:
 	case 0x510F04D1:
 	case 0x510F04D2:
+		return 1;
+
+	default:
+		return 0;
+	};
+}
+
+const int cpu_is_krait_v2(void)
+{
+	switch (read_cpuid_id()) {
+	case 0x511F04D0:
+	case 0x511F04D1:
+	case 0x511F04D2:
+	case 0x511F04D3:
+	case 0x511F04D4:
+
+	case 0x510F06F0:
+	case 0x510F06F1:
+	case 0x510F06F2:
 		return 1;
 
 	default:

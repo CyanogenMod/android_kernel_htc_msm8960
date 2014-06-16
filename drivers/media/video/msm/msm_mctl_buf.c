@@ -273,6 +273,10 @@ static void msm_vb2_ops_buf_cleanup(struct vb2_buffer *vb)
 				pr_err("%s: null pointer check, line(%d)", __func__, __LINE__);
 				return;
 			} 
+			if (!pmctl->client) {
+				pr_err("%s: null pointer check, line(%d)", __func__, __LINE__);
+				return;
+			}
 			videobuf2_pmem_contig_user_put(mem, pmctl->client);
 		}
 	}
@@ -440,6 +444,10 @@ int msm_mctl_buf_done_proc(
 	}
 
 	mem = vb2_plane_cookie(&buf->vidbuf, 0);
+	if (!mem) {
+		pr_err("%s: mem is null\n",__func__);
+		return -EINVAL;
+	}
 
 	if(pmctl->htc_af_info.af_input.preview_width*pmctl->htc_af_info.af_input.preview_height > mem->size)
 	    pmctl->htc_af_info.af_input.af_use_sw_sharpness = false;

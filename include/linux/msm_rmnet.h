@@ -18,6 +18,7 @@
 #define RMNET_MODE_LLP_ETH  (0x01)
 #define RMNET_MODE_LLP_IP   (0x02)
 #define RMNET_MODE_QOS      (0x04)
+#define RMNET_MODE_ALIGNED_QOS      (0x08)
 #define RMNET_MODE_MASK     (RMNET_MODE_LLP_ETH | \
 			     RMNET_MODE_LLP_IP  | \
 			     RMNET_MODE_QOS)
@@ -39,6 +40,7 @@ enum rmnet_ioctl_cmds_e {
 	RMNET_IOCTL_CLOSE            = 0x000089F9, 
 	RMNET_IOCTL_FLOW_ENABLE      = 0x000089FA, 
 	RMNET_IOCTL_FLOW_DISABLE     = 0x000089FB, 
+	RMNET_IOCTL_SET_ALIGNED_QOS_ENABLE = 0x000089FC, 
 	RMNET_IOCTL_MAX
 };
 
@@ -47,6 +49,12 @@ struct QMI_QOS_HDR_S {
 	unsigned char    version;
 	unsigned char    flags;
 	unsigned long    flow_id;
+};
+
+#define QMI_QOS_ALIGNED_HDR_S  __attribute((__packed__)) qmi_qos_aligned_hdr_s
+struct QMI_QOS_ALIGNED_HDR_S {
+	struct QMI_QOS_HDR_S hdr;
+	unsigned char reserved[2];
 };
 
 #endif 

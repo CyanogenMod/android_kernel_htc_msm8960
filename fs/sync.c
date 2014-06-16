@@ -20,7 +20,6 @@
 #define VALID_FLAGS (SYNC_FILE_RANGE_WAIT_BEFORE|SYNC_FILE_RANGE_WRITE| \
 			SYNC_FILE_RANGE_WAIT_AFTER)
 
-#ifdef CONFIG_ASYNC_FSYNC
 #define FLAG_ASYNC_FSYNC	0x1
 static DEFINE_MUTEX(afsync_lock);
 static LIST_HEAD(afsync_list);
@@ -30,7 +29,7 @@ struct fsync_work {
 	char pathname[256];
 	struct list_head list;
 };
-#endif
+
 static int __sync_filesystem(struct super_block *sb, int wait)
 {
 	if (sb->s_bdi == &noop_backing_dev_info)
@@ -167,8 +166,6 @@ int vfs_fsync(struct file *file, int datasync)
 }
 EXPORT_SYMBOL(vfs_fsync);
 
-#ifdef CONFIG_ASYNC_FSYNC
-extern int emmc_perf_degr(void);
 #define LOW_STORAGE_THRESHOLD	786432 
 int async_fsync(struct file *file, int fd)
 {
@@ -176,9 +173,6 @@ int async_fsync(struct file *file, int fd)
 	struct super_block *sb = inode->i_sb;
 	struct kstatfs st;
 	if ((sb->fsync_flags & FLAG_ASYNC_FSYNC) == 0)
-		return 0;
-
-	if (!emmc_perf_degr())
 		return 0;
 
 	if (fd_statfs(fd, &st))
@@ -221,16 +215,13 @@ static void do_afsync_work(struct work_struct *work)
 		pr_debug("afsync: %s done\n", fwork->pathname);
 	kfree(fwork);
 }
-#endif
 
 static int do_fsync(unsigned int fd, int datasync)
 {
 	struct file *file;
 	int ret = -EBADF;
-#ifdef CONFIG_ASYNC_FSYNC
 	struct fsync_work *fwork, *tmp;
 	
-#endif
 
 	file = fget(fd);
 	if (file) {
@@ -239,7 +230,6 @@ static int do_fsync(unsigned int fd, int datasync)
 		path = d_path(&(file->f_path), pathname, sizeof(pathname));
 		if (IS_ERR(path))
 			path = "(unknown)";
-#ifdef CONFIG_ASYNC_FSYNC
 		else if (async_fsync(file, fd)) {
 			if (!fsync_workqueue)
 				fsync_workqueue = create_singlethread_workqueue("fsync");
@@ -279,7 +269,6 @@ static int do_fsync(unsigned int fd, int datasync)
 			}
 		}
 no_async:
-#endif
 		fsync_t = ktime_get();
 		ret = vfs_fsync(file, datasync);
 		fput(file);

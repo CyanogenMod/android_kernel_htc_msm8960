@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -188,7 +188,7 @@ static void msm_ion_allocate(struct ion_platform_heap *heap)
 
 	if (!heap->base && heap->extra_data) {
 		unsigned int align = 0;
-		switch (heap->type) {
+		switch ((int) heap->type) {
 		case ION_HEAP_TYPE_CARVEOUT:
 			align =
 			((struct ion_co_heap_pdata *) heap->extra_data)->align;
@@ -311,7 +311,7 @@ static long msm_ion_custom_ioctl(struct ion_client *client,
 		start = (unsigned long) data.vaddr;
 		end = (unsigned long) data.vaddr + data.length;
 
-		if (check_vaddr_bounds(start, end)) {
+		if (start && check_vaddr_bounds(start, end)) {
 			pr_err("%s: virtual address %p is out of bounds\n",
 				__func__, data.vaddr);
 			return -EINVAL;

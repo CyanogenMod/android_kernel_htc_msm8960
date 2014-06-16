@@ -71,7 +71,6 @@
 #include <linux/init.h>
 #include <linux/list.h>
 #include <linux/slab.h>
-#include <linux/prefetch.h>
 #include <linux/export.h>
 #include <net/net_namespace.h>
 #include <net/ip.h>
@@ -1450,16 +1449,15 @@ static int trie_flush_leaf(struct leaf *l)
 
 static struct leaf *leaf_walk_rcu(struct tnode *p, struct rt_trie_node *c)
 {
-
-	void *pq;
-	if ((!p) || (IS_ERR(p)) || (probe_kernel_address(p,pq))) {
-		printk(KERN_DEBUG "[NET][WARN] p is illegal in %s \n", __func__);
-		return NULL; 
-	}
-
 	do {
 		t_key idx;
 		void *q;
+
+		void *pq;
+			if ((!p) || (IS_ERR(p)) || (probe_kernel_address(p,pq))) {
+				printk(KERN_DEBUG "[NET][WARN] p is illegal in %s \n", __func__);
+				return NULL; 
+			}
 
 		if ((c) && (!IS_ERR(c)))
 			idx = tkey_extract_bits(c->key, p->pos, p->bits) + 1;
@@ -1479,10 +1477,8 @@ static struct leaf *leaf_walk_rcu(struct tnode *p, struct rt_trie_node *c)
 				continue;
 			}
 
-			if (IS_LEAF(c)) {
-				prefetch(rcu_dereference_rtnl(p->child[idx]));
+			if (IS_LEAF(c))
 				return (struct leaf *) c;
-			}
 
 			
 			p = (struct tnode *) c;
@@ -2243,6 +2239,13 @@ static int fib_route_seq_show(struct seq_file *seq, void *v)
 		struct fib_alias *fa;
 		__be32 mask, prefix;
 
+#ifdef CONFIG_HTC_NETWORK_MODIFY
+		if (( !li)  ||  IS_ERR(li)) {
+			printk(KERN_ERR "[NET] li is NULL in %s!\n", __func__);
+			return 0;
+
+		}
+#endif
 		mask = inet_make_mask(li->plen);
 		prefix = htonl(l->key);
 

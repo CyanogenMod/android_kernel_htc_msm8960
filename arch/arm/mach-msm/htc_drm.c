@@ -541,6 +541,8 @@ static long htcdrm_discretix_cmd(unsigned int command, unsigned long arg)
 	#if defined(DX_PRE_ALLOC_BUFFER)
 	reset_dx_memory_pool();
 	sessionContext = (unsigned int *)dx_kzalloc(sizeof(int));
+	if (!sessionContext)
+		return -EFAULT;
 	#endif
 
 	if (copy_from_user(&hdix, (void __user *)arg, sizeof(hdix))) {
@@ -1020,6 +1022,7 @@ static long htcdrm_gdrive_ioctl(struct file *file, unsigned int command, unsigne
 	unsigned char *in_buf = NULL, *out_buf = NULL;
 	int ret = 0;
 	int ii;
+	unsigned long start, end;
 
 	PDEBUG("%s entry(%d)", __func__, __LINE__);
 	if (copy_from_user(&hmsg, (void __user *)arg, sizeof(hmsg))) {
@@ -1041,13 +1044,16 @@ static long htcdrm_gdrive_ioctl(struct file *file, unsigned int command, unsigne
 			if (ret)
 				PERR("get GDrive voucher failed (%d)", ret);
 			else {
+				start = (unsigned long)out_buf;
+				end = start + hmsg.resp_len;
+				scm_inv_range(start, end);
 				
 				if (copy_to_user((void __user *)hmsg.resp_buf, out_buf, *(unsigned int *)(out_buf) + 4)) {
 					PERR("copy_to_user error (gdrive voucher)");
 					ret = -EFAULT;
 				}
-				kfree(out_buf);
 			}
+			kfree(out_buf);
 			break;
 		case HTC_GDRIVE_CREATE_VOUCHER_SIGNATURE:
 			PDEBUG("%s entry(%d)", __func__, __LINE__);
@@ -1080,11 +1086,15 @@ static long htcdrm_gdrive_ioctl(struct file *file, unsigned int command, unsigne
 				ret = secure_access_item(0, ITEM_VOUCHER_SIG_DATA, hmsg.resp_len, out_buf);
 				if (ret)
 					PERR("get voucher signature fail (%d)", ret);
-				else
+				else {
+					start = (unsigned long)out_buf;
+					end = start + hmsg.resp_len;
+					scm_inv_range(start, end);
 					if (copy_to_user((void __user *)hmsg.resp_buf, out_buf, hmsg.resp_len)) {
 						PERR("copy_to_user error (gdrive voucher)");
 						ret = -EFAULT;
 					}
+				}
 			}
 			kfree(in_buf);
 			kfree(out_buf);

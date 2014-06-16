@@ -40,6 +40,10 @@ module_param_named(simlock_code, simlock_code, charp, S_IRUGO | S_IWUSR | S_IWGR
 
 static DEFINE_MUTEX(scm_lock);
 
+#define SCM_BUF_LEN(__cmd_size, __resp_size)	\
+	(sizeof(struct scm_command) + sizeof(struct scm_response) + \
+		__cmd_size + __resp_size)
+
 #define TAG "[SEC] "
 #undef PDEBUG
 #define PDEBUG(fmt, args...) printk(KERN_INFO TAG "[K] %s(%i, %s): " fmt "\n", \
@@ -92,26 +96,6 @@ struct oem_3rd_party_syscall_req {
 	void *buf;
 	u32 len;
 };
-
-static struct scm_command *alloc_scm_command(size_t cmd_size, size_t resp_size)
-{
-	struct scm_command *cmd;
-	size_t len = sizeof(*cmd) + sizeof(struct scm_response) + cmd_size +
-		resp_size;
-
-	cmd = kzalloc(PAGE_ALIGN(len), GFP_KERNEL);
-	if (cmd) {
-		cmd->len = len;
-		cmd->buf_offset = offsetof(struct scm_command, buf);
-		cmd->resp_hdr_offset = cmd->buf_offset + cmd_size;
-	}
-	return cmd;
-}
-
-static inline void free_scm_command(struct scm_command *cmd)
-{
-	kfree(cmd);
-}
 
 static inline struct scm_response *scm_command_to_response(
 		const struct scm_command *cmd)
@@ -198,29 +182,31 @@ void scm_inv_range(unsigned long start, unsigned long end)
 }
 EXPORT_SYMBOL(scm_inv_range);
 
-int scm_call(u32 svc_id, u32 cmd_id, const void *cmd_buf, size_t cmd_len,
-		void *resp_buf, size_t resp_len)
+
+static int scm_call_common(u32 svc_id, u32 cmd_id, const void *cmd_buf,
+				size_t cmd_len, void *resp_buf, size_t resp_len,
+				struct scm_command *scm_buf,
+				size_t scm_buf_length)
 {
 	int ret;
-	struct scm_command *cmd;
 	struct scm_response *rsp;
 	unsigned long start, end;
 
-	cmd = alloc_scm_command(cmd_len, resp_len);
-	if (!cmd)
-		return -ENOMEM;
+	scm_buf->len = scm_buf_length;
+	scm_buf->buf_offset = offsetof(struct scm_command, buf);
+	scm_buf->resp_hdr_offset = scm_buf->buf_offset + cmd_len;
+	scm_buf->id = (svc_id << 10) | cmd_id;
 
-	cmd->id = (svc_id << 10) | cmd_id;
 	if (cmd_buf)
-		memcpy(scm_get_command_buffer(cmd), cmd_buf, cmd_len);
+		memcpy(scm_get_command_buffer(scm_buf), cmd_buf, cmd_len);
 
 	mutex_lock(&scm_lock);
-	ret = __scm_call(cmd);
+	ret = __scm_call(scm_buf);
 	mutex_unlock(&scm_lock);
 	if (ret)
-		goto out;
+		return ret;
 
-	rsp = scm_command_to_response(cmd);
+	rsp = scm_command_to_response(scm_buf);
 	start = (unsigned long)rsp;
 
 	do {
@@ -232,8 +218,49 @@ int scm_call(u32 svc_id, u32 cmd_id, const void *cmd_buf, size_t cmd_len,
 
 	if (resp_buf)
 		memcpy(resp_buf, scm_get_response_buffer(rsp), resp_len);
-out:
-	free_scm_command(cmd);
+
+	return ret;
+}
+
+int scm_call_noalloc(u32 svc_id, u32 cmd_id, const void *cmd_buf,
+		size_t cmd_len, void *resp_buf, size_t resp_len,
+		void *scm_buf, size_t scm_buf_len)
+{
+	int ret;
+	size_t len = SCM_BUF_LEN(cmd_len, resp_len);
+
+	if (cmd_len > scm_buf_len || resp_len > scm_buf_len ||
+	    len > scm_buf_len)
+		return -EINVAL;
+
+	if (!IS_ALIGNED((unsigned long)scm_buf, PAGE_SIZE))
+		return -EINVAL;
+
+	memset(scm_buf, 0, scm_buf_len);
+
+	ret = scm_call_common(svc_id, cmd_id, cmd_buf, cmd_len, resp_buf,
+				resp_len, scm_buf, len);
+	return ret;
+
+}
+
+int scm_call(u32 svc_id, u32 cmd_id, const void *cmd_buf, size_t cmd_len,
+		void *resp_buf, size_t resp_len)
+{
+	struct scm_command *cmd;
+	int ret;
+	size_t len = SCM_BUF_LEN(cmd_len, resp_len);
+
+	if (cmd_len > len || resp_len > len)
+		return -EINVAL;
+
+	cmd = kzalloc(PAGE_ALIGN(len), GFP_KERNEL);
+	if (!cmd)
+		return -ENOMEM;
+
+	ret = scm_call_common(svc_id, cmd_id, cmd_buf, cmd_len, resp_buf,
+				resp_len, cmd, len);
+	kfree(cmd);
 	return ret;
 }
 EXPORT_SYMBOL(scm_call);

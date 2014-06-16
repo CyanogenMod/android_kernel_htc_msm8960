@@ -130,7 +130,7 @@ extern void msm_map_msm8960_io(void);
 
 #else 
 
-  #if defined(CONFIG_ARCH_DUMMY) || defined(CONFIG_ARCH_DUMMY) || defined(CONFIG_ARCH_DUMMY)
+  #if defined(CONFIG_ARCH_APQ8064_M7DXG) || defined(CONFIG_ARCH_APQ8064_DLPDXG) || defined(CONFIG_ARCH_APQ8064_T6DXG)
     #define MSM_HTC_RAM_CONSOLE_PHYS	0x8D900000	
   #else
     #define MSM_HTC_RAM_CONSOLE_PHYS	0x8F100000

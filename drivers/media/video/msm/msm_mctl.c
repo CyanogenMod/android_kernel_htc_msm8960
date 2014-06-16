@@ -753,6 +753,18 @@ static int msm_mctl_open(struct msm_cam_media_controller *p_mctl,
 			goto sensor_sdev_failed;
 		}
 
+		if (s_ctrl->func_tbl->sensor_mode_init == NULL) {
+				rc = -EFAULT;
+				goto sensor_sdev_failed;
+		}
+
+		s_ctrl->first_init=0;
+		rc = s_ctrl->func_tbl->sensor_mode_init (s_ctrl, MSM_SENSOR_REG_INIT, 0);
+		if (rc < 0) {
+			pr_err("%s: sensor_mode_init failed: %d\n", __func__, rc);
+			goto sensor_sdev_failed;
+		}
+
 		
 		if (p_mctl->actctrl->a_init_table)
 			rc = p_mctl->actctrl->a_init_table();
@@ -846,10 +858,32 @@ register_sdev_failed:
 static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 {
 	int rc = 0;
-	struct msm_sensor_ctrl_t *s_ctrl = get_sctrl(p_mctl->sensor_sdev);
-	struct msm_camera_sensor_info *sinfo =
-		(struct msm_camera_sensor_info *) s_ctrl->sensordata;
-	struct msm_camera_device_platform_data *camdev = sinfo->pdata;
+	struct msm_sensor_ctrl_t *s_ctrl = 0;
+	struct msm_camera_sensor_info *sinfo = 0;
+	struct msm_camera_device_platform_data *camdev = 0;
+
+    if (!p_mctl) {
+        pr_err("%s p_mctl is null\n", __func__);
+        return -EFAULT;
+    }
+
+    s_ctrl = get_sctrl(p_mctl->sensor_sdev);
+    if (!s_ctrl) {
+        pr_err("%s s_ctrl is null\n", __func__);
+        return -EFAULT;
+    }
+
+    sinfo =	(struct msm_camera_sensor_info *) s_ctrl->sensordata;
+    if (!sinfo) {
+        pr_err("%s sinfo is null\n", __func__);
+        return -EFAULT;
+    }
+
+    camdev = sinfo->pdata;
+    if (!camdev) {
+        pr_err("%s camdev is null\n", __func__);
+        return -EFAULT;
+    }
 
 #if 0 
 	v4l2_subdev_call(p_mctl->sensor_sdev, core, ioctl,
@@ -889,20 +923,33 @@ static int msm_mctl_release(struct msm_cam_media_controller *p_mctl)
 	}
 
 	
-	if (p_mctl == (struct msm_cam_media_controller *)
-			v4l2_get_subdev_hostdata(p_mctl->axi_sdev)) {
-		if (p_mctl == msm_camera_get_rdi0_mctl() && msm_camera_get_pix0_mctl())
-			v4l2_set_subdev_hostdata(p_mctl->axi_sdev, msm_camera_get_pix0_mctl());
-		else if (p_mctl == msm_camera_get_pix0_mctl() && msm_camera_get_rdi0_mctl())
-			v4l2_set_subdev_hostdata(p_mctl->axi_sdev, msm_camera_get_rdi0_mctl());
+	if (p_mctl) {
+		if (!p_mctl->axi_sdev) {
+			pr_err("%s p_mctl->axi_sdev is null\n", __func__);
+			return -EFAULT;
+		}
+    	if (p_mctl == (struct msm_cam_media_controller *)
+    			v4l2_get_subdev_hostdata(p_mctl->axi_sdev)) {
+    		if (p_mctl == msm_camera_get_rdi0_mctl() && msm_camera_get_pix0_mctl())
+    			v4l2_set_subdev_hostdata(p_mctl->axi_sdev, msm_camera_get_pix0_mctl());
+    		else if (p_mctl == msm_camera_get_pix0_mctl() && msm_camera_get_rdi0_mctl())
+    			v4l2_set_subdev_hostdata(p_mctl->axi_sdev, msm_camera_get_rdi0_mctl());
+    	}
+    }
+    else {
+		pr_err("%s p_mctl is null\n", __func__);
+    }
+    if (p_mctl && p_mctl->isp_sdev) {
+    	if (p_mctl == (struct msm_cam_media_controller *)
+    			v4l2_get_subdev_hostdata(p_mctl->isp_sdev->sd)) {
+    		if (p_mctl == msm_camera_get_rdi0_mctl() && msm_camera_get_pix0_mctl())
+    			v4l2_set_subdev_hostdata(p_mctl->isp_sdev->sd, msm_camera_get_pix0_mctl());
+    		else if (p_mctl == msm_camera_get_pix0_mctl() && msm_camera_get_rdi0_mctl())
+    			v4l2_set_subdev_hostdata(p_mctl->isp_sdev->sd, msm_camera_get_rdi0_mctl());
+    	}
 	}
-
-	if (p_mctl == (struct msm_cam_media_controller *)
-			v4l2_get_subdev_hostdata(p_mctl->isp_sdev->sd)) {
-		if (p_mctl == msm_camera_get_rdi0_mctl() && msm_camera_get_pix0_mctl())
-			v4l2_set_subdev_hostdata(p_mctl->isp_sdev->sd, msm_camera_get_pix0_mctl());
-		else if (p_mctl == msm_camera_get_pix0_mctl() && msm_camera_get_rdi0_mctl())
-			v4l2_set_subdev_hostdata(p_mctl->isp_sdev->sd, msm_camera_get_rdi0_mctl());
+	else {
+		pr_err("%s p_mctl->isp_sdev is null\n", __func__);
 	}
 	
 

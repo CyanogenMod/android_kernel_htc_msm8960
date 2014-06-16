@@ -65,11 +65,11 @@ static void check_temp(struct work_struct *work)
 		pr_debug("msm_thermal: Unable to read TSENS sensor %d\n",
 				tsens_dev.sensor_num);
 		goto reschedule;
-	} else
-		pr_info("msm_thermal: TSENS sensor %d (%ld C)\n",
-				tsens_dev.sensor_num, temp);
+	}
 	if (temp >= msm_thermal_info.limit_temp) {
 		max_freq = msm_thermal_info.limit_freq;
+                pr_info("msm_thermal: TSENS sensor %d (%ld C)\n",
+				tsens_dev.sensor_num, temp);
 #ifdef CONFIG_PERFLOCK_BOOT_LOCK
 		release_boot_lock();
 #endif

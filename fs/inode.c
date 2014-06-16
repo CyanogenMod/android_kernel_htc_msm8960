@@ -1274,7 +1274,8 @@ bool inode_owner_or_capable(const struct inode *inode)
 	if (ns_capable(ns, CAP_FOWNER))
 		return true;
 #ifdef CONFIG_FUSE_SD
-	if (current_user_ns() == ns && inode->i_gid == AID_SDCARD_RW)
+	if (current_user_ns() == ns &&
+		(inode->i_gid == AID_SDCARD_RW || inode->i_gid == AID_SDCARD_R))
 		return true;
 #endif
 	return false;

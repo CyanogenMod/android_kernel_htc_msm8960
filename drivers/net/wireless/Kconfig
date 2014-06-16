@@ -316,6 +316,13 @@ config QUALCOMM_WLAN
           This module adds support for wireless adapters based on
           Qualcomm chipset.
 
+config HW_WIFI_INTERFERENCE
+	bool "Set iris_vddpa as 3V3"
+	default n:
+	---help---
+	  Qualcomm iris interference MHL output
+	  Choose to raise iris_vddpa from 3V to 3V3
+
 source "drivers/net/wireless/ath/Kconfig"
 source "drivers/net/wireless/b43/Kconfig"
 source "drivers/net/wireless/b43legacy/Kconfig"

@@ -1307,6 +1307,11 @@ const static short ois_addr[3][OV4688_LITEON_OIS_OTP_SIZE] = {
 };
 #endif
 
+#define OV4688_OTP_ADDRESS_START  (0x7000)
+#define OV4688_OTP_ADDRESS_END (0x71FF)
+#define OV4688_OTP_SIZE (OV4688_OTP_ADDRESS_END-OV4688_OTP_ADDRESS_START+1)
+static uint8_t all_otp_data[OV4688_OTP_SIZE];
+
 static int ov4688_read_fuseid(struct sensor_cfg_data *cdata,
 	struct msm_sensor_ctrl_t *s_ctrl)
 {
@@ -1420,14 +1425,15 @@ static int ov4688_read_fuseid(struct sensor_cfg_data *cdata,
 		HtcActOisBinder_set_OIS_OTP(ois_otp, OV4688_LITEON_OIS_OTP_SIZE);
 	}
 #endif
-
+        if (board_mfg_mode())
+            msm_read_all_otp_data (s_ctrl->sensor_i2c_client, OV4688_OTP_ADDRESS_START,all_otp_data,OV4688_OTP_SIZE);
 
         rc = msm_camera_i2c_write_b(s_ctrl->sensor_i2c_client, 0x0100, 0x00);
         if (rc < 0)
             pr_info("%s: i2c_write_b 0x0100 fail\n", __func__);
     }
     if (board_mfg_mode())
-        msm_dump_otp_to_file (PLATFORM_DRIVER_NAME, addr[valid_layer], otp, sizeof(otp));
+        msm_dump_otp_to_file (PLATFORM_DRIVER_NAME, valid_layer, OV4688_OTP_ADDRESS_START, all_otp_data,OV4688_OTP_SIZE);
     
     cdata->cfg.fuse.fuse_id_word1 = 0;
     cdata->cfg.fuse.fuse_id_word2 = otp[5];
@@ -1915,7 +1921,7 @@ void ov4688_yushanII_set_default_ae(struct msm_sensor_ctrl_t *s_ctrl, uint8_t re
 			MSM_CAMERA_I2C_WORD_DATA);
 	} else {
 		long_line = s_ctrl->msm_sensor_reg->output_settings[res].frame_length_lines/2;	
-		gain = 0x80;	
+		gain = 0xc0;	
 
 		msm_camera_i2c_write(s_ctrl->sensor_i2c_client, ov4688_hdr_gain_info.long_coarse_int_time_addr_h, long_line>>12, MSM_CAMERA_I2C_BYTE_DATA);
 		msm_camera_i2c_write(s_ctrl->sensor_i2c_client, ov4688_hdr_gain_info.long_coarse_int_time_addr_m, (long_line>>4)&0xff, MSM_CAMERA_I2C_BYTE_DATA);

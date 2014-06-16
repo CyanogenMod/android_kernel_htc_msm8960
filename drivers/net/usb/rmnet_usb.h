@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __RMNET_USB_CTRL_H
-#define __RMNET_USB_CTRL_H
+#ifndef __RMNET_USB_H
+#define __RMNET_USB_H
 
 #include <linux/mutex.h>
 #include <linux/usb.h>
@@ -19,12 +19,32 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/cdc.h>
 
-#define CTRL_DEV_MAX_LEN 10
+#define MAX_RMNET_DEVS		4
+#define MAX_RMNET_INSTS_PER_DEV	17
+#define TOTAL_RMNET_DEV_COUNT	(MAX_RMNET_DEVS * MAX_RMNET_INSTS_PER_DEV)
+
+#define CTRL_DEV_MAX_LEN	10
 
 #define HTC_LOG_RMNET_USB_CTRL
 #define HTC_DEBUG_QMI_STUCK
 #define HTC_MDM_RESTART_IF_RMNET_OPEN_TIMEOUT
 #define RMNET_OPEN_TIMEOUT_MS	30000
+
+
+#define RMNET_CTRL_DEV_OPEN	0
+#define RMNET_CTRL_DEV_READY	1
+#define RMNET_CTRL_DEV_MUX_EN	2
+
+#define MUX_CTRL_MASK	0x1
+#define MUX_PAD_SHIFT	0x2
+
+#define MAX_PAD_BYTES(n)	(n-1)
+
+struct mux_hdr {
+	__u8	padding_info;
+	__u8	mux_id;
+	__le16	pkt_len_w_padding;
+} __packed;
 
 struct rmnet_ctrl_dev {
 
@@ -33,6 +53,10 @@ struct rmnet_ctrl_dev {
 
 	struct cdev		cdev;
 	struct device		*devicep;
+	unsigned		ch_id;
+
+	
+	unsigned		id;
 
 	struct usb_interface	*intf;
 	unsigned int		int_pipe;
@@ -57,9 +81,11 @@ struct rmnet_ctrl_dev {
 	struct workqueue_struct	*wq;
 	struct work_struct	get_encap_work;
 
-	unsigned		is_opened;
+	unsigned long		status;
 
-	bool			is_connected;
+	bool			claimed;
+
+	unsigned int		mdm_wait_timeout;
 
 #ifdef HTC_MDM_RESTART_IF_RMNET_OPEN_TIMEOUT
 	unsigned long  connected_jiffies;
@@ -67,13 +93,8 @@ struct rmnet_ctrl_dev {
 
 	
 	unsigned int		cbits_tolocal;
-
 	
 	unsigned int		cbits_tomdm;
-
-	bool			resp_available;
-
-	unsigned int		mdm_wait_timeout;
 
 	
 	unsigned int		snd_encap_cmd_cnt;
@@ -85,15 +106,16 @@ struct rmnet_ctrl_dev {
 	unsigned int		zlp_cnt;
 };
 
-extern struct rmnet_ctrl_dev *ctrl_dev[];
+extern struct workqueue_struct	*usbnet_wq;
 
 extern int rmnet_usb_ctrl_start_rx(struct rmnet_ctrl_dev *);
 extern int rmnet_usb_ctrl_suspend(struct rmnet_ctrl_dev *dev);
-extern int rmnet_usb_ctrl_init(void);
-extern void rmnet_usb_ctrl_exit(void);
+extern int rmnet_usb_ctrl_init(int num_devs, int insts_per_dev);
+extern void rmnet_usb_ctrl_exit(int num_devs, int insts_per_dev);
 extern int rmnet_usb_ctrl_probe(struct usb_interface *intf,
-		struct usb_host_endpoint *status,
-		struct rmnet_ctrl_dev *dev);
+				struct usb_host_endpoint *int_in,
+				unsigned long rmnet_devnum,
+				unsigned long *data);
 extern void rmnet_usb_ctrl_disconnect(struct rmnet_ctrl_dev *);
 
 #endif 
