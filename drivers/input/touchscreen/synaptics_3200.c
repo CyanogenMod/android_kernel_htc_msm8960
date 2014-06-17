@@ -42,7 +42,9 @@
 #define SYN_WIRELESS_DEBUG
 
 #define SYN_FW_NAME "tp_SYN.img"
+#ifndef CONFIG_TOUCHSCREEN_SYNAPTICS_REMOVE_FW_TIMEOUT
 #define SYN_FW_TIMEOUT (30000)
+#endif
 static DEFINE_MUTEX(syn_fw_mutex);
 
 struct synaptics_ts_data {
@@ -2928,7 +2930,9 @@ static int syn_probe_init(void *arg)
 	struct synaptics_i2c_rmi_platform_data *pdata;
 	int ret = 0;
 	uint8_t data = 0, i;
+#ifndef CONFIG_TOUCHSCREEN_SYNAPTICS_REMOVE_FW_TIMEOUT
 	uint16_t wait_time = SYN_FW_TIMEOUT;
+#endif
 
 	printk(KERN_INFO "[TP] %s: enter", __func__);
 	pdata = ts->client->dev.platform_data;
@@ -2938,11 +2942,13 @@ static int syn_probe_init(void *arg)
 		goto err_get_platform_data_fail;
 	}
 
+#ifndef CONFIG_TOUCHSCREEN_SYNAPTICS_REMOVE_FW_TIMEOUT
 	if (board_build_flag() == MFG_BUILD) {
 		wait_time = SYN_FW_TIMEOUT;
 		wait_event_interruptible_timeout(ts->syn_fw_wait, atomic_read(&ts->syn_fw_condition),
 							msecs_to_jiffies(wait_time));
 	}
+#endif
 	ts->block_touch_event = 0;
 	ts->i2c_err_handler_en = pdata->i2c_err_handler_en;
 	if (ts->i2c_err_handler_en) {

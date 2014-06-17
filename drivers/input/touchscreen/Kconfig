@@ -1026,4 +1026,12 @@ config TOUCHSCREEN_SYNAPTICS_3K
 	help
 	  This enables support for Synaptics RMI4 over I2C based touchscreens.
 
+config TOUCHSCREEN_SYNAPTICS_REMOVE_FW_TIMEOUT
+	default n
+	depends on TOUCHSCREEN_SYNAPTICS_3K
+	bool "Disable Synaptics firmware condition read timeout"
+	help
+	  Say Y here if your Synaptics touchscreen is prone to
+	  failures when reading the firmware condition.
+
 endif
