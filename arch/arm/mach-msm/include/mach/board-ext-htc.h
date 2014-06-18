@@ -27,6 +27,7 @@
 void msm_otg_set_vbus_state(int online);
 
 enum usb_connect_type {
+	CONNECT_TYPE_NOTIFY = -3,
 	CONNECT_TYPE_CLEAR = -2,
 	CONNECT_TYPE_UNKNOWN = -1,
 	CONNECT_TYPE_NONE = 0,
