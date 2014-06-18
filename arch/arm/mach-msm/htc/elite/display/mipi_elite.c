@@ -11,11 +11,11 @@ static struct msm_panel_common_pdata *mipi_elite_pdata;
 static int mipi_elite_lcd_init(void);
 // Selected codes
 static struct dsi_cmd_desc *elite_video_on_cmds = NULL;
-int elite_video_on_cmds_count = 0;
+static int elite_video_on_cmds_count = 0;
 static struct dsi_cmd_desc *elite_display_off_cmds = NULL;
-int elite_display_off_cmds_count = 0;
+static int elite_display_off_cmds_count = 0;
 static struct dsi_cmd_desc *elite_cmd_backlight_cmds = NULL;
-int elite_cmd_backlight_cmds_count = 0;
+static int elite_cmd_backlight_cmds_count = 0;
 
 /* All MIPI codes .. */
 static char display_on[2] = {0x29, 0x00}; /* DTYPE_DCS_WRITE */
@@ -1019,7 +1019,7 @@ static struct dsi_cmd_desc sony_panel_video_mode_cmds_id28103[] = {
 static char himax_max_pkt_size[2] = {0x03, 0x00};
 static char himax_password[4] = {0xB9, 0xFF, 0x83, 0x92}; /* DTYPE_DCS_LWRITE */
 
-struct dsi_cmd_desc sharp_nt_video_on_cmds_idA1B100[] = {
+static struct dsi_cmd_desc sharp_nt_video_on_cmds_idA1B100[] = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(set_threelane), set_threelane},
 #ifdef EVA_CMD_MODE_PANEL
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(display_mode_cmd), display_mode_cmd},
@@ -1152,7 +1152,7 @@ struct dsi_cmd_desc sharp_nt_video_on_cmds_idA1B100[] = {
 	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
 };
 
-struct dsi_cmd_desc sharp_nt_video_on_cmds_nv3[] = {
+static struct dsi_cmd_desc sharp_nt_video_on_cmds_nv3[] = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(set_threelane), set_threelane},
 #ifdef EVA_CMD_MODE_PANEL
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(display_mode_cmd), display_mode_cmd},
@@ -1266,7 +1266,7 @@ struct dsi_cmd_desc sharp_nt_video_on_cmds_nv3[] = {
 	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
 };
 
-struct dsi_cmd_desc sharp_nt_video_on_cmds_nv4[] = {
+static struct dsi_cmd_desc sharp_nt_video_on_cmds_nv4[] = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(set_threelane), set_threelane},
 #ifdef EVA_CMD_MODE_PANEL
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(display_mode_cmd), display_mode_cmd},
@@ -1374,7 +1374,7 @@ struct dsi_cmd_desc sharp_nt_video_on_cmds_nv4[] = {
 	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
 };
 
-struct dsi_cmd_desc himax_video_on_cmds_id311100[] = {
+static struct dsi_cmd_desc himax_video_on_cmds_id311100[] = {
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 10, sizeof(himax_password), himax_password},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(set_threelane), set_threelane},
 	{DTYPE_MAX_PKTSIZE, 1, 0, 0, 0, sizeof(himax_max_pkt_size), himax_max_pkt_size},
