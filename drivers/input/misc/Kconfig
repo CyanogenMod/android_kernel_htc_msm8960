@@ -747,4 +747,30 @@ config R3GD20_NEW_SENSOR_TYPE
 	help
 	  Enable R3GD20 new sensor type
 
+config SENSORS_LSM330_ACC
+	tristate "ST LSM330 3-axis accelerometer"
+	depends on I2C=y
+	default n
+	help
+	  This driver provides support for the LSM330 chip which is a
+	  3-axis accelerometer.
+
+	  This driver can also be built as modules.  If so, the module for
+	  accelerometer will be called lsm330.
+
+	  Say Y here if you have a device containing lsm330 chip.
+
+config SENSORS_LSM330_GYRO
+	tristate "ST LSM330 3-axis gyroscope"
+	depends on I2C=y
+	default n
+	help
+	  This driver provides support for the LSM330 chip which is a
+	  3-axis gyroscope.
+
+	  This driver can also be built as modules.  If so, the module for
+	  accelerometer will be called LSM330.
+
+	  Say Y here if you have a device containing LSM330 chip.
+
 source "drivers/input/misc/mpu3050/Kconfig"
