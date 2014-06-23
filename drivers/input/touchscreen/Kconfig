@@ -340,6 +340,19 @@ config TOUCHSCREEN_MAX11801
 	  To compile this driver as a module, choose M here: the
 	  module will be called max11801_ts.
 
+config TOUCHSCREEN_MAX1187X
+	tristate "Maxim max1187X touchscreen"
+	depends on I2C
+	help
+	  Say Y here if you have a Maxim max11871 touchscreen connected
+	  to your system. max11871 conforms to the Maxim Touch Protocol
+	  (MTP) defined by Maxim.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called max1187x.
+
 config TOUCHSCREEN_MCS5000
 	tristate "MELFAS MCS-5000 touchscreen"
 	depends on I2C
