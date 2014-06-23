@@ -1,0 +1,24 @@
+config BOARD_HEADER_FILE
+	string "HTC board specific header file name"
+	default ""
+
+config MACH_T6_UL
+	depends on ARCH_APQ8064
+	select MACH_HTC
+	bool "HTC One"
+	help
+	  Support for the HTC T6 device.
+
+config CABC_DIMMING_SWITCH
+	depends on MACH_T6_UL
+	bool "Enable panel CABC dimming switch"
+	default y
+	help
+	  Enable CABC dimming switch.
+
+config SRE_CONTROL
+	depends on MACH_T6_UL
+	bool "Enable panel SRE control"
+	default y
+	help
+	  Enable SRE control.

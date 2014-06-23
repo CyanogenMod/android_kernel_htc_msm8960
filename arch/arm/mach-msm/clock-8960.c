@@ -4388,7 +4388,7 @@ static struct clk_freq_tbl clk_tbl_vpe[] = {
 	F_VPE( 96000000, pll8,  4),
 	F_VPE(100000000, pll2,  8),
 	F_VPE(160000000, pll2,  5),
-#ifdef CONFIG_MACH_M4_UL
+#if defined(CONFIG_MACH_M4_UL) || defined(CONFIG_MACH_T6_UL)
 	F_VPE(200000000, pll2,  4),
 #endif
 	F_END
@@ -4414,7 +4414,7 @@ static struct rcg_clk vpe_clk = {
 	.c = {
 		.dbg_name = "vpe_clk",
 		.ops = &clk_ops_rcg,
-#ifdef CONFIG_MACH_M4_UL
+#if defined(CONFIG_MACH_M4_UL) || defined(CONFIG_MACH_T6_UL)
 		VDD_DIG_FMAX_MAP2(LOW, 76800000, NOMINAL, 200000000),
 #else
 		VDD_DIG_FMAX_MAP2(LOW, 76800000, NOMINAL, 160000000),
@@ -4548,7 +4548,7 @@ static struct clk_freq_tbl clk_tbl_aif_osr_393[] = {
 	F_AIF_OSR( 8192000, pll4, 4, 1,  12),
 	F_AIF_OSR(12288000, pll4, 4, 1,   8),
 	F_AIF_OSR(24576000, pll4, 4, 1,   4),
-#if defined(CONFIG_MACH_M7_UL) || defined(CONFIG_MACH_M4_UL)
+#if defined(CONFIG_MACH_M7_UL) || defined(CONFIG_MACH_M4_UL) || defined(CONFIG_MACH_T6_UL)
 	F_AIF_OSR(18432000, pll4, 4, 3,  16),
 #endif
 	F_AIF_OSR(27000000, pxo,  1, 0,   0),
