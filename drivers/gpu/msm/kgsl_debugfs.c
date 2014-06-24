@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2008-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2008-2012,2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -260,8 +260,10 @@ static void print_mem_entry(struct seq_file *s, struct kgsl_mem_entry *entry)
 
 	kgsl_get_memory_usage(usage, sizeof(usage), m->flags);
 
-	seq_printf(s, "%08x %8d %5d %5s %10s %16s %5d\n",
-			m->gpuaddr, m->size, entry->id, flags,
+	seq_printf(s, "%pK %pK %8zd %5d %5s %10s %16s %5d\n",
+			(unsigned long *) m->gpuaddr,
+			(unsigned long *) m->useraddr,
+			m->size, entry->id, flags,
 			memtype_str(entry->memtype), usage, m->sglen);
 }
 
@@ -272,8 +274,9 @@ static int process_mem_print(struct seq_file *s, void *unused)
 	struct kgsl_process_private *private = s->private;
 	int next = 0;
 
-	seq_printf(s, "%8s %8s %5s %5s %10s %16s %5s\n",
-		   "gpuaddr", "size", "id", "flags", "type", "usage", "sglen");
+	seq_printf(s, "%8s %8s %8s %5s %5s %10s %16s %5s\n",
+		   "gpuaddr", "useraddr", "size", "id", "flags", "type",
+		   "usage", "sglen");
 
 	/* print all entries with a GPU address */
 	spin_lock(&private->mem_lock);
@@ -321,7 +324,7 @@ kgsl_process_init_debugfs(struct kgsl_process_private *private)
 	snprintf(name, sizeof(name), "%d", private->pid);
 
 	private->debug_root = debugfs_create_dir(name, proc_d_debugfs);
-	debugfs_create_file("mem", 0400, private->debug_root, private,
+	debugfs_create_file("mem", 0444, private->debug_root, private,
 			    &process_mem_fops);
 }
 
