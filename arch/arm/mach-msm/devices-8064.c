@@ -53,7 +53,7 @@
 
 /* Address of GSBI blocks */
 #define MSM_GSBI1_PHYS		0x12440000
-#ifdef CONFIG_MACH_M7_UL
+#if defined(CONFIG_MACH_M7_UL) || defined(CONFIG_MACH_T6_UL)
 #define MSM_GSBI2_PHYS		0x12480000
 #else
 #define MSM_GSBI2_PHYS		0x13440000
@@ -503,7 +503,7 @@ static struct resource resources_qup_i2c_gsbi4[] = {
 		.end	= GSBI4_QUP_IRQ,
 		.flags	= IORESOURCE_IRQ,
 	},
-#ifdef CONFIG_MACH_M7_UL
+#if defined(CONFIG_MACH_M7_UL) || defined(CONFIG_MACH_T6_UL)
 	{
 		.name	= "i2c_clk",
 		.start	= 13,
@@ -537,6 +537,48 @@ struct platform_device apq8064_device_qup_i2c_gsbi4 = {
 	.id		= 4,
 	.num_resources	= ARRAY_SIZE(resources_qup_i2c_gsbi4),
 	.resource	= resources_qup_i2c_gsbi4,
+};
+
+static struct resource resources_qup_spi_gsbi1[] = {
+	{
+		.name   = "spi_base",
+		.start  = MSM_GSBI1_QUP_PHYS,
+		.end    = MSM_GSBI1_QUP_PHYS + SZ_4K - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.name   = "gsbi_base",
+		.start  = MSM_GSBI1_PHYS,
+		.end    = MSM_GSBI1_PHYS + 4 - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.name   = "spi_irq_in",
+		.start  = APQ8064_GSBI1_QUP_IRQ,
+		.end    = APQ8064_GSBI1_QUP_IRQ,
+		.flags  = IORESOURCE_IRQ,
+	},
+#ifdef CONFIG_FPR_SPI_DMA_GSBI1
+	{
+		.name = "spidm_channels",
+		.start = 2,
+		.end   = 3,
+		.flags = IORESOURCE_DMA,
+	},
+	{
+		.name = "spidm_crci",
+		.start = 12,
+		.end = 13,
+		.flags = IORESOURCE_DMA,
+	},
+#endif
+};
+
+struct platform_device apq8064_device_qup_spi_gsbi1 = {
+	.name		= "spi_qsd",
+	.id		= 1,
+	.num_resources	= ARRAY_SIZE(resources_qup_spi_gsbi1),
+	.resource	= resources_qup_spi_gsbi1,
 };
 
 static struct resource resources_qup_spi_gsbi5[] = {
@@ -605,6 +647,46 @@ struct platform_device mpq8064_device_qup_i2c_gsbi5 = {
 	.id		= 5,
 	.num_resources	= ARRAY_SIZE(resources_qup_i2c_gsbi5),
 	.resource	= resources_qup_i2c_gsbi5,
+};
+
+static struct resource resources_qup_i2c_gsbi7[] = {
+	{
+		.name	= "gsbi_qup_i2c_addr",
+		.start	= MSM_GSBI7_PHYS,
+		.end	= MSM_GSBI7_PHYS + 4 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "qup_phys_addr",
+		.start	= MSM_GSBI7_QUP_PHYS,
+		.end	= MSM_GSBI7_QUP_PHYS + MSM_QUP_SIZE - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.name	= "qup_err_intr",
+		.start	= GSBI7_QUP_IRQ,
+		.end	= GSBI7_QUP_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+	{
+		.name	= "i2c_clk",
+		.start	= 85,
+		.end	= 85,
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.name	= "i2c_sda",
+		.start	= 84,
+		.end	= 84,
+		.flags	= IORESOURCE_IO,
+	},
+};
+
+struct platform_device apq8064_device_qup_i2c_gsbi7 = {
+	.name		= "qup_i2c",
+	.id		= 7,
+	.num_resources	= ARRAY_SIZE(resources_qup_i2c_gsbi7),
+	.resource	= resources_qup_i2c_gsbi7,
 };
 
 /* GSBI 6 used into UARTDM Mode */

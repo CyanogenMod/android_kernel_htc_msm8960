@@ -10,12 +10,24 @@
 #define DOCK_STATE_USB_HOST				(1 << 4)
 #define DOCK_STATE_DMB						(1 << 5)
 #define DOCK_STATE_AUDIO_DOCK				(1 << 6)
-
+#ifdef CONFIG_USB_OTG_HOST_CHG
+#define DOCK_STATE_HOST_CHG_DOCK			(1 << 7)
+#else
+#define DOCK_STATE_THREE_POGO_DOCK		(1 << 7)
+#endif
 #define DOCK_DET_DELAY		HZ/4
-
+#ifdef CONFIG_MACH_TC2
+#define ADC_RETRY 5
+#else
 #define ADC_RETRY 3
-#define ADC_DELAY HZ/8
+#endif
 
+#ifdef CONFIG_USB_OTG_HOST_CHG
+#define ADC_DELAY HZ/8
+#define HOST_DET_DELAY HZ/2
+#else
+#define ADC_DELAY HZ/8
+#endif
 #define PM8058ADC_15BIT(adc) ((adc * 2200) / 32767) 
 
 #define CABLE_ERR(fmt, args...) \
@@ -83,6 +95,9 @@ struct cable_detect_platform_data {
 	bool dock_detect;
 	int dock_pin_gpio;
 #endif
+	int idpin_irq;
+	int carkit_only;
+	int (*detect_three_pogo_dock)(void);
 	int enable_vbus_usb_switch;
 };
 
@@ -95,4 +110,5 @@ extern int cable_get_accessory_type(void);
 extern int cable_get_usb_id_level(void);
 extern void cable_set_uart_switch(int);
 extern irqreturn_t cable_detection_vbus_irq_handler(void);
+extern int check_three_pogo_dock(void);
 #endif

@@ -758,6 +758,7 @@ struct slaveirq_dev_data {
 #ifdef CONFIG_CIR_ALWAYS_READY
 	struct input_dev *input_cir;
 	struct wake_lock cir_always_ready_wake_lock;
+	int wake_lock_inited;
 #endif
 };
 
@@ -971,6 +972,7 @@ int slaveirq_init(struct i2c_adapter *slave_adapter,
 	data->timeout = 0;
 
 #ifdef CONFIG_CIR_ALWAYS_READY
+	data->wake_lock_inited = 0;
 	data->slave_client = client;
 #endif
 
@@ -1017,6 +1019,7 @@ int slaveirq_init(struct i2c_adapter *slave_adapter,
 	    enable_irq_wake(data->irq); 
 
 	    wake_lock_init(&(data->cir_always_ready_wake_lock), WAKE_LOCK_SUSPEND, "cir_always_ready");
+	    data->wake_lock_inited = 1;
 #endif
 	}else
 	    res = request_irq(data->irq, slaveirq_handler, IRQF_TRIGGER_RISING,
@@ -1071,7 +1074,12 @@ void slaveirq_exit(struct ext_slave_platform_data *pdata)
 
 	dev_info(data->dev.this_device, "Unregistering %s\n",
 		 data->dev.name);
-
+#ifdef CONFIG_CIR_ALWAYS_READY
+	if (data->wake_lock_inited == 1) {
+		dev_info(data->dev.this_device, "Destroy always_ready_wake_lock\n");
+		wake_lock_destroy(&(data->cir_always_ready_wake_lock));
+	}
+#endif
 	free_irq(data->irq, data);
 	misc_deregister(&data->dev);
 	kfree(pdata->irq_data);

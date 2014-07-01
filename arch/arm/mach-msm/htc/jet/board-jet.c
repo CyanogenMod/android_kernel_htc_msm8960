@@ -139,8 +139,8 @@ unsigned skuid;
 static void config_flashlight_gpios(void)
 {
 	static uint32_t flashlight_gpio_table[] = {
-		GPIO_CFG(32, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-		GPIO_CFG(33, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+		GPIO_CFG(JET_GPIO_TORCH_FLASHz, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+		GPIO_CFG(JET_GPIO_DRIVER_EN, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
 	};
 
 	gpio_tlmm_config(flashlight_gpio_table[0], GPIO_CFG_ENABLE);
@@ -149,10 +149,10 @@ static void config_flashlight_gpios(void)
 
 static struct TPS61310_flashlight_platform_data jet_flashlight_data = {
 	.gpio_init = config_flashlight_gpios,
-	.tps61310_strb0 = 33,
-	.tps61310_strb1 = 32,
-	.led_count = 1,
+	.tps61310_strb0 = JET_GPIO_DRIVER_EN,
+	.tps61310_strb1 = JET_GPIO_TORCH_FLASHz,
 	.flash_duration_ms = 600,
+	.mode_pin_suspend_state_low = 1,
 };
 
 static struct i2c_board_info i2c_tps61310_flashlight[] = {
@@ -1246,6 +1246,9 @@ static struct htc_battery_platform_data htc_battery_pdev_data = {
 	.guage_driver = 0,
 	.chg_limit_active_mask = HTC_BATT_CHG_LIMIT_BIT_TALK |
 								HTC_BATT_CHG_LIMIT_BIT_NAVI,
+#ifdef CONFIG_DUTY_CYCLE_LIMIT
+	.chg_limit_timer_sub_mask = HTC_BATT_CHG_LIMIT_BIT_THRML,
+#endif
 	.critical_low_voltage_mv = 3200,
 	.critical_alarm_vol_ptr = critical_alarm_voltage_mv,
 	.critical_alarm_vol_cols = sizeof(critical_alarm_voltage_mv) / sizeof(int),
@@ -1275,6 +1278,9 @@ static struct htc_battery_platform_data htc_battery_pdev_data = {
 	.igauge.get_battery_id = pm8921_get_batt_id,
 	.igauge.get_battery_soc = pm8921_bms_get_batt_soc,
 	.igauge.get_battery_cc = pm8921_bms_get_batt_cc,
+	.igauge.store_battery_data = pm8921_bms_store_battery_data_emmc,
+	.igauge.store_battery_ui_soc = pm8921_bms_store_battery_ui_soc,
+	.igauge.get_battery_ui_soc = pm8921_bms_get_battery_ui_soc,
 	.igauge.is_battery_temp_fault = pm8921_is_batt_temperature_fault,
 	.igauge.is_battery_full = pm8921_is_batt_full,
 	.igauge.get_attr_text = pm8921_gauge_get_attr_text,
@@ -1346,7 +1352,7 @@ struct pm8xxx_gpio_init headset_rx[] = {
 			 PM_GPIO_OUT_BUF_CMOS, 0, PM_GPIO_PULL_NO,
 			 PM_GPIO_VIN_S4, PM_GPIO_STRENGTH_NO,
 			 PM_GPIO_FUNC_NORMAL, 0, 0),
-	PM8XXX_GPIO_INIT(JET_GPIO_AUD_1WIRE_O, PM_GPIO_DIR_OUT,
+	PM8XXX_GPIO_INIT(JET_GPIO_PM_AUD_1WIRE_O, PM_GPIO_DIR_OUT,
 			 PM_GPIO_OUT_BUF_OPEN_DRAIN, 0, PM_GPIO_PULL_NO,
 			 PM_GPIO_VIN_L17, PM_GPIO_STRENGTH_HIGH,
 			 PM_GPIO_FUNC_NORMAL, 0, 1),
@@ -1367,7 +1373,7 @@ struct pm8xxx_gpio_init headset_rx_xc[] = {
 			 PM_GPIO_OUT_BUF_CMOS, 0, PM_GPIO_PULL_NO,
 			 PM_GPIO_VIN_S4, PM_GPIO_STRENGTH_NO,
 			 PM_GPIO_FUNC_PAIRED, 0, 0),
-	PM8XXX_GPIO_INIT(JET_GPIO_AUD_1WIRE_O, PM_GPIO_DIR_OUT,
+	PM8XXX_GPIO_INIT(JET_GPIO_PM_AUD_1WIRE_O, PM_GPIO_DIR_OUT,
 			 PM_GPIO_OUT_BUF_CMOS, 0, PM_GPIO_PULL_NO,
 			 PM_GPIO_VIN_L17, PM_GPIO_STRENGTH_HIGH,
 			 PM_GPIO_FUNC_PAIRED, 0, 0),

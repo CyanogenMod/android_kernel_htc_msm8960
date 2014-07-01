@@ -54,6 +54,7 @@ enum {
 	PJ_EXIST,
 	PJ_STATUS,
 	PJ_LEVEL,
+	BATT_CABLEIN,
 };
 
 enum htc_batt_rt_attr {
@@ -62,6 +63,7 @@ enum htc_batt_rt_attr {
 	HTC_BATT_RT_TEMPERATURE,
 	HTC_PJ_RT_EXISTS,
 	HTC_PJ_RT_VOLTAGE,
+	HTC_BATT_RT_VOLTAGE_UV,
 };
 
 struct battery_info_reply {
@@ -101,6 +103,7 @@ struct htc_battery_core {
 	void (*func_set_full_level_dis_batt_chg)(int full_level_dis_batt_chg);
 	int (*func_set_max_input_current)(int target_ma);
 	int (*func_notify_pnpmgr_charging_enabled)(int charging_enabled);
+	void (*func_trigger_store_battery_data)(int trigger_flag);
 };
 #ifdef CONFIG_HTC_BATT_CORE
 extern int htc_battery_core_update_changed(void);

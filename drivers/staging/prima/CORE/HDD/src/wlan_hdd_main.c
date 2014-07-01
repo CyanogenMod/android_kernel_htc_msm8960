@@ -120,9 +120,6 @@ int wlan_hdd_ftm_start(hdd_context_t *pAdapter);
 #include "wlan_qct_pal_trace.h"
 #endif /* FEATURE_WLAN_INTEGRATED_SOC */
 #include "qwlan_version.h"
-#ifdef CONFIG_HTC_WIFI_NVS
-#include <mach/htc_wifi_nvs.h>
-#endif
 
 #ifdef MODULE
 #define WLAN_MODULE_NAME  module_name(THIS_MODULE)
@@ -2947,27 +2944,6 @@ free_hdd_ctx:
   --------------------------------------------------------------------------*/
 static VOS_STATUS hdd_update_config_from_nv(hdd_context_t* pHddCtx)
 {
-#ifdef CONFIG_HTC_WIFI_NVS
-   int len;
-   char buf[30];
-   v_U8_t macAddr[VOS_MAC_ADDR_SIZE];
-
-   len = htc_get_wifi_calibration(buf, 30);
-   sscanf(buf, "macaddr=%02x:%02x:%02x:%02x:%02x:%02x",
-          (unsigned *) &macAddr[0],
-          (unsigned *) &macAddr[1],
-          (unsigned *) &macAddr[2],
-          (unsigned *) &macAddr[3],
-          (unsigned *) &macAddr[4],
-          (unsigned *) &macAddr[5]);
-
-   // only sets the first persona
-   vos_mem_copy((v_U8_t *)&pHddCtx->cfg_ini->intfMacAddr[0].bytes[0],
-                macAddr,
-                VOS_MAC_ADDR_SIZE);
-
-   return VOS_STATUS_SUCCESS;
-#else
 #ifdef FEATURE_WLAN_INTEGRATED_SOC
    v_BOOL_t itemIsValid = VOS_FALSE;
    VOS_STATUS status;
@@ -3042,8 +3018,8 @@ static VOS_STATUS hdd_update_config_from_nv(hdd_context_t* pHddCtx)
       return VOS_STATUS_E_FAILURE;
    }
 #endif /* FEATURE_WLAN_INTEGRATED_SOC */
+
    return VOS_STATUS_SUCCESS;
-#endif /* CONFIG_HTC_WIFI_NVS */
 }
 
 /**---------------------------------------------------------------------------
@@ -3135,6 +3111,67 @@ void hdd_allow_suspend(void)
 
 /**---------------------------------------------------------------------------
 
+  \brief hdd_generate_iface_mac_addr_auto() - HDD Mac Interface Auto
+                                              generate function
+
+  This is generate the random mac address for WLAN interface
+
+  \param  - pHddCtx  - Pointer to HDD context
+            idx      - Start interface index to get auto
+                       generated mac addr.
+            mac_addr - Mac address
+
+  \return -  0 for success, < 0 for failure
+
+  --------------------------------------------------------------------------*/
+
+static int hdd_generate_iface_mac_addr_auto(hdd_context_t *pHddCtx,
+                                            int idx, v_MACADDR_t mac_addr)
+{
+   int i;
+   unsigned int serialno;
+   serialno = wcnss_get_serial_number();
+
+   if (0 != serialno)
+   {
+      /* MAC address has 3 bytes of OUI so we have a maximum of 3
+         bytes of the serial number that can be used to generate
+         the other 3 bytes of the MAC address.  Mask off all but
+         the lower 3 bytes (this will also make sure we don't
+         overflow in the next step) */
+      serialno &= 0x00FFFFFF;
+
+      /* we need a unique address for each session */
+      serialno *= VOS_MAX_CONCURRENCY_PERSONA;
+
+      /* autogen other Mac addresses */
+      for (i = idx; i < VOS_MAX_CONCURRENCY_PERSONA; i++)
+      {
+         /* start with the entire default address */
+         pHddCtx->cfg_ini->intfMacAddr[i] = mac_addr;
+         /* then replace the lower 3 bytes */
+         pHddCtx->cfg_ini->intfMacAddr[i].bytes[3] = (serialno >> 16) & 0xFF;
+         pHddCtx->cfg_ini->intfMacAddr[i].bytes[4] = (serialno >> 8) & 0xFF;
+         pHddCtx->cfg_ini->intfMacAddr[i].bytes[5] = serialno & 0xFF;
+
+         serialno++;
+         hddLog(VOS_TRACE_LEVEL_ERROR,
+                   "%s: Derived Mac Addr: "
+                   MAC_ADDRESS_STR, __func__,
+                   MAC_ADDR_ARRAY(pHddCtx->cfg_ini->intfMacAddr[i].bytes));
+      }
+
+   }
+   else
+   {
+      hddLog(LOGE, FL("Failed to Get Serial NO"));
+      return -1;
+   }
+   return 0;
+}
+
+/**---------------------------------------------------------------------------
+
   \brief hdd_wlan_startup() - HDD init function
 
   This is the driver startup code executed once a WLAN device has been detected
@@ -3164,6 +3201,7 @@ int hdd_wlan_startup(struct device *dev )
 #ifdef ANI_BUS_TYPE_SDIO
    struct sdio_func *sdio_func_dev = dev_to_sdio_func(dev);
 #endif //ANI_BUS_TYPE_SDIO
+   v_MACADDR_t mac_addr;
 
    ENTER();
 #ifdef CONFIG_CFG80211
@@ -3403,10 +3441,34 @@ int hdd_wlan_startup(struct device *dev )
       goto err_vosclose;
    }
 
-   // Apply the NV to cfg.dat
-   /* Prima Update MAC address only at here */
-   if (VOS_STATUS_SUCCESS != hdd_update_config_from_nv(pHddCtx))
+   // Get mac addr from platform driver
+   ret = wcnss_get_wlan_mac_address((char*)&mac_addr.bytes);
+
+   if ((0 == ret) && (!vos_is_macaddr_zero(&mac_addr)))
    {
+      /* Store the mac addr for first interface */
+      pHddCtx->cfg_ini->intfMacAddr[0] = mac_addr;
+
+      hddLog(VOS_TRACE_LEVEL_ERROR,
+             "%s: WLAN Mac Addr: "
+             MAC_ADDRESS_STR, __func__,
+             MAC_ADDR_ARRAY(pHddCtx->cfg_ini->intfMacAddr[0].bytes));
+
+      /* Here, passing Arg2 as 1 because we do not want to change the
+         last 3 bytes (means non OUI bytes) of first interface mac
+         addr.
+       */
+      if (0 != hdd_generate_iface_mac_addr_auto(pHddCtx, 1, mac_addr))
+      {
+         hddLog(VOS_TRACE_LEVEL_ERROR,
+                "%s: Failed to generate wlan interface mac addr "
+                "using MAC from ini file ", __func__);
+      }
+   }
+   else if (VOS_STATUS_SUCCESS != hdd_update_config_from_nv(pHddCtx))
+   {
+      // Apply the NV to cfg.dat
+      /* Prima Update MAC address only at here */
 #ifdef WLAN_AUTOGEN_MACADDR_FEATURE
       /* There was not a valid set of MAC Addresses in NV.  See if the
          default addresses were modified by the cfg.ini settings.  If so,
@@ -3415,42 +3477,24 @@ int hdd_wlan_startup(struct device *dev )
 
       static const v_MACADDR_t default_address =
          {{0x00, 0x0A, 0xF5, 0x89, 0x89, 0xFF}};
-      unsigned int serialno;
-      int i;
 
-      serialno = wcnss_get_serial_number();
-      if ((0 != serialno) &&
-          (0 == memcmp(&default_address, &pHddCtx->cfg_ini->intfMacAddr[0],
-                       sizeof(default_address))))
+      if (0 == memcmp(&default_address, &pHddCtx->cfg_ini->intfMacAddr[0],
+                   sizeof(default_address)))
       {
          /* cfg.ini has the default address, invoke autogen logic */
 
-         /* MAC address has 3 bytes of OUI so we have a maximum of 3
-            bytes of the serial number that can be used to generate
-            the other 3 bytes of the MAC address.  Mask off all but
-            the lower 3 bytes (this will also make sure we don't
-            overflow in the next step) */
-         serialno &= 0x00FFFFFF;
-
-         /* we need a unique address for each session */
-         serialno *= VOS_MAX_CONCURRENCY_PERSONA;
-
-         /* autogen all addresses */
-         for (i = 0; i < VOS_MAX_CONCURRENCY_PERSONA; i++)
+         /* Here, passing Arg2 as 0 because we want to change the
+            last 3 bytes (means non OUI bytes) of all the interfaces
+            mac addr.
+          */
+         if (0 != hdd_generate_iface_mac_addr_auto(pHddCtx, 0,
+                                                            default_address))
          {
-            /* start with the entire default address */
-            pHddCtx->cfg_ini->intfMacAddr[i] = default_address;
-            /* then replace the lower 3 bytes */
-            pHddCtx->cfg_ini->intfMacAddr[i].bytes[3] = (serialno >> 16) & 0xFF;
-            pHddCtx->cfg_ini->intfMacAddr[i].bytes[4] = (serialno >> 8) & 0xFF;
-            pHddCtx->cfg_ini->intfMacAddr[i].bytes[5] = serialno & 0xFF;
-
-            serialno++;
+            hddLog(VOS_TRACE_LEVEL_ERROR,
+                   "%s: Failed to generate wlan interface mac addr "
+                   "using MAC from ini file " MAC_ADDRESS_STR, __func__,
+                   MAC_ADDR_ARRAY(pHddCtx->cfg_ini->intfMacAddr[0].bytes));
          }
-
-         pr_info("wlan: Invalid MAC addresses in NV, autogenerated "
-                MAC_ADDRESS_STR,
-                MAC_ADDR_ARRAY(pHddCtx->cfg_ini->intfMacAddr[0].bytes));
       }
       else
 #endif //WLAN_AUTOGEN_MACADDR_FEATURE
@@ -3463,8 +3507,11 @@ int hdd_wlan_startup(struct device *dev )
    }
    {
       eHalStatus halStatus;
-      // Set the MAC Address
-      // Currently this is used by HAL to add self sta. Remove this once self sta is added as part of session open.
+
+      /* Set the MAC Address Currently this is used by HAL to
+       * add self sta. Remove this once self sta is added as
+       * part of session open.
+       */
       halStatus = cfgSetStr( pHddCtx->hHal, WNI_CFG_STA_ID,
                              (v_U8_t *)&pHddCtx->cfg_ini->intfMacAddr[0],
                              sizeof( pHddCtx->cfg_ini->intfMacAddr[0]) );

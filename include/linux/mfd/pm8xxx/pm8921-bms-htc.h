@@ -20,14 +20,14 @@
 #define FCC_CC_COLS		5
 #define FCC_TEMP_COLS		8
 
-#if defined(CONFIG_MACH_M7_UL) || defined(CONFIG_MACH_M4_UL)
+#if defined(CONFIG_MACH_M7_UL) || defined(CONFIG_MACH_M4_UL) || defined(CONFIG_MACH_T6_UL)
 #define PC_CC_ROWS             31
 #else
 #define PC_CC_ROWS             29
 #endif
 #define PC_CC_COLS             13
 
-#if defined (CONFIG_MACH_M7_UL) || defined(CONFIG_MACH_M4_UL)
+#if defined (CONFIG_MACH_M7_UL) || defined(CONFIG_MACH_M4_UL) || defined(CONFIG_MACH_T6_UL)
 #define PC_TEMP_ROWS		31
 #else
 #define PC_TEMP_ROWS		29
@@ -150,6 +150,9 @@ int pm8921_bms_get_batt_current(int *result);
 int pm8921_store_hw_reset_reason(int is_hw_reset);
 int pm8921_bms_get_batt_soc(int *result);
 int pm8921_bms_get_batt_cc(int *result);
+int pm8921_bms_store_battery_data_emmc(void);
+int pm8921_bms_store_battery_ui_soc(int soc_ui);
+int pm8921_bms_get_battery_ui_soc(void);
 int pm8921_bms_get_attr_text(char *buf, int size);
 #endif 
 #else
@@ -220,6 +223,18 @@ static inline int pm8921_bms_get_batt_soc(int *result)
 	return -ENXIO;
 }
 static inline int pm8921_bms_get_batt_cc(int *result)
+{
+	return -ENXIO;
+}
+static inline int pm8921_bms_store_battery_data_emmc(void)
+{
+	return -ENXIO;
+}
+static inline int pm8921_bms_store_battery_ui_soc(int soc_ui)
+{
+	return -ENXIO;
+}
+static inline int pm8921_bms_get_battery_ui_soc(void)
 {
 	return -ENXIO;
 }

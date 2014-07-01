@@ -89,10 +89,10 @@ VREG_CONSUMERS(L12) = {
 VREG_CONSUMERS(L14) = {
 	REGULATOR_SUPPLY("8921_l14",		NULL),
 	REGULATOR_SUPPLY("pa_therm",		"pm8xxx-adc"),
+	REGULATOR_SUPPLY("vreg_xoadc",		"pm8921-charger"),
 };
 VREG_CONSUMERS(L15) = {
 	REGULATOR_SUPPLY("8921_l15",		NULL),
-	REGULATOR_SUPPLY("vreg_xoadc",		"pm8921-charger"),
 };
 VREG_CONSUMERS(L16) = {
 	REGULATOR_SUPPLY("8921_l16",		NULL),
@@ -536,9 +536,9 @@ static struct rpm_regulator_init_data
 msm_rpm_regulator_init_data[] __devinitdata = {
 	/*	 ID    a_on pd ss min_uV   max_uV  supply sys_uA freq */
   RPM_SMPS(S1,	 1, 1, 0, 1225000, 1225000, NULL, 100000, 3p20, NONE, NONE),
-	RPM_SMPS(S2,	 0, 1, 0, 1300000, 1300000, NULL, 0,	  1p60, NONE, NONE),
+	RPM_SMPS(S2,	 0, 1, 0, 1300000, 1300000, NULL,      0, 1p60, NONE, NONE),
 	RPM_SMPS(S3,	 0, 1, 1,  500000, 1150000, NULL, 100000, 4p80, NONE, NONE),
-	RPM_SMPS(S4,	 1, 1, 0, 1800000, 1800000, NULL, 100000, 3p20, NONE, NONE),
+	RPM_SMPS(S4,	 1, 1, 0, 1800000, 1800000, NULL, 100000, 3p20, AUTO, AUTO),
 	RPM_SMPS(S7,	 0, 1, 0, 1150000, 1150000, NULL, 100000, 3p20, NONE, NONE),
 	RPM_SMPS(S8,	 1, 1, 1, 2050000, 2050000, NULL, 100000, 1p60, NONE, NONE),
 
@@ -558,7 +558,7 @@ msm_rpm_regulator_init_data[] __devinitdata = {
 	RPM_LDO(L14,	 0, 1, 0, 1800000, 1800000, NULL,      0, 0),
 	RPM_LDO(L15,	 0, 1, 0, 1800000, 2950000, NULL,      0, 0),
 	RPM_LDO(L16,	 0, 1, 0, 2850000, 3300000, NULL,      0, 0), /*XA 3.3v, XB 2.85v */
-	RPM_LDO(L17,	 0, 1, 0, 2850000, 3300000, NULL,      0, 0),
+	RPM_LDO(L17,	 1, 1, 0, 2850000, 3300000, NULL,      0, 0),
 	RPM_LDO(L18,	 0, 1, 0, 1300000, 1300000, "8921_s4", 0, 0),
 	RPM_LDO(L21,	 0, 1, 0, 1900000, 1900000, "8921_s8", 0, 0),
 	RPM_LDO(L22,	 0, 1, 0, 2750000, 2750000, NULL,      0, 0),

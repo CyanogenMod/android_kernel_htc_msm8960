@@ -98,9 +98,13 @@ struct pm8xxx_mpp_init {
 			PM_GPIO_STRENGTH_HIGH, \
 			PM_GPIO_FUNC_NORMAL, 0, 0)
 /* Initial PM8921 GPIO configurations */
-static struct pm8xxx_gpio_init pm8921_gpios[] __initdata = {
+
+static struct pm8xxx_gpio_init pm8921_gpios_haptic[] __initdata = {
 	/*for pwm vibrator*/
 	PM8XXX_GPIO_INIT(JET_GPIO_HAPTIC_PWM, PM_GPIO_DIR_OUT, PM_GPIO_OUT_BUF_CMOS, 0, PM_GPIO_PULL_UP_1P5, PM_GPIO_VIN_L17, PM_GPIO_STRENGTH_LOW, PM_GPIO_FUNC_2, 0, 0),
+};
+
+static struct pm8xxx_gpio_init pm8921_gpios[] __initdata = {
 	PM8XXX_GPIO_INIT(JET_GPIO_EARPHONE_DETz, PM_GPIO_DIR_IN,
 			 PM_GPIO_OUT_BUF_CMOS, 0, PM_GPIO_PULL_UP_1P5,
 			 PM_GPIO_VIN_S4, PM_GPIO_STRENGTH_LOW,
@@ -141,6 +145,13 @@ void jet_lcd_id_power(int pull)
 void __init jet_pm8921_gpio_mpp_init(void)
 {
 	int i, rc;
+
+	if (system_rev < 3) {
+		rc = pm8xxx_gpio_config(pm8921_gpios_haptic[0].gpio,
+					&pm8921_gpios_haptic[0].config);
+		if (rc)
+			pr_err("%s: pm8921_gpios_haptic_config: rc=%d\n", __func__, rc);
+	}
 
 	for (i = 0; i < ARRAY_SIZE(pm8921_gpios); i++) {
 		rc = pm8xxx_gpio_config(pm8921_gpios[i].gpio,

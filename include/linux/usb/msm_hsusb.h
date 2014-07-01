@@ -220,7 +220,7 @@ struct msm_otg_platform_data {
 	bool mhl_enable;
 	bool disable_reset_on_disconnect;
 #ifdef CONFIG_MACH_HTC
-        bool enable_dcd;
+	bool enable_dcd;
 #endif
 	bool enable_lpm_on_dev_suspend;
 	bool core_clk_always_on_workaround;
@@ -398,6 +398,7 @@ struct msm_otg {
 	int connect_type_ready;
 	struct workqueue_struct *usb_wq;
 	struct delayed_work ac_detect_work;
+	struct work_struct usb_disable_work;
 	int ac_detect_count;
 	int reset_phy_before_lpm;
 #endif
@@ -407,6 +408,9 @@ struct msm_otg {
 	u8 active_tmout;
 	struct hrtimer timer;
 	enum usb_vdd_type vdd_type;
+#ifdef CONFIG_MACH_HTC
+	struct delayed_work init_work;
+#endif
 };
 
 struct msm_hsic_host_platform_data {
