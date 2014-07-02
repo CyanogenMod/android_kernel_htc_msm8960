@@ -340,7 +340,9 @@ static s32 wl_notify_escan_complete(struct wl_priv *wl,
 static s32 wl_cfg80211_tdls_oper(struct wiphy *wiphy, struct net_device *dev,
 	u8 *peer, enum nl80211_tdls_operation oper);
 #endif /* LINUX_VERSION_CODE > KERNEL_VERSION(3, 2, 0) */
+#ifdef WL_SCHED_SCAN
 static int wl_cfg80211_sched_scan_stop(struct wiphy *wiphy, struct net_device *dev);
+#endif
 
 /*
  * event & event Q handlers for cfg80211 interfaces
