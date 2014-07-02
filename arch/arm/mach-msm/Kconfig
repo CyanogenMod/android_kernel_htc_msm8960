@@ -451,6 +451,12 @@ config MACH_ZARA
 	help
 	  Support for the HTC ZARA
 
+config MACH_ZARA_CL
+	depends on ARCH_MSM8930
+	bool "ZARA_CL"
+	help
+	  Support for the HTC ZARA_CL
+
 config MACH_K2_UL
 	depends on ARCH_MSM8930
 	bool "K2_UL"
@@ -3112,6 +3118,36 @@ config MACH_DLP_DTU
 	bool "APQ8064 DLP_DTU"
 	help
 	  Support for the HTC APQ8064 DLP_DTU.
+
+config MACH_T6_UL
+        depends on ARCH_APQ8064
+        bool "APQ8064 T6_UL"
+        help
+          Support for the HTC APQ8064 T6_UL.
+
+config MACH_T6_U
+        depends on ARCH_APQ8064
+        bool "APQ8064 T6_U"
+        help
+          Support for the HTC APQ8064 T6_U.
+
+config MACH_T6_ULA
+        depends on ARCH_APQ8064
+        bool "APQ8064 T6_ULA"
+        help
+          Support for the HTC APQ8064 T6_ULA.
+
+config MACH_T6_WL
+        depends on ARCH_APQ8064
+        bool "APQ8064 T6_WL"
+        help
+          Support for the HTC APQ8064 T6_WL.
+
+config MACH_T6_WHL
+        depends on ARCH_APQ8064
+        bool "APQ8064 T6_WHL"
+        help
+          Support for the HTC APQ8064 T6_WHL.
 
 config QSC_MODEM
         default n

@@ -319,7 +319,7 @@ static int cable_detect_get_type(struct cable_detect_info *pInfo)
 		if (adc > -100 && adc < 100)
 			type = second_detect(pInfo);
 		else {
-#ifdef CONFIG_MACH_DUMMY
+#ifdef CONFIG_MACH_T6_UL
 			if (adc > 120 && adc < 220)
 #else
 			if (adc > 150 && adc < 220)
