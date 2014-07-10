@@ -1337,22 +1337,39 @@ static int __devinit mipi_m7_lcd_probe(struct platform_device *pdev)
 {
 	switch (panel_type) {
 	case PANEL_ID_DLXJ_SHARP_RENESAS:
+		pr_info("%s: panel type: %s\n", __func__, "PANEL_ID_DLXJ_SHARP_RENESAS");
+		sharp_renesas_panel_init();
+		break;
 	case PANEL_ID_M7_SHARP_RENESAS:
+		pr_info("%s: panel type: %s\n", __func__, "PANEL_ID_M7_SHARP_RENESAS");
 		sharp_renesas_panel_init();
 		break;
 	case PANEL_ID_DLXJ_SONY_RENESAS:
+		pr_info("%s: panel type: %s\n", __func__, "PANEL_ID_DLXJ_SONY_RENESAS");
 		sony_panel_init();
 		break;
 	case PANEL_ID_M7_JDI_SAMSUNG:
+		pr_info("%s: panel type: %s\n", __func__, "PANEL_ID_M7_JDI_SAMSUNG");
+		samsung_panel_init();
+		break;
 	case PANEL_ID_M7_JDI_SAMSUNG_C2:
+		pr_info("%s: panel type: %s\n", __func__, "PANEL_ID_M7_JDI_SAMSUNG_C2");
+		samsung_panel_init();
+		break;
 	case PANEL_ID_M7_JDI_SAMSUNG_C2_1:
+		pr_info("%s: panel type: %s\n", __func__, "PANEL_ID_M7_JDI_SAMSUNG_C2_1");
+		samsung_panel_init();
+		break;
 	case PANEL_ID_M7_JDI_SAMSUNG_C2_2:
+		pr_info("%s: panel type: %s\n", __func__, "PANEL_ID_M7_JDI_SAMSUNG_C2_2");
 		samsung_panel_init();
 		break;
 	case PANEL_ID_M7_SHARP_RENESAS_C1:
+		pr_info("%s: panel type: %s\n", __func__, "PANEL_ID_M7_SHARP_RENESAS_C1");
 		sharp_panel_init();
 		break;
 	case PANEL_ID_M7_JDI_RENESAS:
+		pr_info("%s: panel type: %s\n", __func__, "PANEL_ID_M7_JDI_RENESAS");
 		jdi_renesas_panel_init();
 		break;
 	default:
