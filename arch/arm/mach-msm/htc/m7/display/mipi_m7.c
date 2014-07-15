@@ -27,11 +27,9 @@
 #include "mipi_m7.h"
 
 static struct dsi_cmd_desc *display_off_cmds = NULL;
-static struct dsi_cmd_desc *display_on_cmds = NULL;
 static struct dsi_cmd_desc *panel_on_cmds = NULL;
 static struct dsi_cmd_desc *backlight_cmds = NULL;
 static int display_off_cmds_count = 0;
-static int display_on_cmds_count = 0;
 static int panel_on_cmds_count = 0;
 static int backlight_cmds_count = 0;
 
@@ -179,10 +177,6 @@ static struct dsi_cmd_desc samsung_cmd_backlight_cmds[] = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(samsung_ctrl_brightness), samsung_ctrl_brightness},
 };
 
-static struct dsi_cmd_desc samsung_display_on_cmds[] = {
-	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(samsung_panel_display_on), samsung_panel_display_on},
-};
-
 static struct dsi_cmd_desc samsung_jdi_panel_cmd_mode_cmds[] = {
 	{DTYPE_DCS_WRITE,  1, 0, 0, 120, sizeof(samsung_panel_exit_sleep), samsung_panel_exit_sleep},
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 1, sizeof(samsung_password_l2), samsung_password_l2},
@@ -203,6 +197,7 @@ static struct dsi_cmd_desc samsung_jdi_panel_cmd_mode_cmds[] = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(CABC), CABC},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(samsung_enable_te), samsung_enable_te},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(nop), nop},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(samsung_panel_display_on), samsung_panel_display_on},
 };
 
 static struct dsi_cmd_desc samsung_jdi_panel_cmd_mode_cmds_c2_nvm[] = {
@@ -218,6 +213,7 @@ static struct dsi_cmd_desc samsung_jdi_panel_cmd_mode_cmds_c2_nvm[] = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(samsung_bl_ctrl), samsung_bl_ctrl},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(CABC), CABC},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(samsung_enable_te), samsung_enable_te},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(samsung_panel_display_on), samsung_panel_display_on},
 };
 
 static struct dsi_cmd_desc samsung_jdi_panel_cmd_mode_cmds_c2_1[] = {
@@ -240,6 +236,7 @@ static struct dsi_cmd_desc samsung_jdi_panel_cmd_mode_cmds_c2_1[] = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(samsung_bl_ctrl), samsung_bl_ctrl},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(jdi_samsung_CABC), jdi_samsung_CABC},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(samsung_enable_te), samsung_enable_te},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(samsung_panel_display_on), samsung_panel_display_on},
 };
 
 static struct dsi_cmd_desc samsung_jdi_panel_cmd_mode_cmds_c2_2[] = {
@@ -260,6 +257,7 @@ static struct dsi_cmd_desc samsung_jdi_panel_cmd_mode_cmds_c2_2[] = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(samsung_bl_ctrl), samsung_bl_ctrl},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(jdi_samsung_CABC), jdi_samsung_CABC},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(samsung_enable_te), samsung_enable_te},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(samsung_panel_display_on), samsung_panel_display_on},
 };
 
 static struct dsi_cmd_desc samsung_display_off_cmds[] = {
@@ -361,10 +359,6 @@ static char blue_shift_adjust_2[] = {
 	0x00, 0x00, 0xFC, 0x0F
 };
 
-static struct dsi_cmd_desc generic_display_on_cmds[] = {
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
-};
-
 static struct dsi_cmd_desc sharp_cmd_backlight_cmds[] = {
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(display_brightness), display_brightness},
 };
@@ -387,6 +381,7 @@ static struct dsi_cmd_desc sharp_renesas_panel_on_cmds[] = {
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(nop), nop},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(enable_te), enable_te},
 	{DTYPE_DCS_WRITE, 1, 0, 0, 120, sizeof(exit_sleep), exit_sleep},
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
 };
 
 static char interface_setting_0[2] = {0xB0, 0x04};
@@ -402,6 +397,7 @@ static struct dsi_cmd_desc m7_sharp_panel_on_cmds[] = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(CABC), CABC},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(TE_OUT), TE_OUT},
 	{DTYPE_DCS_WRITE, 1, 0, 0, 1, sizeof(exit_sleep), exit_sleep},
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
 };
 
 static struct dsi_cmd_desc sharp_panel_on_cmds[] = {
@@ -416,6 +412,7 @@ static struct dsi_cmd_desc sharp_panel_on_cmds[] = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(CABC), CABC},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(TE_OUT), TE_OUT},
 	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(exit_sleep), exit_sleep},
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
 };
 
 static struct dsi_cmd_desc sony_panel_on_cmds[] = {
@@ -434,6 +431,7 @@ static struct dsi_cmd_desc sony_panel_on_cmds[] = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(write_control_display), write_control_display},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(TE_OUT), TE_OUT},
 	{DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(exit_sleep), exit_sleep},
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
 };
 
 static struct dsi_cmd_desc sharp_display_off_cmds[] = {
@@ -467,6 +465,7 @@ static struct dsi_cmd_desc jdi_renesas_panel_on_cmds[] = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(write_control_display), write_control_display},
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(Write_Content_Adaptive_Brightness_Control), Write_Content_Adaptive_Brightness_Control},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(enable_te), enable_te},
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
 };
 
 static struct dsi_cmd_desc jdi_display_off_cmds[] = {
@@ -924,46 +923,9 @@ static int m7_lcd_off(struct platform_device *pdev)
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
 
+	send_display_cmds(display_off_cmds, display_off_cmds_count, false);
+
 	resume_blk = 1;
-
-	return 0;
-}
-
-static int m7_display_on(struct platform_device *pdev)
-{
-	struct msm_fb_data_type *mfd;
-	bool clk_ctrl = false;
-
-	mfd = platform_get_drvdata(pdev);
-	if (!mfd)
-		return -ENODEV;
-	if (mfd->key != MFD_KEY)
-		return -EINVAL;
-
-	if (mfd && mfd->panel_info.type == MIPI_CMD_PANEL)
-		clk_ctrl = true;
-
-	send_display_cmds(display_on_cmds, display_on_cmds_count, clk_ctrl);
-
-	return 0;
-}
-
-static int m7_display_off(struct platform_device *pdev)
-{
-	struct msm_fb_data_type *mfd;
-	bool clk_ctrl = false;
-
-	mfd = platform_get_drvdata(pdev);
-
-	if (!mfd)
-		return -ENODEV;
-	if (mfd->key != MFD_KEY)
-		return -EINVAL;
-
-	if (mfd && mfd->panel_info.type == MIPI_CMD_PANEL)
-		clk_ctrl = true;
-
-	send_display_cmds(display_off_cmds, display_off_cmds_count, clk_ctrl);
 
 	return 0;
 }
@@ -1128,8 +1090,6 @@ static void sharp_renesas_panel_init(void)
 		panel_on_cmds = m7_sharp_panel_on_cmds;
 		panel_on_cmds_count = ARRAY_SIZE(m7_sharp_panel_on_cmds);
 	}
-	display_on_cmds = generic_display_on_cmds;
-	display_on_cmds_count = ARRAY_SIZE(generic_display_on_cmds);
 	display_off_cmds = sharp_display_off_cmds;
 	display_off_cmds_count = ARRAY_SIZE(sharp_display_off_cmds);
 	backlight_cmds = renesas_cmd_backlight_cmds;
@@ -1155,8 +1115,6 @@ static void sony_panel_init(void)
 {
 	panel_on_cmds = sony_panel_on_cmds;
 	panel_on_cmds_count = ARRAY_SIZE(sony_panel_on_cmds);
-	display_on_cmds = generic_display_on_cmds;
-	display_on_cmds_count = ARRAY_SIZE(generic_display_on_cmds);
 	display_off_cmds = sony_display_off_cmds;
 	display_off_cmds_count = ARRAY_SIZE(sony_display_off_cmds);
 	backlight_cmds = renesas_cmd_backlight_cmds;
@@ -1224,8 +1182,6 @@ static void samsung_panel_init(void)
 		break;
 #endif
 	}
-	display_on_cmds = samsung_display_on_cmds;
-	display_on_cmds_count = ARRAY_SIZE(samsung_display_on_cmds);
 	display_off_cmds = samsung_display_off_cmds;
 	display_off_cmds_count = ARRAY_SIZE(samsung_display_off_cmds);
 #ifdef CONFIG_CABC_DIMMING_SWITCH
@@ -1249,8 +1205,6 @@ static void sharp_panel_init(void)
 {
 	panel_on_cmds = sharp_renesas_panel_on_cmds;
 	panel_on_cmds_count = ARRAY_SIZE(sharp_renesas_panel_on_cmds);
-	display_on_cmds = generic_display_on_cmds;
-	display_on_cmds_count = ARRAY_SIZE(generic_display_on_cmds);
 	display_off_cmds = sharp_display_off_cmds;
 	display_off_cmds_count = ARRAY_SIZE(sharp_display_off_cmds);
 	backlight_cmds = sharp_cmd_backlight_cmds;
@@ -1292,8 +1246,6 @@ static void jdi_renesas_panel_init(void)
 {
 	panel_on_cmds = jdi_renesas_panel_on_cmds;
 	panel_on_cmds_count = ARRAY_SIZE(jdi_renesas_panel_on_cmds);
-	display_on_cmds = generic_display_on_cmds;
-	display_on_cmds_count = ARRAY_SIZE(generic_display_on_cmds);
 	display_off_cmds = jdi_display_off_cmds;
 	display_off_cmds_count = ARRAY_SIZE(jdi_display_off_cmds);
 	backlight_cmds = samsung_cmd_backlight_cmds;
@@ -1397,8 +1349,6 @@ static struct msm_fb_panel_data m7_panel_data = {
 	.on = m7_lcd_on,
 	.off = m7_lcd_off,
 	.set_backlight = m7_set_backlight,
-	.late_init = m7_display_on,
-	.early_off = m7_display_off,
 #ifdef COLOR_ENHANCE
 	.color_enhance = m7_color_enhance,
 #endif
