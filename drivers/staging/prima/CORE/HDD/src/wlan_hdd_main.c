@@ -5907,7 +5907,8 @@ int hdd_wlan_startup(struct device *dev )
    mutex_init(&pHddCtx->tdls_lock);
 #endif
 
-   pHddCtx->nEnableStrictRegulatoryForFCC = TRUE;
+   /* By default Strict Regulatory For FCC should be false */
+   pHddCtx->nEnableStrictRegulatoryForFCC = FALSE;
    // Load all config first as TL config is needed during vos_open
    pHddCtx->cfg_ini = (hdd_config_t*) kmalloc(sizeof(hdd_config_t), GFP_KERNEL);
    if(pHddCtx->cfg_ini == NULL)
