@@ -60,3 +60,4 @@ obj-$(CONFIG_RAMSTER)		+= ramster/
 obj-$(CONFIG_USB_WPAN_HCD)	+= ozwpan/
 obj-$(CONFIG_PRIMA_WLAN)	+= prima/
 obj-$(CONFIG_PRIMA_WLAN_3x)	+= prima_jb3.2/
+obj-$(CONFIG_PRONTO_WLAN)	+= prima_jb3.2/

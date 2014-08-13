@@ -1,4 +1,24 @@
 /*
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ *
+ * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
+ *
+ *
+ * Permission to use, copy, modify, and/or distribute this software for
+ * any purpose with or without fee is hereby granted, provided that the
+ * above copyright notice and this permission notice appear in all
+ * copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+ * WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
+ * AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
+ * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
+ * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+ * TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
+ */
+/*
  * Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
@@ -30,15 +50,11 @@
  * Date           Modified by    Modification Information
  * --------------------------------------------------------------------
  * 05/26/10       js             WPA handling in (Re)Assoc frames
- * 
+ *
  */
 
 #include "wniApi.h"
-#if (WNI_POLARIS_FW_PRODUCT == AP)
-#include "wniCfgAp.h"
-#else
 #include "wniCfgSta.h"
-#endif
 #include "cfgApi.h"
 #include "sirApi.h"
 #include "schApi.h"
@@ -230,7 +246,6 @@ limIsAddieValidInSmeReqMessage(tpAniSirGlobal pMac, tpSirAddie pAddie)
     return true;
 } /*** end limIsAddieValidInSmeReqMessage() ***/
 
-#ifdef WLAN_SOFTAP_FEATURE
 /**
  * limSetRSNieWPAiefromSmeStartBSSReqMessage()
  *
@@ -345,80 +360,45 @@ limSetRSNieWPAiefromSmeStartBSSReqMessage(tpAniSirGlobal pMac,
         }
 
         // Check validity of WPA IE
-        val = sirReadU32((tANI_U8 *) &pRSNie->rsnIEdata[wpaIndex + 2]);
-
-        if ((pRSNie->rsnIEdata[wpaIndex] == SIR_MAC_WPA_EID) &&
-#if 0 // Comparison always false
-            (pRSNie->rsnIEdata[wpaIndex + 1] > SIR_MAC_WPA_IE_MAX_LENGTH) ||
-#endif
-             ((pRSNie->rsnIEdata[wpaIndex + 1] < SIR_MAC_WPA_IE_MIN_LENGTH) ||
-             (SIR_MAC_WPA_OUI != val)))
+        if(wpaIndex +4 < SIR_MAC_MAX_IE_LENGTH )
         {
-            limLog(pMac, LOGE,
-               FL("WPA IE len %d not [%d,%d] OR data 0x%x not 0x%x\n"),
-               pRSNie->rsnIEdata[1], SIR_MAC_RSN_IE_MIN_LENGTH, 
-               SIR_MAC_RSN_IE_MAX_LENGTH, val, SIR_MAC_WPA_OUI);
+            val = sirReadU32((tANI_U8 *) &pRSNie->rsnIEdata[wpaIndex + 2]);
 
-            return false;
+            if ((pRSNie->rsnIEdata[wpaIndex] == SIR_MAC_WPA_EID) &&
+#if 0 // Comparison always false
+                (pRSNie->rsnIEdata[wpaIndex + 1] > SIR_MAC_WPA_IE_MAX_LENGTH) ||
+#endif
+                ((pRSNie->rsnIEdata[wpaIndex + 1] < SIR_MAC_WPA_IE_MIN_LENGTH) ||
+                (SIR_MAC_WPA_OUI != val)))
+            {
+                limLog(pMac, LOGE,
+                  FL("WPA IE len %d not [%d,%d] OR data 0x%x not 0x%x\n"),
+                  pRSNie->rsnIEdata[1], SIR_MAC_RSN_IE_MIN_LENGTH,
+                  SIR_MAC_RSN_IE_MAX_LENGTH, val, SIR_MAC_WPA_OUI);
+
+                return false;
+            }
+            else
+            {
+                /* Both RSN and WPA IEs are present */
+                dot11fUnpackIeRSN(pMac,&pRSNie->rsnIEdata[2],
+                      (tANI_U8)pRSNie->length,&pSessionEntry->gStartBssRSNIe);
+
+                dot11fUnpackIeWPA(pMac,&pRSNie->rsnIEdata[wpaIndex + 6],
+                                 pRSNie->rsnIEdata[wpaIndex + 1]-4,
+                                    &pSessionEntry->gStartBssWPAIe);
+
+            }
         }
         else
         {
-            /* Both RSN and WPA IEs are present */
-            dot11fUnpackIeRSN(pMac,&pRSNie->rsnIEdata[2],
-                  (tANI_U8)pRSNie->length,&pSessionEntry->gStartBssRSNIe);
-
-            dot11fUnpackIeWPA(pMac,&pRSNie->rsnIEdata[wpaIndex + 6],
-                              pRSNie->rsnIEdata[wpaIndex + 1]-4,
-                                &pSessionEntry->gStartBssWPAIe);
-
+            return false;
         }
     }
 
     return true;
 } /*** end limSetRSNieWPAiefromSmeStartBSSReqMessage() ***/
-#endif
 
-#if (WNI_POLARIS_FW_PACKAGE == ADVANCED) && (WNI_POLARIS_FW_PRODUCT == AP)
-/**
- * limIsBssInfoValidInSmeReqMessage()
- *
- *FUNCTION:
- * This function is called to verify if the BSS info
- * received in various SME_REQ messages is valid or not
- *
- *LOGIC:
- * BSS info validity checks are performed in this function
- *
- *ASSUMPTIONS:
- *
- *NOTE:
- *
- * @param  pMac     Pointer to Global MAC structure
- * @param  pBssInfo Pointer to received Bss Information
- * @return true when BSS info is valid, false otherwise
- */
-
-static tANI_U8
-limIsBssInfoValidInSmeReqMessage(tpAniSirGlobal pMac,
-                                 tpSirNeighborBssInfo pBssInfo)
-{
-    tANI_U8 valid = true;
-
-    if ((pBssInfo->bssType != eSIR_INFRASTRUCTURE_MODE) ||
-        limIsGroupAddr(pBssInfo->bssId) ||
-        !pBssInfo->channelId ||
-        !pBssInfo->ssId.length ||
-        (pBssInfo->ssId.length > SIR_MAC_MAX_SSID_LENGTH) ||
-        !limIsRSNieValidInSmeReqMessage(pMac, &pBssInfo->rsnIE))
-    {
-        valid = false;
-        goto end;
-    }
-
-end:
-    return valid;
-} /*** end limIsBssInfoValidInSmeReqMessage() ***/
-#else
 
 
 
@@ -457,7 +437,6 @@ limIsBssDescrValidInSmeReqMessage(tpAniSirGlobal pMac,
 end:
     return valid;
 } /*** end limIsBssDescrValidInSmeReqMessage() ***/
-#endif
 
 
 
@@ -544,20 +523,17 @@ limIsSmeStartBssReqValid(tpAniSirGlobal pMac,
     switch (pStartBssReq->bssType)
     {
         case eSIR_INFRASTRUCTURE_MODE:
-#if (WNI_POLARIS_FW_PRODUCT == AP)
-            /* Check for the AP Role/Station role here and act accordingly. 
-             * Currently assuming this as AP and breaks TODO */
-                break;
-#endif
-                /**
+            /**
              * Should not have received start BSS req with bssType
              * Infrastructure on STA.
              * Log error.
              */
-        limLog(pMac, LOGE, FL("Invalid bssType %d in eWNI_SME_START_BSS_REQ\n"),pStartBssReq->bssType);
-        valid = false;
-        goto end;
-        break;
+            limLog(pMac, LOGE,
+                   FL("Invalid bssType %d in eWNI_SME_START_BSS_REQ"),
+                   pStartBssReq->bssType);
+            valid = false;
+            goto end;
+            break;
 
         case eSIR_IBSS_MODE:
             break;
@@ -570,11 +546,9 @@ limIsSmeStartBssReqValid(tpAniSirGlobal pMac,
         case eSIR_BTAMP_AP_MODE:
             break;
 
-#ifdef WLAN_SOFTAP_FEATURE
         /* Added for SoftAP support */
         case eSIR_INFRA_AP_MODE:
             break;
-#endif
         
         default:
             /**
@@ -590,47 +564,6 @@ limIsSmeStartBssReqValid(tpAniSirGlobal pMac,
             goto end;
     }
 
-#if (WNI_POLARIS_FW_PACKAGE == ADVANCED) && (WNI_POLARIS_FW_PRODUCT == AP)
-
-    /* Assumed as AP again, need to check the role and change accordingly */
-    if (pStartBssReq->bssType == eSIR_INFRASTRUCTURE_MODE)
-    {
-        if ((pStartBssReq->numSSID == 1) && pStartBssReq->ssId.length &&
-            ((pStartBssReq->ssId.length != pStartBssReq->ssIdList[0].length) ||
-            ( !palEqualMemory( pMac->hHdd,pStartBssReq->ssId.ssId,
-                    pStartBssReq->ssIdList[0].ssId,
-                    pStartBssReq->ssId.length) )))
-        {
-        /**
-         * Invalid combination of ssID length
-         * and number of SSIDs present.
-         * Reject START_BSS_REQ.
-         */
-            limLog(pMac, LOGW,
-           FL("Mismatch in SSID length & numSSID in SME_START_BSS_REQ\n"));
-
-            valid = false;
-            goto end;
-        }
-
-        if (!pStartBssReq->numSSID ||
-            (pStartBssReq->ssId.length && (pStartBssReq->numSSID != 1)))
-        {
-        /**
-         * Invalid combination of ssID length
-         * and number of SSIDs present.
-         * Reject START_BSS_REQ.
-         */
-            limLog(pMac, LOGW,
-                FL("Mismatch in SSID length[%d] & numSSID[%d] in SME_START_BSS_REQ\n"),
-                pStartBssReq->ssId.length, pStartBssReq->numSSID);
-
-            valid = false;
-            goto end;
-        }
-    }
-#endif
-#if defined(ANI_PRODUCT_TYPE_CLIENT) || defined(ANI_AP_CLIENT_SDK)
     /* This below code is client specific code. TODO */
     if (pStartBssReq->bssType == eSIR_IBSS_MODE)
     {
@@ -646,41 +579,7 @@ limIsSmeStartBssReqValid(tpAniSirGlobal pMac,
             goto end;
         }
     }
-#endif
 
-#if (WNI_POLARIS_FW_PACKAGE == ADVANCED) && (WNI_POLARIS_FW_PRODUCT == AP)
-    /* Assumed as AP TODO */
-    if (pStartBssReq->bssType == eSIR_INFRASTRUCTURE_MODE)
-    {
-        tpSirAlternateRadioInfo pRadioInfo;
-
-        pRadioInfo = pStartBssReq->alternateRadioList.alternateRadio;
-        for (i = 0; i < pStartBssReq->alternateRadioList.numBss; i++)
-        {
-            if (limIsGroupAddr(pRadioInfo->bssId))
-            {
-                // Invalid mate BSSID.
-                // Reject START_BSS_REQ
-                limLog(pMac, LOGW,
-                       FL("Invalid mate BSSID in eWNI_SME_START_BSS_REQ\n"));
-
-                valid = false;
-                goto end;
-            }
-            pRadioInfo += sizeof(tSirAlternateRadioInfo);
-        }
-
-        /*
-            ** check WDS info length
-        **/
-        if (pStartBssReq->wdsInfo.wdsLength > ANI_WDS_INFO_MAX_LENGTH)
-        {
-            PELOGW(limLog(pMac, LOGW, FL("Illegal WDS info length\n"));)
-            valid = false;
-            goto end;
-        }
-    }
-#endif
 
     if (!limIsRSNieValidInSmeReqMessage(pMac, &pStartBssReq->rsnIE))
     {
@@ -731,7 +630,7 @@ limIsSmeStartBssReqValid(tpAniSirGlobal pMac,
             goto end;
         }
     }
-    else 
+    else
     {
         for (i = 0; i < pStartBssReq->operationalRateSet.numRates; i++)
             if (!sirIsBrate(pStartBssReq->operationalRateSet.rate[i] & 0x7F))
@@ -780,18 +679,6 @@ limIsSmeJoinReqValid(tpAniSirGlobal pMac, tpSirSmeJoinReq pJoinReq)
 {
     tANI_U8 valid = true;
 
-#if (WNI_POLARIS_FW_PACKAGE == ADVANCED)
-    if (pJoinReq->assocType > eSIR_TRANSFERRED)
-    {
-        /// Received eWNI_SME_JOIN_REQ with invalid assocType
-        // Log the event
-        limLog(pMac, LOGW,
-               FL("received SME_JOIN_REQ with invalid assocType\n"));
-
-        valid = false;
-        goto end;
-    }
-#endif
 
     if (!limIsRSNieValidInSmeReqMessage(pMac, &pJoinReq->rsnIE))
     {
@@ -818,14 +705,8 @@ limIsSmeJoinReqValid(tpAniSirGlobal pMac, tpSirSmeJoinReq pJoinReq)
     }
 
 
-#if (WNI_POLARIS_FW_PACKAGE == ADVANCED) && (WNI_POLARIS_FW_PRODUCT == AP)
-    if (!limIsBssInfoValidInSmeReqMessage(
-                     pMac,
-                     pJoinReq->neighborBssList.bssList))
-#else
     if (!limIsBssDescrValidInSmeReqMessage(pMac,
                                            &pJoinReq->bssDescription))
-#endif
     {
         /// Received eWNI_SME_JOIN_REQ with invalid BSS Info
         // Log the event
@@ -887,13 +768,6 @@ limIsSmeDisassocReqValid(tpAniSirGlobal pMac,
          !limIsAddrBC(pDisassocReq->peerMacAddr))
         return false;
 
-#if (WNI_POLARIS_FW_PRODUCT == AP)
-    if (((psessionEntry->limSystemRole == eLIM_AP_ROLE) &&
-         ((pDisassocReq->aid < 2) || (pDisassocReq->aid > 2007))) ||
-        ((psessionEntry->limSystemRole == eLIM_STA_ROLE) &&
-         (pDisassocReq->aid != 1)))
-        return false;
-#endif
 
     return true;
 } /*** end limIsSmeDisassocReqValid() ***/
@@ -928,13 +802,6 @@ limIsSmeDisassocCnfValid(tpAniSirGlobal pMac,
     if (limIsGroupAddr(pDisassocCnf->peerMacAddr))
         return false;
 
-#if (WNI_POLARIS_FW_PRODUCT == AP)
-    if (((psessionEntry->limSystemRole == eLIM_AP_ROLE) &&
-         ((pDisassocCnf->aid < 2) || (pDisassocCnf->aid > 2007))) ||
-        ((psessionEntry->limSystemRole == eLIM_STA_ROLE) &&
-         (pDisassocCnf->aid != 1)))
-        return false;
-#endif
     return true;
 } /*** end limIsSmeDisassocCnfValid() ***/
 
@@ -967,13 +834,6 @@ limIsSmeDeauthReqValid(tpAniSirGlobal pMac, tpSirSmeDeauthReq pDeauthReq, tpPESe
          !limIsAddrBC(pDeauthReq->peerMacAddr))
         return false;
 
-#if (WNI_POLARIS_FW_PRODUCT == AP)
-    if (((psessionEntryp->limSystemRole == eLIM_AP_ROLE) &&
-         ((pDeauthReq->aid < 2) || (pDeauthReq->aid > 2007))) ||
-        ((psessionEntryp->limSystemRole == eLIM_STA_ROLE) &&
-         (pDeauthReq->aid != 1)))
-        return false;
-#endif
     return true;
 } /*** end limIsSmeDeauthReqValid() ***/
 
@@ -1270,19 +1130,10 @@ limGetBssIdFromSmeJoinReqMsg(tANI_U8 *pBuf)
 
     pBuf += sizeof(tANI_U32); // skip message header
 
-#if (WNI_POLARIS_FW_PACKAGE == ADVANCED)
-    pBuf += sizeof(tSirAssocType); // skip assocType
-#endif
 
     pBuf += limGetU16(pBuf) + sizeof(tANI_U16); // skip RSN IE
 
-#if (WNI_POLARIS_FW_PACKAGE == ADVANCED) && (WNI_POLARIS_FW_PRODUCT == AP)
-    pBuf  += sizeof(tAniBool);            // skip BP indicator
-    pBuf  += sizeof(tSirBpIndicatorType); // skip BP indicator type
-    pBuf  += sizeof(tANI_U32);                 // skip number of neighbor BSS
-#else
     pBuf  += sizeof(tANI_U16);                 // skip length of BSS description
-#endif
 
     return (pBuf);
 } /*** end limGetBssIdFromSmeJoinReqMsg() ***/

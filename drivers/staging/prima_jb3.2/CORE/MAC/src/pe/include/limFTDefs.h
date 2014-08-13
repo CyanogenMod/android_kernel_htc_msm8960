@@ -1,4 +1,24 @@
 /*
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ *
+ * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
+ *
+ *
+ * Permission to use, copy, modify, and/or distribute this software for
+ * any purpose with or without fee is hereby granted, provided that the
+ * above copyright notice and this permission notice appear in all
+ * copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+ * WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
+ * AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
+ * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
+ * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+ * TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
+ */
+/*
  * Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
@@ -24,10 +44,9 @@
   
    Macros and Function prototypes FT and 802.11R purposes 
 
-   Copyright 2010 (c) Qualcomm, Incorporated.  All Rights Reserved.
-   
-   Qualcomm Confidential and Proprietary.
-  
+   Copyright 2010 (c) Qualcomm Technologies, Inc.  All Rights Reserved.
+   Qualcomm Technologies Confidential and Proprietary.
+
   ========================================================================*/
 
 #ifndef __LIMFTDEFS_H__
@@ -69,15 +88,15 @@ typedef struct sSirFTPreAuthReq
   ------------------------------------------------------------------------*/
 typedef struct sSirFTPreAuthRsp
 {
-   tANI_U16    messageType;      // eWNI_SME_FT_PRE_AUTH_RSP
-   tANI_U16    length;
-   tANI_U8     smeSessionId;
-   tSirMacAddr preAuthbssId;     // BSSID to preauth to
-   tANI_U8     status;
-   tANI_U16    ft_ies_length;
-   tANI_U8     ft_ies[MAX_FTIE_SIZE];
-   tANI_U16    ric_ies_length;
-   tANI_U8     ric_ies[MAX_FTIE_SIZE];
+   tANI_U16         messageType;      // eWNI_SME_FT_PRE_AUTH_RSP
+   tANI_U16         length;
+   tANI_U8          smeSessionId;
+   tSirMacAddr      preAuthbssId;     // BSSID to preauth to
+   tSirRetStatus    status;
+   tANI_U16         ft_ies_length;
+   tANI_U8          ft_ies[MAX_FTIE_SIZE];
+   tANI_U16         ric_ies_length;
+   tANI_U8          ric_ies[MAX_FTIE_SIZE];
 } tSirFTPreAuthRsp, *tpSirFTPreAuthRsp;
 
 /*-------------------------------------------------------------------------- 
@@ -97,7 +116,7 @@ typedef struct sFTPEContext
 {
     tpSirFTPreAuthReq pFTPreAuthReq;                      // Saved FT Pre Auth Req
     void              *psavedsessionEntry;                
-    tANI_U8           ftPreAuthStatus;
+    tSirRetStatus     ftPreAuthStatus;
     tANI_U16          saved_auth_rsp_length;
     tANI_U8           saved_auth_rsp[MAX_FTIE_SIZE];
 

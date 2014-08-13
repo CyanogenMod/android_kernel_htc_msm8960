@@ -1,4 +1,24 @@
 /*
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ *
+ * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
+ *
+ *
+ * Permission to use, copy, modify, and/or distribute this software for
+ * any purpose with or without fee is hereby granted, provided that the
+ * above copyright notice and this permission notice appear in all
+ * copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+ * WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
+ * AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
+ * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
+ * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+ * TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
+ */
+/*
  * Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
@@ -42,9 +62,7 @@
 #include <i_vos_packet.h>
 #include <vos_timer.h>
 #include <vos_trace.h>
-#ifdef WLAN_SOFTAP_FEATURE
 #include <wlan_hdd_main.h>   
-#endif
 
 /*--------------------------------------------------------------------------
   Preprocessor definitions and constants
@@ -57,7 +75,7 @@
 /*---------------------------------------------------------------------------
   Data definitions
   ------------------------------------------------------------------------*/
-static vos_pkt_context_t *gpVosPacketContext = NULL;
+static vos_pkt_context_t *gpVosPacketContext;
 
 /*-------------------------------------------------------------------------
   Function declarations and documentation
@@ -80,7 +98,7 @@ static VOS_STATUS vos_pkti_packet_init( struct vos_pkt_t *pPkt,
       // these need an attached skb.
       // we preallocate a fixed-size skb and reserve the entire buffer
       // as headroom since that is what other components expect
-      pPkt->pSkb = alloc_skb(VPKT_SIZE_BUFFER, GFP_ATOMIC);
+      pPkt->pSkb = alloc_skb(VPKT_SIZE_BUFFER , in_interrupt()? GFP_ATOMIC : GFP_KERNEL);
       if (likely(pPkt->pSkb))
       {
          skb_reserve(pPkt->pSkb, VPKT_SIZE_BUFFER);
@@ -90,13 +108,11 @@ static VOS_STATUS vos_pkti_packet_init( struct vos_pkt_t *pPkt,
          vosStatus = VOS_STATUS_E_NOMEM;
       }
 
-#ifdef FEATURE_WLAN_INTEGRATED_SOC
       /* Init PAL Packet */
       WPAL_PACKET_SET_BD_POINTER(&(pPkt->palPacket), NULL);
       WPAL_PACKET_SET_BD_PHYS(&(pPkt->palPacket), NULL);
       WPAL_PACKET_SET_BD_LENGTH(&(pPkt->palPacket), 0);
       WPAL_PACKET_SET_OS_STRUCT_POINTER(&(pPkt->palPacket), NULL);
-#endif
 
       break;
    default:
@@ -213,6 +229,7 @@ static void vos_pkti_replenish_raw_pool(void)
 
       // add it to the Rx Raw Free Pool
       list_add_tail(&pVosPacket->node, &gpVosPacketContext->rxRawFreeList);
+      gpVosPacketContext->rxRawFreeListCount++;
 
       didOne = VOS_TRUE;
 
@@ -231,6 +248,7 @@ static void vos_pkti_replenish_raw_pool(void)
       pVosPacket = list_first_entry(&gpVosPacketContext->rxRawFreeList,
                                     struct vos_pkt_t, node);
       list_del(&pVosPacket->node);
+      gpVosPacketContext->rxRawFreeListCount--;
 
       // clear out the User Data pointers in the voss packet..
       memset(&pVosPacket->pvUserData, 0, sizeof(pVosPacket->pvUserData));
@@ -328,7 +346,7 @@ VOS_STATUS vos_packet_open( v_VOID_t *pVosContext,
    struct vos_pkt_t *pPkt;
    struct list_head *pFreeList;
 
-   VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_INFO, "Enter:%s",__FUNCTION__);
+   VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_INFO, "Enter:%s",__func__);
 
    do
    {
@@ -377,6 +395,7 @@ VOS_STATUS vos_packet_open( v_VOID_t *pVosContext,
 
       // initialize the rxRaw free list pool
       pFreeList = &pVosPacketContext->rxRawFreeList;
+      pVosPacketContext->rxRawFreeListCount = 0;
       INIT_LIST_HEAD(pFreeList);
 
       // fill the rxRaw free list
@@ -385,12 +404,10 @@ VOS_STATUS vos_packet_open( v_VOID_t *pVosContext,
          pPkt = &pVosPacketContext->vosPktBuffers[freePacketIndex++];
          vosStatus = vos_pkti_packet_init(pPkt, VOS_PKT_TYPE_RX_RAW);
 
-#ifdef FEATURE_WLAN_INTEGRATED_SOC
          WPAL_PACKET_SET_METAINFO_POINTER(&(pPkt->palPacket),
                   (void*)&pVosPacketContext->rxMetaInfo[idx]);
          WPAL_PACKET_SET_TYPE(&(pPkt->palPacket), 
                               eWLAN_PAL_PKT_TYPE_RX_RAW);
-#endif
 
          if (VOS_STATUS_SUCCESS != vosStatus)
          {
@@ -399,6 +416,7 @@ VOS_STATUS vos_packet_open( v_VOID_t *pVosContext,
             break;
          }
          list_add_tail(&pPkt->node, pFreeList);
+         pVosPacketContext->rxRawFreeListCount++;
       }
 
       // exit if any problems so far
@@ -416,12 +434,10 @@ VOS_STATUS vos_packet_open( v_VOID_t *pVosContext,
       {
          pPkt = &pVosPacketContext->vosPktBuffers[freePacketIndex++];
          vosStatus = vos_pkti_packet_init(pPkt, VOS_PKT_TYPE_TX_802_3_DATA);
-#ifdef FEATURE_WLAN_INTEGRATED_SOC
          WPAL_PACKET_SET_METAINFO_POINTER(&(pPkt->palPacket),
                (void*)&pVosPacketContext->txDataMetaInfo[idx]);
          WPAL_PACKET_SET_TYPE(&(pPkt->palPacket), 
                               eWLAN_PAL_PKT_TYPE_TX_802_3_DATA);
-#endif
          if (VOS_STATUS_SUCCESS != vosStatus)
          {
             VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_FATAL,
@@ -429,9 +445,7 @@ VOS_STATUS vos_packet_open( v_VOID_t *pVosContext,
             break;
          }
          list_add_tail(&pPkt->node, pFreeList);
-#ifdef WLAN_SOFTAP_FEATURE
          pVosPacketContext->uctxDataFreeListCount++;
-#endif
       }
 
       // exit if any problems so far
@@ -452,12 +466,10 @@ VOS_STATUS vos_packet_open( v_VOID_t *pVosContext,
 
          vosStatus = vos_pkti_packet_init(pPkt, VOS_PKT_TYPE_TX_802_11_MGMT);
 
-#ifdef FEATURE_WLAN_INTEGRATED_SOC
          WPAL_PACKET_SET_METAINFO_POINTER(&(pPkt->palPacket),
                (void*)&pVosPacketContext->txMgmtMetaInfo[idx]);
          WPAL_PACKET_SET_TYPE(&(pPkt->palPacket), 
                               eWLAN_PAL_PKT_TYPE_TX_802_11_MGMT);
-#endif
 
          if (VOS_STATUS_SUCCESS != vosStatus)
          {
@@ -504,7 +516,7 @@ VOS_STATUS vos_packet_open( v_VOID_t *pVosContext,
 VOS_STATUS vos_packet_close( v_PVOID_t pVosContext )
 {
 
-   VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_INFO, "Enter:%s",__FUNCTION__);
+   VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_INFO, "Enter:%s",__func__);
 
    if (unlikely(NULL == pVosContext))
    {
@@ -525,11 +537,14 @@ VOS_STATUS vos_packet_close( v_PVOID_t pVosContext )
    (void) vos_pkti_list_destroy(&gpVosPacketContext->txDataFreeList);
    (void) vos_pkti_list_destroy(&gpVosPacketContext->rxRawFreeList);
    (void) vos_pkti_list_destroy(&gpVosPacketContext->rxReplenishList);
+
+   gpVosPacketContext->rxRawFreeListCount    = 0;
+   gpVosPacketContext->rxReplenishListCount  = 0;
+   gpVosPacketContext->uctxDataFreeListCount = 0;
+
    mutex_unlock(&gpVosPacketContext->mlock);
 
-#ifdef WLAN_SOFTAP_FEATURE
    gpVosPacketContext->uctxDataFreeListCount = 0;
-#endif
 
    return VOS_STATUS_SUCCESS;
 }
@@ -623,6 +638,7 @@ VOS_STATUS vos_pkt_get_packet( vos_pkt_t **ppPacket,
    struct list_head *pPktFreeList;
    vos_pkt_low_resource_info *pLowResourceInfo;
    struct vos_pkt_t *pVosPacket;
+   v_SIZE_t *pCount = NULL;
    // Validate the return parameter pointer
    if (unlikely(NULL == ppPacket))
    {
@@ -659,6 +675,7 @@ VOS_STATUS vos_pkt_get_packet( vos_pkt_t **ppPacket,
 
       // see if we need to replenish the Rx Raw pool
       vos_pkti_replenish_raw_pool();
+      pCount = &gpVosPacketContext->rxRawFreeListCount;
 
       break;
 
@@ -716,6 +733,10 @@ VOS_STATUS vos_pkt_get_packet( vos_pkt_t **ppPacket,
    // remove the first record from the free pool
    pVosPacket = list_first_entry(pPktFreeList, struct vos_pkt_t, node);
    list_del(&pVosPacket->node);
+   if (NULL != pCount)
+   {
+      (*pCount)--;
+   }
    mutex_unlock(&gpVosPacketContext->mlock);
 
    // clear out the User Data pointers in the voss packet..
@@ -897,9 +918,7 @@ VOS_STATUS vos_pkt_wrap_data_packet( vos_pkt_t **ppPacket,
    // remove the first record from the free pool
    pVosPacket = list_first_entry(pPktFreeList, struct vos_pkt_t, node);
    list_del(&pVosPacket->node);
-#ifdef WLAN_SOFTAP_FEATURE
    gpVosPacketContext->uctxDataFreeListCount --;
-#endif
 
    // clear out the User Data pointers in the voss packet..
    memset(&pVosPacket->pvUserData, 0, sizeof(pVosPacket->pvUserData));
@@ -1252,6 +1271,7 @@ VOS_STATUS vos_pkt_return_packet( vos_pkt_t *pPacket )
    vos_pkt_get_packet_callback callback;
    v_SIZE_t *pCount;
    VOS_PKT_TYPE packetType = VOS_PKT_TYPE_TX_802_3_DATA;
+   v_BOOL_t lowResource = VOS_FALSE;
 
    // Validate the input parameter pointer
    if (unlikely(NULL == pPacket))
@@ -1295,6 +1315,7 @@ VOS_STATUS vos_pkt_return_packet( vos_pkt_t *pPacket )
          {
             pPktFreeList = &gpVosPacketContext->rxRawFreeList;
             pLowResourceInfo = &gpVosPacketContext->rxRawLowResourceInfo;
+            pCount = &gpVosPacketContext->rxRawFreeListCount;
          }
          else
          {
@@ -1315,9 +1336,7 @@ VOS_STATUS vos_pkt_return_packet( vos_pkt_t *pPacket )
       case VOS_PKT_TYPE_TX_802_3_DATA:
          pPktFreeList = &gpVosPacketContext->txDataFreeList;
          pLowResourceInfo = &gpVosPacketContext->txDataLowResourceInfo;
-#ifdef WLAN_SOFTAP_FEATURE
          gpVosPacketContext->uctxDataFreeListCount ++;
-#endif
          break;
 
       default:
@@ -1333,30 +1352,45 @@ VOS_STATUS vos_pkt_return_packet( vos_pkt_t *pPacket )
       // is there a low resource condition pending for this packet type?
       if (pLowResourceInfo && pLowResourceInfo->callback)
       {
-         // [DEBUG]
-         VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_INFO,"VPKT [%d]: recycle %p",  __LINE__, pPacket);
-
-         // yes, so rather than placing the packet back in the free pool
-         // we will invoke the low resource callback
-         VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_INFO,
-                   "VPKT [%d]: [%p] Packet recycled, type %d[%s]",
-                   __LINE__, pPacket, pPacket->packetType,
-                   vos_pkti_packet_type_str(pPacket->packetType));
-
-         // clear out the User Data pointers in the voss packet..
-         memset(&pPacket->pvUserData, 0, sizeof(pPacket->pvUserData));
-
-         // initialize the 'chain' pointer to NULL.
-         pPacket->pNext = NULL;
-
-         // timestamp the vos packet.
-         pPacket->timestamp = vos_timer_get_system_ticks();
-
+         // pLowResourceInfo->callback is modified from threads (different CPU's). 
+         // So a mutex is enough to protect is against a race condition.
+         // mutex is SMP safe
+         mutex_lock(&gpVosPacketContext->mlock);
          callback = pLowResourceInfo->callback;
          pLowResourceInfo->callback = NULL;
-         callback(pPacket, pLowResourceInfo->userData);
+         mutex_unlock(&gpVosPacketContext->mlock);
+
+         // only one context can get a valid callback
+         if(callback)
+         {
+             // [DEBUG]
+             VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_INFO,"VPKT [%d]: recycle %p",  __LINE__, pPacket);
+
+             // yes, so rather than placing the packet back in the free pool
+             // we will invoke the low resource callback
+             VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_INFO,
+                       "VPKT [%d]: [%p] Packet recycled, type %d[%s]",
+                       __LINE__, pPacket, pPacket->packetType,
+                       vos_pkti_packet_type_str(pPacket->packetType));
+
+             // clear out the User Data pointers in the voss packet..
+             memset(&pPacket->pvUserData, 0, sizeof(pPacket->pvUserData));
+
+             // initialize the 'chain' pointer to NULL.
+             pPacket->pNext = NULL;
+
+             // timestamp the vos packet.
+             pPacket->timestamp = vos_timer_get_system_ticks();
+
+             callback(pPacket, pLowResourceInfo->userData);
+
+             // We did process low resource condition
+             lowResource = VOS_TRUE;
+         }
       }
-      else
+      
+
+      if(!lowResource)
       {
          // this packet does not satisfy a low resource condition
          // so put it back in the appropriate free pool
@@ -2882,14 +2916,12 @@ VOS_STATUS vos_pkt_get_available_buffer_pool (VOS_PKT_TYPE  pktType,
 
    case VOS_PKT_TYPE_TX_802_11_DATA:
    case VOS_PKT_TYPE_TX_802_3_DATA:
-#ifdef WLAN_SOFTAP_FEATURE
       if (VOS_STA_SAP_MODE == hdd_get_conparam())
       {
          *vosFreeBuffer = gpVosPacketContext->uctxDataFreeListCount;  
           return VOS_STATUS_SUCCESS;
       }
       else
-#endif
       pList = &gpVosPacketContext->txDataFreeList;
       break;
 
@@ -2898,7 +2930,9 @@ VOS_STATUS vos_pkt_get_available_buffer_pool (VOS_PKT_TYPE  pktType,
       // then he probably wants as many packets to be available as
       // possible so replenish the raw pool
       vos_pkti_replenish_raw_pool();
-      pList = &gpVosPacketContext->rxRawFreeList;
+      // Return the pre-calculated count 'rxRawFreeListCount'
+      *vosFreeBuffer = gpVosPacketContext->rxRawFreeListCount;
+      return VOS_STATUS_SUCCESS;
       break;
 
    default:

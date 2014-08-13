@@ -1,4 +1,24 @@
 /*
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ *
+ * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
+ *
+ *
+ * Permission to use, copy, modify, and/or distribute this software for
+ * any purpose with or without fee is hereby granted, provided that the
+ * above copyright notice and this permission notice appear in all
+ * copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+ * WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
+ * AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
+ * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
+ * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+ * TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
+ */
+/*
  * Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
@@ -72,10 +92,6 @@ when       who     what, where, why
 
 ===========================================================================*/
 #include <vos_power.h>
-
-#ifdef ANI_BUS_TYPE_SDIO
-#include <libra_sdioif.h>
-#endif
 
 #ifdef MSM_PLATFORM
 #include <mach/mpp.h>
@@ -602,29 +618,6 @@ VOS_STATUS vos_chipPowerDown
   v_PVOID_t             user_data
 )
 {
-
-#ifdef ANI_BUS_TYPE_SDIO
-#ifdef MSM_PLATFORM
-   struct sdio_func *sdio_func_dev = NULL;
-
-   // Get the SDIO func device
-   sdio_func_dev = libra_getsdio_funcdev();
-   if (sdio_func_dev == NULL)
-   {
-      VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_FATAL, "%s: Libra WLAN sdio device is NULL \n"
-             "exiting", __func__);
-   }
-   else 
-   {
-      // Set sdio clock to lower config cycle frequency before chip power down.
-      // Setting this low freq, will also internally in msm_sdcc disable power save.
-      // Once the card is power down and powered up and detected
-      // after the config cycles the clock freq will be set back up
-      // to our capability of 50MHz
-      libra_sdio_set_clock(sdio_func_dev, WLAN_LOW_SD_CONFIG_CLOCK_FREQ);
-   }
-#endif
-#endif
 
 #ifdef MSM_PLATFORM_8660
    if(vos_chip_power_qrf8615(CHIP_POWER_OFF))
@@ -1370,50 +1363,6 @@ VOS_STATUS vos_chipVoteXOCore
   v_BOOL_t              force_enable
 )
 {
-#ifdef FEATURE_WLAN_NON_INTEGRATED_SOC
-    static v_BOOL_t is_vote_on;
-
-#if defined(MSM_PLATFORM_8660) || defined(MSM_PLATFORM_7x30)
-    int rc;
-#endif
-
-   /* The expectation is the is_vote_on should always have value 1 or 0.  This funcn should
-    * be called alternately with 1 and 0 passed to it.
-    */
-   if ((force_enable && is_vote_on) || (!force_enable && !is_vote_on)) {
-      VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
-         "Force XO Core %s called when already %s - directly return success %d", 
-         force_enable ? "enable" : "disable", is_vote_on ? "enable" : "disable", 
-         is_vote_on);
-      goto success;
-   }    
-
-#ifdef MSM_PLATFORM_7x30
-   rc = pmic_xo_core_force_enable(force_enable);
-   if (rc) {
-      VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_FATAL,
-         "%s: pmic_xo_core_force_enable %s failed (%d)",__func__, 
-         force_enable ? "enable" : "disable",rc);
-      return VOS_STATUS_E_FAILURE;
-   }
-#endif
-
-#ifdef MSM_PLATFORM_8660
-   rc = qcomwlan_pmic_xo_core_force_enable(force_enable);
-   if (rc) {
-      VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_FATAL,
-         "%s: pmic_xo_core_force_enable %s failed (%d)",__func__, 
-         force_enable ? "enable" : "disable",rc);
-      return VOS_STATUS_E_FAILURE;
-   }
-#endif
-    is_vote_on=force_enable;
-
-success:
-   VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_WARN, "XO CORE ON vote %s successfully!",
-                force_enable ? "enable" : "disable");
-
-#endif /* FEATURE_WLAN_NON_INTEGRATED_SOC */
 
    return VOS_STATUS_SUCCESS;
 }
