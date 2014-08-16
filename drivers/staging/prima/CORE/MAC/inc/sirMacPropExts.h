@@ -1,5 +1,25 @@
 /*
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ *
+ * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
+ *
+ *
+ * Permission to use, copy, modify, and/or distribute this software for
+ * any purpose with or without fee is hereby granted, provided that the
+ * above copyright notice and this permission notice appear in all
+ * copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+ * WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
+ * AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
+ * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
+ * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+ * TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
+ */
+/*
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -29,7 +49,7 @@
  * History:-
  * Date           Modified by    Modification Information
  * --------------------------------------------------------------------
- * 
+ *
  */
 #ifndef __MAC_PROP_EXTS_H
 #define __MAC_PROP_EXTS_H
@@ -45,12 +65,6 @@
 // Types definitions used within proprietary IE
 #define SIR_MAC_PROP_EXT_RATES_TYPE     0
 #define SIR_MAC_PROP_AP_NAME_TYPE       1
-#if (WNI_POLARIS_FW_PACKAGE == ADVANCED)
-#define SIR_MAC_PROP_HCF_TYPE           2
-#define SIR_MAC_PROP_WDS_TYPE           3
-#define SIR_MAC_PROP_BP_IND_TYPE        4
-#define SIR_MAC_PROP_NEIGHBOR_BSS_TYPE  5
-#endif
 #define SIR_MAC_PROP_LOAD_INFO_TYPE     6
 #define SIR_MAC_PROP_ASSOC_TYPE         7
 #define SIR_MAC_PROP_LOAD_BALANCE_TYPE  8
@@ -99,10 +113,10 @@
 
 // macro to set/get a capability bit, bitname is one of HCF/11EQOS/etc...
 #define PROP_CAPABILITY_SET(bitname, value) \
-        (value) = (value) | ((tANI_U16)(1 << SIR_MAC_PROP_CAPABILITY_ ## bitname))
+  ((value) = (value) | ((tANI_U16)(1 << SIR_MAC_PROP_CAPABILITY_ ## bitname)))
 
 #define PROP_CAPABILITY_RESET(bitname, value) \
-        (value) = (value) & ~((tANI_U16)(1 << SIR_MAC_PROP_CAPABILITY_ ## bitname))
+  ((value) = (value) & ~((tANI_U16)(1 << SIR_MAC_PROP_CAPABILITY_ ## bitname)))
         
 #define PROP_CAPABILITY_GET(bitname, value) \
         (((value) >> SIR_MAC_PROP_CAPABILITY_ ## bitname) & 1)
@@ -114,15 +128,18 @@
           (dot11Mode == WNI_CFG_DOT11_MODE_TAURUS) || \
           (dot11Mode == WNI_CFG_DOT11_MODE_ALL)) ? TRUE: FALSE)
 
-#ifdef WLAN_SOFTAP_FEATURE
 #define IS_DOT11_MODE_HT(dot11Mode) \
         (((dot11Mode == WNI_CFG_DOT11_MODE_11N) || \
           (dot11Mode ==  WNI_CFG_DOT11_MODE_11N_ONLY) || \
+          (dot11Mode ==  WNI_CFG_DOT11_MODE_11AC) || \
+          (dot11Mode ==  WNI_CFG_DOT11_MODE_11AC_ONLY) || \
           (dot11Mode ==  WNI_CFG_DOT11_MODE_TAURUS) || \
           (dot11Mode ==  WNI_CFG_DOT11_MODE_ALL)) ? TRUE: FALSE)
-#else
-#define IS_DOT11_MODE_HT(dot11Mode) \
-        (((dot11Mode == WNI_CFG_DOT11_MODE_11N) || \
+
+#ifdef WLAN_FEATURE_11AC
+#define IS_DOT11_MODE_VHT(dot11Mode) \
+        (((dot11Mode == WNI_CFG_DOT11_MODE_11AC) || \
+          (dot11Mode ==  WNI_CFG_DOT11_MODE_11AC_ONLY) || \
           (dot11Mode ==  WNI_CFG_DOT11_MODE_TAURUS) || \
           (dot11Mode ==  WNI_CFG_DOT11_MODE_ALL)) ? TRUE: FALSE)
 #endif
@@ -224,53 +241,6 @@ typedef struct sSirMacPropVersion
 #define GET_COMPRESSION_STATE(cpBitmap,tcid) \
         ((cpBitmap) & (tcid))
 
-// Get/Set state of Channel Bonding
-//
-// The CB bitfield encoding is -
-//
-//     b7    b6   b5  b4  b3  b2  b1  b0
-// --------------------------------------
-// |CCA_CB |CCA |ICE | AU|CS|U/D| O | A |
-// --------------------------------------
-//
-#define GET_CB_ADMIN_STATE(cbState)    (cbState & 0x01)
-#define GET_CB_OPER_STATE(cbState)     ((cbState & 0x02) >> 1)
-#define GET_CB_SEC_CHANNEL(cbState)    ((cbState & 0x04) >> 2)
-#define GET_CB_CS_IN_PROGRESS(cbState) ((cbState & 0x08) >> 3)
-#define GET_CB_CS_AUTO_UPDATE(cbState) ((cbState & 0x10) >> 4)
-#define GET_CB_ICE_STATE(cbState)      ((cbState & 0x20) >> 5)
-#define GET_CB_CCA_MODE(cbState)       ((cbState & 0x40) >> 6)
-#define GET_CB_CCA_CB_STATE(cbState)   ((cbState & 0x80) >> 7)
-
-#define SET_CB_STATE_DISABLE(cbState) \
-        ((cbState) = (0x00))
-#define SET_CB_STATE_ENABLE(cbState) \
-        ((cbState) = (0x03))
-#define SET_CB_AU_ENABLE(cbState) \
-        ((cbState) = ((cbState) | 0x10))
-#define SET_CB_AU_DISABLE(cbState) \
-        ((cbState) = ((cbState) & 0xEF))
-#define SET_CB_OPER_STATE(cbState,state) \
-        (((state) == eHAL_CLEAR)? \
-          ((cbState) = (cbState) & (0xfD)): \
-          ((cbState) = (cbState) | (0x02)))
-#define SET_CB_SEC_CHANNEL(cbState,state) \
-        (((state) == eHAL_CLEAR)? \
-          ((cbState) = (cbState) & (0xfB)): \
-          ((cbState) = (cbState) | (0x04)))
-#define SET_CB_ICE_DISABLE(cbState) \
-        ((cbState) = ((cbState) & 0xDF))
-#define SET_CB_ICE_ENABLE(cbState) \
-        ((cbState) = ((cbState) | 0x20))
-#define SET_CB_CCA_MODE_TWENTY(cbState) \
-        ((cbState) = ((cbState) & 0xBF))
-#define SET_CB_CCA_MODE_FOURTY(cbState) \
-        ((cbState) = ((cbState) | 0x40))
-#define SET_CB_CCA_CB_DISABLE(cbState) \
-        ((cbState) = ((cbState) & 0x7F))
-#define SET_CB_CCA_CB_ENABLE(cbState) \
-        ((cbState) = ((cbState) | 0x80))
-
 // Get/Set the state of Reverse FCS
 #define GET_RFCS_OPER_STATE(revFcsState) (revFcsState & 0x01)
 #define GET_RFCS_PATTERN_ID(revFcsState) ((revFcsState & 0x0E) >> 1)
@@ -349,16 +319,6 @@ typedef struct sSirPropIEStruct
     tANI_U8                    triggerStaScanPresent:1;                
     tANI_U8                    rsvd:5;
 
-#if (WNI_POLARIS_FW_PACKAGE == ADVANCED)
-    tANI_U8                    hcfPresent:1;
-    tANI_U8                    wdsPresent:1;
-    tANI_U8                    neighborListPresent:1;
-    tANI_U8                    loadInfoPresent:1;
-    tANI_U8                    llsetPresent:1;
-    tANI_U8                    bpindPresent:1;
-    tANI_U8                    assocTypePresent:1;
-    tANI_U8                    rsvd1:1;
-#endif
 
     tSirMacPropRateSet    propRates;
     tAniApName            apName;           // used in beacon/probe only
@@ -370,20 +330,6 @@ typedef struct sSirPropIEStruct
     tQuietBssIEStruct     quietBss;
     tANI_U8               triggerStaScanEnable;
 
-#if (WNI_POLARIS_FW_PACKAGE == ADVANCED)
-    tANI_U8                    hcfEnabled;
-    // used in beacon/probe response only
-    tANI_U8                    wdsLength;
-    tANI_U8                    wdsData[ANI_WDS_INFO_MAX_LENGTH];
-    tSirLoad              load;
-    tSirMacPropLLSet      llSet; 
-    // used in assoc request only
-    tANI_U8                    bpIndicator;
-    tANI_U8                    bpType;
-    tANI_U8                    numBss;
-    tANI_U8                    assocType;
-    tpSirNeighborBssInfo  pBssList;
-#endif
 
 } tSirPropIEStruct, *tpSirPropIEStruct;
 

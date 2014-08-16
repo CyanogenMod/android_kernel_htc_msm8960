@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -21,7 +21,7 @@
 
 #ifndef __TL_DEBUG_H__
 #define __TL_DEBUG_H__
-#if (!defined ANI_OS_TYPE_OSX && !defined (ANI_OS_TYPE_ANDROID))
+#if  !defined (ANI_OS_TYPE_ANDROID)
 #include <stdio.h>
 #endif
 #include <stdarg.h>
@@ -67,8 +67,8 @@
 #else /* WLAN DEBUG */
 
 #define TLLOGP(x)  x
-#define TLLOGE(x)  {}
-#define TLLOGW(x)  {}
+#define TLLOGE(x)  x
+#define TLLOGW(x)  x
 #define TLLOG1(x)  {}
 #define TLLOG2(x)  {}
 #define TLLOG3(x)  {}

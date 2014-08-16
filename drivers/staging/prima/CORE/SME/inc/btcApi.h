@@ -1,5 +1,25 @@
 /*
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ *
+ * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
+ *
+ *
+ * Permission to use, copy, modify, and/or distribute this software for
+ * any purpose with or without fee is hereby granted, provided that the
+ * above copyright notice and this permission notice appear in all
+ * copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+ * WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
+ * AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
+ * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
+ * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+ * TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
+ */
+/*
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -110,6 +130,21 @@
 #define BT_MAX_NUM_EVENT_ACL_DEFERRED  4  //We may need to defer these many BT events for ACL
 #define BT_MAX_NUM_EVENT_SCO_DEFERRED  4  //We may need to defer these many BT events for SYNC
 
+/** Default values for the BTC tunables parameters
+*/
+#define BTC_STATIC_BT_LEN_INQ_DEF     (120000)  // 120 msec
+#define BTC_STATIC_BT_LEN_PAGE_DEF     (10000)  // 10 msec (don't care)
+#define BTC_STATIC_BT_LEN_CONN_DEF     (10000)  // 10 msec (don't care)
+#define BTC_STATIC_BT_LEN_LE_DEF       (10000)  // 10 msec (don't care)
+#define BTC_STATIC_WLAN_LEN_INQ_DEF    (30000)  // 30 msec
+#define BTC_STATIC_WLAN_LEN_PAGE_DEF       (0)  // 0 msec (BT takes all)
+#define BTC_STATIC_WLAN_LEN_CONN_DEF       (0)  // 0 msec (BT takes all)
+#define BTC_STATIC_WLAN_LEN_LE_DEF         (0)  // 0 msec (BT takes all)
+#define BTC_DYNAMIC_BT_LEN_MAX_DEF    (250000)  // 250 msec
+#define BTC_DYNAMIC_WLAN_LEN_MAX_DEF   (45000)  // 45 msec
+#define BTC_SCO_BLOCK_PERC_DEF             (1)  // 1 percent
+#define BTC_DHCP_ON_A2DP_DEF               (1)  // ON
+#define BTC_DHCP_ON_SCO_DEF                (0)  // OFF
 
 /** Enumeration of all the different kinds of BT events
 */
@@ -243,6 +278,19 @@ typedef struct sSmeBtcConfig
    v_U8_t       btcBtIntervalMode1;
    v_U8_t       btcWlanIntervalMode1;
 
+   v_U32_t      btcStaticLenInqBt;
+   v_U32_t      btcStaticLenPageBt;
+   v_U32_t      btcStaticLenConnBt;
+   v_U32_t      btcStaticLenLeBt;
+   v_U32_t      btcStaticLenInqWlan;
+   v_U32_t      btcStaticLenPageWlan;
+   v_U32_t      btcStaticLenConnWlan;
+   v_U32_t      btcStaticLenLeWlan;
+   v_U32_t      btcDynMaxLenBt;
+   v_U32_t      btcDynMaxLenWlan;
+   v_U32_t      btcMaxScoBlockPerc;
+   v_U32_t      btcDhcpProtOnA2dp;
+   v_U32_t      btcDhcpProtOnSco;
 } tSmeBtcConfig, *tpSmeBtcConfig;
 
 
@@ -320,6 +368,7 @@ typedef struct sSmeBtcInfo
    v_BOOL_t      fA2DPTrafStop;/*flag to check A2DP_STOP event has come before MODE_CHANGED*/
    v_U16_t       btcScoHandles[BT_MAX_SCO_SUPPORT];  /* Handles for SCO, if any*/
    v_BOOL_t      fA2DPUp;        /*remember whether A2DP is in session*/
+   v_BOOL_t      btcScanCompromise;
 } tSmeBtcInfo, *tpSmeBtcInfo;
 
 

@@ -1,5 +1,25 @@
 /*
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ *
+ * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
+ *
+ *
+ * Permission to use, copy, modify, and/or distribute this software for
+ * any purpose with or without fee is hereby granted, provided that the
+ * above copyright notice and this permission notice appear in all
+ * copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+ * WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
+ * AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
+ * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
+ * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+ * TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
+ */
+/*
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -37,13 +57,147 @@
  * --------------------------------------------------------------------
  */
 
-/*In prima 12 HW stations are supported including BCAST STA(staId 0)
- and SELF STA(staId 1) so total ASSOC stations which can connect to Prima
- SoftAP = 12 - 1(Self STa) - 1(Bcast Sta) = 10 Stations. */
+#ifdef WCN_PRONTO
 
-#define HAL_NUM_STA                 12
+#ifdef WLAN_SOFTAP_VSTA_FEATURE
+//supports both V1 and V2
+#define HAL_NUM_ASSOC_STA           32 // HAL_NUM_STA - No of GP STAs - 2 (1 self Sta + 1 Bcast Sta)
+#define HAL_NUM_STA                 41
+#define HAL_NUM_HW_STA              16
+
+#define HAL_NUM_GPSTA               4
+#define HAL_NUM_UMA_DESC_ENTRIES    HAL_NUM_HW_STA // or HAL_NUM_STA
+
 #define HAL_NUM_BSSID               2
-#define HAL_NUM_UMA_DESC_ENTRIES    12
+#define HAL_NUM_STA_WITHOUT_VSTA    12
+#define HAL_NUM_STA_INCLUDING_VSTA  32
+
+#define HAL_NUM_VSTA                (HAL_NUM_STA - HAL_NUM_HW_STA)
+#define QWLANFW_MAX_NUM_VSTA        (HAL_NUM_VSTA)
+#define QWLANFW_VSTA_INVALID_IDX    (HAL_NUM_STA+1)
+#define QWLAN_VSTA_MIN_IDX          (HAL_NUM_HW_STA)
+#define QWLANFW_NUM_GPSTA           (HAL_NUM_GPSTA)
+
+// For Pronto
+#define HAL_NUM_STA_WITHOUT_VSTA_PRONTO_V1 9
+#define HAL_NUM_STA_WITHOUT_VSTA_PRONTO_V2 (HAL_NUM_STA_WITHOUT_VSTA
+
+#define IS_VSTA_VALID_IDX(__x) \
+                          ((__x) != QWLANFW_VSTA_INVALID_IDX)
+
+#define IS_VSTA_IDX(__x) \
+                   (((__x) >= QWLAN_VSTA_MIN_IDX) && ((__x) < HAL_NUM_STA))
+
+#define GET_VSTA_INDEX_FOR_STA_INDEX(__idx)    ((__idx) - QWLAN_VSTA_MIN_IDX)
+
+// is the STA a General Purpose STA?
+#define IS_GPSTA_IDX(__x) \
+    (((__x) >= (HAL_NUM_HW_STA-HAL_NUM_GPSTA)) && \
+     ((__x) < HAL_NUM_HW_STA))
+
+// is the STA a HW STA (excluding GP STAs)
+#define IS_HWSTA_IDX(__x) \
+    ((__x) < (HAL_NUM_HW_STA-HAL_NUM_GPSTA))
+
+#define HAL_NUM_STA_INCLUDING_VSTA  32
+
+#elif WCN_PRONTO_V1
+
+/* In Pronto 1.0 TPE descriptor size is increased to 1K per station
+ * but not the cMEM allocated for hardware descriptors. Due to this
+ * memory limitation the number of stations are limited to 9 and BSS
+ * to 2 respectively. 
+ *
+ * In Pronto 2.0, TPE descriptor size is reverted
+ * back to 512 bytes and hence more stations and BSSs can be supported
+ * from Pronto 2.0
+ *
+ * In Pronto 1.0, 9 HW stations are supported including BCAST STA(staId 0)
+ * and SELF STA(staId 1). So total ASSOC stations which can connect to
+ * Pronto 1.0 Softap = 9 - 1(self sta) - 1(Bcast sta) = 7 stations
+ */
+#define HAL_NUM_HW_STA              9
+#define HAL_NUM_STA                 (HAL_NUM_HW_STA)
+#define HAL_NUM_BSSID               2
+#define HAL_NUM_UMA_DESC_ENTRIES    9
+#define HAL_NUM_ASSOC_STA           7
+
+
+#else /* WCN_PRONTO_V1 */
+
+#define HAL_NUM_HW_STA              14
+#define HAL_NUM_STA                 (HAL_NUM_HW_STA)
+#define HAL_NUM_BSSID               4
+#define HAL_NUM_UMA_DESC_ENTRIES    14
+#define HAL_NUM_ASSOC_STA           12
+
+
+#endif /* WCN_PRONTO_V1 and WLAN_SOFTAP_VSTA_FEATURE*/
+#else  /* WCN_PRONTO */
+
+/*
+ * Riva supports 16 stations in hardware
+ *
+ * Riva without Virtual STA feature can only support 12 stations:
+ *    1 Broadcast STA (hard)
+ *    1 "Self" STA (hard)
+ *    10 Soft AP Stations (hard)
+ *
+ * Riva with Virtual STA feature supports 38 stations:
+ *    1 Broadcast STA (hard)
+ *    1 "Self" STA (hard)
+ *    4 General Purpose Stations to support Virtual STAs (hard)
+ *   32 Soft AP Stations (10 hard/22 virtual)
+ *
+ * To support concurrency with Vsta, number of stations are increased to 41 (from 38).
+ *    1 for the second interface.
+ *    1 for reserving an infra peer STA index (hard) for the other interface.
+ *    1 for P2P device role.
+ */
+
+#ifdef WLAN_SOFTAP_VSTA_FEATURE
+#define HAL_NUM_ASSOC_STA           32
+#define HAL_NUM_STA                 41
+#define HAL_NUM_HW_STA              16
+#define HAL_NUM_GPSTA               4
+#define HAL_NUM_VSTA                (HAL_NUM_STA - HAL_NUM_HW_STA)
+
+#define QWLANFW_MAX_NUM_VSTA        HAL_NUM_VSTA
+#define QWLANFW_VSTA_INVALID_IDX    (HAL_NUM_STA+1)
+#define QWLAN_VSTA_MIN_IDX          HAL_NUM_HW_STA
+#define QWLANFW_NUM_GPSTA           HAL_NUM_GPSTA
+
+
+#define IS_VSTA_VALID_IDX(__x) \
+                          ((__x) != QWLANFW_VSTA_INVALID_IDX)
+
+#define IS_VSTA_IDX(__x) \
+                   (((__x) >= QWLAN_VSTA_MIN_IDX) && ((__x) < HAL_NUM_STA))
+
+#define GET_VSTA_INDEX_FOR_STA_INDEX(__idx)    ((__idx) - QWLAN_VSTA_MIN_IDX)
+
+// is the STA a General Purpose STA?
+#define IS_GPSTA_IDX(__x) \
+    (((__x) >= (HAL_NUM_HW_STA-HAL_NUM_GPSTA)) && \
+     ((__x) < HAL_NUM_HW_STA))
+
+// is the STA a HW STA (excluding GP STAs)
+#define IS_HWSTA_IDX(__x) \
+    ((__x) < (HAL_NUM_HW_STA-HAL_NUM_GPSTA))
+
+#define HAL_NUM_STA_INCLUDING_VSTA  32
+#define HAL_NUM_STA_WITHOUT_VSTA    12
+
+#else
+#define HAL_NUM_STA                 12
+#define HAL_NUM_ASSOC_STA           10
+#define HAL_NUM_HW_STA              12
+#endif
+
+#define HAL_NUM_BSSID               2
+#define HAL_NUM_UMA_DESC_ENTRIES    HAL_NUM_HW_STA
+
+#endif /* WCN_PRONTO */
 
 #define HAL_INVALID_BSSIDX          HAL_NUM_BSSID
 
@@ -121,11 +275,21 @@ typedef enum sBmuWqId {
     /* Special WQ for BMU to dropping all frames coming to this WQ ID */
     BMUWQ_SINK = 255,
 
-    /* Total BMU WQ count in Volans */
+#ifdef WCN_PRONTO
+    BMUWQ_BMU_CMEM_IDLE_BD = 27,
+    /* Total BMU WQ count in Pronto */
+    BMUWQ_NUM = 28,
+    
+    //WQs 17 through 22 are enabled in Pronto. So, set not supported mask to 0.
+    BMUWQ_NOT_SUPPORTED_MASK = 0x0,
+#else
+    /* Total BMU WQ count in Prima */
     BMUWQ_NUM = 27,
 
-    //Volans has excluded support for WQs 17 through 22.
+    //Prima has excluded support for WQs 17 through 22.
     BMUWQ_NOT_SUPPORTED_MASK = 0x7e0000,
+#endif //WCN_PRONTO
+
 
     /* Aliases */
     BMUWQ_BTQM_TX_MGMT = BMUWQ_BTQM,
@@ -155,6 +319,8 @@ typedef enum sBmuWqId {
     //BMUWQ_FW_DXECH2_0 = 15,  /* BD/PDU<->MEM conversion using DxE CH2.  Not in use by FW */
     BMUWQ_FW_DXECH2_1 = 16,  /* BD/PDU<->MEM conversion using DxE CH2.  Not in use by FW */
 
+    /* NDPA Addr3 workaround */
+    BMUWQ_RXP_DEFAULT_PUSH_WQ = 17,
 /*  These WQs are not supported in Volans
     BMUWQ_BMU_WQ17 = 17,
     BMUWQ_BMU_WQ18 = 18,
@@ -210,5 +376,17 @@ typedef enum
 /* --------------------------------------------------------------------- */
 #define HWBD_TYPE_GENERIC                  0   /* generic BD format */
 #define HWBD_TYPE_FRAG                     1   /* fragmentation BD format*/
+
+/*---------------------------------------------------------------------- */
+/* HW Tx power                                                           */
+/*---------------------------------------------------------------------- */
+#ifdef WLAN_HAL_PRIMA
+   #define WLAN_SOC_PRIMA_MAX_TX_POWER 22
+   #define WLAN_SOC_PRIMA_MIN_TX_POWER 6
+#else
+   /* add more platforms here */
+   #define WLAN_SOC_PRIMA_MAX_TX_POWER 22
+   #define WLAN_SOC_PRIMA_MIN_TX_POWER 6
+#endif //#ifdef WCN_PRIMA
 
 #endif /* __WLAN_QCT_DEV_DEFS_H */
