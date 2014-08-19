@@ -229,3 +229,16 @@ wpt_status wpalSleep(wpt_uint32 timeout)
    vos_sleep( timeout );
    return eWLAN_PAL_STATUS_SUCCESS;
 }
+
+/*---------------------------------------------------------------------------
+    wpalBusyWait - Thread busy wait with specified usec
+    Param:
+        usecDelay - amount of time to wait. In unit of micro-seconds.
+    Return:
+        NONE
+---------------------------------------------------------------------------*/
+void wpalBusyWait(wpt_uint32 usecDelay)
+{
+   vos_busy_wait(usecDelay);
+   return;
+}

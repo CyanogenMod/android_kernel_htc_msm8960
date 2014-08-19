@@ -61,6 +61,7 @@
 #ifndef MEMORY_DEBUG
 #include "vos_memory.h"
 #endif /* MEMORY_DEBUG */
+#include "vos_sched.h"
 #include "vos_api.h"
 
 #include "dma-mapping.h"
@@ -426,4 +427,52 @@ void wpalWcnssResetIntr(void)
    wcnss_reset_intr();
 #endif
    return;
+}
+
+/*---------------------------------------------------------------------------
+    wpalFwDumpReq -  Trigger the dump commands to Firmware
+
+    Param:
+       cmd - Command No. to execute
+       arg1 - argument 1 to cmd
+       arg2 - argument 2 to cmd
+       arg3 - argument 3 to cmd
+       arg4 - argument 4 to cmd
+    Return:
+       NONE
+---------------------------------------------------------------------------*/
+void wpalFwDumpReq(wpt_uint32 cmd, wpt_uint32 arg1, wpt_uint32 arg2,
+                    wpt_uint32 arg3, wpt_uint32 arg4)
+{
+   vos_fwDumpReq(cmd, arg1, arg2, arg3, arg4);
+   return;
+}
+
+/*---------------------------------------------------------------------------
+    wpalDevicePanic -  Trigger Device Panic
+       Trigger device panic to help debug
+
+    Param:
+       NONE
+
+    Return:
+       NONE
+---------------------------------------------------------------------------*/
+void wpalDevicePanic(void)
+{
+   BUG_ON(1);
+   return;
+}
+
+/*---------------------------------------------------------------------------
+    wpalIsWDresetInProgress -  calls vos API isWDresetInProgress()
+
+    Param:
+       NONE
+    Return:
+       STATUS
+ ---------------------------------------------------------------------------*/
+int  wpalIsWDresetInProgress(void)
+{
+   return isWDresetInProgress();
 }

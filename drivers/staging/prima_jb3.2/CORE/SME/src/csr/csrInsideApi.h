@@ -76,7 +76,8 @@
 
 #define CSR_REST_TIME_CONC                  100
 
-#define CSR_NUM_CHAN_COMBINED_CONC          1
+#define CSR_NUM_STA_CHAN_COMBINED_CONC      3
+#define CSR_NUM_P2P_CHAN_COMBINED_CONC      1
 #endif
 
 #define CSR_MAX_NUM_SUPPORTED_CHANNELS 55
@@ -280,7 +281,7 @@ void csrScanStopTimers(tpAniSirGlobal pMac);
 tANI_BOOLEAN csrScanRemoveNotRoamingScanCommand(tpAniSirGlobal pMac);
 //To remove fresh scan commands from the pending queue
 tANI_BOOLEAN csrScanRemoveFreshScanCommand(tpAniSirGlobal pMac, tANI_U8 sessionId);
-eHalStatus csrScanAbortMacScan(tpAniSirGlobal pMac);
+eHalStatus csrScanAbortMacScan(tpAniSirGlobal pMac, eCsrAbortReason reason);
 void csrRemoveCmdFromPendingList(tpAniSirGlobal pMac, tDblLinkList *pList, 
                                               eSmeCommandType commandType );
 eHalStatus csrScanAbortMacScanNotForConnect(tpAniSirGlobal pMac);
@@ -474,6 +475,14 @@ eHalStatus csrScanGetResult(tpAniSirGlobal, tCsrScanResultFilter *pFilter, tScan
     \return eHalStatus     
   -------------------------------------------------------------------------------*/
 eHalStatus csrScanFlushResult(tpAniSirGlobal);
+/* ---------------------------------------------------------------------------
+ *  \fn csrScanFilterResults
+ *  \brief Filter scan results based on valid channel list.
+ *  \return eHalStatus
+ *-------------------------------------------------------------------------------
+ */
+eHalStatus csrScanFilterResults(tpAniSirGlobal pMac);
+
 eHalStatus csrScanFlushSelectiveResult(tpAniSirGlobal, v_BOOL_t flushP2P);
 /* ---------------------------------------------------------------------------
     \fn csrScanBGScanGetParam
@@ -967,5 +976,8 @@ tANI_BOOLEAN csrNeighborRoamConnectedProfileMatch(tpAniSirGlobal pMac, tCsrScanR
                                                   tDot11fBeaconIEs *pIes);
 #endif
 eHalStatus csrSetTxPower(tpAniSirGlobal pMac, v_U8_t sessionId, v_U8_t mW);
+
+eHalStatus csrRoamDelPMKIDfromCache( tpAniSirGlobal pMac, tANI_U32 sessionId,
+                                 tANI_U8 *pBSSId );
 #endif
 

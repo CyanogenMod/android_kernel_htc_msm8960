@@ -288,6 +288,9 @@ static WDI_DTS_TrafficStatsType gDsTrafficStats;
 #define DTS_RATE_TPUT(x) gRateInfo[x].tputBpus
 #define DTS_11BRATE_TPUT_MULTIPLIER(x) g11bRateInfo[x].tputBpus
 
+/* RX thread frame size threshold to delay frame drain */
+#define DTS_RX_DELAY_FRAMESIZE_THRESHOLD  500
+
 /* Tx/Rx stats function
  * This function should be invoked to fetch the current stats
   * Parameters:
@@ -533,6 +536,18 @@ wpt_status WDTS_RxPacket (void *pContext, wpt_packet *pFrame, WDTS_ChannelType c
   ucMPDUHLen    = (wpt_uint8)WDI_RX_BD_GET_MPDU_H_LEN(pBDHeader);
   ucTid         = (wpt_uint8)WDI_RX_BD_GET_TID(pBDHeader);
 
+  /* If RX thread drain small size of frame from HW too fast
+   * Sometimes HW cannot handle interrupt fast enough
+   * And system crash might happen
+   * To avoid system crash, input 1usec delay each frame draining
+   * within host side, if frame size is smaller that threshold.
+   * This is SW work around, to fix HW problem
+   * Throughput and SnS test done successfully */
+  if (usMPDULen < DTS_RX_DELAY_FRAMESIZE_THRESHOLD)
+  {
+    wpalBusyWait(1);
+  }
+
   /*------------------------------------------------------------------------
     Gather AMSDU information 
     ------------------------------------------------------------------------*/
@@ -575,6 +590,12 @@ wpt_status WDTS_RxPacket (void *pContext, wpt_packet *pFrame, WDTS_ChannelType c
       if(VPKT_SIZE_BUFFER < (usMPDULen+ucMPDUHOffset)){
         DTI_TRACE( DTI_TRACE_LEVEL_FATAL,
                    "Invalid Frame size, might memory corrupted");
+
+        /* Size of the packet tranferred by the DMA engine is
+         * greater than the the memory allocated for the skb
+         */
+        WPAL_BUG(0);
+
         wpalPacketFree(pFrame);
         return eWLAN_PAL_STATUS_SUCCESS;
       }
@@ -614,6 +635,10 @@ wpt_status WDTS_RxPacket (void *pContext, wpt_packet *pFrame, WDTS_ChannelType c
 #ifdef WLAN_FEATURE_11W
       pRxMetadata->rmf = WDI_RX_BD_GET_RMF(pBDHeader);
 #endif
+#ifdef WLAN_FEATURE_ROAM_SCAN_OFFLOAD
+      pRxMetadata->offloadScanLearn = WDI_RX_BD_GET_OFFLOADSCANLEARN(pBDHeader);
+      pRxMetadata->roamCandidateInd = WDI_RX_BD_GET_ROAMCANDIDATEIND(pBDHeader);
+#endif
 
       /* typeSubtype in BD doesn't look like correct. Fill from frame ctrl
          TL does it for Volans but TL does not know BD for Prima. WDI should do it */
@@ -643,7 +668,7 @@ wpt_status WDTS_RxPacket (void *pContext, wpt_packet *pFrame, WDTS_ChannelType c
       pRxMetadata->ampdu_reorderOpcode  = (wpt_uint8)WDI_RX_BD_GET_BA_OPCODE(pBDHeader);
       pRxMetadata->ampdu_reorderSlotIdx = (wpt_uint8)WDI_RX_BD_GET_BA_SI(pBDHeader);
       pRxMetadata->ampdu_reorderFwdIdx  = (wpt_uint8)WDI_RX_BD_GET_BA_FI(pBDHeader);
-      pRxMetadata->currentPktSeqNo       = (wpt_uint8)WDI_RX_BD_GET_BA_CSN(pBDHeader);
+      pRxMetadata->currentPktSeqNo       = (wpt_uint16)WDI_RX_BD_GET_BA_CSN(pBDHeader);
 
 
       /*------------------------------------------------------------------------
@@ -690,6 +715,7 @@ wpt_status WDTS_RxPacket (void *pContext, wpt_packet *pFrame, WDTS_ChannelType c
       pRxMetadata = WDI_DS_ExtractRxMetaData(pFrame);
       //flow control related
       pRxMetadata->fc = isFcBd;
+      pRxMetadata->mclkRxTimestamp = WDI_RX_BD_GET_TIMESTAMP(pBDHeader);
       pRxMetadata->fcStaTxDisabledBitmap = WDI_RX_FC_BD_GET_STA_TX_DISABLED_BITMAP(pBDHeader);
       pRxMetadata->fcSTAValidMask = WDI_RX_FC_BD_GET_STA_VALID_MASK(pBDHeader);
       // Invoke Rx complete callback
@@ -953,9 +979,9 @@ wpt_status WDTS_SetPowerState(void *pContext, WDTS_PowerStateType  powerState,
  * Return Value: NONE
  *
  */
-void WDTS_ChannelDebug(wpt_boolean displaySnapshot, wpt_boolean toggleStallDetect)
+void WDTS_ChannelDebug(wpt_boolean displaySnapshot, wpt_uint8 debugFlags)
 {
-   gTransportDriver.channelDebug(displaySnapshot, toggleStallDetect);
+   gTransportDriver.channelDebug(displaySnapshot, debugFlags);
    return;
 }
 

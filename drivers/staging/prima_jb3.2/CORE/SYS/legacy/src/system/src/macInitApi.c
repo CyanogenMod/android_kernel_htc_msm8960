@@ -132,12 +132,6 @@ tSirRetStatus macStart(tHalHandle hHal, void* pHalMacStartParams)
 
    do
    {
-
-#if defined(TRACE_RECORD)
-      //Enable Tracing
-      macTraceInit(pMac);
-#endif
-
       if (!HAL_STATUS_SUCCESS(palAllocateMemory(pMac->hHdd, ((void *)&pMac->pResetMsg), sizeof(tSirMbMsg))))
       {
          sysLog(pMac, LOGE, FL("pMac->pResetMsg is NULL\n"));

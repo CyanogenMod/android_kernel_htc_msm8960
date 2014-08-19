@@ -266,9 +266,7 @@ typedef struct sPESession           // Added to Support BT-AMP
     tANI_U8            limWsmEnabled:1; //WSM
     tANI_U8            limHcfEnabled:1;
     tANI_U8            lim11dEnabled:1;
-#ifdef WLAN_FEATURE_11W
-    tANI_U8            limRmfEnabled:1; //11W
-#endif
+
     tANI_U32           lim11hEnable;
 
     tPowerdBm  maxTxPower;   //MIN (Regulatory and local power constraint)
@@ -337,7 +335,7 @@ typedef struct sPESession           // Added to Support BT-AMP
     /*Flag to Track Status/Indicate HBFailure on this session */
     tANI_BOOLEAN LimHBFailureStatus;
     tANI_U32           gLimPhyMode;
-
+    tANI_U8            amsduSupportedInBA;
     tANI_U8          txLdpcIniFeatureEnabled;
     /**
      * Following is the place holder for free peer index pool.
@@ -353,6 +351,9 @@ typedef struct sPESession           // Added to Support BT-AMP
 #endif
     tANI_BOOLEAN fWaitForProbeRsp;
     tANI_BOOLEAN fIgnoreCapsChange;
+    tANI_BOOLEAN fDeauthReceived;
+    tANI_BOOLEAN isCiscoVendorAP;
+    tANI_U8 isAmsduSupportInAMPDU;
 }tPESession, *tpPESession;
 
 #define LIM_MAX_ACTIVE_SESSIONS 4

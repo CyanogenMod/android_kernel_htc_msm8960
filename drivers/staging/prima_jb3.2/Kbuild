@@ -33,7 +33,7 @@ ifeq ($(KERNEL_BUILD),0)
 	CONFIG_QCOM_TDLS := y
 
 	#Flag to enable Fast Transition (11r) feature
-	CONFIG_QCOM_VOWIFI_11R := n
+	CONFIG_QCOM_VOWIFI_11R := y
 
 endif
 
@@ -46,7 +46,7 @@ BUILD_DEBUG_VERSION := 1
 BUILD_DIAG_VERSION := 0
 
 #Do we panic on bug?  default is to warn
-PANIC_ON_BUG := 0
+PANIC_ON_BUG := 1
 
 #Re-enable wifi on WDI timeout
 RE_ENABLE_WIFI_ON_WDI_TIMEOUT := 0
@@ -271,7 +271,8 @@ SME_PMC_OBJS := $(SME_SRC_DIR)/pmc/pmcApi.o \
 SME_QOS_OBJS := $(SME_SRC_DIR)/QoS/sme_Qos.o
 
 SME_CMN_OBJS := $(SME_SRC_DIR)/sme_common/sme_Api.o \
-		$(SME_SRC_DIR)/sme_common/sme_FTApi.o
+		$(SME_SRC_DIR)/sme_common/sme_FTApi.o \
+		$(SME_SRC_DIR)/sme_common/sme_Trace.o
 
 SME_BTC_OBJS := $(SME_SRC_DIR)/btc/btcApi.o
 
@@ -512,9 +513,12 @@ CDEFINES :=	-DANI_BUS_TYPE_PLATFORM=1 \
 		-DWLAN_FEATURE_P2P_DEBUG \
 		-DWLAN_ENABLE_AGEIE_ON_SCAN_RESULTS \
 		-DWLANTL_DEBUG\
+		-DWLAN_NS_OFFLOAD \
 		-DWLAN_ACTIVEMODE_OFFLOAD_FEATURE \
         	-DWLAN_FEATURE_HOLD_RX_WAKELOCK \
-		-DWLAN_SOFTAP_VSTA_FEATURE
+		-DWLAN_SOFTAP_VSTA_FEATURE \
+                -DWLAN_FEATURE_ROAM_SCAN_OFFLOAD \
+                -DWLAN_BUG_ON_SKB_ERROR
 
 ifneq ($(CONFIG_PRONTO_WLAN),)
 CDEFINES += -DWCN_PRONTO
@@ -525,6 +529,7 @@ ifeq ($(BUILD_DEBUG_VERSION),1)
 CDEFINES +=	-DWLAN_DEBUG \
 		-DTRACE_RECORD \
 		-DLIM_TRACE_RECORD \
+		-DSME_TRACE_RECORD \
 		-DPE_DEBUG_LOGW \
 		-DPE_DEBUG_LOGE \
 		-DDEBUG
@@ -538,6 +543,10 @@ endif
 ifeq ($(HAVE_CFG80211),1)
 CDEFINES += -DWLAN_FEATURE_P2P
 CDEFINES += -DWLAN_FEATURE_WFD
+ifeq ($(CONFIG_QCOM_VOWIFI_11R),y)
+CDEFINES += -DKERNEL_SUPPORT_11R_CFG80211
+CDEFINES += -DUSE_80211_WMMTSPEC_FOR_RIC
+endif
 endif
 
 ifeq ($(CONFIG_QCOM_CCX),y)
@@ -547,7 +556,9 @@ endif
 #normally, TDLS negative behavior is not needed
 ifeq ($(CONFIG_QCOM_TDLS),y)
 CDEFINES += -DFEATURE_WLAN_TDLS
+ifeq ($(BUILD_DEBUG_VERSION),1)
 CDEFINES += -DWLAN_FEATURE_TDLS_DEBUG
+endif
 CDEFINES += -DCONFIG_TDLS_IMPLICIT
 #CDEFINES += -DFEATURE_WLAN_TDLS_NEGATIVE
 #Code under FEATURE_WLAN_TDLS_INTERNAL is ported from volans, This code
@@ -581,24 +592,8 @@ endif
 # enable the MAC Address auto-generation feature
 CDEFINES += -DWLAN_AUTOGEN_MACADDR_FEATURE
 
-ifneq (, $(filter msm8960, $(BOARD_PLATFORM)))
-EXTRA_CFLAGS += -march=armv7-a
-CDEFINES += -DMSM_PLATFORM_8960
-endif
-
-ifneq (, $(filter msm8660, $(BOARD_PLATFORM)))
-EXTRA_CFLAGS += -march=armv7-a
-CDEFINES += -DMSM_PLATFORM_8660
-endif
-
-ifneq (, $(filter msm7630_surf msm7630_fusion, $(BOARD_PLATFORM)))
-EXTRA_CFLAGS += -march=armv7-a
-CDEFINES += -DMSM_PLATFORM_7x30
-endif
-
-ifneq (, $(filter msm7627_surf, $(BOARD_PLATFORM)))
-EXTRA_CFLAGS += -march=armv6
-CDEFINES += -DMSM_PLATFORM_7x27
+ifeq ($(CONFIG_WLAN_FEATURE_11W),y)
+CDEFINES += -DWLAN_FEATURE_11W
 endif
 
 ifeq ($(PANIC_ON_BUG),1)

@@ -194,9 +194,17 @@ typedef struct vos_pkt_context_s
    // We keep a separate count of the number of RX_RAW packets
    // waiting to be replenished
    v_SIZE_t rxReplenishListCount;
+
+   // Count for the number of packets that could not be replenished
+   // because the memory allocation API failed
+   v_SIZE_t rxReplenishFailCount;
    //Existing list_size opearation traverse the list. Too slow for data path.
    //Add the field for a faster rx path
    v_SIZE_t rxRawFreeListCount;
+
+   // Number of RX Raw packets that will be reserved; this is a configurable
+   // value to the driver to save the memory usage.
+   v_SIZE_t numOfRxRawPackets;
 
    // These are the structs to keep low-resource callback information.
    // There are separate low-resource callback information blocks for
@@ -205,7 +213,11 @@ typedef struct vos_pkt_context_s
    vos_pkt_low_resource_info txDataLowResourceInfo;
    vos_pkt_low_resource_info txMgmtLowResourceInfo;
 
-   struct mutex mlock;
+   struct mutex rxReplenishListLock;
+   struct mutex rxRawFreeListLock;
+   struct mutex txDataFreeListLock;
+   struct mutex txMgmtFreeListLock;
+
    /*Meta Information to be transported with the packet*/
    WDI_DS_TxMetaInfoType txMgmtMetaInfo[VPKT_NUM_TX_MGMT_PACKETS];
    WDI_DS_TxMetaInfoType txDataMetaInfo[VPKT_NUM_TX_DATA_PACKETS];

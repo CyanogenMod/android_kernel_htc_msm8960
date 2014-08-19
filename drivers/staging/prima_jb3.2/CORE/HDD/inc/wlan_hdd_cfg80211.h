@@ -77,12 +77,6 @@
 #define P2P_ACTION_FRAME "\x7f\x50\x6f\x9a\x09"
 #define P2P_ACTION_FRAME_SIZE 5
 
-#define SA_QUERY_FRAME_REQ "\x08\x00"
-#define SA_QUERY_FRAME_REQ_SIZE 2
-
-#define SA_QUERY_FRAME_RSP "\x08\x01"
-#define SA_QUERY_FRAME_RSP_SIZE 2
-
 #define HDD_P2P_WILDCARD_SSID "DIRECT-" //TODO Put it in proper place;
 #define HDD_P2P_WILDCARD_SSID_LEN 7
 
@@ -130,6 +124,17 @@ int wlan_hdd_cfg80211_pmksa_candidate_notify(
                     int index, bool preauth );
 #endif
 
+#ifdef FEATURE_WLAN_LFR_METRICS
+VOS_STATUS wlan_hdd_cfg80211_roam_metrics_preauth(hdd_adapter_t *pAdapter,
+                                                  tCsrRoamInfo *pRoamInfo);
+
+VOS_STATUS wlan_hdd_cfg80211_roam_metrics_preauth_status(
+    hdd_adapter_t *pAdapter, tCsrRoamInfo *pRoamInfo, bool preauth_status);
+
+VOS_STATUS wlan_hdd_cfg80211_roam_metrics_handover(hdd_adapter_t *pAdapter,
+                                                   tCsrRoamInfo *pRoamInfo);
+#endif
+
 #ifdef FEATURE_WLAN_WAPI
 void wlan_hdd_cfg80211_set_key_wapi(hdd_adapter_t* pAdapter,
               u8 key_index, const u8 *mac_addr, u8 *key , int key_Len);
@@ -156,6 +161,7 @@ int wlan_hdd_crda_reg_notifier(struct wiphy *wiphy, struct regulatory_request *r
 int wlan_hdd_get_crda_regd_entry(struct wiphy *wiphy, hdd_config_t *pCfg);
 extern v_VOID_t hdd_connSetConnectionState( hdd_station_ctx_t *pHddStaCtx,
                                         eConnectionState connState );
+VOS_STATUS wlan_hdd_validate_operation_channel(hdd_adapter_t *pAdapter,int channel);
 #ifdef FEATURE_WLAN_TDLS
 int wlan_hdd_cfg80211_send_tdls_discover_req(struct wiphy *wiphy,
                             struct net_device *dev, u8 *peer);
@@ -164,6 +170,6 @@ int wlan_hdd_cfg80211_send_tdls_discover_req(struct wiphy *wiphy,
 extern void wlan_hdd_cfg80211_update_replayCounterCallback(void *callbackContext,
                             tpSirGtkOffloadGetInfoRspParams pGtkOffloadGetInfoRsp);
 #endif
-
+void* wlan_hdd_change_country_code_cb(void *pAdapter);
 
 #endif

@@ -734,9 +734,11 @@ WCTS_OpenTransport
     */
    pWCTSCb->wctsOpenMsg.callback = WCTS_PALOpenCallback;
    pWCTSCb->wctsOpenMsg.pContext = pWCTSCb;
+   pWCTSCb->wctsOpenMsg.type= WPAL_MC_MSG_SMD_NOTIF_OPEN_SIG;
 
    pWCTSCb->wctsDataMsg.callback = WCTS_PALDataCallback;
    pWCTSCb->wctsDataMsg.pContext = pWCTSCb;
+   pWCTSCb-> wctsDataMsg.type= WPAL_MC_MSG_SMD_NOTIF_DATA_SIG;
 
    /*---------------------------------------------------------------------
      Open the SMD channel
@@ -966,7 +968,6 @@ WCTS_SendMessage
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                  "WCTS_SendMessage: Failed to send message over the bus.");
       wpalMemoryFree(pMsg);
-      WPAL_ASSERT(0);
       return eWLAN_PAL_STATUS_E_FAILURE;
    } else if (written == len) {
       /* Message sent! No deferred state, free the buffer*/

@@ -39,6 +39,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
+
 #ifndef WLAN_QCT_DXE_I_H
 #define WLAN_QCT_DXE_I_H
 
@@ -49,9 +50,9 @@
   @brief 
                
    This file contains the external API exposed by the wlan data transfer abstraction layer module.
-   Copyright (c) 2011 QUALCOMM Incorporated.
+   Copyright (c) 2011 Qualcomm Technologies, Inc.
    All Rights Reserved.
-   Qualcomm Confidential and Proprietary
+   Qualcomm Technologies Confidential and Proprietary
 ========================================================================*/
 
 /*===========================================================================
@@ -100,6 +101,7 @@ when           who        what, where, why
 #define WLANDXE_CCU_DXE_INT_SELECT       0xfb2050dc
 #define WLANDXE_CCU_DXE_INT_SELECT_STAT  0xfb2050e0
 #define WLANDXE_CCU_ASIC_INT_ENABLE      0xfb2050e4
+#define WLANDXE_CCU_SOFT_RESET           0xfb204010
 #else
 #define WLANDXE_CCU_DXE_INT_SELECT       0x03200b10
 #define WLANDXE_CCU_DXE_INT_SELECT_STAT  0x03200b14
@@ -183,6 +185,37 @@ when           who        what, where, why
 #define WLANDXE_DMA_CH_TSTMP_REG         0x003C
 
 /* Common CSR Register Contorol mask and offset */
+#ifdef WCN_PRONTO
+#define WLANDXE_DMA_CSR_RESERVED_MASK         0xFFFF0000
+#define WLANDXE_DMA_CSR_RESERVED_OFFSET       0x10
+#define WLANDXE_DMA_CSR_RESERVED_DEFAULT      0x0
+
+#define WLANDXE_DMA_CSR_H2H_SYNC_EN_MASK      0x8000
+#define WLANDXE_DMA_CSR_H2H_SYNC_EN_OFFSET    0x0F
+#define WLANDXE_DMA_CSR_H2H_SYNC_EN_DEFAULT   0x0
+
+#define WLANDXE_DMA_CSR_PAUSED_MASK           0x4000
+#define WLANDXE_DMA_CSR_PAUSED_OFFSET         0x0E
+#define WLANDXE_DMA_CSR_PAUSED_DEFAULT        0x0
+
+#define WLANDXE_DMA_CSR_ECTR_EN_MASK          0x2000
+#define WLANDXE_DMA_CSR_ECTR_EN_OFFSET        0x0D
+#define WLANDXE_DMA_CSR_ECTR_EN_DEFAULT       0x2000
+
+#define WLANDXE_DMA_CSR_B2H_TSTMP_OFF_MASK    0x1F00
+#define WLANDXE_DMA_CSR_B2H_TSTMP_OFF_OFFSET  0x08
+#define WLANDXE_DMA_CSR_B2H_TSTMP_OFF_DEFAULT 0x0F00
+
+#define WLANDXE_DMA_CSR_H2B_TSTMP_OFF_MASK    0xF8
+#define WLANDXE_DMA_CSR_H2B_TSTMP_OFF_OFFSET  0x03
+#define WLANDXE_DMA_CSR_H2B_TSTMP_OFF_DEFAULT 0x28
+
+#define WLANDXE_DMA_CSR_TSTMP_EN_MASK         0x04
+#define WLANDXE_DMA_CSR_TSTMP_EN_OFFSET       0x02
+#define WLANDXE_DMA_CSR_TSTMP_EN_DEFAULT      0x0
+
+#define WLANDXE_DMA_CCU_DXE_RESET_MASK        0x4
+#else
 #define WLANDXE_DMA_CSR_RESERVED_MASK         0xFFFE0000
 #define WLANDXE_DMA_CSR_RESERVED_OFFSET       0x11
 #define WLANDXE_DMA_CSR_RESERVED_DEFAULT      0x0
@@ -214,6 +247,7 @@ when           who        what, where, why
 #define WLANDXE_DMA_CSR_RESET_MASK            0x4
 #define WLANDXE_DMA_CSR_RESET_OFFSET          0x2
 #define WLANDXE_DMA_CSR_RESET_DEFAULT         0x0
+#endif /* WCN_PRONTO */
 
 #define WLANDXE_DMA_CSR_PAUSE_MASK            0x2
 #define WLANDXE_DMA_CSR_PAUSE_OFFSET          0x1
@@ -222,7 +256,11 @@ when           who        what, where, why
 #define WLANDXE_DMA_CSR_EN_MASK               0x1
 #define WLANDXE_DMA_CSR_EN_OFFSET             0x0
 #define WLANDXE_DMA_CSR_EN_DEFAULT            0x0
-#define WLANDXE_DMA_CSR_DEFAULT               0x4E50
+
+/* DXE CSR Master enable register value */
+#define WLANDXE_CSR_DEFAULT_ENABLE            (WLANDXE_DMA_CSR_H2H_SYNC_EN_MASK | \
+                                               WLANDXE_DMA_CSR_ECTR_EN_MASK | \
+                                               WLANDXE_DMA_CSR_EN_MASK)
 
 /* Channel CTRL Register Control mask and offset */
 #define WLANDXE_CH_CTRL_RSVD_MASK             0x80000000
@@ -376,6 +414,8 @@ when           who        what, where, why
 #define WLANDXE_CH_STAT_INT_DONE_MASK   0x00008000
 #define WLANDXE_CH_STAT_INT_ERR_MASK    0x00004000
 #define WLANDXE_CH_STAT_INT_ED_MASK     0x00002000
+#define WLANDXE_CH_STAT_ERR_CODE_MASK   0x000007c0
+#define WLANDXE_CH_STAT_ERR_CODE_OFFSET (6)
 
 #define WLANDXE_CH_STAT_MASKED_MASK     0x00000008
 #define WLANDXE_CH_STAT_ENABLED_MASK    0x00000001
@@ -393,6 +433,37 @@ when           who        what, where, why
 #define WLANDXE_INT_MASK_CHAN_6          0x00000040
 
 #define WLANDXE_TX_LOW_RES_THRESHOLD     (5)
+
+typedef enum {
+   WLANDXE_ERROR_NONE                = 0,
+   WLANDXE_ERROR_SAHB_ERR            = 1,
+   WLANDXE_ERROR_H2H_RD_BUS_ERR      = 2,
+   WLANDXE_ERROR_H2H_WR_BUS_ERR      = 3,
+   WLANDXE_ERROR_PRG_INV_XTYPE       = 4,
+   WLANDXE_ERROR_BERR_POPWQ          = 5,
+   WLANDXE_ERROR_BERR_PUSHWQ         = 6,
+   WLANDXE_ERROR_BERR_RLSS           = 7,
+   WLANDXE_ERROR_BERR_GETPDU         = 8,
+   WLANDXE_ERROR_PRG_INV_WQ          = 9,
+   WLANDXE_ERROR_PRG_INV_H2H_SRC_QID = 10,
+   WLANDXE_ERROR_PRG_INV_H2H_DST_QID = 11,
+   WLANDXE_ERROR_PRG_INV_B2H_SRC_QID = 12,
+   WLANDXE_ERROR_PRG_INV_B2H_DST_QID = 13,
+   WLANDXE_ERROR_PRG_INV_B2H_SRC_IDX = 14,
+   WLANDXE_ERROR_PRG_INV_H2B_SRC_QID = 15,
+   WLANDXE_ERROR_PRG_INV_H2B_DST_QID = 16,
+   WLANDXE_ERROR_PRG_INV_H2B_DST_IDX = 17,
+   WLANDXE_ERROR_PRG_INV_H2B_SZ      = 18,
+   WLANDXE_ERROR_PRG_INV_SADR        = 19,
+   WLANDXE_ERROR_PRG_INV_DADR        = 20,
+   WLANDXE_ERROR_PRG_INV_EDADR       = 21,
+   WLANDXE_ERROR_PRG_INV_SRC_WQID    = 22,
+   WLANDXE_ERROR_PRG_INV_DST_WQID    = 23,
+   WLANDXE_ERROR_PRG_XTYPE_MSMTCH    = 24,
+   WLANDXE_ERROR_PKT_ERR             = 25,
+   WLANDXE_ERROR_ABORT               = 26,
+   WLANDXE_ERROR_PDU_CNT_OVFL        = 27,
+}WLANDXE_ErrorCode;
 
 /* DXE Descriptor Endian swap macro */
 #ifdef WLANDXE_ENDIAN_SWAP_ENABLE
@@ -642,6 +713,9 @@ typedef struct
    wpt_packet                     *freeRXPacket;
    wpt_boolean                     rxPalPacketUnavailable;
    wpt_boolean                     driverReloadInProcessing;
+   wpt_boolean                     smsmToggled;
+   wpt_timer                       rxResourceAvailableTimer;
+   wpt_timer                       dxeSSRTimer;
 } WLANDXE_CtrlBlkType;
 
 /*==========================================================================

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -74,6 +74,9 @@
   Preprocessor definitions and constants
   -------------------------------------------------------------------------*/
 
+/* max length of command string in hostapd ioctl */
+#define HOSTAPD_IOCTL_COMMAND_STRLEN_MAX   2048
+
 hdd_adapter_t* hdd_wlan_create_ap_dev( hdd_context_t *pHddCtx, tSirMacAddr macAddr, tANI_U8 *name);
 
 VOS_STATUS hdd_register_hostapd(hdd_adapter_t *pAdapter, tANI_U8 rtnl_held);
@@ -108,5 +111,5 @@ int hdd_softap_unpackIE( tHalHandle halHandle,
 VOS_STATUS hdd_hostapd_SAPEventCB( tpSap_Event pSapEvent, v_PVOID_t usrDataForCallback);
 VOS_STATUS hdd_init_ap_mode( hdd_adapter_t *pAdapter );
 void hdd_set_ap_ops( struct net_device *pWlanHostapdDev );
-
+int hdd_hostapd_stop (struct net_device *dev);
 #endif    // end #if !defined( WLAN_HDD_HOSTAPD_H )

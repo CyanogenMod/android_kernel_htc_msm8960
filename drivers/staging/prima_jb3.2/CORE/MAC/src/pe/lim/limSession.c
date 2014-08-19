@@ -129,15 +129,16 @@ tpPESession peCreateSession(tpAniSirGlobal pMac, tANI_U8 *bssid , tANI_U8* sessi
             if (eHAL_STATUS_SUCCESS != palAllocateMemory(pMac->hHdd,
                      (void **) &pMac->lim.gpSession[i].dph.dphHashTable.pHashTable, sizeof(tpDphHashNode)*numSta))
             {
-                limLog(pMac, LOGE, FL("memory allocate failed!\n"));
+                limLog(pMac, LOGE, FL("memory allocate failed!"));
                 return NULL;
             }
 
             if (eHAL_STATUS_SUCCESS != palAllocateMemory(pMac->hHdd,
                   (void **) &pMac->lim.gpSession[i].dph.dphHashTable.pDphNodeArray, sizeof(tDphHashNode)*numSta))
             {
-                limLog(pMac, LOGE, FL("memory allocate failed!\n"));
+                limLog(pMac, LOGE, FL("memory allocate failed!"));
                 palFreeMemory(pMac->hHdd,pMac->lim.gpSession[i].dph.dphHashTable.pHashTable);
+                pMac->lim.gpSession[i].dph.dphHashTable.pHashTable = NULL;
                 return NULL;
             }
             pMac->lim.gpSession[i].dph.dphHashTable.size = numSta;
@@ -149,9 +150,11 @@ tpPESession peCreateSession(tpAniSirGlobal pMac, tANI_U8 *bssid , tANI_U8* sessi
                     (void **) &pMac->lim.gpSession[i].gpLimPeerIdxpool, 
                     sizeof(*pMac->lim.gpSession[i].gpLimPeerIdxpool) * (numSta+1)))
             {
-                PELOGE(limLog(pMac, LOGE, FL("memory allocate failed!\n"));)
+                PELOGE(limLog(pMac, LOGE, FL("memory allocate failed!"));)
                 palFreeMemory(pMac->hHdd,pMac->lim.gpSession[i].dph.dphHashTable.pHashTable);
                 palFreeMemory(pMac->hHdd,pMac->lim.gpSession[i].dph.dphHashTable.pDphNodeArray);
+                pMac->lim.gpSession[i].dph.dphHashTable.pHashTable = NULL;
+                pMac->lim.gpSession[i].dph.dphHashTable.pDphNodeArray = NULL;
                 return NULL;
             }
             palZeroMemory(pMac->hHdd, pMac->lim.gpSession[i].gpLimPeerIdxpool,

@@ -1,4 +1,4 @@
-/*
+ *
  * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
@@ -17,7 +17,7 @@
  * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
  * TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
- */
+ *
 * Copyright (c) 2012, The Linux Foundation. All rights reserved.
 *
 * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
@@ -789,10 +789,10 @@ SCH
 WNI_CFG_FIXED_RATE  I   4   0
 V    RW    NP
 HAL
-0    31     0
+0    44     0
 V    RW    NP
 HAL
-0    31     0
+0    44     0
 
 #ENUM AUTO 	                                0
 
@@ -832,6 +832,19 @@ HAL
 #ENUM 0_5MBPS_SLR_20MHZ_SIMO                30
 
 #ENUM 68_25MBPS_QC_PROP_20MHZ_SIMO          31
+#ENUM 54MBPS_MCS3_40MHZ_SIMO                32
+#ENUM 81MBPS_MCS4_40MHZ_SIMO                33
+#ENUM 108MBPS_MCS5_40MHZ_SIMO               34
+#ENUM 121_5MBPS_MCS6_40MHZ_SIMO             35
+#ENUM 135MBPS_MCS7_40MHZ_SIMO               36
+#ENUM 15MBPS_MCS0_40MHZ_SIMO_SGI            37
+#ENUM 30MBPS_MCS1_40MHZ_SIMO_SGI            38
+#ENUM 45MBPS_MCS2_40MHZ_SIMO_SGI            39
+#ENUM 60MBPS_MCS3_40MHZ_SIMO_SGI            40
+#ENUM 90MBPS_MCS4_40MHZ_SIMO_SGI            41
+#ENUM 120MBPS_MCS5_40MHZ_SIMO_SGI           42
+#ENUM 135MBPS_MCS6_40MHZ_SIMO_SGI           43
+#ENUM 150MBPS_MCS7_40MHZ_SIMO_SGI           44
 
 * *********************************************************
 *
@@ -2988,10 +3001,10 @@ LIM
 WNI_CFG_VHT_RX_HIGHEST_SUPPORTED_DATA_RATE  I    4    19
 V    RW    NP    
 LIM
-1    434   434
+0    390   0
 V    RW    NP    
 LIM
-1    434   434
+0    390   0
 
 *
 * Tx Highest supported data rate.
@@ -2999,10 +3012,10 @@ LIM
 WNI_CFG_VHT_TX_HIGHEST_SUPPORTED_DATA_RATE  I    4    19
 V    RW    NP    
 LIM
-1    434    434
+0    390    0
 V    RW    NP    
 LIM
-1    434    434
+0    390    0
 
 *
 * VHT Operation Information
@@ -3458,6 +3471,19 @@ LIM
 V    RW    NP  RESTART
 LIM
 0    0xff    0
+
+*
+* Delete all Rx BA sessions in 2.4 GHz
+* when BTC requests to disable agg.
+*
+WNI_CFG_DEL_ALL_RX_BA_SESSIONS_2_4_G_BTC I    4    7
+V    RW    NP
+LIM
+0    1    0
+V    RW    NP
+LIM
+0    1    0
+
 
 *
 * Valid Channel List
@@ -4485,3 +4511,57 @@ HAL
 V    RW    NP
 HAL
 1    255    3
+
+*
+* BTC Active WLAN Len
+*
+WNI_CFG_BTC_ACTIVE_WLAN_LEN    I    4    7
+V    RW    NP
+HAL
+0    250000    60000
+V    RW    NP
+HAL
+0    250000    60000
+
+*
+* BTC Active BT Len
+*
+WNI_CFG_BTC_ACTIVE_BT_LEN    I    4    7
+V    RW    NP
+HAL
+0    250000    90000
+V    RW    NP
+HAL
+0    250000    90000
+
+*
+* BTC SAP Active WLAN Len
+*
+WNI_CFG_BTC_SAP_ACTIVE_WLAN_LEN    I    4    7
+V    RW    NP
+HAL
+0    250000    60000
+V    RW    NP
+HAL
+0    250000    60000
+
+*
+* BTC SAP Active BT Len
+*
+WNI_CFG_BTC_SAP_ACTIVE_BT_LEN    I    4    7
+V    RW    NP
+HAL
+0    250000    90000
+V    RW    NP
+HAL
+0    250000    90000
+
+* Debug p2p remain on channel
+*
+WNI_CFG_DEBUG_P2P_REMAIN_ON_CHANNEL    I    4    7
+V    RW    NP
+NONE
+0    1    0
+V    RW    NP
+NONE
+0    1    0
