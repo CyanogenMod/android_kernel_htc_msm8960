@@ -1,5 +1,25 @@
 /*
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ *
+ * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
+ *
+ *
+ * Permission to use, copy, modify, and/or distribute this software for
+ * any purpose with or without fee is hereby granted, provided that the
+ * above copyright notice and this permission notice appear in all
+ * copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+ * WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
+ * AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
+ * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
+ * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+ * TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
+ */
+/*
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -24,7 +44,7 @@
  */
 
 /*
- * DO NOT EDIT - This file is generated automaticlly
+ * DO NOT EDIT - This file is generated automatically
  */
 
 /*
@@ -202,8 +222,41 @@ unsigned char *gCfgParamName[] = {
     (unsigned char *)"BASIC_MCS_SET",
     (unsigned char *)"CURRENT_MCS_SET",
     (unsigned char *)"GREENFIELD_CAPABILITY",
+    (unsigned char *)"VHT_MAX_MPDU_LENGTH",
+    (unsigned char *)"VHT_SUPPORTED_CHAN_WIDTH_SET",
+    (unsigned char *)"VHT_LDPC_CODING_CAP",
+    (unsigned char *)"VHT_SHORT_GI_80MHZ",
+    (unsigned char *)"VHT_SHORT_GI_160_AND_80_PLUS_80MHZ",
+    (unsigned char *)"VHT_TXSTBC",
+    (unsigned char *)"VHT_RXSTBC",
+    (unsigned char *)"VHT_SU_BEAMFORMER_CAP",
+    (unsigned char *)"VHT_SU_BEAMFORMEE_CAP",
+    (unsigned char *)"VHT_CSN_BEAMFORMEE_ANT_SUPPORTED",
+    (unsigned char *)"VHT_NUM_SOUNDING_DIMENSIONS",
+    (unsigned char *)"VHT_MU_BEAMFORMER_CAP",
+    (unsigned char *)"VHT_MU_BEAMFORMEE_CAP",
+    (unsigned char *)"VHT_TXOP_PS",
+    (unsigned char *)"VHT_HTC_VHTC_CAP",
+    (unsigned char *)"VHT_AMPDU_LEN_EXPONENT",
+    (unsigned char *)"VHT_LINK_ADAPTATION_CAP",
+    (unsigned char *)"VHT_RX_ANT_PATTERN",
+    (unsigned char *)"VHT_TX_ANT_PATTERN",
+    (unsigned char *)"VHT_RX_MCS_MAP",
+    (unsigned char *)"VHT_TX_MCS_MAP",
+    (unsigned char *)"VHT_RX_HIGHEST_SUPPORTED_DATA_RATE",
+    (unsigned char *)"VHT_TX_HIGHEST_SUPPORTED_DATA_RATE",
+    (unsigned char *)"VHT_CHANNEL_WIDTH",
+    (unsigned char *)"VHT_CHANNEL_CENTER_FREQ_SEGMENT1",
+    (unsigned char *)"VHT_CHANNEL_CENTER_FREQ_SEGMENT2",
+    (unsigned char *)"VHT_BASIC_MCS_SET",
+    (unsigned char *)"VHT_MU_MIMO_CAP_STA_COUNT",
+    (unsigned char *)"VHT_SS_UNDER_UTIL",
+    (unsigned char *)"VHT_40MHZ_UTILIZATION",
+    (unsigned char *)"VHT_80MHZ_UTILIZATION",
+    (unsigned char *)"VHT_160MHZ_UTILIZATION",
     (unsigned char *)"MAX_AMSDU_LENGTH",
     (unsigned char *)"MPDU_DENSITY",
+    (unsigned char *)"NUM_BUFF_ADVERT",
     (unsigned char *)"MAX_RX_AMPDU_FACTOR",
     (unsigned char *)"SHORT_GI_20MHZ",
     (unsigned char *)"SHORT_GI_40MHZ",
@@ -211,7 +264,6 @@ unsigned char *gCfgParamName[] = {
     (unsigned char *)"MAX_PS_POLL",
     (unsigned char *)"NUM_BEACON_PER_RSSI_AVERAGE",
     (unsigned char *)"RSSI_FILTER_PERIOD",
-    (unsigned char *)"FT_RSSI_FILTER_PERIOD",
     (unsigned char *)"MIN_RSSI_THRESHOLD",
     (unsigned char *)"NTH_BEACON_FILTER",
     (unsigned char *)"BROADCAST_FRAME_FILTER_ENABLE",
@@ -292,6 +344,17 @@ unsigned char *gCfgParamName[] = {
     (unsigned char *)"ENABLE_LTE_COEX",
     (unsigned char *)"AP_KEEP_ALIVE_TIMEOUT",
     (unsigned char *)"GO_KEEP_ALIVE_TIMEOUT",
+    (unsigned char *)"ENABLE_MC_ADDR_LIST",
+    (unsigned char *)"ENABLE_UC_FILTER",
+    (unsigned char *)"ENABLE_LPWR_IMG_TRANSITION",
+    (unsigned char *)"ENABLE_MCC_ADAPTIVE_SCHED",
+    (unsigned char *)"DISABLE_LDPC_WITH_TXBF_AP",
+    (unsigned char *)"AP_LINK_MONITOR_TIMEOUT",
+    (unsigned char *)"BTC_ACTIVE_WLAN_LEN",
+    (unsigned char *)"BTC_ACTIVE_BT_LEN",
+    (unsigned char *)"BTC_SAP_ACTIVE_WLAN_LEN",
+    (unsigned char *)"BTC_SAP_ACTIVE_BT_LEN",
+    (unsigned char *)"DEBUG_P2P_REMAIN_ON_CHANNEL",
 };
 
 
