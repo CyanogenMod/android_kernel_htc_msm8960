@@ -330,14 +330,18 @@ void limPerformFTPreAuth(tpAniSirGlobal pMac, eHalStatus status, tANI_U32 *data,
         // Only 11r assoc has FT IEs.
         if (pMac->ft.ftPEContext.pFTPreAuthReq->ft_ies == NULL) 
         {
-            PELOGE(limLog( pMac, LOGE, "%s: FTIEs for Auth Req Seq 1 is absent");)
-            return;
+            PELOGE(limLog( pMac, LOGE,
+                           "%s: FTIEs for Auth Req Seq 1 is absent",
+                           __func__);)
+            goto preauth_fail;
         }
     }
     if (status != eHAL_STATUS_SUCCESS) 
     {
-        PELOGE(limLog( pMac, LOGE, "%s: Change channel not successful for FT pre-auth");)
-        return;
+        PELOGE(limLog( pMac, LOGE,
+                       "%s: Change channel not successful for FT pre-auth",
+                       __func__);)
+        goto preauth_fail;
     }
     pMac->ft.ftPEContext.psavedsessionEntry = psessionEntry;
 
@@ -383,6 +387,9 @@ MTRACE(macTrace(pMac, TRACE_CODE_TIMER_ACTIVATE, psessionEntry->peSessionId, eLI
         pMac->ft.ftPEContext.pFTPreAuthReq->preAuthbssId,
         LIM_NO_WEP_IN_FC, psessionEntry);
 
+    return;
+preauth_fail:
+    limHandleFTPreAuthRsp(pMac, eSIR_FAILURE, NULL, 0, psessionEntry);
     return;
 }
 
