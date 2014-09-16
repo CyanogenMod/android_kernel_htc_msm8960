@@ -30,6 +30,7 @@
 #include <asm/mach/mmc.h>
 #include <mach/msm_iomap.h>
 #include <linux/mfd/pm8xxx/pm8038.h>
+#include <mach/htc_sleep_clk.h>
 #include "board-8930.h"
 #include "board-storage-common-a.h"
 
@@ -169,6 +170,7 @@ int m4_wifi_power(int on)
 				  ARRAY_SIZE(wifi_off_gpio_table));
 	}
 
+	htc_wifi_bt_sleep_clk_ctl(on, ID_WIFI);
 	mdelay(1);
 	gpio_set_value(MSM_WL_REG_ON, on);
 
