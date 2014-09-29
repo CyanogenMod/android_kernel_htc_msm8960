@@ -15,7 +15,6 @@
 #include <linux/io.h>
 #include <linux/irq.h>
 #include <linux/i2c.h>
-#include <linux/i2c/sx150x.h>
 #include <linux/i2c/isl9519.h>
 #include <linux/gpio.h>
 #include <linux/msm_ssbi.h>
@@ -32,12 +31,9 @@
 #include <linux/dma-contiguous.h>
 #include <linux/dma-mapping.h>
 #include <linux/platform_data/qcom_crypto_device.h>
-#include <linux/platform_data/qcom_wcnss_device.h>
 #include <linux/leds.h>
 #include <linux/leds-pm8038.h>
 #include <linux/msm_tsens.h>
-#include <linux/ks8851.h>
-#include <linux/i2c/isa1200.h>
 #include <linux/gpio_keys.h>
 #include <linux/memory.h>
 #include <linux/memblock.h>
@@ -57,11 +53,7 @@
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
 #include <mach/msm_spi.h>
-#ifdef CONFIG_USB_MSM_OTG_72K
-#include <mach/msm_hsusb.h>
-#else
 #include <linux/usb/msm_hsusb.h>
-#endif
 #include <linux/usb/android.h>
 #include <mach/usbdiag.h>
 #include <mach/socinfo.h>
@@ -76,10 +68,13 @@
 
 #include <linux/msm_ion.h>
 #include <mach/ion.h>
-#include <mach/mdm2.h>
+#ifdef CONFIG_MSM_RTB
 #include <mach/msm_rtb.h>
+#endif
 #include <linux/fmem.h>
+#ifdef CONFIG_MSM_CACHE_DUMP
 #include <mach/msm_cache_dump.h>
+#endif
 #include <mach/iommu_domains.h>
 
 #include <mach/kgsl.h>
@@ -135,25 +130,6 @@ static struct platform_device msm_fm_platform_init = {
 	.id   = -1,
 };
 
-#define KS8851_RST_GPIO		89
-#define KS8851_IRQ_GPIO		90
-#define HAP_SHIFT_LVL_OE_GPIO	47
-
-#if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)
-
-struct sx150x_platform_data msm8930_sx150x_data[] = {
-	[SX150X_CAM] = {
-		.gpio_base         = GPIO_CAM_EXPANDER_BASE,
-		.oscio_is_gpo      = false,
-		.io_pullup_ena     = 0x0,
-		.io_pulldn_ena     = 0xc0,
-		.io_open_drain_ena = 0x0,
-		.irq_summary       = -1,
-	},
-};
-
-#endif
-
 #define MSM_PMEM_ADSP_SIZE         0x7800000
 #define MSM_PMEM_AUDIO_SIZE        0x4CF000
 #ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
@@ -181,11 +157,6 @@ struct sx150x_platform_data msm8930_sx150x_data[] = {
 #define MSM_ION_MFC_SIZE	SZ_8K
 #define MSM_ION_AUDIO_SIZE	MSM_PMEM_AUDIO_SIZE
 
-#define MSM_LIQUID_ION_MM_SIZE (MSM_ION_MM_SIZE + 0x600000)
-#define MSM_LIQUID_ION_SF_SIZE MSM_LIQUID_PMEM_SIZE
-#define MSM_HDMI_PRIM_ION_SF_SIZE MSM_HDMI_PRIM_PMEM_SIZE
-
-#define MSM_MM_FW_SIZE	(0x200000 - HOLE_SIZE) /*2MB -128Kb */
 #define MSM8930_FIXED_AREA_START (0xa0000000 - (MSM_ION_MM_FW_SIZE + \
 								HOLE_SIZE))
 #define MAX_FIXED_AREA_SIZE	0x10000000
@@ -807,7 +778,7 @@ static struct htc_battery_platform_data htc_battery_pdev_data = {
 #endif
 	.critical_low_voltage_mv = 3100,
 	.critical_alarm_vol_ptr = critical_alarm_voltage_mv,
-	.critical_alarm_vol_cols = sizeof(critical_alarm_voltage_mv) / sizeof(int), 
+	.critical_alarm_vol_cols = sizeof(critical_alarm_voltage_mv) / sizeof(int),
 	.overload_vol_thr_mv = 4000,
 	.overload_curr_thr_ma = 0,
 	.smooth_chg_full_delay_min = 1,
@@ -1177,7 +1148,6 @@ static struct htc_battery_cell htc_battery_cells[] = {
 
 #define TFA9887_I2C_SLAVE_ADDR  (0x68 >> 1)
 #define TFA9887L_I2C_SLAVE_ADDR (0x6A >> 1)
-#define TPA6185_I2C_SLAVE_ADDR	(0xC6 >> 1)
 #define RT5501_I2C_SLAVE_ADDR	(0xF0 >> 1)
 
 #ifdef CONFIG_AMP_RT5501
@@ -1293,48 +1263,6 @@ static struct slim_boardinfo msm_slim_devices[] = {
 		.slim_slave = &msm_slim_sitar,
 	},
 #endif
-};
-
-#define MSM_WCNSS_PHYS	0x03000000
-#define MSM_WCNSS_SIZE	0x280000
-
-static struct resource resources_wcnss_wlan[] = {
-	{
-		.start	= RIVA_APPS_WLAN_RX_DATA_AVAIL_IRQ,
-		.end	= RIVA_APPS_WLAN_RX_DATA_AVAIL_IRQ,
-		.name	= "wcnss_wlanrx_irq",
-		.flags	= IORESOURCE_IRQ,
-	},
-	{
-		.start	= RIVA_APPS_WLAN_DATA_XFER_DONE_IRQ,
-		.end	= RIVA_APPS_WLAN_DATA_XFER_DONE_IRQ,
-		.name	= "wcnss_wlantx_irq",
-		.flags	= IORESOURCE_IRQ,
-	},
-	{
-		.start	= MSM_WCNSS_PHYS,
-		.end	= MSM_WCNSS_PHYS + MSM_WCNSS_SIZE - 1,
-		.name	= "wcnss_mmio",
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.start	= 84,
-		.end	= 88,
-		.name	= "wcnss_gpios_5wire",
-		.flags	= IORESOURCE_IO,
-	},
-};
-
-static struct qcom_wcnss_opts qcom_wcnss_pdata = {
-	.has_48mhz_xo	= 1,
-};
-
-static struct platform_device msm_device_wcnss_wlan = {
-	.name		= "wcnss_wlan",
-	.id		= 0,
-	.num_resources	= ARRAY_SIZE(resources_wcnss_wlan),
-	.resource	= resources_wcnss_wlan,
-	.dev		= {.platform_data = &qcom_wcnss_pdata},
 };
 
 #ifdef CONFIG_QSEECOM
@@ -1502,7 +1430,7 @@ static struct platform_device qcrypto_device = {
 };
 #endif
 
-int64_t k2_m4_get_usbid_adc(void)
+static int64_t k2_m4_get_usbid_adc(void)
 {
 	struct pm8xxx_adc_chan_result result;
 	int err = 0, adc =0;
@@ -1553,17 +1481,6 @@ static struct platform_device cable_detect_device = {
 		.platform_data = &cable_detect_pdata,
 	},
 };
-
-void m4_cable_detect_register(void)
-{
-	platform_device_register(&cable_detect_device);
-}
-
-void pm8xxx_adc_device_driver_register(void)
-{
-	pr_info("%s: Register PM8XXX ADC device. rev: %d\n",
-		__func__, system_rev);
-}
 
 #if defined(CONFIG_CRYPTO_DEV_QCEDEV) || \
 		defined(CONFIG_CRYPTO_DEV_QCEDEV_MODULE)
@@ -1669,7 +1586,7 @@ static uint16_t msm_mpm_bypassed_apps_irqs[] __initdata = {
 	RIVA_APPS_WLAN_DATA_XFER_DONE_IRQ,
 };
 
-struct msm_mpm_device_data msm8930_mpm_dev_data __initdata = {
+static struct msm_mpm_device_data msm8930_mpm_dev_data __initdata = {
 	.irqs_m2a = msm_mpm_irqs_m2a,
 	.irqs_m2a_size = ARRAY_SIZE(msm_mpm_irqs_m2a),
 	.bypassed_apps_irqs = msm_mpm_bypassed_apps_irqs,
@@ -1842,10 +1759,6 @@ static struct msm_spi_platform_data msm8930_qup_spi_gsbi10_pdata = {
 	.max_clock_speed = 27000000,
 };
 
-#ifdef CONFIG_USB_MSM_OTG_72K
-static struct msm_otg_platform_data msm_otg_pdata;
-#else
-
 static int msm_hsusb_vbus_power(bool on)
 {
 	static int prev_on;
@@ -1933,7 +1846,6 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.bus_scale_table	= &usb_bus_scale_pdata,
 #endif
 };
-#endif
 
 #define PID_MAGIC_ID		0x71432909
 #define SERIAL_NUM_MAGIC_ID	0x61945374
@@ -2901,17 +2813,6 @@ static struct msm_i2c_platform_data msm8960_i2c_qup_gsbi5_pdata = {
 	.src_clk_rate = 24000000,
 };
 
-#if defined(CONFIG_MSM_CAMERA) && defined(CONFIG_RAWCHIP)
-static struct spi_board_info rawchip_spi_board_info[] __initdata = {
-	{
-		.modalias               = "spi_rawchip",
-		.max_speed_hz           = 27000000,
-		.bus_num                = 1,
-		.chip_select            = 0,
-		.mode                   = SPI_MODE_0,
-	},
-};
-#endif
 #if defined(CONFIG_MSM_CAMERA) && defined(CONFIG_RAWCHIPII)
 static struct spi_board_info rawchip2_spi_board_info[] __initdata = {
 	{
@@ -2960,33 +2861,6 @@ static struct msm_thermal_data msm_thermal_pdata = {
 	.freq_step = 2,
 };
 
-#ifdef CONFIG_MSM_FAKE_BATTERY
-static struct platform_device fish_battery_device = {
-	.name = "fish_battery",
-};
-#endif
-
-#ifndef MSM8930_PHASE_2
-
-/* 8930 Phase 1 */
-static struct platform_device msm8930_device_ext_5v_vreg __devinitdata = {
-	.name	= GPIO_REGULATOR_DEV_NAME,
-	.id	= PM8921_MPP_PM_TO_SYS(7),
-	.dev	= {
-		.platform_data = &msm_gpio_regulator_pdata[GPIO_VREG_ID_EXT_5V],
-	},
-};
-
-static struct platform_device msm8930_device_ext_l2_vreg __devinitdata = {
-	.name	= GPIO_REGULATOR_DEV_NAME,
-	.id	= 91,
-	.dev	= {
-		.platform_data = &msm_gpio_regulator_pdata[GPIO_VREG_ID_EXT_L2],
-	},
-};
-
-#else
-
 /* 8930 Phase 2 */
 static struct platform_device msm8930_device_ext_5v_vreg __devinitdata = {
 	.name	= GPIO_REGULATOR_DEV_NAME,
@@ -2997,17 +2871,11 @@ static struct platform_device msm8930_device_ext_5v_vreg __devinitdata = {
 	},
 };
 
-#endif
-
 static struct platform_device m4_device_rpm_regulator __devinitdata = {
 	.name	= "rpm-regulator",
 	.id	= -1,
 	.dev	= {
-#ifndef MSM8930_PHASE_2
-		.platform_data = &msm_rpm_regulator_pdata,
-#else
-		.platform_data = &m4_rpm_regulator_pdata,
-#endif
+	.platform_data = &m4_rpm_regulator_pdata,
 	},
 };
 
@@ -3063,13 +2931,8 @@ static struct platform_device *common_devices[] __initdata = {
 	&m4_rfkill,
 #endif
 	&msm_device_smd,
-#ifndef MSM8930_PHASE_2
-	&msm8930_device_ext_l2_vreg,
-#endif
 	&msm8960_device_ssbi_pmic,
-#ifdef MSM8930_PHASE_2
 	&msm8930_device_ext_5v_vreg,
-#endif
 	&msm8960_device_otg,
 	&msm8960_device_gadget_peripheral,
 	&msm_device_hsusb_host,
@@ -3080,7 +2943,6 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_pil_tzapps,
 	&msm_pil_vidc,
 	&msm_slim_ctrl,
-	&msm_device_wcnss_wlan,
 #if defined(CONFIG_QSEECOM)
 	&qseecom_device,
 #endif
@@ -3093,9 +2955,6 @@ static struct platform_device *common_devices[] __initdata = {
 #if defined(CONFIG_CRYPTO_DEV_QCEDEV) || \
 		defined(CONFIG_CRYPTO_DEV_QCEDEV_MODULE)
 	&qcedev_device,
-#endif
-#ifdef CONFIG_MSM_FAKE_BATTERY
-	&fish_battery_device,
 #endif
 #ifdef CONFIG_ANDROID_PMEM
 #ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
@@ -3152,13 +3011,6 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm8930_rpm_stat_device,
 	&msm8930_rpm_master_stat_device,
 	&msm_device_tz_log,
-#ifdef CONFIG_MSM_QDSS
-	&msm_qdss_device,
-	&msm_etb_device,
-	&msm_tpiu_device,
-	&msm_funnel_device,
-	&msm_etm_device,
-#endif
 	&msm_device_dspcrashd_8960,
 	&msm8930_rtb_device,
 	&msm_bus_8930_apps_fabric,
@@ -3174,9 +3026,6 @@ static struct platform_device *common_devices[] __initdata = {
 	&msm_tsens_device,
 #ifdef CONFIG_HTC_BATT_8960
 	&htc_battery_pdev,
-#endif
-#if defined(CONFIG_MSM_CAMERA) && defined(CONFIG_RAWCHIP)
-	&m4_msm_rawchip_device,
 #endif
 #if defined(CONFIG_MSM_CAMERA) && defined(CONFIG_RAWCHIPII)
 	&msm8930_msm_rawchip_device,
@@ -3226,14 +3075,6 @@ static struct msm_rpmrs_level msm_rpmrs_levels[] __initdata = {
 		true,
 		1, 784, 180000, 100,
 	},
-#if 0
-	{
-		MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE,
-		MSM_RPMRS_LIMITS(ON, ACTIVE, MAX, ACTIVE),
-		true,
-		1300, 228, 1200000, 2000,
-	},
-#endif
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
 		MSM_RPMRS_LIMITS(ON, GDHS, MAX, ACTIVE),
@@ -3627,9 +3468,6 @@ static struct mpu3050_platform_data mpu3050_data = {
 		.orientation = { -1, 0,  0,
 				  0, 1,  0,
 				  0, 0, -1 },
-#ifdef CONFIG_CIR_ALWAYS_READY
-		.irq = MSM_GPIO_TO_INT(MSM_GSENSOR_INT),
-#endif
 	},
 	.compass = {
 		.get_slave_descr = get_compass_slave_descr,
@@ -3791,9 +3629,6 @@ static void __init m4_init(void)
 	msm8930_init_gpiomux();
 	msm8930_device_qup_spi_gsbi10.dev.platform_data =
 				&msm8930_qup_spi_gsbi10_pdata;
-#ifdef CONFIG_RAWCHIP
-	spi_register_board_info(rawchip_spi_board_info, ARRAY_SIZE(rawchip_spi_board_info));
-#endif
 #ifdef CONFIG_RAWCHIPII
 	spi_register_board_info(rawchip2_spi_board_info, ARRAY_SIZE(rawchip2_spi_board_info));
 #endif
@@ -3804,7 +3639,7 @@ static void __init m4_init(void)
 	msm_spm_l2_init(msm_spm_l2_data);
 	m4_init_buses();
 
-	m4_cable_detect_register();
+	platform_device_register(&cable_detect_device);
 
 #ifdef CONFIG_HTC_BATT_8960
 	htc_battery_cell_init(htc_battery_cells, ARRAY_SIZE(htc_battery_cells));

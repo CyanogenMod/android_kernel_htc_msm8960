@@ -5,7 +5,6 @@
 #include <mach/board.h>
 #include "mipi_m4.h"
 
-struct dcs_cmd_req cmdreq;
 static struct mipi_dsi_panel_platform_data *mipi_m4_pdata;
 
 static struct dsi_cmd_desc *init_on_cmds = NULL;
@@ -44,12 +43,6 @@ static char cabc_UI[] = {
 	0xCA, 0x2D, 0x27, 0x26,
 	0x25, 0x25, 0x25, 0x21,
 	0x20, 0x20};
-#ifdef CONFIG_MSM_CABC_VIDEO_ENHANCE
-static char cabc_moving[] = {
-	0xCA, 0x40, 0x3C, 0x38,
-	0x34, 0x33, 0x32, 0x2D,
-	0x24, 0x20};
-#endif
 static char himax_e3[] = {0xE3, 0x01};
 static char himax_e5[] = {
 	0xE5, 0x00, 0x04, 0x0B,
@@ -366,15 +359,6 @@ static struct dsi_cmd_desc sharp_hx_cmd_backlight_cmds[] = {
 		sizeof(led_pwm1), led_pwm1},
 };
 
-#ifdef CONFIG_MSM_CABC_VIDEO_ENHANCE
-static struct dsi_cmd_desc cabc_UI_cmds[] = {
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 1,  sizeof(cabc_UI), cabc_UI},
-};
-static struct dsi_cmd_desc cabc_moving_cmds[] = {
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 1,  sizeof(cabc_moving), cabc_moving},
-};
-#endif
-
 static int m4_send_display_cmds(struct dsi_cmd_desc *cmd, int cnt, bool clk_ctrl)
 {
 	int ret = 0;
@@ -481,20 +465,6 @@ static int mipi_m4_display_off(struct platform_device *pdev)
 
 	return 0;
 }
-
-#ifdef CONFIG_MSM_CABC_VIDEO_ENHANCE
-static void m4_set_cabc(struct msm_fb_data_type *mfd, int mode)
-{
-	bool clk_ctrl = (mfd && mfd->panel_info_type == MIPI_CMD_PANEL);
-
-	pr_debug("%s: mode=%d\n",  __FUNCTION__, mode);
-
-	if (mode == 0)
-		m4_send_display_cmds(cabc_UI_cmds, ARRAY_SIZE(cabc_UI_cmds), clk_ctrl);
-	else
-		m4_send_display_cmds(cabc_moving_cmds, ARRAY_SIZE(cabc_moving_cmds), clk_ctrl);
-}
-#endif
 
 #define BRI_SETTING_MIN                 30
 #define BRI_SETTING_DEF                 142
@@ -605,9 +575,6 @@ static struct msm_fb_panel_data m4_panel_data = {
 	.set_backlight  = m4_set_backlight,
 	.late_init = mipi_m4_display_on,
 	.early_off = mipi_m4_display_off,
-#ifdef CONFIG_MSM_CABC_VIDEO_ENHANCE
-	.set_cabc	= m4_set_cabc,
-#endif
 };
 
 static int ch_used[3];
