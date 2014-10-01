@@ -14,8 +14,6 @@ extern struct gpio_regulator_platform_data
 
 extern struct rpm_regulator_platform_data
 	m4_rpm_regulator_pdata __devinitdata;
-extern struct rpm_regulator_platform_data
-	m4_DVT1_2_rpm_regulator_pdata __devinitdata;
 
 extern int m4_pm8038_regulator_pdata_len __devinitdata;
 extern struct pm8xxx_regulator_platform_data

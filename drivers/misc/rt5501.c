@@ -973,7 +973,6 @@ static struct miscdevice rt5501_device = {
 int rt5501_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	int ret = 0;
-        int err = 0;
 	MFG_MODE = board_mfg_mode();
 	pdata = client->dev.platform_data;
 
@@ -1000,10 +999,10 @@ int rt5501_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		goto err_free_gpio_all;
 	}
 
-	if(pdata->gpio_rt5501_spk_en) {
+	if(gpio_is_valid(pdata->gpio_rt5501_spk_en)) {
 		char temp[2];
 
-		err = gpio_request(pdata->gpio_rt5501_spk_en, "hp_en");
+		gpio_request(pdata->gpio_rt5501_spk_en, "hp_en");
 
 		ret = gpio_direction_output(pdata->gpio_rt5501_spk_en, 1);
 
@@ -1043,9 +1042,6 @@ int rt5501_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		rt5501_write_reg(0x1,0xc7);
 
 		gpio_direction_output(pdata->gpio_rt5501_spk_en, 0);
-
-		if(!err)
-			gpio_free(pdata->gpio_rt5501_spk_en);
 
 		if(ret < 0) {
 			pr_err("%s: gpio %d off error %d\n", __func__,pdata->gpio_rt5501_spk_en,ret);
@@ -1136,6 +1132,9 @@ static void rt5501_shutdown(struct i2c_client *client)
 			rt5501_query.s4status = AMP_S4_AUTO;
 		}
 	}
+
+	if(gpio_is_valid(pdata->gpio_rt5501_spk_en))
+		gpio_free(pdata->gpio_rt5501_spk_en);
 
         mutex_unlock(&rt5501_query.mlock);
 	mutex_unlock(&hp_amp_lock);

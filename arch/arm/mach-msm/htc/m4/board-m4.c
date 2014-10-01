@@ -3011,18 +3011,6 @@ static struct platform_device m4_device_rpm_regulator __devinitdata = {
 	},
 };
 
-static struct platform_device m4_DVT1_2_device_rpm_regulator __devinitdata = {
-	.name	= "rpm-regulator",
-	.id	= -1,
-	.dev	= {
-#ifndef MSM8930_PHASE_2
-		.platform_data = &msm_rpm_regulator_pdata,
-#else
-		.platform_data = &m4_DVT1_2_rpm_regulator_pdata,
-#endif
-	},
-};
-
 #ifdef CONFIG_BT
 static struct msm_serial_hs_platform_data msm_uart_dm6_pdata = {
 #ifndef CONFIG_SERIAL_MSM_HS_BRCM
@@ -3793,12 +3781,8 @@ static void __init m4_init(void)
 	regulator_suppress_info_printing();
 	if (msm_xo_init())
 		pr_err("Failed to initialize XO votes\n");
-	if (system_rev == 0x02 && skuid == 0x03)
-		platform_device_register(&m4_DVT1_2_device_rpm_regulator);
-	else if (system_rev == 0x02 && engineerid == 1)
-		platform_device_register(&m4_DVT1_2_device_rpm_regulator);
-	else
-		platform_device_register(&m4_device_rpm_regulator);
+
+	platform_device_register(&m4_device_rpm_regulator);
 
 	msm_clock_init(&msm8930_clock_init_data);
 	msm8960_device_otg.dev.platform_data = &msm_otg_pdata;

@@ -13,6 +13,7 @@ config HTC_CAMERA_HAL_VERSION
 	depends on MSM_CAMERA && MACH_HTC
 	int "HTC Camera HAL version support"
 	default 3 if ARCH_APQ8064 && MACH_M7_UL
+	default 3 if ARCH_APQ8064 && MACH_T6_UL
 	default 2 if ARCH_APQ8064 && MACH_MONARUDO
 	default 1 if !ARCH_APQ8064 && ARCH_MSM8960
 	---help---
@@ -21,6 +22,7 @@ config HTC_CAMERA_HAL_VERSION
 	  MSM8960 devices should use version 1
 	  MONARUDO should use version 2
 	  M7 should use version 3
+	  T6 should use version 3
 
 comment "Camera Sensor Selection"
 config MT9T013

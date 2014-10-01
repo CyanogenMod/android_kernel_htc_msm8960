@@ -17,25 +17,8 @@ static struct mipi_dsi_phy_ctrl dsi_sharp_cmd_mode_phy_db = {
 
 	{0x0, 0xdf, 0xb1, 0xda, 0x00, 0x50, 0x48, 0x63,
 	0x41, 0x0f, 0x01,
-	0x00, 0x14, 0x03, 0x00, 0x02, 0x00, 0x20, 0x00, 0x01},
+	0x00, 0x14, 0x03, 0x00, 0x02, 0x0e, 0x01, 0x00, 0x01},
 };
-
-#if 0
-static struct mipi_dsi_reg_set dsi_sharp_cmd_mode_reg_db[] = {
-	{0x0300, 0xC0},
-	{0x0304, 0xEF},
-	{0x0318, 0x00},
-	{0x0340, 0xC0},
-	{0x0344, 0xEF},
-	{0x0358, 0x00},
-	{0x0380, 0xC0},
-	{0x0384, 0xEF},
-	{0x0398, 0x00},
-	{0x0400, 0xC0},
-	{0x0404, 0xEF},
-	{0x0418, 0x88},
-};
-#endif
 
 static int __init mipi_cmd_m4_720p_pt_init(void)
 {
@@ -108,10 +91,6 @@ static int __init mipi_cmd_m4_720p_pt_init(void)
 	pinfo.mipi.wr_mem_start = 0x2c;
 	pinfo.mipi.tx_eot_append = 1;
 	pinfo.mipi.dsi_phy_db = &dsi_sharp_cmd_mode_phy_db;
-#if 0
-	pinfo.mipi.dsi_reg_db = dsi_sharp_cmd_mode_reg_db;
-	pinfo.mipi.dsi_reg_db_size = ARRAY_SIZE(dsi_sharp_cmd_mode_reg_db);
-#endif
 	pinfo.mipi.dlane_swap = 0x00;
 
 	ret = mipi_m4_device_register(&pinfo, MIPI_DSI_PRIM,
@@ -119,7 +98,6 @@ static int __init mipi_cmd_m4_720p_pt_init(void)
 
 	if (ret)
 		pr_err("%s: failed to register device!\n", __func__);
-
 
 	return ret;
 }
