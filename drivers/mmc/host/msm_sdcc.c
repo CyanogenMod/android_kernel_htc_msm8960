@@ -124,6 +124,11 @@ static const u32 tuning_block_128[] = {
 	0xFFFFBBBB, 0xFFFF77FF, 0xFF7777FF, 0xEEDDBB77
 };
 
+#ifdef CONFIG_BCMDHD_4335_MCC
+int mmc_tuning_fail = 0;
+EXPORT_SYMBOL(mmc_tuning_fail);
+#endif
+
 #if IRQ_DEBUG == 1
 static char *irq_status_bits[] = { "cmdcrcfail", "datcrcfail", "cmdtimeout",
 				   "dattimeout", "txunderrun", "rxoverrun",
