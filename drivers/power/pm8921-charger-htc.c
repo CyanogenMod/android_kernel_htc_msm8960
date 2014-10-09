@@ -2037,7 +2037,7 @@ int pm8921_is_charger_ovp(int* result)
 	ov = pm_chg_get_rt_status(the_chip, USBIN_OV_IRQ);
 	v = pm_chg_get_rt_status(the_chip, USBIN_VALID_IRQ);
 	uv = pm_chg_get_rt_status(the_chip, USBIN_UV_IRQ);
-	pr_info("usbin_ov_irq_state:%d -> %d [%d,%d,%d]\n",
+	pr_debug("usbin_ov_irq_state:%d -> %d [%d,%d,%d]\n",
 					usbin_ov_irq_state, ov, ov, v, uv);
 	usbin_ov_irq_state = ov;
 	update_ovp_uvp_state(ov, v, uv);
@@ -4686,7 +4686,7 @@ static irqreturn_t dcin_uv_irq_handler(int irq, void *data)
 
 static void dump_irq_rt_status(void)
 {
-	pr_info("[irq1] %d%d%d%d %d%d%d%d %d%d%d%d %d%d%d "
+	pr_debug("[irq1] %d%d%d%d %d%d%d%d %d%d%d%d %d%d%d "
 			"[irq2] %d%d%d%d %d%d%d%d %d%d%d%d %d%d%d\n",
 		
 		pm_chg_get_rt_status(the_chip, USBIN_VALID_IRQ),
@@ -4799,7 +4799,7 @@ static void dump_reg(void)
 	if(BATT_LOG_BUF_LEN - len <= 1)
 		pr_info("batt log length maybe out of buffer range!!!");
 
-	pr_info("%s\n", batt_log_buf);
+	pr_debug("%s\n", batt_log_buf);
 }
 
 static void dump_all(int more)
@@ -5344,7 +5344,7 @@ static void eoc_worker(struct work_struct *work)
 		}
 	}
 
-	pr_info("%s: eoc_count: %d, eoc_count_by_curr:%d, pj_chg_full: %d\n",__func__, eoc_count, eoc_count_by_curr, pj_chg_full);
+	pr_debug("%s: eoc_count: %d, eoc_count_by_curr:%d, pj_chg_full: %d\n",__func__, eoc_count, eoc_count_by_curr, pj_chg_full);
 	if (CONSECUTIVE_COUNT <= eoc_count)
 		end = CHG_FINISHED;
 
