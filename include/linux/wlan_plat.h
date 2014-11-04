@@ -22,6 +22,9 @@ struct wifi_platform_data {
 	void *(*mem_prealloc)(int section, unsigned long size);
 	int (*get_mac_addr)(unsigned char *buf);
 	void *(*get_country_code)(char *ccode);
+#ifdef CONFIG_BCMDHD_4335_MCC
+	struct msm_bus_scale_pdata *bus_scale_table;
+#endif
 };
 
 #endif

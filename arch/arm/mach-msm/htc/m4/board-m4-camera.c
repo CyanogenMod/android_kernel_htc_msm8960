@@ -420,96 +420,6 @@ static struct msm_camera_sensor_flash_src msm_camera_flash_src = {
 };
 #endif /* CONFIG_MSM_CAMERA_FLASH */
 
-#ifdef CONFIG_RAWCHIP
-static int msm8930_use_ext_1v2(void)
-{
-	return 1;
-}
-
-static int msm8930_rawchip_vreg_on(void)
-{
-	int rc = 0;
-	pr_info("%s\n", __func__);
-
-	rc = gpio_request(MSM_V_CAM_D1V8_EN, "V_CAM_D1V8_EN");
-	pr_info("rawchip 1v8 gpio_request, %d rc(%d)\n", MSM_V_CAM_D1V8_EN, rc);
-	if (rc < 0) {
-		pr_err("rawchip on (\"gpio %d\", 1.8V) FAILED", MSM_V_CAM_D1V8_EN);
-		goto enable_rawchip_1v8_fail;
-	}
-	gpio_direction_output(MSM_V_CAM_D1V8_EN, 1);
-	gpio_free(MSM_V_CAM_D1V8_EN);
-	mdelay(1);
-
-	rc = gpio_request(MSM_RAW_1V2_EN, "_V_RAW_1V2_EN");
-	pr_info("rawchip 1v2 gpio_request, %d rc(%d)\n", MSM_RAW_1V2_EN, rc);
-	if (rc < 0) {
-		pr_err("rawchip on (\"gpio %d\", 1.2V) FAILED", MSM_RAW_1V2_EN);
-		goto enable_rawchip_1v2_fail;
-	}
-	gpio_direction_output(MSM_RAW_1V2_EN, 1);
-	gpio_free(MSM_RAW_1V2_EN);
-
-	return rc;
-
-enable_rawchip_1v2_fail:
-	rc = gpio_request(MSM_V_CAM_D1V8_EN, "V_CAM_D1V8_EN");
-	if (rc < 0)
-		pr_err("rawchip off (\"gpio %d\", 1.8V) FAILED", MSM_V_CAM_D1V8_EN);
-	else {
-		gpio_direction_output(MSM_V_CAM_D1V8_EN, 0);
-		gpio_free(MSM_V_CAM_D1V8_EN);
-	}
-enable_rawchip_1v8_fail:
-	return rc;
-}
-
-static int msm8930_rawchip_vreg_off(void)
-{
-	int rc = 0;
-	pr_info("%s\n", __func__);
-
-	rc = gpio_request(MSM_RAW_1V2_EN, "V_RAW_1V2_EN");
-	pr_info("rawchip 1v2 gpio_request, %d\n", MSM_RAW_1V2_EN);
-	if (rc < 0)
-		pr_err("rawchip off (\"gpio %d\", 1.2V) FAILED", MSM_RAW_1V2_EN);
-	else {
-		gpio_direction_output(MSM_RAW_1V2_EN, 0);
-		gpio_free(MSM_RAW_1V2_EN);
-	}
-	udelay(50);
-
-	rc = gpio_request(MSM_V_CAM_D1V8_EN, "V_CAM_D1V8_EN");
-	pr_info("rawchip 1v8 gpio_request, %d\n", MSM_V_CAM_D1V8_EN);
-	if (rc < 0)
-		pr_err("rawchip off (\"gpio %d\", 1.8V) FAILED", MSM_V_CAM_D1V8_EN);
-	else {
-		gpio_direction_output(MSM_V_CAM_D1V8_EN, 0);
-		gpio_free(MSM_V_CAM_D1V8_EN);
-	}
-
-	return rc;
-}
-
-static struct msm_camera_rawchip_info m4_msm_rawchip_board_info = {
-	.rawchip_reset	= MSM_RAW_RSTN,
-	.rawchip_intr0	= MSM_GPIO_TO_INT(MSM_RAW_INTR0),
-	.rawchip_intr1	= MSM_GPIO_TO_INT(MSM_RAW_INTR1),
-	.rawchip_spi_freq = 27,
-	.rawchip_mclk_freq = 24,
-	.camera_rawchip_power_on = msm8930_rawchip_vreg_on,
-	.camera_rawchip_power_off = msm8930_rawchip_vreg_off,
-	.rawchip_use_ext_1v2 = msm8930_use_ext_1v2,
-};
-
-struct platform_device m4_msm_rawchip_device = {
-	.name	= "rawchip",
-	.dev	= {
-		.platform_data = &m4_msm_rawchip_board_info,
-	},
-};
-#endif /* CONFIG_RAWCHIP */
-
 #ifdef CONFIG_RAWCHIPII
 static int msm8930_rawchip_vreg_on(void)
 {
@@ -566,10 +476,6 @@ struct platform_device msm8930_msm_rawchip_device = {
 static uint16_t msm_cam_gpio_tbl[] = {
 	MSM_CAM_MCLK0,
 	MSM_CAM_MCLK1,
-#if 0
-	MSM_CAM_I2C_SDA,
-	MSM_CAM_I2C_SCL,
-#endif
 	MSM_RAW_INTR0,
 	MSM_RAW_INTR1,
 	MSM_MCAM_SPI_CLK_CPU,
@@ -1933,16 +1839,6 @@ enable_s5k6a2ya_analog_fail:
 		gpio_free(MSM_CAM_VCM_PD);
 	}
 enable_s5k6a2ya_vcm_pd:
-#if 0
-	rc = gpio_request(MSM_V_CAM_D1V8_EN, "V_CAM_D1V8_EN");
-	if (rc < 0)
-		pr_err("[CAM] GPIO(%d) request failed", MSM_V_CAM_D1V8_EN);
-	else {
-		gpio_direction_output(MSM_V_CAM_D1V8_EN, 0);
-		gpio_free(MSM_V_CAM_D1V8_EN);
-	}
-enable_s5k6a2ya_digital_fail:
-#endif
 	camera_sensor_power_disable(reg_8038_l17);
 enable_s5k6a2ya_vcm_fail:
 	return rc;
@@ -1968,30 +1864,6 @@ static int msm8930_s5k6a2ya_vreg_off(void)
 	if (rc < 0)
 		pr_err("[CAM] sensor_power_disable(\"reg_8038_l8\") FAILED %d\n", rc);
 	udelay(50);
-#if 0
-	rc = gpio_request(CAM_PIN_GPIO_V_CAM2_D1V2_EN, "V_CAM2_D1V2_EN");
-	pr_info("[CAM] 2nd cam digital gpio_request, %d\n", CAM_PIN_GPIO_V_CAM2_D1V2_EN);
-	if (rc < 0)
-		pr_err("[CAM] GPIO(%d) request failed", CAM_PIN_GPIO_V_CAM2_D1V2_EN);
-	else {
-		gpio_direction_output(CAM_PIN_GPIO_V_CAM2_D1V2_EN, 0);
-		gpio_free(CAM_PIN_GPIO_V_CAM2_D1V2_EN);
-	}
-	msleep(1);
-
-	rc = gpio_request(MSM_V_CAM_D1V8_EN, "V_CAM_D1V8_EN");
-	pr_info("[CAM] digital gpio_request, %d\n", MSM_V_CAM_D1V8_EN);
-	if (rc < 0)
-		pr_err("[CAM] GPIO(%d) request failed", MSM_V_CAM_D1V8_EN);
-	else {
-		gpio_tlmm_config(
-				GPIO_CFG(MSM_V_CAM_D1V8_EN, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-				GPIO_CFG_ENABLE);
-		gpio_direction_output(MSM_V_CAM_D1V8_EN, 0);
-		gpio_free(MSM_V_CAM_D1V8_EN);
-	}
-	udelay(50);
-#endif
 
 	rc = gpio_request(MSM_CAMIO_1V8_EN, "V_CAMIO_1V8_EN");
 	pr_info("[CAM] cam io gpio_request, %d\n", MSM_CAMIO_1V8_EN);

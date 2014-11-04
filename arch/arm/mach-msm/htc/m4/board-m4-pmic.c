@@ -23,8 +23,6 @@
 #include "board-8930.h"
 #include "board-m4.h"
 
-void pm8xxx_adc_device_driver_register(void);
-
 struct pm8xxx_gpio_init {
 	unsigned			gpio;
 	struct pm_gpio			config;
@@ -168,116 +166,12 @@ static struct pm8xxx_adc_properties pm8xxx_adc_data = {
 	.bipolar                = 0,
 };
 
-#if 0
-static const struct pm8xxx_adc_map_pt m4_adcmap_btm_threshold[] = {
-	{-200,	1671},
-	{-190,	1663},
-	{-180,	1654},
-	{-170,	1646},
-	{-160,	1636},
-	{-150,	1627},
-	{-140,	1617},
-	{-130,	1606},
-	{-120,	1595},
-	{-110,	1584},
-	{-100,	1572},
-	{-90,	1560},
-	{-80,	1548},
-	{-70,	1534},
-	{-60,	1521},
-	{-50,	1507},
-	{-40,	1492},
-	{-30,	1477},
-	{-20,	1462},
-	{-10,	1446},
-	{-0,	1430},
-	{10,	1413},
-	{20,	1396},
-	{30,	1379},
-	{40,	1361},
-	{50,	1343},
-	{60,	1325},
-	{70,	1306},
-	{80,	1287},
-	{90,	1267},
-	{100,	1248},
-	{110,	1228},
-	{120,	1208},
-	{130,	1188},
-	{140,	1168},
-	{150,	1147},
-	{160,	1127},
-	{170,	1106},
-	{180,	1086},
-	{190,	1065},
-	{200,	1044},
-	{210,	1024},
-	{220,	1004},
-	{230,	983},
-	{240,	963},
-	{250,	943},
-	{260,	923},
-	{270,	903},
-	{280,	884},
-	{290,	864},
-	{300,	845},
-	{310,	827},
-	{320,	808},
-	{330,	790},
-	{340,	772},
-	{350,	755},
-	{360,	738},
-	{370,	721},
-	{380,	704},
-	{390,	688},
-	{400,	672},
-	{410,	657},
-	{420,	642},
-	{430,	627},
-	{440,	613},
-	{450,	599},
-	{460,	585},
-	{470,	572},
-	{480,	559},
-	{490,	547},
-	{500,	535},
-	{510,	523},
-	{520,	511},
-	{530,	500},
-	{540,	489},
-	{550,	479},
-	{560,	469},
-	{570,	459},
-	{580,	449},
-	{590,	440},
-	{600,	431},
-	{610,	423},
-	{620,	414},
-	{630,	406},
-	{640,	398},
-	{650,	390},
-	{660,	383},
-	{670,	376},
-	{680,	369},
-	{690,	363},
-	{700,	356},
-	{710,	350},
-	{720,	344},
-	{730,	338},
-	{740,	333},
-	{750,	327},
-	{760,	322},
-	{770,	317},
-	{780,	312},
-	{790,	308}
-};
-
-static struct pm8xxx_adc_map_table pm8xxx_adcmap_btm_table = {
-	.table = m4_adcmap_btm_threshold,
-	.size = ARRAY_SIZE(m4_adcmap_btm_threshold),
-};
-#endif
-
+extern unsigned int system_rev;
+static void pm8xxx_adc_device_driver_register(void)
+{
+	pr_info("%s: Register PM8XXX ADC device. rev: %d\n",
+		__func__, system_rev);
+}
 static struct pm8xxx_adc_platform_data pm8xxx_adc_pdata = {
 	.adc_channel            = pm8xxx_adc_channels_data,
 	.adc_num_board_channel  = ARRAY_SIZE(pm8xxx_adc_channels_data),
@@ -302,11 +196,7 @@ static struct pm8xxx_mpp_platform_data pm8xxx_mpp_pdata __devinitdata = {
 
 static struct pm8xxx_rtc_platform_data pm8xxx_rtc_pdata __devinitdata = {
 	.rtc_write_enable	= true,
-#ifdef CONFIG_HTC_OFFMODE_ALARM
-	.rtc_alarm_powerup      = true,
-#else
 	.rtc_alarm_powerup      = false,
-#endif
 };
 
 static struct pm8xxx_pwrkey_platform_data pm8xxx_pwrkey_pdata = {
