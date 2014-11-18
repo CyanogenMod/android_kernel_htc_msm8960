@@ -971,7 +971,7 @@ static int mt9v113_set_sensor_mode(struct msm_sensor_ctrl_t *s_ctrl, int mode)
 					NOTIFY_CSID_CFG, &mt9v113_s_ctrl.curr_csi_params->csid_params);
 
 			v4l2_subdev_notify(&(mt9v113_s_ctrl.sensor_v4l2_subdev),
-					NOTIFY_CID_CHANGE, NULL);
+					NOTIFY_CID_CHANGE, &mt9v113_s_ctrl.intf);
 			dsb();
 
 			v4l2_subdev_notify(&(mt9v113_s_ctrl.sensor_v4l2_subdev),
