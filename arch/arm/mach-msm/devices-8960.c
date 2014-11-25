@@ -1198,6 +1198,9 @@ struct msm_vidc_platform_data vidc_platform_data = {
 #endif
 	.disable_dmx = 0,
 	.disable_fullhd = 0,
+#if !defined(CONFIG_ARCH_APQ8064) && !defined(CONFIG_ARCH_MSM8930)
+	.disable_turbo = 1,
+#endif
 	.cont_mode_dpb_count = 18,
 	.fw_addr = 0x9fe00000,
 	.enable_sec_metadata = 0,
