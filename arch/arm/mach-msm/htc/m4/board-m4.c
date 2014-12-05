@@ -342,8 +342,6 @@ static struct ion_cp_heap_pdata cp_mm_m4_ion_pdata = {
 	.reusable = FMEM_ENABLED,
 	.mem_is_fmem = FMEM_ENABLED,
 	.fixed_position = FIXED_MIDDLE,
-	.iommu_map_all = 1,
-	.iommu_2x_map_domain = VIDEO_DOMAIN,
 #ifdef CONFIG_CMA
 	.is_cma = 1,
 #endif
