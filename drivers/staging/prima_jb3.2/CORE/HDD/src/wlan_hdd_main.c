@@ -559,6 +559,7 @@ int hdd_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
    hdd_priv_data_t priv_data;
    tANI_U8 *command = NULL;
    int ret = 0;
+    hdd_context_t *pHddCtx;
 
    if (NULL == pAdapter)
    {
@@ -574,10 +575,11 @@ int hdd_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
        goto exit; 
    }
 
-   if ((WLAN_HDD_GET_CTX(pAdapter))->isLogpInProgress)
+   pHddCtx = WLAN_HDD_GET_CTX(pAdapter);
+   if (0 != (wlan_hdd_validate_context(pHddCtx)))
    {
-       VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO,
-                                  "%s:LOGP in Progress. Ignore!!!", __func__);
+       VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
+                  "%s: invalid context", __func__);
        ret = -EBUSY;
        goto exit;
    }
@@ -2775,6 +2777,7 @@ int hdd_mon_open (struct net_device *dev)
 
 int hdd_stop (struct net_device *dev)
 {
+   int ret = 0;
    hdd_adapter_t *pAdapter = WLAN_HDD_GET_PRIV_PTR(dev);
    hdd_context_t *pHddCtx;
    hdd_adapter_list_node_t *pAdapterNode = NULL, *pNext = NULL;
@@ -2790,12 +2793,13 @@ int hdd_stop (struct net_device *dev)
       return -ENODEV;
    }
 
-   pHddCtx = (hdd_context_t*)pAdapter->pHddCtx;
-   if (NULL == pHddCtx)
+   pHddCtx = WLAN_HDD_GET_CTX(pAdapter);
+   ret = wlan_hdd_validate_context(pHddCtx);
+   if (ret)
    {
-      VOS_TRACE( VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_FATAL,
-         "%s: HDD context is Null", __func__);
-      return -ENODEV;
+      VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
+                "%s: HDD context is not valid!", __func__);
+      return ret;
    }
 
    clear_bit(DEVICE_IFACE_OPENED, &pAdapter->event_flags);

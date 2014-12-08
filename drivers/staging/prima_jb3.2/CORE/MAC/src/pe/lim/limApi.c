@@ -1024,6 +1024,7 @@ tSirRetStatus peOpen(tpAniSirGlobal pMac, tMacOpenParameters *pMacOpenParam)
         PELOGE(limLog(pMac, LOGE, FL("pe lock init failed!"));)
         return eSIR_FAILURE;
     }
+    pMac->lim.retryPacketCnt = 0;
 
     /*
      * peOpen is successful by now, so it is right time to initialize

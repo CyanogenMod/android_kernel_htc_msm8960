@@ -56,7 +56,7 @@
 #include "csrInsideApi.h"
 #include "smeInside.h"
 #include "smsDebug.h"
-
+#include "sme_Api.h"
 #include "csrSupport.h"
 #include "wlan_qct_tl.h"
 
@@ -7614,6 +7614,11 @@ eHalStatus csrScanSavePreferredNetworkFound(tpAniSirGlobal pMac,
    tAniSSID tmpSsid;
    v_TIME_t timer=0;
    tpSirMacMgmtHdr macHeader = (tpSirMacMgmtHdr)pPrefNetworkFoundInd->data;
+   boolean bFoundonAppliedChannel = FALSE;
+   v_U32_t indx;
+   u8 channelsAllowed[WNI_CFG_VALID_CHANNEL_LIST_LEN];
+   v_U32_t numChannelsAllowed = WNI_CFG_VALID_CHANNEL_LIST_LEN;
+
 
    pParsedFrame =
        (tpSirProbeRespBeacon) vos_mem_malloc(sizeof(tSirProbeRespBeacon));
@@ -7681,7 +7686,57 @@ eHalStatus csrScanSavePreferredNetworkFound(tpAniSirGlobal pMac,
    }
    else
    {
-      pBssDescr->channelId = pParsedFrame->channelNumber;
+      /**
+        * If Probe Responce received in PNO indication does not
+        * contain DSParam IE or HT Info IE then add dummy channel
+        * to the received BSS info so that Scan result received as
+        * a part of PNO is updated to the supplicant. Specially
+        * applicable in case of AP configured in 11A only mode.
+        */
+      if ((pMac->roam.configParam.bandCapability == eCSR_BAND_ALL) ||
+          (pMac->roam.configParam.bandCapability == eCSR_BAND_24))
+      {
+          pBssDescr->channelId = 1;
+      }
+      else if(pMac->roam.configParam.bandCapability == eCSR_BAND_5G)
+      {
+         pBssDescr->channelId = 36;
+      }
+      /* Restrict the logic to ignore the pno indication for invalid channel
+       * only if valid channel info is present in beacon/probe resp.
+       * If no channel info is present in beacon/probe resp, always process
+       * the pno indication.
+       */
+      bFoundonAppliedChannel = TRUE;
+   }
+
+   if (0 != sme_GetCfgValidChannels(pMac, channelsAllowed, &numChannelsAllowed))
+   {
+      smsLog(pMac, LOGE, FL(" sme_GetCfgValidChannels failed "));
+      csrFreeScanResultEntry(pMac, pScanResult);
+      vos_mem_free(pParsedFrame);
+      return eHAL_STATUS_FAILURE;
+   }
+   /* Checking chhanelId with allowed channel list */
+   for (indx = 0; indx < numChannelsAllowed; indx++)
+   {
+      if (pBssDescr->channelId == channelsAllowed[indx])
+      {
+         bFoundonAppliedChannel = TRUE;
+         smsLog(pMac, LOG1, FL(" pno ind found on applied channel =%d\n "),
+                                                     pBssDescr->channelId);
+         break;
+      }
+   }
+   /* Ignore PNO indication if AP is on Invalid channel.
+    */
+   if(FALSE == bFoundonAppliedChannel)
+   {
+      smsLog(pMac, LOGW, FL(" prefered network found on invalid channel = %d"),
+                                                         pBssDescr->channelId);
+      csrFreeScanResultEntry(pMac, pScanResult);
+      vos_mem_free(pParsedFrame);
+      return eHAL_STATUS_FAILURE;
    }
 
    if ((pBssDescr->channelId > 0) && (pBssDescr->channelId < 15))

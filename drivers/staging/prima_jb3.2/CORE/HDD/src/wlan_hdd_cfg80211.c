@@ -4653,13 +4653,6 @@ static eHalStatus hdd_cfg80211_scan_done_callback(tHalHandle halHandle,
         goto allow_suspend;
     }
 
-    /*
-     * setting up 0, just in case.
-     */
-    req->n_ssids = 0;
-    req->n_channels = 0;
-    req->ie = 0;
-
     pAdapter->request = NULL;
     /* Scan is no longer pending */
     pScanInfo->mScanPending = VOS_FALSE;
@@ -7750,6 +7743,8 @@ static int wlan_hdd_cfg80211_sched_scan_start(struct wiphy *wiphy,
     v_U32_t num_channels_allowed = WNI_CFG_VALID_CHANNEL_LIST_LEN;
     eHalStatus status = eHAL_STATUS_FAILURE;
     int ret = 0;
+    hdd_config_t *pConfig = NULL;
+    v_U32_t num_ignore_dfs_ch = 0;
 
     if (NULL == pAdapter)
     {
@@ -7768,6 +7763,7 @@ static int wlan_hdd_cfg80211_sched_scan_start(struct wiphy *wiphy,
         return -EINVAL;
     }
 
+    pConfig = pHddCtx->cfg_ini;
     hHal = WLAN_HDD_GET_HAL_CTX(pAdapter);
     if (NULL == hHal)
     {
@@ -7837,18 +7833,43 @@ static int wlan_hdd_cfg80211_sched_scan_start(struct wiphy *wiphy,
     }
     /* Checking each channel against allowed channel list */
     num_ch = 0;
-    for (i = 0; i < request->n_channels; i++)
+    if (request->n_channels)
     {
-        for (indx = 0; indx < num_channels_allowed; indx++)
+        char chList [(request->n_channels*5)+1];
+        int len;
+        for (i = 0; i < request->n_channels; i++)
         {
-            if (request->channels[i]->hw_value == channels_allowed[indx])
+            for (indx = 0; indx < num_channels_allowed; indx++)
             {
-                valid_ch[num_ch++] = request->channels[i]->hw_value;
-                break ;
+                if (request->channels[i]->hw_value == channels_allowed[indx])
+                {
+                    if ((!pConfig->enableDFSPnoChnlScan) &&
+                     (NV_CHANNEL_DFS == vos_nv_getChannelEnabledState(channels_allowed[indx])))
+                    {
+                        VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO,
+                        "%s : Dropping DFS channel : %d",
+                        __func__,channels_allowed[indx]);
+                        num_ignore_dfs_ch++;
+                        break;
+                    }
+                    valid_ch[num_ch++] = request->channels[i]->hw_value;
+                    len += snprintf(chList+len, 5, "%d ",
+                                     request->channels[i]->hw_value);
+                    break ;
+                }
             }
         }
-    }
+        hddLog(VOS_TRACE_LEVEL_INFO,"Channel-List:  %s ", chList);
 
+        /*If all channels are DFS and dropped, then ignore the PNO request*/
+        if (num_ignore_dfs_ch == request->n_channels)
+        {
+            VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO,
+             "%s : All requested channels are DFS channels", __func__);
+            ret = -EINVAL;
+            goto error;
+        }
+     }
     /* Filling per profile  params */
     for (i = 0; i < pPnoRequest->ucNetworksCount; i++)
     {

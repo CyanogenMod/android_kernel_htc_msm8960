@@ -75,6 +75,10 @@
 #endif
 #include "wlan_qct_wda.h"
 
+#ifdef DEBUG_ROAM_DELAY
+#include "vos_utils.h"
+#endif
+
 static void limHandleSmeJoinResult(tpAniSirGlobal, tSirResultCodes, tANI_U16,tpPESession);
 static void limHandleSmeReaasocResult(tpAniSirGlobal, tSirResultCodes, tANI_U16, tpPESession);
 void limProcessMlmScanCnf(tpAniSirGlobal, tANI_U32 *);
@@ -130,6 +134,7 @@ limProcessMlmRspMessages(tpAniSirGlobal pMac, tANI_U32 msgType, tANI_U32 *pMsgBu
            PELOGE(limLog(pMac, LOGE,FL("Buffer is Pointing to NULL"));)
            return;
     }
+    MTRACE(macTrace(pMac, TRACE_CODE_TX_LIM_MSG, 0, msgType));
     switch (msgType)
     {
         case LIM_MLM_SCAN_CNF:
@@ -825,9 +830,23 @@ limProcessMlmAssocCnf(tpAniSirGlobal pMac, tANI_U32 *pMsgBuf)
     if (((tLimMlmAssocCnf *) pMsgBuf)->resultCode != eSIR_SME_SUCCESS)
     {
         // Association failure
-        PELOG1(limLog(pMac, LOG1, FL("*** Association failure ***"));)
-        psessionEntry->limSmeState = eLIM_SME_JOIN_FAILURE_STATE;
-        MTRACE(macTrace(pMac, TRACE_CODE_SME_STATE, psessionEntry->peSessionId, pMac->lim.gLimSmeState));
+        PELOG1(limLog(pMac, LOG1,
+               FL("SessionId:%d Association failure resultCode:%d"
+                   "limSmeState:%d"), psessionEntry->peSessionId,
+                   ((tLimMlmAssocCnf *) pMsgBuf)->resultCode,
+                    psessionEntry->limSmeState);)
+
+        /* If driver gets deauth when its waiting for ADD_STA_RSP then we need
+         * to do DEL_STA followed by DEL_BSS. So based on below reason-code here
+         * we decide whether to do only DEL_BSS or DEL_STA + DEL_BSS
+         */
+        if(((tLimMlmAssocCnf *) pMsgBuf)->resultCode
+                               != eSIR_SME_JOIN_DEAUTH_FROM_AP_DURING_ADD_STA)
+        {
+            psessionEntry->limSmeState = eLIM_SME_JOIN_FAILURE_STATE;
+        }
+        MTRACE(macTrace(pMac, TRACE_CODE_SME_STATE, psessionEntry->peSessionId,
+                        pMac->lim.gLimSmeState));
         /**
          * Need to send Join response with
          * Association failure to Host.
@@ -936,9 +955,17 @@ limProcessMlmReassocCnf(tpAniSirGlobal pMac, tANI_U32 *pMsgBuf)
                               pLimMlmReassocCnf->resultCode, pLimMlmReassocCnf->protStatusCode,psessionEntry,
                               psessionEntry->smeSessionId,psessionEntry->transactionId);
     }else {
-        // Reassociation failure
-        psessionEntry->limSmeState = eLIM_SME_JOIN_FAILURE_STATE;
-    MTRACE(macTrace(pMac, TRACE_CODE_SME_STATE, psessionEntry->peSessionId, psessionEntry->limSmeState));
+        /* If driver gets deauth when its waiting for ADD_STA_RSP then we need
+        * to do DEL_STA followed by DEL_BSS. So based on below reason-code here
+        * we decide whether to do only DEL_BSS or DEL_STA + DEL_BSS
+        */
+        if(pLimMlmReassocCnf->resultCode
+                                   != eSIR_SME_JOIN_DEAUTH_FROM_AP_DURING_ADD_STA)
+        {
+            // Reassociation failure
+            psessionEntry->limSmeState = eLIM_SME_JOIN_FAILURE_STATE;
+        }
+        MTRACE(macTrace(pMac, TRACE_CODE_SME_STATE, psessionEntry->peSessionId, psessionEntry->limSmeState));
         /**
          * Need to send Reassoc response with
          * Association failure to Host.
@@ -1865,7 +1892,19 @@ void limProcessStaMlmAddStaRsp( tpAniSirGlobal pMac, tpSirMsgQ limMsgQ ,tpPESess
     {
       PELOGE(limLog(pMac, LOGE,
            FL("Received Deauth frame in ADD_STA_RESP state"));)
-       pAddStaParams->status = eHAL_STATUS_FAILURE;
+
+      if (eHAL_STATUS_SUCCESS == pAddStaParams->status)
+      {
+          PELOGE(limLog(pMac, LOGE,
+              FL("ADD_STA success, send update result code with"
+                  "eSIR_SME_JOIN_DEAUTH_FROM_AP_DURING_ADD_STA staIdx: %d"
+                  "limMlmState: %d"), pAddStaParams->staIdx,
+                   psessionEntry->limMlmState);)
+          mlmAssocCnf.resultCode =
+              (tSirResultCodes) eSIR_SME_JOIN_DEAUTH_FROM_AP_DURING_ADD_STA;
+          psessionEntry->staId = pAddStaParams->staIdx;
+          goto end;
+      }
     }
 
     if ( eHAL_STATUS_SUCCESS == pAddStaParams->status )
@@ -1930,6 +1969,8 @@ void limProcessStaMlmAddStaRsp( tpAniSirGlobal pMac, tpSirMsgQ limMsgQ ,tpPESess
     else
     {
         limLog( pMac, LOGE, FL( "ADD_STA failed!"));
+        if(psessionEntry->limSmeState == eLIM_SME_WT_REASSOC_STATE)
+           mesgType = LIM_MLM_REASSOC_CNF;
         mlmAssocCnf.resultCode = (tSirResultCodes) eSIR_SME_REFUSED;
     }
 end:
@@ -2762,6 +2803,9 @@ void limSetLinkStateForPostAssocCallback(tpAniSirGlobal pMac, void *msgParam )
         limPrintMacAddr(pMac, pAddBssParams->staContext.staMac, LOGE);
         goto end;
     }
+#ifdef DEBUG_ROAM_DELAY
+    vos_record_roam_event(e_LIM_ADD_BS_RSP, NULL, 0);
+#endif
     // Prepare and send Reassociation request frame
     // start reassoc timer.
     pMac->lim.limTimers.gLimReassocFailureTimer.sessionId = psessionEntry->peSessionId;
@@ -2792,7 +2836,9 @@ void limSetLinkStateForPostAssocCallback(tpAniSirGlobal pMac, void *msgParam )
     pMac->lim.reAssocRetryAttempt = 0;
 #endif
     limSendReassocReqWithFTIEsMgmtFrame(pMac, psessionEntry->pLimMlmReassocReq, psessionEntry);
-
+#ifdef DEBUG_ROAM_DELAY
+    vos_record_roam_event(e_LIM_SEND_REASSOC_REQ, NULL, 0);
+#endif
     psessionEntry->limPrevMlmState = psessionEntry->limMlmState;
     psessionEntry->limMlmState = eLIM_MLM_WT_FT_REASSOC_RSP_STATE;
     MTRACE(macTrace(pMac, TRACE_CODE_MLM_STATE, psessionEntry->peSessionId, eLIM_MLM_WT_FT_REASSOC_RSP_STATE));
