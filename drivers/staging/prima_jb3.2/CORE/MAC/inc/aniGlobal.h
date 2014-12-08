@@ -917,6 +917,7 @@ tLimMlmOemDataRsp       *gpLimMlmOemDataRsp;
     tLimDisassocDeauthCnfReq limDisassocDeauthCnfReq;
     tANI_U8 deferredMsgCnt;
     tSirDFSChannelList    dfschannelList;
+    tANI_U8 retryPacketCnt;
 
     // Flag to debug remain on channel
     tANI_BOOLEAN gDebugP2pRemainOnChannel;
@@ -1070,7 +1071,7 @@ typedef struct sAniSirGlobal
 #ifdef FEATURE_WLAN_TDLS
     v_BOOL_t isTdlsPowerSaveProhibited;
 #endif
-    
+    tANI_U8 fScanOffload;
 } tAniSirGlobal;
 
 #ifdef FEATURE_WLAN_TDLS

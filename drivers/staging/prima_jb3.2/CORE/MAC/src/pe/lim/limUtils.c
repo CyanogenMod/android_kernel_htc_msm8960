@@ -967,6 +967,11 @@ limCleanupMlm(tpAniSirGlobal pMac)
 {
     tANI_U32   n;
     tLimPreAuthNode *pAuthNode;
+#ifdef WLAN_FEATURE_11W
+    tANI_U32  bss_entry, sta_entry;
+    tpDphHashNode pStaDs = NULL;
+    tpPESession psessionEntry = NULL;
+#endif
 
     if (pMac->lim.gLimTimersCreated == 1)
     {
@@ -1104,6 +1109,41 @@ limCleanupMlm(tpAniSirGlobal pMac)
 
         pMac->lim.gLimTimersCreated = 0;
     }
+
+#ifdef WLAN_FEATURE_11W
+    /*
+     * When SSR is triggered, we need to loop through
+     * each STA associated per BSSId and deactivate/delete
+     * the pmfSaQueryTimer for it
+     */
+    if (vos_is_logp_in_progress(VOS_MODULE_ID_PE, NULL))
+    {
+        VOS_TRACE(VOS_MODULE_ID_PE, VOS_TRACE_LEVEL_ERROR,
+                  FL("SSR is detected, proceed to clean up pmfSaQueryTimer"));
+        for (bss_entry = 0; bss_entry < pMac->lim.maxBssId; bss_entry++)
+        {
+             if (pMac->lim.gpSession[bss_entry].valid)
+             {
+                 for (sta_entry = 1; sta_entry < pMac->lim.gLimAssocStaLimit;
+                      sta_entry++)
+                 {
+                      psessionEntry = &pMac->lim.gpSession[bss_entry];
+                      pStaDs = dphGetHashEntry(pMac, sta_entry,
+                                              &psessionEntry->dph.dphHashTable);
+                      if (NULL == pStaDs)
+                      {
+                          continue;
+                      }
+                      VOS_TRACE(VOS_MODULE_ID_PE, VOS_TRACE_LEVEL_ERROR,
+                                FL("Deleting pmfSaQueryTimer for staid[%d]"),
+                                pStaDs->staIndex) ;
+                      tx_timer_deactivate(&pStaDs->pmfSaQueryTimer);
+                      tx_timer_delete(&pStaDs->pmfSaQueryTimer);
+                }
+            }
+        }
+    }
+#endif
 
     /// Cleanup cached scan list
     limReInitScanResults(pMac);
@@ -3328,6 +3368,15 @@ void limSwitchPrimarySecondaryChannel(tpAniSirGlobal pMac, tpPESession psessionE
         return;
     }
 #endif
+    /* Assign the callback to resume TX once channel is changed.
+     */
+    psessionEntry->currentReqChannel = newChannel;
+    psessionEntry->limRFBand = limGetRFBand(newChannel);
+
+    psessionEntry->channelChangeReasonCode=LIM_SWITCH_CHANNEL_OPERATION;
+
+    pMac->lim.gpchangeChannelCallback = limSwitchChannelCback;
+    pMac->lim.gpchangeChannelData = NULL;
 
 #if defined WLAN_FEATURE_VOWIFI  
                 limSendSwitchChnlParams(pMac, newChannel, subband, psessionEntry->maxTxPower, psessionEntry->peSessionId);
@@ -7308,6 +7357,8 @@ void limHandleDeferMsgError(tpAniSirGlobal pMac, tpSirMsgQ pLimMsg)
 {
       if(SIR_BB_XPORT_MGMT_MSG == pLimMsg->type) 
         {
+            /*Decrement the Pending count before droping */
+            limDecrementPendingMgmtCount (pMac);
             vos_pkt_return_packet((vos_pkt_t*)pLimMsg->bodyptr);
         }
       else if(pLimMsg->bodyptr != NULL)
@@ -7761,4 +7812,16 @@ tANI_U8 limGetShortSlotFromPhyMode(tpAniSirGlobal pMac, tpPESession psessionEntr
     }
     limLog(pMac, LOG1, FL("phyMode = %u shortslotsupported = %u"), phyMode, val);
     return val;
+}
+
+void limDecrementPendingMgmtCount (tpAniSirGlobal pMac)
+{
+    if( pMac->sys.gSysBbtPendingMgmtCount )
+    {
+         vos_spin_lock_acquire( &pMac->sys.lock );
+         pMac->sys.gSysBbtPendingMgmtCount--;
+         vos_spin_lock_release( &pMac->sys.lock );
+    }
+    else
+         limLog(pMac, LOGW, FL("Pending Management count going negative"));
 }
