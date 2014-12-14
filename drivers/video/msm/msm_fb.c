@@ -1106,7 +1106,15 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 	default:
 		if (mfd->panel_power_on) {
 			int curr_pwr_state;
-
+#ifdef CONFIG_CABC_DIMMING_SWITCH
+			if (pdata && pdata->dimming_on)
+				del_timer_sync(&mfd->dimming_update_timer);
+#endif
+#ifdef CONFIG_SRE_CONTROL
+			if (pdata && pdata->sre_ctrl) {
+				del_timer_sync(&mfd->sre_update_timer);
+			}
+#endif
 			mfd->op_enable = FALSE;
 			curr_pwr_state = mfd->panel_power_on;
 			down(&mfd->sem);
