@@ -303,7 +303,6 @@ static bool is_mtp_enable(void)
 		return false;
 }
 
-char *board_cid(void);
 int android_switch_function(unsigned func)
 {
 	struct android_dev *dev = _android_dev;
@@ -336,7 +335,7 @@ int android_switch_function(unsigned func)
 
 	pr_info("%s: %u, before %u\n", __func__, func, val);
 
-	if (func == val && strncmp(board_cid(), "GOOGL", 5)!=0) {
+	if (func == val) {
 		pr_info("%s: SKIP due the function is the same ,%u\n"
 			, __func__, func);
 		mutex_unlock(&function_bind_sem);

@@ -23,19 +23,15 @@
 static inline size_t br_nlmsg_size(void)
 {
 	return NLMSG_ALIGN(sizeof(struct ifinfomsg))
-	       + nla_total_size(IFNAMSIZ) /* IFLA_IFNAME */
-	       + nla_total_size(MAX_ADDR_LEN) /* IFLA_ADDRESS */
-	       + nla_total_size(4) /* IFLA_MASTER */
-	       + nla_total_size(4) /* IFLA_MTU */
-	       + nla_total_size(4) /* IFLA_LINK */
-	       + nla_total_size(1) /* IFLA_OPERSTATE */
-	       + nla_total_size(1); /* IFLA_PROTINFO */
+	       + nla_total_size(IFNAMSIZ) 
+	       + nla_total_size(MAX_ADDR_LEN) 
+	       + nla_total_size(4) 
+	       + nla_total_size(4) 
+	       + nla_total_size(4) 
+	       + nla_total_size(1) 
+	       + nla_total_size(1); 
 }
 
-/*
- * Create one netlink message for one interface
- * Contains port and master info as well as carrier and bridge state.
- */
 static int br_fill_ifinfo(struct sk_buff *skb, const struct net_bridge_port *port,
 			  u32 pid, u32 seq, int event, unsigned int flags)
 {
@@ -81,9 +77,6 @@ nla_put_failure:
 	return -EMSGSIZE;
 }
 
-/*
- * Notify listeners of a change in port information
- */
 void br_ifinfo_notify(int event, struct net_bridge_port *port)
 {
 	struct net *net = dev_net(port->dev);
@@ -99,7 +92,7 @@ void br_ifinfo_notify(int event, struct net_bridge_port *port)
 
 	err = br_fill_ifinfo(skb, port, 0, 0, event, 0);
 	if (err < 0) {
-		/* -EMSGSIZE implies BUG in br_nlmsg_size() */
+		
 		WARN_ON(err == -EMSGSIZE);
 		kfree_skb(skb);
 		goto errout;
@@ -111,9 +104,6 @@ errout:
 		rtnl_set_sk_err(net, RTNLGRP_LINK, err);
 }
 
-/*
- * Dump information about all ports, in response to GETLINK
- */
 static int br_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
 {
 	struct net *net = sock_net(skb->sk);
@@ -125,7 +115,7 @@ static int br_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
 	for_each_netdev_rcu(net, dev) {
 		struct net_bridge_port *port = br_port_get_rcu(dev);
 
-		/* not a bridge port */
+		
 		if (!port || idx < cb->args[0])
 			goto skip;
 
@@ -143,10 +133,6 @@ skip:
 	return skb->len;
 }
 
-/*
- * Change state of port (ie from forwarding to blocking etc)
- * Used by spanning tree in user space.
- */
 static int br_rtm_setlink(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
 {
 	struct net *net = sock_net(skb->sk);
@@ -179,7 +165,7 @@ static int br_rtm_setlink(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
 	if (!p)
 		return -EINVAL;
 
-	/* if kernel STP is running, don't allow changes */
+	
 	if (p->br->stp_enabled == BR_KERNEL_STP)
 		return -EBUSY;
 

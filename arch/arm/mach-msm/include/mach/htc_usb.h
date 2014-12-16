@@ -1113,7 +1113,7 @@ static struct android_usb_product usb_products[] = {
 		.functions	= usb_functions_adb,
 	},
 	{
-		.product_id	= 0x0f91,
+		.product_id	= 0x0f25,
 		.num_functions	= ARRAY_SIZE(usb_functions_mtp_ums),
 		.functions	= usb_functions_mtp_ums,
 	},

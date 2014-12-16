@@ -309,7 +309,7 @@ static int snd_cs8427_send_corudata(struct cs8427 *obj,
 	char *hw_data = udata ?
 		chip->playback.hw_udata : chip->playback.hw_status;
 	char data[32];
-	int err, idx;
+	int err;
 	unsigned char addr = 0;
 	int ret = 0;
 
@@ -333,7 +333,6 @@ static int snd_cs8427_send_corudata(struct cs8427 *obj,
 			return err < 0 ? err : 0;
 		}
 	}
-	idx = 0;
 	memcpy(data, ndata, CHANNEL_STATUS_SIZE);
 	
 	addr = 0x20;

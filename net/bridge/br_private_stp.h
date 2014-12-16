@@ -16,7 +16,6 @@
 #define BPDU_TYPE_CONFIG 0
 #define BPDU_TYPE_TCN 0x80
 
-/* IEEE 802.1D-1998 timer values */
 #define BR_MIN_HELLO_TIME	(1*HZ)
 #define BR_MAX_HELLO_TIME	(10*HZ)
 
@@ -43,7 +42,6 @@ struct br_config_bpdu
 	int		forward_delay;
 };
 
-/* called under bridge lock */
 static inline int br_is_designated_port(const struct net_bridge_port *p)
 {
 	return !memcmp(&p->designated_bridge, &p->br->bridge_id, 8) &&
@@ -51,7 +49,6 @@ static inline int br_is_designated_port(const struct net_bridge_port *p)
 }
 
 
-/* br_stp.c */
 extern void br_become_root_bridge(struct net_bridge *br);
 extern void br_config_bpdu_generation(struct net_bridge *);
 extern void br_configuration_update(struct net_bridge *);
@@ -63,7 +60,6 @@ extern void br_transmit_config(struct net_bridge_port *p);
 extern void br_transmit_tcn(struct net_bridge *br);
 extern void br_topology_change_detection(struct net_bridge *br);
 
-/* br_stp_bpdu.c */
 extern void br_send_config_bpdu(struct net_bridge_port *, struct br_config_bpdu *);
 extern void br_send_tcn_bpdu(struct net_bridge_port *);
 

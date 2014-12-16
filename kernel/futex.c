@@ -860,6 +860,9 @@ static int futex_requeue(u32 __user *uaddr1, unsigned int flags,
 	u32 curval2;
 
 	if (requeue_pi) {
+		if (uaddr1 == uaddr2)
+			return -EINVAL;
+
 		if (refill_pi_state_cache())
 			return -ENOMEM;
 		if (nr_wake != 1)
@@ -879,6 +882,11 @@ retry:
 			    requeue_pi ? VERIFY_WRITE : VERIFY_READ);
 	if (unlikely(ret != 0))
 		goto out_put_key1;
+
+	if (requeue_pi && match_futex(&key1, &key2)) {
+		ret = -EINVAL;
+		goto out_put_keys;
+	}
 
 	hb1 = hash_futex(&key1);
 	hb2 = hash_futex(&key2);
@@ -1542,6 +1550,11 @@ static int futex_wait_requeue_pi(u32 __user *uaddr, unsigned int flags,
 	ret = futex_wait_setup(uaddr, val, flags, &q, &hb);
 	if (ret)
 		goto out_key2;
+
+	if (match_futex(&q.key, &key2)) {
+		ret = -EINVAL;
+		goto out_put_keys;
+	}
 
 	
 	futex_wait_queue_me(hb, &q, to);

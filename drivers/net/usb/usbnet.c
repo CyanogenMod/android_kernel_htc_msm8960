@@ -66,6 +66,26 @@ static int msg_level = -1;
 module_param (msg_level, int, 0);
 MODULE_PARM_DESC (msg_level, "Override default message level");
 
+void
+dbg_log_event_debug(struct usbnet *dev, char *event)
+{
+	unsigned long flags;
+	unsigned long long t;
+	unsigned long nanosec;
+
+	if ( !dev || !event )
+		return;
+
+	write_lock_irqsave(&dev->dbg_lock, flags);
+	t = cpu_clock(smp_processor_id());
+	nanosec = do_div(t, 1000000000)/1000;
+	scnprintf(dev->dbgbuf[dev->dbg_idx], DBG_MSG_LEN, "%5lu.%06lu:%s",
+				(unsigned long)t, nanosec, event);
+	dev->dbg_idx++;
+	dev->dbg_idx = dev->dbg_idx % DBG_MAX_MSG;
+	write_unlock_irqrestore(&dev->dbg_lock, flags);
+}
+
 static bool enable_tx_rx_debug = false;
 static bool	usb_pm_debug_enabled = false;
 
@@ -977,6 +997,11 @@ static void tx_complete (struct urb *urb)
 	struct sk_buff		*skb = (struct sk_buff *) urb->context;
 	struct skb_data		*entry = (struct skb_data *) skb->cb;
 	struct usbnet		*dev = entry->dev;
+	char event[128];
+
+	snprintf(event, 128, "skb=%p, actual_len=%d, status=%d",
+			skb, urb->actual_length, urb->status);
+	dbg_log_event_debug(dev, event);
 
 	
 	if (enable_tx_rx_debug)

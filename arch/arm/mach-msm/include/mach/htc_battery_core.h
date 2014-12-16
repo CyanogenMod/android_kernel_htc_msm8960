@@ -104,6 +104,7 @@ struct htc_battery_core {
 	int (*func_set_max_input_current)(int target_ma);
 	int (*func_notify_pnpmgr_charging_enabled)(int charging_enabled);
 	void (*func_trigger_store_battery_data)(int trigger_flag);
+	void (*func_qb_mode_shutdown_status)(int trigger_flag);
 };
 #ifdef CONFIG_HTC_BATT_CORE
 extern int htc_battery_core_update_changed(void);

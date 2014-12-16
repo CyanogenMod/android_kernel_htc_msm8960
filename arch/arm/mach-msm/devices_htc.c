@@ -748,7 +748,7 @@ char *board_get_mid(void)
 }
 static int __init board_set_mid(char *mid)
 {
-	strncpy(model_id, mid, sizeof(model_id));
+	strncpy(model_id, mid, sizeof(model_id)-1);
 	return 1;
 }
 __setup("androidboot.mid=", board_set_mid);

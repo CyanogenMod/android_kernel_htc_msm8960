@@ -52,9 +52,6 @@ void br_fdb_fini(void)
 }
 
 
-/* if topology_changing then use forward_delay (default 15 sec)
- * otherwise keep longer (default 5 minutes)
- */
 static inline unsigned long hold_time(const struct net_bridge *br)
 {
 	return br->topology_change ? br->forward_delay : br->ageing_time;
@@ -69,7 +66,7 @@ static inline int has_expired(const struct net_bridge *br,
 
 static inline int br_mac_hash(const unsigned char *mac)
 {
-	/* use 1 byte of OUI cnd 3 bytes of NIC */
+	
 	u32 key = get_unaligned((u32 *)(mac + 2));
 	return jhash_1word(key, fdb_salt) & (BR_HASH_SIZE - 1);
 }
@@ -95,7 +92,7 @@ void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr)
 
 	spin_lock_bh(&br->hash_lock);
 
-	/* Search all chains since old address/hash is unknown */
+	
 	for (i = 0; i < BR_HASH_SIZE; i++) {
 		struct hlist_node *h;
 		hlist_for_each(h, &br->hash[i]) {
@@ -103,7 +100,7 @@ void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr)
 
 			f = hlist_entry(h, struct net_bridge_fdb_entry, hlist);
 			if (f->dst == p && f->is_local) {
-				/* maybe another port has same hw addr? */
+				
 				struct net_bridge_port *op;
 				list_for_each_entry(op, &br->port_list, list) {
 					if (op != p &&
@@ -114,14 +111,14 @@ void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr)
 					}
 				}
 
-				/* delete old one */
+				
 				fdb_delete(br, f);
 				goto insert;
 			}
 		}
 	}
  insert:
-	/* insert new address,  may fail if invalid address or dup. */
+	
 	fdb_insert(br, p, newaddr);
 
 	spin_unlock_bh(&br->hash_lock);
@@ -131,7 +128,7 @@ void br_fdb_change_mac_address(struct net_bridge *br, const u8 *newaddr)
 {
 	struct net_bridge_fdb_entry *f;
 
-	/* If old entry was unassociated with any port, then delete it. */
+	
 	f = __br_fdb_get(br, br->dev->dev_addr);
 	if (f && f->is_local && !f->dst)
 		fdb_delete(br, f);
@@ -167,7 +164,6 @@ void br_fdb_cleanup(unsigned long _data)
 	mod_timer(&br->gc_timer, round_jiffies_up(next_timer));
 }
 
-/* Completely flush all dynamic entries in forwarding database.*/
 void br_fdb_flush(struct net_bridge *br)
 {
 	int i;
@@ -184,9 +180,6 @@ void br_fdb_flush(struct net_bridge *br)
 	spin_unlock_bh(&br->hash_lock);
 }
 
-/* Flush all entries referring to a specific port.
- * if do_all is set also flush static entries
- */
 void br_fdb_delete_by_port(struct net_bridge *br,
 			   const struct net_bridge_port *p,
 			   int do_all)
@@ -205,11 +198,6 @@ void br_fdb_delete_by_port(struct net_bridge *br,
 
 			if (f->is_static && !do_all)
 				continue;
-			/*
-			 * if multiple ports all have the same device address
-			 * then when one port is deleted, assign
-			 * the local entry to other port
-			 */
 			if (f->is_local) {
 				struct net_bridge_port *op;
 				list_for_each_entry(op, &br->port_list, list) {
@@ -229,7 +217,6 @@ void br_fdb_delete_by_port(struct net_bridge *br,
 	spin_unlock_bh(&br->hash_lock);
 }
 
-/* No locking or refcounting, assumes caller has rcu_read_lock */
 struct net_bridge_fdb_entry *__br_fdb_get(struct net_bridge *br,
 					  const unsigned char *addr)
 {
@@ -248,8 +235,6 @@ struct net_bridge_fdb_entry *__br_fdb_get(struct net_bridge *br,
 }
 
 #if IS_ENABLED(CONFIG_ATM_LANE)
-/* Interface used by ATM LANE hook to test
- * if an addr is on some other bridge port */
 int br_fdb_test_addr(struct net_device *dev, unsigned char *addr)
 {
 	struct net_bridge_fdb_entry *fdb;
@@ -269,12 +254,8 @@ int br_fdb_test_addr(struct net_device *dev, unsigned char *addr)
 
 	return ret;
 }
-#endif /* CONFIG_ATM_LANE */
+#endif 
 
-/*
- * Fill buffer with forwarding table records in
- * the API format.
- */
 int br_fdb_fillbuf(struct net_bridge *br, void *buf,
 		   unsigned long maxnum, unsigned long skip)
 {
@@ -294,7 +275,7 @@ int br_fdb_fillbuf(struct net_bridge *br, void *buf,
 			if (has_expired(br, f))
 				continue;
 
-			/* ignore pseudo entry for local MAC address */
+			
 			if (!f->dst)
 				continue;
 
@@ -303,10 +284,10 @@ int br_fdb_fillbuf(struct net_bridge *br, void *buf,
 				continue;
 			}
 
-			/* convert from internal format to API */
+			
 			memcpy(fe->mac_addr, f->addr.addr, ETH_ALEN);
 
-			/* due to ABI compat need to split into hi/lo */
+			
 			fe->port_no = f->dst->port_no;
 			fe->port_hi = f->dst->port_no >> 8;
 
@@ -379,9 +360,6 @@ static int fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
 
 	fdb = fdb_find(head, addr);
 	if (fdb) {
-		/* it is okay to have multiple ports with same
-		 * address, just use the first one.
-		 */
 		if (fdb->is_local)
 			return 0;
 		br_warn(br, "adding interface %s with same address "
@@ -399,7 +377,6 @@ static int fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
 	return 0;
 }
 
-/* Add entry for local address of interface */
 int br_fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
 		  const unsigned char *addr)
 {
@@ -417,25 +394,25 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
 	struct hlist_head *head = &br->hash[br_mac_hash(addr)];
 	struct net_bridge_fdb_entry *fdb;
 
-	/* some users want to always flood. */
+	
 	if (hold_time(br) == 0)
 		return;
 
-	/* ignore packets unless we are using this port */
+	
 	if (!(source->state == BR_STATE_LEARNING ||
 	      source->state == BR_STATE_FORWARDING))
 		return;
 
 	fdb = fdb_find_rcu(head, addr);
 	if (likely(fdb)) {
-		/* attempt to update an entry for a local interface */
+		
 		if (unlikely(fdb->is_local)) {
 			if (net_ratelimit())
 				br_warn(br, "received packet on %s with "
 					"own address as source address\n",
 					source->dev->name);
 		} else {
-			/* fastpath: update of existing entry */
+			
 			fdb->dst = source;
 			fdb->updated = jiffies;
 		}
@@ -446,9 +423,6 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
 			if (fdb)
 				fdb_notify(br, fdb, RTM_NEWNEIGH);
 		}
-		/* else  we lose race and someone else inserts
-		 * it first, don't bother updating
-		 */
 		spin_unlock(&br->hash_lock);
 	}
 }
@@ -505,7 +479,7 @@ nla_put_failure:
 static inline size_t fdb_nlmsg_size(void)
 {
 	return NLMSG_ALIGN(sizeof(struct ndmsg))
-		+ nla_total_size(ETH_ALEN) /* NDA_LLADDR */
+		+ nla_total_size(ETH_ALEN) 
 		+ nla_total_size(sizeof(struct nda_cacheinfo));
 }
 
@@ -522,7 +496,7 @@ static void fdb_notify(struct net_bridge *br,
 
 	err = fdb_fill_info(skb, br, fdb, 0, 0, type, 0);
 	if (err < 0) {
-		/* -EMSGSIZE implies BUG in fdb_nlmsg_size() */
+		
 		WARN_ON(err == -EMSGSIZE);
 		kfree_skb(skb);
 		goto errout;
@@ -534,7 +508,6 @@ errout:
 		rtnl_set_sk_err(net, RTNLGRP_NEIGH, err);
 }
 
-/* Dump information about entries, in response to GETNEIGH */
 int br_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
 {
 	struct net *net = sock_net(skb->sk);
@@ -575,7 +548,6 @@ skip:
 	return skb->len;
 }
 
-/* Update (create or replace) forwarding database entry */
 static int fdb_add_entry(struct net_bridge_port *source, const __u8 *addr,
 			 __u16 state, __u16 flags)
 {
@@ -613,7 +585,6 @@ static int fdb_add_entry(struct net_bridge_port *source, const __u8 *addr,
 	return 0;
 }
 
-/* Add new permanent fdb entry with RTM_NEWNEIGH */
 int br_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
 {
 	struct net *net = sock_net(skb->sk);
@@ -691,7 +662,6 @@ static int fdb_delete_by_addr(struct net_bridge_port *p, const u8 *addr)
 	return 0;
 }
 
-/* Remove neighbor entry with RTM_DELNEIGH */
 int br_fdb_delete(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
 {
 	struct net *net = sock_net(skb->sk);

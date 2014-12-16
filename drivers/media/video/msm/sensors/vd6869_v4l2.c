@@ -5780,7 +5780,7 @@ int vd6869_read_fuseid(struct sensor_cfg_data *cdata,
 			rc = vd6869_read_fuseid_sharp (cdata,s_ctrl,first);
 			break;
 		case 0x2:
-		#if defined(CONFIG_MACH_M4_UL) || defined(CONFIG_MACH_M4_U) || defined(CONFIG_MACH_ZIP_CL)
+		#if defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY)
 		    if (board_mfg_mode())
 		        rc = vd6869_read_fuseid_liteon_mfg (cdata,s_ctrl,first);
 		#endif

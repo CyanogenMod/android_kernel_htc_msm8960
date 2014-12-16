@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -132,24 +132,30 @@
 
 #define MSM_PMEM_ADSP_SIZE         0x8600000
 #define MSM_PMEM_AUDIO_SIZE        0x4CF000
-#define MSM_PMEM_SIZE              0x0 
+#define MSM_PMEM_SIZE             0x8200000 
 
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 #define HOLE_SIZE		0x20000
+#define MSM_ION_MFC_META_SIZE  0x40000 
 #ifdef CONFIG_MSM_IOMMU
 #define MSM_PMEM_KERNEL_EBI1_SIZE  0x280000
+#define MSM_ION_SF_SIZE		0
+#define MSM_ION_HEAP_NUM	7
 #else
 #define MSM_PMEM_KERNEL_EBI1_SIZE  0x6400000
-#endif
-
-#define MSM_ION_KGSL_SIZE	0x0
+#define MSM_ION_KGSL_SIZE	0x640000
 #define MSM_ION_SF_SIZE		(MSM_PMEM_SIZE + MSM_ION_KGSL_SIZE)
-#define MSM_ION_MM_FW_SIZE	(0x200000 - HOLE_SIZE) 
-#define MSM_ION_MM_SIZE		MSM_PMEM_ADSP_SIZE
-#define MSM_ION_QSECOM_SIZE	0x600000 
-#define MSM_ION_MFC_SIZE	SZ_8K
-#define MSM_ION_AUDIO_SIZE	MSM_PMEM_AUDIO_SIZE
 #define MSM_ION_HEAP_NUM	8
+#endif
+#ifdef CONFIG_MSM_IOMMU
+#define MSM_ION_MM_SIZE		0x6000000
+#else
+#define MSM_ION_MM_SIZE		MSM_PMEM_ADSP_SIZE
+#endif
+#define MSM_ION_MM_FW_SIZE	(0x200000 - HOLE_SIZE) 
+#define MSM_ION_QSECOM_SIZE	0x600000 
+#define MSM_ION_MFC_SIZE	(SZ_8K + MSM_ION_MFC_META_SIZE)
+#define MSM_ION_AUDIO_SIZE	MSM_PMEM_AUDIO_SIZE
 
 #else
 #define MSM_PMEM_KERNEL_EBI1_SIZE  0x110C000
@@ -499,6 +505,7 @@ static struct ion_platform_data ion_pdata = {
 			.memory_type = ION_EBI_TYPE,
 			.extra_data = (void *) &cp_mfc_m7_ion_pdata,
 		},
+#ifndef CONFIG_MSM_IOMMU
 		{
 			.id	= ION_SF_HEAP_ID,
 			.type	= ION_HEAP_TYPE_CARVEOUT,
@@ -507,6 +514,7 @@ static struct ion_platform_data ion_pdata = {
 			.memory_type = ION_EBI_TYPE,
 			.extra_data = (void *) &co_m7_ion_pdata,
 		},
+#endif
 		{
 			.id	= ION_IOMMU_HEAP_ID,
 			.type	= ION_HEAP_TYPE_IOMMU,
@@ -932,6 +940,9 @@ static struct htc_battery_platform_data htc_battery_pdev_data = {
 	.igauge.store_battery_data = pm8921_bms_store_battery_data_emmc,
 	.igauge.store_battery_ui_soc = pm8921_bms_store_battery_ui_soc,
 	.igauge.get_battery_ui_soc = pm8921_bms_get_battery_ui_soc,
+	.igauge.enter_qb_mode = pm8921_bms_enter_qb_mode,
+	.igauge.exit_qb_mode = pm8921_bms_exit_qb_mode,
+	.igauge.qb_mode_pwr_consumption_check = pm8921_qb_mode_pwr_consumption_check,
 	.igauge.is_battery_temp_fault = pm8921_is_batt_temperature_fault,
 	.igauge.is_battery_full = pm8921_is_batt_full,
 	.igauge.get_attr_text = pm8921_gauge_get_attr_text,
@@ -3779,7 +3790,7 @@ static struct cm3629_platform_data cm36282_pdata_sk2 = {
 	.ps1_thd_set = 0x15,
 	.ps1_thd_no_cal = 0x90,
 	.ps1_thd_with_cal = 0xD,
-	.ps_th_add = 5,
+	.ps_th_add = 10,
 	.ps_calibration_rule = 1,
 	.ps_conf1_val = CM3629_PS_DR_1_40 | CM3629_PS_IT_1_6T |
 			CM3629_PS1_PERS_2,
@@ -3817,7 +3828,7 @@ static struct cm3629_platform_data cm36282_pdata_r8 = {
 	.ps1_thd_set = 0x15,
 	.ps1_thd_no_cal = 0x90,
 	.ps1_thd_with_cal = 0xD,
-	.ps_th_add = 5,
+	.ps_th_add = 10,
 	.ps_calibration_rule = 1,
 	.ps_conf1_val = CM3629_PS_DR_1_40 | CM3629_PS_IT_1_6T |
 			CM3629_PS1_PERS_2,
@@ -4704,6 +4715,59 @@ static struct platform_device m7_device_rpm_regulator __devinitdata = {
 	},
 };
 
+
+#ifdef CONFIG_BUILD_EDIAG
+static struct android_pmem_platform_data android_pmem_ediag_pdata = {
+	.name = "pmem_ediag",
+	.start = MSM_HTC_PMEM_EDIAG_BASE,
+	.size = MSM_HTC_PMEM_EDIAG_SIZE,
+	.no_allocator = 0,
+	.cached = 0,
+};
+
+static struct android_pmem_platform_data android_pmem_ediag1_pdata = {
+	.name = "pmem_ediag1",
+	.start = MSM_HTC_PMEM_EDIAG1_BASE,
+	.size = MSM_HTC_PMEM_EDIAG1_SIZE,
+	.no_allocator = 0,
+	.cached = 0,
+};
+
+static struct android_pmem_platform_data android_pmem_ediag2_pdata = {
+	.name = "pmem_ediag2",
+	.start = MSM_HTC_PMEM_EDIAG2_BASE,
+	.size = MSM_HTC_PMEM_EDIAG2_SIZE,
+	.no_allocator = 0,
+	.cached = 0,
+};
+
+static struct android_pmem_platform_data android_pmem_ediag3_pdata = {
+	.name = "pmem_ediag3",
+	.start = MSM_HTC_PMEM_EDIAG3_BASE,
+	.size = MSM_HTC_PMEM_EDIAG3_SIZE,
+	.no_allocator = 0,
+	.cached = 0,
+};
+
+
+static struct platform_device android_pmem_ediag_device = {
+	.name = "ediag_pmem",	.id = 1,
+	.dev = { .platform_data = &android_pmem_ediag_pdata },};
+
+static struct platform_device android_pmem_ediag1_device = {
+	.name = "ediag_pmem",	.id = 2,
+	.dev = { .platform_data = &android_pmem_ediag1_pdata },};
+
+static struct platform_device android_pmem_ediag2_device = {
+	.name = "ediag_pmem",	.id = 3,
+	.dev = { .platform_data = &android_pmem_ediag2_pdata },};
+
+static struct platform_device android_pmem_ediag3_device = {
+	.name = "ediag_pmem",	.id = 4,
+	.dev = { .platform_data = &android_pmem_ediag3_pdata },};
+#endif
+
+
 #define MSM_RAM_CONSOLE_BASE   MSM_HTC_RAM_CONSOLE_PHYS
 #define MSM_RAM_CONSOLE_SIZE   MSM_HTC_RAM_CONSOLE_SIZE
 
@@ -4940,6 +5004,12 @@ static struct platform_device *common_devices[] __initdata = {
 #endif
 #ifdef CONFIG_QSEECOM
 	&qseecom_device,
+#endif
+#ifdef CONFIG_BUILD_EDIAG
+	&android_pmem_ediag_device,
+	&android_pmem_ediag1_device,
+	&android_pmem_ediag2_device,
+	&android_pmem_ediag3_device,
 #endif
 	&msm8064_device_watchdog,
 	&msm8064_device_saw_regulator_core0,

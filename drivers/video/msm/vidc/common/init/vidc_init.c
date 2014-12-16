@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -404,7 +404,7 @@ void vidc_cleanup_addr_table(struct video_client_ctx *client_ctx,
 				enum buffer_dir buffer)
 {
 	u32 *num_of_buffers = NULL;
-	u32 i = 0;
+	u32 i = 0, len = 0;
 	struct buf_addr_table *buf_addr_table;
 	if (buffer == BUFFER_TYPE_INPUT) {
 		buf_addr_table = client_ctx->input_buf_addr_table;
@@ -430,9 +430,6 @@ void vidc_cleanup_addr_table(struct video_client_ctx *client_ctx,
 		}
 		if (!IS_ERR_OR_NULL(buf_addr_table[i].buff_ion_handle)) {
 			if (!IS_ERR_OR_NULL(client_ctx->user_ion_client)) {
-				ion_unmap_kernel(client_ctx->user_ion_client,
-						buf_addr_table[i].
-						buff_ion_handle);
 				if (!res_trk_check_for_sec_session()) {
 					ion_unmap_iommu(
 						client_ctx->user_ion_client,
@@ -448,6 +445,38 @@ void vidc_cleanup_addr_table(struct video_client_ctx *client_ctx,
 			}
 		}
 	}
+	len = sizeof(client_ctx->recon_buffer)/
+		sizeof(struct vcd_property_enc_recon_buffer);
+	for (i = 0; i < len; i++) {
+		if (!vcd_get_ion_status()) {
+			if (client_ctx->recon_buffer[i].client_data) {
+				msm_subsystem_unmap_buffer(
+				(struct msm_mapped_buffer *)
+				client_ctx->recon_buffer[i].client_data);
+				client_ctx->recon_buffer[i].client_data = NULL;
+			}
+		} else  {
+			if (!IS_ERR_OR_NULL(
+				client_ctx->recon_buffer_ion_handle[i])) {
+				ion_unmap_kernel(client_ctx->user_ion_client,
+				client_ctx->recon_buffer_ion_handle[i]);
+				if (!res_trk_check_for_sec_session() &&
+				   (res_trk_get_core_type() !=
+					(u32)VCD_CORE_720P)) {
+					ion_unmap_iommu(client_ctx->
+						user_ion_client,
+						client_ctx->
+						recon_buffer_ion_handle[i],
+						VIDEO_DOMAIN,
+						VIDEO_MAIN_POOL);
+				}
+				ion_free(client_ctx->user_ion_client,
+				client_ctx->recon_buffer_ion_handle[i]);
+				client_ctx->recon_buffer_ion_handle[i] = NULL;
+			}
+		}
+	}
+
 	if (client_ctx->vcd_h264_mv_buffer.client_data) {
 		msm_subsystem_unmap_buffer((struct msm_mapped_buffer *)
 		client_ctx->vcd_h264_mv_buffer.client_data);
@@ -468,6 +497,42 @@ void vidc_cleanup_addr_table(struct video_client_ctx *client_ctx,
 					client_ctx->h264_mv_ion_handle);
 			client_ctx->h264_mv_ion_handle = NULL;
 		}
+	}
+
+	if (client_ctx->vcd_meta_buffer.client_data)
+		msm_subsystem_unmap_buffer((struct msm_mapped_buffer *)
+		client_ctx->vcd_meta_buffer.client_data);
+	if (!IS_ERR_OR_NULL(client_ctx->meta_buffer_ion_handle)) {
+			ion_unmap_kernel(client_ctx->user_ion_client,
+				client_ctx->meta_buffer_ion_handle);
+		if (!res_trk_check_for_sec_session() &&
+		   (res_trk_get_core_type() != (u32)VCD_CORE_720P)) {
+			ion_unmap_iommu(client_ctx->user_ion_client,
+				client_ctx->meta_buffer_ion_handle,
+				VIDEO_DOMAIN,
+				VIDEO_MAIN_POOL);
+		}
+		ion_free(client_ctx->user_ion_client,
+			client_ctx->meta_buffer_ion_handle);
+		client_ctx->meta_buffer_ion_handle = NULL;
+	}
+
+	if (client_ctx->vcd_meta_buffer.client_data_iommu)
+		msm_subsystem_unmap_buffer((struct msm_mapped_buffer *)
+		client_ctx->vcd_meta_buffer.client_data_iommu);
+	if (!IS_ERR_OR_NULL(client_ctx->meta_buffer_iommu_ion_handle)) {
+		ion_unmap_kernel(client_ctx->user_ion_client,
+			client_ctx->meta_buffer_iommu_ion_handle);
+		if (res_trk_check_for_sec_session() &&
+		   (res_trk_get_core_type() != (u32)VCD_CORE_720P)) {
+			ion_unmap_iommu(client_ctx->user_ion_client,
+				client_ctx->meta_buffer_iommu_ion_handle,
+				VIDEO_DOMAIN,
+				VIDEO_MAIN_POOL);
+		}
+		ion_free(client_ctx->user_ion_client,
+			client_ctx->meta_buffer_iommu_ion_handle);
+		client_ctx->meta_buffer_iommu_ion_handle = NULL;
 	}
 bail_out_cleanup:
 	return;
@@ -574,6 +639,10 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 	int ret = 0;
 	unsigned long buffer_size  = 0;
 	size_t ion_len;
+	struct vcd_property_hdr vcd_property_hdr;
+	struct vcd_property_codec codec;
+	unsigned long mapped_length = length;
+	u32 vcd_status = VCD_ERR_FAIL;
 
 	if (!client_ctx || !length)
 		return false;
@@ -589,7 +658,21 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 		num_of_buffers = &client_ctx->num_of_output_buffers;
 		DBG("%s(): buffer = OUTPUT #Buf = %d\n",
 			__func__, *num_of_buffers);
-		length = length * 2; 
+		vcd_property_hdr.prop_id = VCD_I_CODEC;
+		vcd_property_hdr.sz = sizeof(struct vcd_property_codec);
+		vcd_status = vcd_get_property(client_ctx->vcd_handle,
+						&vcd_property_hdr, &codec);
+		if (vcd_status) {
+			ERR("%s(): get codec failed", __func__);
+		} else {
+			if (codec.codec != VCD_CODEC_H264) {
+				
+				DBG("%s(): Double iommu map size from %u "\
+				"to %u for non-H264", __func__,
+				(u32)length, (u32)(length * 2));
+				mapped_length = length * 2;
+			}
+		}
 	}
 
 	if (*num_of_buffers == max_num_buffers) {
@@ -619,7 +702,7 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 			? MSM_SUBSYSTEM_MAP_IOVA :
 			MSM_SUBSYSTEM_MAP_IOVA|MSM_SUBSYSTEM_ALIGN_IOVA_8K;
 			mapped_buffer = msm_subsystem_map_buffer(phys_addr,
-			length, flags, vidc_mmu_subsystem,
+			mapped_length, flags, vidc_mmu_subsystem,
 			sizeof(vidc_mmu_subsystem)/sizeof(unsigned int));
 			if (IS_ERR(mapped_buffer)) {
 				pr_err("buffer map failed");
@@ -644,17 +727,6 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 				 __func__);
 				goto bail_out_add;
 			}
-			*kernel_vaddr = (unsigned long)
-				ion_map_kernel(
-				client_ctx->user_ion_client,
-				buff_ion_handle);
-			if (IS_ERR_OR_NULL((void *)*kernel_vaddr)) {
-				ERR("%s():ION virtual addr fail\n",
-				 __func__);
-				*kernel_vaddr = (unsigned long)NULL;
-				show_mem(SHOW_MEM_FILTER_NODES);
-				goto ion_free_error;
-			}
 			if (res_trk_check_for_sec_session() ||
 			   (res_trk_get_core_type() == (u32)VCD_CORE_720P)) {
 				if (ion_phys(client_ctx->user_ion_client,
@@ -675,11 +747,10 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 						VIDEO_DOMAIN,
 						VIDEO_MAIN_POOL,
 						SZ_8K,
-						length,
+						mapped_length,
 						(unsigned long *) &iova,
 						(unsigned long *) &buffer_size,
-						0 ,
-						ION_IOMMU_UNMAP_DELAYED);
+						0, 0);
 				if (ret || !iova) {
 					ERR(
 					"%s():ION iommu map fail, ret = %d, iova = 0x%lx\n",
@@ -693,12 +764,14 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 						 iova;
 			}
 		}
+		(*kernel_vaddr) = phys_addr;
 		phys_addr += buffer_addr_offset;
 		(*kernel_vaddr) += buffer_addr_offset;
 		buf_addr_table[*num_of_buffers].user_vaddr = user_vaddr;
 		buf_addr_table[*num_of_buffers].kernel_vaddr = *kernel_vaddr;
 		buf_addr_table[*num_of_buffers].pmem_fd = pmem_fd;
 		buf_addr_table[*num_of_buffers].file = file;
+		buf_addr_table[*num_of_buffers].buff_len = length;
 		buf_addr_table[*num_of_buffers].phy_addr = phys_addr;
 		buf_addr_table[*num_of_buffers].buff_ion_handle =
 						buff_ion_handle;
@@ -713,9 +786,6 @@ u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
 	mutex_unlock(&client_ctx->enrty_queue_lock);
 	return true;
 ion_map_error:
-	if (*kernel_vaddr && buff_ion_handle)
-		ion_unmap_kernel(client_ctx->user_ion_client, buff_ion_handle);
-ion_free_error:
 	if (!IS_ERR_OR_NULL(buff_ion_handle))
 		ion_free(client_ctx->user_ion_client, buff_ion_handle);
 bail_out_add:
@@ -776,6 +846,7 @@ u32 vidc_insert_addr_table_kernel(struct video_client_ctx *client_ctx,
 		buf_addr_table[*num_of_buffers].kernel_vaddr = kernel_vaddr;
 		buf_addr_table[*num_of_buffers].pmem_fd = -1;
 		buf_addr_table[*num_of_buffers].file = NULL;
+		buf_addr_table[*num_of_buffers].buff_len = length;
 		buf_addr_table[*num_of_buffers].phy_addr = phys_addr;
 		buf_addr_table[*num_of_buffers].buff_ion_handle = NULL;
 		*num_of_buffers = *num_of_buffers + 1;
@@ -832,8 +903,6 @@ u32 vidc_delete_addr_table(struct video_client_ctx *client_ctx,
 	}
 	*kernel_vaddr = buf_addr_table[i].kernel_vaddr;
 	if (buf_addr_table[i].buff_ion_handle) {
-		ion_unmap_kernel(client_ctx->user_ion_client,
-				buf_addr_table[i].buff_ion_handle);
 		if (!res_trk_check_for_sec_session() &&
 		   (res_trk_get_core_type() != (u32)VCD_CORE_720P)) {
 			ion_unmap_iommu(client_ctx->user_ion_client,
@@ -860,6 +929,8 @@ u32 vidc_delete_addr_table(struct video_client_ctx *client_ctx,
 			buf_addr_table[*num_of_buffers - 1].pmem_fd;
 		buf_addr_table[i].file =
 			buf_addr_table[*num_of_buffers - 1].file;
+		buf_addr_table[i].buff_len =
+			buf_addr_table[*num_of_buffers - 1].buff_len;
 		buf_addr_table[i].buff_ion_handle =
 			buf_addr_table[*num_of_buffers - 1].buff_ion_handle;
 	}

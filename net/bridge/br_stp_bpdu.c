@@ -70,7 +70,6 @@ static inline int br_get_ticks(const unsigned char *src)
 	return DIV_ROUND_UP(ticks * HZ, STP_HZ);
 }
 
-/* called under bridge lock */
 void br_send_config_bpdu(struct net_bridge_port *p, struct br_config_bpdu *bpdu)
 {
 	unsigned char buf[35];
@@ -115,7 +114,6 @@ void br_send_config_bpdu(struct net_bridge_port *p, struct br_config_bpdu *bpdu)
 	br_send_bpdu(p, buf, 35);
 }
 
-/* called under bridge lock */
 void br_send_tcn_bpdu(struct net_bridge_port *p)
 {
 	unsigned char buf[4];
@@ -130,11 +128,6 @@ void br_send_tcn_bpdu(struct net_bridge_port *p)
 	br_send_bpdu(p, buf, 4);
 }
 
-/*
- * Called from llc.
- *
- * NO locks, but rcu_read_lock
- */
 void br_stp_rcv(const struct stp_proto *proto, struct sk_buff *skb,
 		struct net_device *dev)
 {
@@ -146,7 +139,7 @@ void br_stp_rcv(const struct stp_proto *proto, struct sk_buff *skb,
 	if (!pskb_may_pull(skb, 4))
 		goto err;
 
-	/* compare of protocol id and version */
+	
 	buf = skb->data;
 	if (buf[0] != 0 || buf[1] != 0 || buf[2] != 0)
 		goto err;

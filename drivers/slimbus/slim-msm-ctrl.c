@@ -2075,10 +2075,28 @@ static int __devinit msm_slim_probe(struct platform_device *pdev)
 	dev_dbg(dev->dev, "MSM SB controller is up!\n");
 	return 0;
 
-err_ctrl_failed:
-	writel_relaxed(0, dev->base + CFG_PORT(COMP_CFG, dev->ver));
 err_clk_get_failed:
-	kfree(dev->satd);
+	{
+		int i;
+		for (i = 0; i < dev->nsats; i++) {
+			struct msm_slim_sat *sat = dev->satd[i];
+			int j;
+			if (!sat)
+				continue;
+			for (j = 0; j < sat->nsatch; j++)
+				slim_dealloc_ch(&sat->satcl, sat->satch[j].chanh);
+			slim_remove_device(&sat->satcl);
+			kfree(sat->satch);
+			if (sat->wq)
+				destroy_workqueue(sat->wq);
+			kfree(sat->satcl.name);
+			kfree(sat);
+		}
+	}
+	slim_del_controller(&dev->ctrl);
+err_ctrl_failed:
+	free_irq(dev->irq, dev);
+	writel_relaxed(0, dev->base + CFG_PORT(COMP_CFG, dev->ver));
 err_request_irq_failed:
 	msm_slim_sps_exit(dev);
 err_sps_init_failed:

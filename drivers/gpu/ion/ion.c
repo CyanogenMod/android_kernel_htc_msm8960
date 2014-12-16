@@ -1409,7 +1409,7 @@ static int ion_open(struct inode *inode, struct file *file)
 	if (current->group_leader->flags & PF_KTHREAD) {
 		snprintf(debug_name, 64, "%u", task_pid_nr(current->group_leader));
 	} else {
-		strcpy(debug_name, get_task_comm(task_comm, current->group_leader));
+		strlcpy(debug_name, get_task_comm(task_comm, current->group_leader), sizeof(debug_name));
 	}
 	
 	client = ion_client_create(dev, -1, debug_name);

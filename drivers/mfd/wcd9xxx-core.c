@@ -724,13 +724,6 @@ static int __devinit wcd9xxx_i2c_probe(struct i2c_client *client,
 		return ret;
 	}
 
-	wcd9xxx = kzalloc(sizeof(struct wcd9xxx), GFP_KERNEL);
-	if (wcd9xxx == NULL) {
-		pr_err("%s: error, allocation failed\n", __func__);
-		ret = -ENOMEM;
-		goto fail;
-	}
-
 	if (!pdata) {
 		dev_dbg(&client->dev, "no platform data?\n");
 		ret = -EINVAL;
@@ -741,6 +734,16 @@ static int __devinit wcd9xxx_i2c_probe(struct i2c_client *client,
 		ret = -EIO;
 		goto fail;
 	}
+
+	
+	wcd9xxx = kzalloc(sizeof(struct wcd9xxx), GFP_KERNEL);
+	if (wcd9xxx == NULL) {
+		pr_err("%s: error, allocation failed\n", __func__);
+		ret = -ENOMEM;
+		goto fail;
+	}
+	
+
 	dev_set_drvdata(&client->dev, wcd9xxx);
 	wcd9xxx->dev = &client->dev;
 	wcd9xxx->reset_gpio = pdata->reset_gpio;

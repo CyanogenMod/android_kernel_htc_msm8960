@@ -128,7 +128,7 @@ static BRPORT_ATTR(hold_timer, S_IRUGO, show_hold_timer, NULL);
 
 static int store_flush(struct net_bridge_port *p, unsigned long v)
 {
-	br_fdb_delete_by_port(p->br, p, 0); // Don't delete local entry
+	br_fdb_delete_by_port(p->br, p, 0); 
 	return 0;
 }
 static BRPORT_ATTR(flush, S_IWUSR, NULL, store_flush);
@@ -233,11 +233,6 @@ const struct sysfs_ops brport_sysfs_ops = {
 	.store = brport_store,
 };
 
-/*
- * Add sysfs entries to ethernet device added to a bridge.
- * Creates a brport subdirectory with bridge attributes.
- * Puts symlink in bridge's brif subdirectory
- */
 int br_sysfs_addif(struct net_bridge_port *p)
 {
 	struct net_bridge *br = p->br;
@@ -259,15 +254,11 @@ int br_sysfs_addif(struct net_bridge_port *p)
 	return sysfs_create_link(br->ifobj, &p->kobj, p->sysfs_name);
 }
 
-/* Rename bridge's brif symlink */
 int br_sysfs_renameif(struct net_bridge_port *p)
 {
 	struct net_bridge *br = p->br;
 	int err;
 
-	/* If a rename fails, the rollback will cause another
-	 * rename call with the existing name.
-	 */
 	if (!strncmp(p->sysfs_name, p->dev->name, IFNAMSIZ))
 		return 0;
 

@@ -52,11 +52,19 @@ static struct file *openFile(char *path,int flag,int mode)
 	set_fs(old_fs);
 	if (!fp)
 		return NULL;
-	if(IS_ERR(fp))
-	   HS_LOG("File Open Error:%s",path);
+	if(IS_ERR(fp)) {
+		HS_LOG("File Open Error:%s",path);
+		fp_count--;
+		mutex_unlock(&hi->mutex_lock);
+		return NULL;
+	}
 
-	if(!fp->f_op)
-	   HS_LOG("File Operation Method Error!!");
+	if(!fp->f_op) {
+		HS_LOG("File Operation Method Error!!");
+		fp_count--;
+		mutex_unlock(&hi->mutex_lock);
+		return NULL;
+	}
 
 	return fp;
 }
@@ -120,7 +128,7 @@ int closeFile(struct file *fp)
 static void onewire_init_work_func(struct work_struct *work)
 {
 	HS_LOG("Open %s", hi->pdata.onewire_tty_dev);
-	fp = openFile(hi->pdata.onewire_tty_dev,O_CREAT|O_RDWR|O_NONBLOCK,0666);
+	fp = openFile(hi->pdata.onewire_tty_dev,O_RDWR|O_NONBLOCK,0660);
 	if (fp != NULL) {
 		if (!fp->private_data)
 			HS_LOG("No private data");
@@ -172,7 +180,7 @@ static int hs_1wire_open(void)
 	HS_LOG("[1-wire]hs_1wire_read_key");
 	if (!ret) {
 		HS_LOG("Cancel fileclose_work failed, ret = %d", ret);
-		fp = openFile(hi->pdata.onewire_tty_dev,O_CREAT|O_RDWR|O_NONBLOCK,0666);
+		fp = openFile(hi->pdata.onewire_tty_dev,O_RDWR|O_NONBLOCK,0660);
 	}
 	queue_delayed_work(onewire_wq, &onewire_closefile_work, msecs_to_jiffies(2000));
 	if (!fp)
@@ -216,7 +224,7 @@ static int hs_1wire_init(void)
 	char send_data = 0xF5;
 
 	HS_LOG("[1-wire]hs_1wire_init");
-	fp = openFile(hi->pdata.onewire_tty_dev,O_CREAT|O_RDWR|O_SYNC|O_NONBLOCK,0666);
+	fp = openFile(hi->pdata.onewire_tty_dev,O_RDWR|O_SYNC|O_NONBLOCK,0660);
 	HS_LOG("Open %s", hi->pdata.onewire_tty_dev);
 	if (fp != NULL) {
 		if (!fp->private_data) {
@@ -361,6 +369,7 @@ static int htc_headset_1wire_probe(struct platform_device *pdev)
 	hi->pdata.uart_tx = pdata->uart_tx;
 	hi->pdata.uart_rx = pdata->uart_rx;
 	hi->pdata.remote_press = pdata->remote_press;
+	fp = NULL;
 	fp_count = 0;
 	strncpy(hi->pdata.onewire_tty_dev, pdata->onewire_tty_dev, 15);
 	HS_LOG("1wire tty device %s", hi->pdata.onewire_tty_dev);
@@ -371,7 +380,7 @@ static int htc_headset_1wire_probe(struct platform_device *pdev)
 	}
 	mutex_init(&hi->mutex_lock);
 	hs_1wire_register();
-	queue_delayed_work(onewire_wq, &onewire_init_work, msecs_to_jiffies(1000));
+	queue_delayed_work(onewire_wq, &onewire_init_work, msecs_to_jiffies(3000));
 	hs_notify_driver_ready(DRIVER_NAME);
 
 	HS_LOG("--------------------");

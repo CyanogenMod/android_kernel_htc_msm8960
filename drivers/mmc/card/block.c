@@ -70,6 +70,12 @@ MODULE_ALIAS("mmc:block");
 			stats->pack_stop_reason[reason]++;		\
 	} while (0)
 
+#define EMMC_MAX_WR_REQ_DURATION 400000
+#define EMMC_MAX_RD_REQ_DURATION 150000
+#define SD_MAX_WR_REQ_DURATION 400000
+#define SD_MAX_RD_REQ_DURATION 400000
+extern unsigned int get_tamper_sf(void);
+
 static DEFINE_MUTEX(block_mutex);
 
 #ifdef CONFIG_MMC_MUST_PREVENT_WP_VIOLATION
@@ -1947,6 +1953,24 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 				ret = blk_end_request(req, 0,
 						brq->data.bytes_xfered);
 			}
+
+                        if (!get_tamper_sf() && req->pid >= 0
+                                && ktime_to_us(req->enter_time) && ktime_to_us(req->process_time)) {
+                                if (type == MMC_BLK_WRITE &&
+                                        ktime_to_us(ktime_sub(ktime_get(), req->enter_time)) > EMMC_MAX_WR_REQ_DURATION) {
+                                        pr_info("%s:%d,%d,0x%08x,%d,%lld,%lld\n", mmc_hostname(card->host),
+                                                req->pid, brq->cmd.opcode, brq->cmd.arg, brq->data.blocks,
+                                                ktime_to_us(ktime_sub(req->process_time, req->enter_time)),
+                                                ktime_to_us(ktime_sub(ktime_get(), req->enter_time)));
+                                } else if (type == MMC_BLK_READ &&
+                                        ktime_to_us(ktime_sub(ktime_get(), req->enter_time)) > EMMC_MAX_RD_REQ_DURATION) {
+                                        pr_info("%s:%d,%d,0x%08x,%d,%lld,%lld\n", mmc_hostname(card->host),
+                                                req->pid, brq->cmd.opcode, brq->cmd.arg, brq->data.blocks,
+                                                ktime_to_us(ktime_sub(req->process_time,req->enter_time)),
+                                                ktime_to_us(ktime_sub(ktime_get(),req->enter_time)));
+                                }
+                        }
+
 
 			if (status == MMC_BLK_SUCCESS && ret) {
 				pr_err("%s BUG rq_tot %d d_xfer %d\n",

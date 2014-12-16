@@ -1,23 +1,8 @@
-/*
- *  ebtable_broute
- *
- *	Authors:
- *	Bart De Schuymer <bdschuym@pandora.be>
- *
- *  April, 2002
- *
- *  This table lets you choose between routing and bridging for frames
- *  entering on a bridge enslaved nic. This table is traversed before any
- *  other ebtables table. See net/bridge/br_input.c.
- */
 
 #include <linux/netfilter_bridge/ebtables.h>
 #include <linux/module.h>
 #include <linux/if_bridge.h>
 
-/* EBT_ACCEPT means the frame will be bridged
- * EBT_DROP means the frame will be routed
- */
 static struct ebt_entries initial_chain = {
 	.name		= "BROUTING",
 	.policy		= EBT_ACCEPT,
@@ -57,8 +42,8 @@ static int ebt_broute(struct sk_buff *skb)
 	ret = ebt_do_table(NF_BR_BROUTING, skb, skb->dev, NULL,
 			   dev_net(skb->dev)->xt.broute_table);
 	if (ret == NF_DROP)
-		return 1; /* route it */
-	return 0; /* bridge it */
+		return 1; 
+	return 0; 
 }
 
 static int __net_init broute_net_init(struct net *net)
@@ -86,7 +71,7 @@ static int __init ebtable_broute_init(void)
 	ret = register_pernet_subsys(&broute_net_ops);
 	if (ret < 0)
 		return ret;
-	/* see br_input.c */
+	
 	RCU_INIT_POINTER(br_should_route_hook,
 			   (br_should_route_hook_t *)ebt_broute);
 	return 0;

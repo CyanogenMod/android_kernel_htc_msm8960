@@ -65,6 +65,12 @@ static inline struct f_acm *port_to_acm(struct gserial *p)
 {
 	return container_of(p, struct f_acm, port);
 }
+
+static unsigned hsm_newpid = 1;
+module_param(hsm_newpid, uint, S_IRUGO|S_IWUSR);
+MODULE_PARM_DESC(hsm_newpid, "Use New PID for HSM ACM");
+
+
 static int acm_port_connect(struct f_acm *acm)
 {
 	unsigned port_num;

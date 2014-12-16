@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2012,2014 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -415,6 +415,9 @@ kgsl_device_get_drvdata(struct kgsl_device *dev)
 
 void kgsl_context_destroy(struct kref *kref);
 
+int kgsl_memfree_find_entry(pid_t pid, unsigned long *gpuaddr,
+	unsigned long *size, unsigned int *flags);
+
 static inline void
 kgsl_context_put(struct kgsl_context *context)
 {
@@ -422,25 +425,30 @@ kgsl_context_put(struct kgsl_context *context)
 		kref_put(&context->refcount, kgsl_context_destroy);
 }
 
-static inline void _kgsl_context_get(struct kgsl_context *context)
+static inline int _kgsl_context_get(struct kgsl_context *context)
 {
+	int ret = 0;
 	if (context)
-		kref_get(&context->refcount);
+		ret = kref_get_unless_zero(&context->refcount);
+	return ret;
 }
 
 static inline struct kgsl_context *kgsl_context_get(struct kgsl_device *device,
 		uint32_t id)
 {
+	int result = 0;
 	struct kgsl_context *context = NULL;
 
 	read_lock(&device->context_lock);
 
 	context = idr_find(&device->context_idr, id);
 
-	_kgsl_context_get(context);
+	result = _kgsl_context_get(context);
 
 	read_unlock(&device->context_lock);
 
+	if (!result)
+		return NULL;
 	return context;
 }
 
@@ -472,4 +480,30 @@ static inline void kgsl_cancel_events_timestamp(struct kgsl_device *device,
 	kgsl_signal_event(device, context, timestamp, KGSL_EVENT_CANCELLED);
 }
 
+static inline int kgsl_process_private_get(struct kgsl_process_private *process)
+{
+	int ret = 0;
+	if (process != NULL)
+		ret = kref_get_unless_zero(&process->refcount);
+	return ret;
+}
+
+void kgsl_process_private_put(struct kgsl_process_private *private);
+
+struct kgsl_process_private *kgsl_process_private_find(pid_t pid);
+
+static inline int kgsl_sysfs_store(const char *buf, unsigned int *ptr)
+{
+	unsigned int val;
+	int rc;
+
+	rc = kstrtou32(buf, 0, &val);
+	if (rc)
+		return rc;
+
+	if (ptr)
+		*ptr = val;
+
+	return 0;
+}
 #endif  

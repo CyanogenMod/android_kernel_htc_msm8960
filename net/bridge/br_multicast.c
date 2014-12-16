@@ -427,7 +427,7 @@ static struct sk_buff *br_ip6_multicast_alloc_query(struct net_bridge *br,
 
 	skb->protocol = htons(ETH_P_IPV6);
 
-	/* Ethernet header */
+	
 	skb_reset_mac_header(skb);
 	eth = eth_hdr(skb);
 
@@ -435,7 +435,7 @@ static struct sk_buff *br_ip6_multicast_alloc_query(struct net_bridge *br,
 	eth->h_proto = htons(ETH_P_IPV6);
 	skb_put(skb, sizeof(*eth));
 
-	/* IPv6 header + HbH option */
+	
 	skb_set_network_header(skb, skb->len);
 	ip6h = ipv6_hdr(skb);
 
@@ -452,18 +452,18 @@ static struct sk_buff *br_ip6_multicast_alloc_query(struct net_bridge *br,
 	ipv6_eth_mc_map(&ip6h->daddr, eth->h_dest);
 
 	hopopt = (u8 *)(ip6h + 1);
-	hopopt[0] = IPPROTO_ICMPV6;		/* next hdr */
-	hopopt[1] = 0;				/* length of HbH */
-	hopopt[2] = IPV6_TLV_ROUTERALERT;	/* Router Alert */
-	hopopt[3] = 2;				/* Length of RA Option */
-	hopopt[4] = 0;				/* Type = 0x0000 (MLD) */
+	hopopt[0] = IPPROTO_ICMPV6;		
+	hopopt[1] = 0;				
+	hopopt[2] = IPV6_TLV_ROUTERALERT;	
+	hopopt[3] = 2;				
+	hopopt[4] = 0;				
 	hopopt[5] = 0;
-	hopopt[6] = IPV6_TLV_PAD0;		/* Pad0 */
-	hopopt[7] = IPV6_TLV_PAD0;		/* Pad0 */
+	hopopt[6] = IPV6_TLV_PAD0;		
+	hopopt[7] = IPV6_TLV_PAD0;		
 
 	skb_put(skb, sizeof(*ip6h) + 8);
 
-	/* ICMPv6 */
+	
 	skb_set_transport_header(skb, skb->len);
 	mldq = (struct mld_msg *) icmp6_hdr(skb);
 
@@ -477,7 +477,7 @@ static struct sk_buff *br_ip6_multicast_alloc_query(struct net_bridge *br,
 	mldq->mld_reserved = 0;
 	mldq->mld_mca = *group;
 
-	/* checksum */
+	
 	mldq->mld_cksum = csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr,
 					  sizeof(*mldq), IPPROTO_ICMPV6,
 					  csum_partial(mldq,
@@ -896,7 +896,7 @@ static int br_ip4_multicast_igmp3_report(struct net_bridge *br,
 		if (!pskb_may_pull(skb, len))
 			return -EINVAL;
 
-		/* We treat this as an IGMPv2 report for now. */
+		
 		switch (type) {
 		case IGMPV3_MODE_IS_INCLUDE:
 		case IGMPV3_MODE_IS_EXCLUDE:
@@ -956,7 +956,7 @@ static int br_ip6_multicast_mld2_report(struct net_bridge *br,
 		len += sizeof(*grec) +
 		       sizeof(struct in6_addr) * ntohs(*nsrcs);
 
-		/* We treat these as MLDv1 reports for now. */
+		
 		switch (grec->grec_type) {
 		case MLD2_MODE_IS_INCLUDE:
 		case MLD2_MODE_IS_EXCLUDE:
@@ -979,11 +979,6 @@ static int br_ip6_multicast_mld2_report(struct net_bridge *br,
 }
 #endif
 
-/*
- * Add port to rotuer_list
- *  list is maintained ordered by pointer value
- *  and locked by br->multicast_lock and RCU
- */
 static void br_multicast_add_router(struct net_bridge *br,
 				    struct net_bridge_port *port)
 {
@@ -1285,7 +1280,7 @@ static int br_multicast_ipv4_rcv(struct net_bridge *br,
 	unsigned offset;
 	int err;
 
-	/* We treat OOM as packet loss for now. */
+	
 	if (!pskb_may_pull(skb, sizeof(*iph)))
 		return -EINVAL;
 
@@ -1335,7 +1330,7 @@ static int br_multicast_ipv4_rcv(struct net_bridge *br,
 	case CHECKSUM_COMPLETE:
 		if (!csum_fold(skb2->csum))
 			break;
-		/* fall through */
+		
 	case CHECKSUM_NONE:
 		skb2->csum = 0;
 		if (skb_checksum_complete(skb2))
@@ -1391,12 +1386,6 @@ static int br_multicast_ipv6_rcv(struct net_bridge *br,
 
 	ip6h = ipv6_hdr(skb);
 
-	/*
-	 * We're interested in MLD messages only.
-	 *  - Version is 6
-	 *  - MLD has always Router Alert hop-by-hop option
-	 *  - But we do not support jumbrograms.
-	 */
 	if (ip6h->version != 6 ||
 	    ip6h->nexthdr != IPPROTO_HOPOPTS ||
 	    ip6h->payload_len == 0)
@@ -1412,7 +1401,7 @@ static int br_multicast_ipv6_rcv(struct net_bridge *br,
 	if (offset < 0 || nexthdr != IPPROTO_ICMPV6)
 		return 0;
 
-	/* Okay, we found ICMPv6 header */
+	
 	skb2 = skb_clone(skb, GFP_ATOMIC);
 	if (!skb2)
 		return -ENOMEM;
@@ -1441,7 +1430,7 @@ static int br_multicast_ipv6_rcv(struct net_bridge *br,
 		goto out;
 	}
 
-	/* Okay, we found MLD message. Check further. */
+	
 	if (skb2->len > len) {
 		err = pskb_trim_rcsum(skb2, len);
 		if (err)
@@ -1456,7 +1445,7 @@ static int br_multicast_ipv6_rcv(struct net_bridge *br,
 		if (!csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr, skb2->len,
 					IPPROTO_ICMPV6, skb2->csum))
 			break;
-		/*FALLTHROUGH*/
+		
 	case CHECKSUM_NONE:
 		skb2->csum = ~csum_unfold(csum_ipv6_magic(&ip6h->saddr,
 							&ip6h->daddr,
@@ -1631,7 +1620,7 @@ int br_multicast_set_router(struct net_bridge *br, unsigned long val)
 	case 0:
 	case 2:
 		del_timer(&br->multicast_router_timer);
-		/* fall through */
+		
 	case 1:
 		br->multicast_router = val;
 		err = 0;

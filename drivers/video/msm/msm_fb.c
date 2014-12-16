@@ -179,6 +179,9 @@ struct dentry *msm_fb_debugfs_root;
 struct dentry *msm_fb_debugfs_file[MSM_FB_MAX_DBGFS];
 static int bl_scale, bl_min_lvl;
 
+static int unset_bl_level, bl_updated;
+static int bl_level_old;
+
 DEFINE_MUTEX(msm_fb_notify_update_sem);
 void msmfb_no_update_notify_timer_cb(unsigned long data)
 {
@@ -659,6 +662,18 @@ static void dimming_do_work(struct work_struct *work)
 			work, struct msm_fb_data_type, dimming_work);
 	struct msm_fb_panel_data *pdata;
 	pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
+
+	if (!bl_updated) {
+		if ((pdata) && (pdata->set_backlight)) {
+			PR_DISP_INFO("Set backlight as default\n");
+			down(&mfd->sem);
+			mfd->bl_level = DEFAULT_BRIGHTNESS;
+			pdata->set_backlight(mfd);
+			bl_level_old = DEFAULT_BRIGHTNESS;
+			bl_updated = 1;
+			up(&mfd->sem);
+		}
+	}
 
 	if ((pdata) && (pdata->dimming_on)) {
 		pdata->dimming_on(mfd);
@@ -1314,8 +1329,6 @@ static void msmfb_onchg_resume(struct early_suspend *h)
 #endif 
 #endif
 
-static int unset_bl_level, bl_updated;
-static int bl_level_old;
 
 #ifdef CONFIG_FB_MSM_ESD_WORKAROUND
 void esd_wq_routine(struct work_struct *work) {

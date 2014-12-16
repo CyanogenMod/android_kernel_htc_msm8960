@@ -570,6 +570,32 @@ static ssize_t htc_battery_trigger_store_battery_data(struct device *dev,
 	return count;
 }
 
+static ssize_t htc_battery_qb_mode_shutdown_status(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	int rc = 0;
+	unsigned long trigger_flag = 0;
+
+	rc = strict_strtoul(buf, 10, &trigger_flag);
+	if (rc)
+		return rc;
+
+	BATT_LOG("Set context trigger_flag = %lu", trigger_flag);
+
+	if((trigger_flag != 0) && (trigger_flag != 1))
+		return -EINVAL;
+
+	if (!battery_core_info.func.func_qb_mode_shutdown_status) {
+		BATT_ERR("No set trigger qb mode shutdown status function!");
+		return -ENOENT;
+	}
+
+	battery_core_info.func.func_qb_mode_shutdown_status(trigger_flag);
+
+	return count;
+}
+
 static struct device_attribute htc_battery_attrs[] = {
 	HTC_BATTERY_ATTR(batt_id),
 	HTC_BATTERY_ATTR(batt_vol),
@@ -615,6 +641,8 @@ static struct device_attribute htc_set_delta_attrs[] = {
 		htc_battery_set_disable_limit_chg),
 	__ATTR(store_battery_data, S_IWUSR | S_IWGRP, NULL,
 		htc_battery_trigger_store_battery_data),
+	__ATTR(qb_mode_shutdown, S_IWUSR | S_IWGRP, NULL,
+		htc_battery_qb_mode_shutdown_status),
 };
 
 static struct device_attribute htc_battery_rt_attrs[] = {
@@ -1186,6 +1214,9 @@ int htc_battery_core_register(struct device *dev,
 	if (htc_battery->func_trigger_store_battery_data)
 		battery_core_info.func.func_trigger_store_battery_data =
 					htc_battery->func_trigger_store_battery_data;
+	if (htc_battery->func_qb_mode_shutdown_status)
+		battery_core_info.func.func_qb_mode_shutdown_status =
+					htc_battery->func_qb_mode_shutdown_status;
 
 	
 	for (i = 0; i < ARRAY_SIZE(htc_power_supplies); i++) {

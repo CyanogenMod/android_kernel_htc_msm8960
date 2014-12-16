@@ -923,7 +923,7 @@ static ssize_t sel_write_user(struct file *file, char *buf, size_t size)
 	if (length)
 		goto out;
 
-	length = sprintf(buf, "%u", nsids) + 1;
+	length = snprintf(buf, PAGE_SIZE, "%u", nsids) + 1;
 	ptr = buf + length;
 	for (i = 0; i < nsids; i++) {
 		rc = security_sid_to_context(sids[i], &newcon, &len);

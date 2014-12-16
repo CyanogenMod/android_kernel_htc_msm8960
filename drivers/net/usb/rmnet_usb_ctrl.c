@@ -1880,8 +1880,16 @@ int rmnet_usb_ctrl_init(int no_rmnet_devs, int no_rmnet_insts_per_dev)
 					__func__, PTR_ERR(dev->devicep));
 				cdev_del(&dev->cdev);
 				destroy_workqueue(dev->wq);
+				
+				status = PTR_ERR(dev->devicep);
+				
 				kfree(dev);
-				return PTR_ERR(dev->devicep);
+				
+				
+				
+				
+				return status;
+				
 			}
 
 			

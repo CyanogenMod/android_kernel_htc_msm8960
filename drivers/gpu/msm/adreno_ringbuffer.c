@@ -355,32 +355,6 @@ int adreno_ringbuffer_start(struct adreno_ringbuffer *rb)
 			     rb->memptrs_desc.gpuaddr +
 			     GSL_RB_MEMPTRS_RPTR_OFFSET);
 
-	if (adreno_is_a3xx(adreno_dev)) {
-		
-		adreno_regwrite(device, A3XX_CP_PROTECT_CTRL, 0x00000007);
-
-		
-		adreno_regwrite(device, A3XX_CP_PROTECT_REG_0, 0x63000040);
-		adreno_regwrite(device, A3XX_CP_PROTECT_REG_1, 0x62000080);
-		adreno_regwrite(device, A3XX_CP_PROTECT_REG_2, 0x600000CC);
-		adreno_regwrite(device, A3XX_CP_PROTECT_REG_3, 0x60000108);
-		adreno_regwrite(device, A3XX_CP_PROTECT_REG_4, 0x64000140);
-		adreno_regwrite(device, A3XX_CP_PROTECT_REG_5, 0x66000400);
-
-		
-		adreno_regwrite(device, A3XX_CP_PROTECT_REG_6, 0x65000700);
-		adreno_regwrite(device, A3XX_CP_PROTECT_REG_7, 0x610007D8);
-		adreno_regwrite(device, A3XX_CP_PROTECT_REG_8, 0x620007E0);
-		adreno_regwrite(device, A3XX_CP_PROTECT_REG_9, 0x61001178);
-		adreno_regwrite(device, A3XX_CP_PROTECT_REG_A, 0x64001180);
-
-		
-		adreno_regwrite(device, A3XX_CP_PROTECT_REG_B, 0x60003300);
-
-		
-		adreno_regwrite(device, A3XX_CP_PROTECT_REG_C, 0x6B00C000);
-	}
-
 	if (adreno_is_a2xx(adreno_dev)) {
 		
 		adreno_regwrite(device, REG_CP_INT_ACK, 0xFFFFFFFF);
@@ -542,28 +516,12 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	if (flags & KGSL_CMD_FLAGS_EOF)
 		total_sizedwords += 2;
 
-	
-	if (flags & KGSL_CMD_FLAGS_PWRON_FIXUP)
-		total_sizedwords += 5;
-
 	ringcmds = adreno_ringbuffer_allocspace(rb, context, total_sizedwords);
 	if (!ringcmds)
 		return -ENOSPC;
 
 	rcmd_gpu = rb->buffer_desc.gpuaddr
 		+ sizeof(uint)*(rb->wptr-total_sizedwords);
-
-	if (flags & KGSL_CMD_FLAGS_PWRON_FIXUP) {
-		GSL_RB_WRITE(ringcmds, rcmd_gpu, cp_nop_packet(1));
-		GSL_RB_WRITE(ringcmds, rcmd_gpu,
-				KGSL_PWRON_FIXUP_IDENTIFIER);
-		GSL_RB_WRITE(ringcmds, rcmd_gpu,
-			CP_HDR_INDIRECT_BUFFER_PFD);
-		GSL_RB_WRITE(ringcmds, rcmd_gpu,
-			adreno_dev->pwron_fixup.gpuaddr);
-		GSL_RB_WRITE(ringcmds, rcmd_gpu,
-			adreno_dev->pwron_fixup_dwords);
-	}
 
 	GSL_RB_WRITE(ringcmds, rcmd_gpu, cp_nop_packet(1));
 	GSL_RB_WRITE(ringcmds, rcmd_gpu, KGSL_CMD_IDENTIFIER);
@@ -1022,18 +980,9 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 	} else
 		drawctxt->timestamp++;
 
-	flags &= KGSL_CMD_FLAGS_EOF;
-
-
-	if (test_and_clear_bit(ADRENO_DEVICE_PWRON, &adreno_dev->priv) &&
-	    test_bit(ADRENO_DEVICE_PWRON_FIXUP, &adreno_dev->priv))
-	{
-		flags |= KGSL_CMD_FLAGS_PWRON_FIXUP;
-	}
-
 	ret = adreno_ringbuffer_addcmds(&adreno_dev->ringbuffer,
 					drawctxt,
-					flags,
+					(flags & KGSL_CMD_FLAGS_EOF),
 					&link[0], (cmds - link));
 	if (ret)
 		goto done;

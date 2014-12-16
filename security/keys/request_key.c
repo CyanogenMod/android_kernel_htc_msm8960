@@ -97,7 +97,7 @@ static int call_sbin_request_key(struct key_construction *cons,
 		goto error_alloc;
 
 	
-	sprintf(desc, "_req.%u", key->serial);
+	snprintf(desc, sizeof(desc), "_req.%u", key->serial);
 
 	cred = get_current_cred();
 	keyring = keyring_alloc(desc, cred->fsuid, cred->fsgid, cred,
@@ -114,20 +114,20 @@ static int call_sbin_request_key(struct key_construction *cons,
 		goto error_link;
 
 	
-	sprintf(uid_str, "%d", cred->fsuid);
-	sprintf(gid_str, "%d", cred->fsgid);
+	snprintf(uid_str, sizeof(uid_str), "%d", cred->fsuid);
+	snprintf(gid_str, sizeof(gid_str), "%d", cred->fsgid);
 
 	
-	sprintf(key_str, "%d", key->serial);
+	snprintf(key_str, sizeof(key_str), "%d", key->serial);
 
 	
-	sprintf(keyring_str[0], "%d",
+	snprintf(keyring_str[0], sizeof(keyring_str[0]), "%d",
 		cred->thread_keyring ? cred->thread_keyring->serial : 0);
 
 	prkey = 0;
 	if (cred->tgcred->process_keyring)
 		prkey = cred->tgcred->process_keyring->serial;
-	sprintf(keyring_str[1], "%d", prkey);
+	snprintf(keyring_str[1], sizeof(keyring_str[1]), "%d", prkey);
 
 	rcu_read_lock();
 	session = rcu_dereference(cred->tgcred->session_keyring);
@@ -136,7 +136,7 @@ static int call_sbin_request_key(struct key_construction *cons,
 	sskey = session->serial;
 	rcu_read_unlock();
 
-	sprintf(keyring_str[2], "%d", sskey);
+	snprintf(keyring_str[2], sizeof(keyring_str[2]), "%d", sskey);
 
 	
 	i = 0;

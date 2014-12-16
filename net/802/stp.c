@@ -17,7 +17,6 @@
 #include <net/llc_pdu.h>
 #include <net/stp.h>
 
-/* 01:80:c2:00:00:20 - 01:80:c2:00:00:2F */
 #define GARP_ADDR_MIN	0x20
 #define GARP_ADDR_MAX	0x2F
 #define GARP_ADDR_RANGE	(GARP_ADDR_MAX - GARP_ADDR_MIN)
@@ -29,7 +28,6 @@ static struct llc_sap *sap __read_mostly;
 static unsigned int sap_registered;
 static DEFINE_MUTEX(stp_proto_mutex);
 
-/* Called under rcu_read_lock from LLC */
 static int stp_pdu_rcv(struct sk_buff *skb, struct net_device *dev,
 		       struct packet_type *pt, struct net_device *orig_dev)
 {

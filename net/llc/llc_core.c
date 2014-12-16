@@ -25,18 +25,13 @@
 LIST_HEAD(llc_sap_list);
 DEFINE_SPINLOCK(llc_sap_list_lock);
 
-/**
- *	llc_sap_alloc - allocates and initializes sap.
- *
- *	Allocates and initializes sap.
- */
 static struct llc_sap *llc_sap_alloc(void)
 {
 	struct llc_sap *sap = kzalloc(sizeof(*sap), GFP_ATOMIC);
 	int i;
 
 	if (sap) {
-		/* sap->laddr.mac - leave as a null, it's filled by bind */
+		
 		sap->state = LLC_SAP_STATE_ACTIVE;
 		spin_lock_init(&sap->sk_lock);
 		for (i = 0; i < LLC_SK_LADDR_HASH_ENTRIES; i++)
@@ -58,15 +53,6 @@ out:
 	return sap;
 }
 
-/**
- *	llc_sap_find - searchs a SAP in station
- *	@sap_value: sap to be found
- *
- *	Searchs for a sap in the sap list of the LLC's station upon the sap ID.
- *	If the sap is found it will be refcounted and the user will have to do
- *	a llc_sap_put after use.
- *	Returns the sap or %NULL if not found.
- */
 struct llc_sap *llc_sap_find(unsigned char sap_value)
 {
 	struct llc_sap *sap;
@@ -79,15 +65,6 @@ struct llc_sap *llc_sap_find(unsigned char sap_value)
 	return sap;
 }
 
-/**
- *	llc_sap_open - open interface to the upper layers.
- *	@lsap: SAP number.
- *	@func: rcv func for datalink protos
- *
- *	Interface function to upper layer. Each one who wants to get a SAP
- *	(for example NetBEUI) should call this function. Returns the opened
- *	SAP for success, NULL for failure.
- */
 struct llc_sap *llc_sap_open(unsigned char lsap,
 			     int (*func)(struct sk_buff *skb,
 					 struct net_device *dev,
@@ -97,7 +74,7 @@ struct llc_sap *llc_sap_open(unsigned char lsap,
 	struct llc_sap *sap = NULL;
 
 	spin_lock_bh(&llc_sap_list_lock);
-	if (__llc_sap_find(lsap)) /* SAP already exists */
+	if (__llc_sap_find(lsap)) 
 		goto out;
 	sap = llc_sap_alloc();
 	if (!sap)
@@ -110,15 +87,6 @@ out:
 	return sap;
 }
 
-/**
- *	llc_sap_close - close interface for upper layers.
- *	@sap: SAP to be closed.
- *
- *	Close interface function to upper layer. Each one who wants to
- *	close an open SAP (for example NetBEUI) should call this function.
- * 	Removes this sap from the list of saps in the station and then
- * 	frees the memory for this sap.
- */
 void llc_sap_close(struct llc_sap *sap)
 {
 	WARN_ON(sap->sk_count);

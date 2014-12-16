@@ -48,7 +48,9 @@
 #define MMC_BKOPS_MAX_TIMEOUT    (4 * 60 * 1000) 
 
 #define CREATE_TRACE_POINTS
+#include <trace/events/mmc.h>
 #include <trace/events/mmcio.h>
+#include <trace/events/f2fs.h>
 
 static struct workqueue_struct *workqueue;
 struct workqueue_struct *stats_workqueue = NULL;
@@ -324,7 +326,7 @@ void mmc_request_done(struct mmc_host *host, struct mmc_request *mrq)
 			cmd->resp[2], cmd->resp[3]);
 
 		if (mrq->data) {
-			if (host->perf_enable) {
+			if (host->perf_enable && cmd->opcode != MMC_SEND_EXT_CSD) {
 				unsigned long flags;
 				diff = ktime_sub(ktime_get(), host->perf.start);
 				if (host->tp_enable)
@@ -1026,6 +1028,19 @@ void mmc_set_ios(struct mmc_host *host)
 	if (ios->clock > 0)
 		mmc_set_ungated(host);
 	host->ops->set_ios(host, ios);
+	if (ios->old_rate != ios->clock) {
+		if (likely(ios->clk_ts)) {
+			char trace_info[80];
+			snprintf(trace_info, 80,
+				"%s: freq_KHz %d --> %d | t = %d",
+				mmc_hostname(host), ios->old_rate / 1000,
+				ios->clock / 1000, jiffies_to_msecs(
+					(long)jiffies - (long)ios->clk_ts));
+			trace_mmc_clk(trace_info);
+		}
+		ios->old_rate = ios->clock;
+		ios->clk_ts = jiffies;
+	}
 }
 EXPORT_SYMBOL(mmc_set_ios);
 

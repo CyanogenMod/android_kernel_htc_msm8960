@@ -1439,7 +1439,9 @@ static void a2xx_drawctxt_restore(struct adreno_device *adreno_dev,
 }
 
 
-#define RBBM_INT_MASK RBBM_INT_CNTL__RDERR_INT_MASK
+#define RBBM_INT_MASK (RBBM_INT_CNTL__RDERR_INT_MASK | \
+		RBBM_INT_CNTL__PROTECT_INT_MASK)
+
 
 #define CP_INT_MASK \
 	(CP_INT_CNTL__T0_PACKET_IN_IB_MASK | \
@@ -1545,6 +1547,16 @@ static void a2xx_rbbm_intrcallback(struct kgsl_device *device)
 			KGSL_DRV_CRIT(device,
 				"rbbm read error interrupt: %s reg: %04X\n",
 				source, addr);
+	} else if (status & RBBM_INT_CNTL__PROTECT_INT_MASK) {
+		adreno_regread(device, REG_RBBM_READ_ERROR, &rderr);
+		source = (rderr & RBBM_READ_ERROR_REQUESTER)
+			 ? "host" : "cp";
+		
+		addr = (rderr & RBBM_READ_ERROR_ADDRESS_MASK) >> 2;
+		KGSL_DRV_CRIT(device,
+				"RBBM | Protected mode error |%s|%s| addr=%x\n",
+				rderr & (1 << 31) ? "WRITE" : "READ", source,
+				addr);
 	}
 
 	status &= RBBM_INT_MASK;
@@ -1656,10 +1668,8 @@ static int a2xx_rb_init(struct adreno_device *adreno_dev,
 
 	
 	GSL_RB_WRITE(cmds, cmds_gpu, 0x00000000);
-	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype())
-		GSL_RB_WRITE(cmds, cmds_gpu, 0);
-	else
-		GSL_RB_WRITE(cmds, cmds_gpu, GSL_RB_PROTECTED_MODE_CONTROL);
+	
+	GSL_RB_WRITE(cmds, cmds_gpu, GSL_RB_PROTECTED_MODE_CONTROL);
 	
 	GSL_RB_WRITE(cmds, cmds_gpu, 0x00000000);
 	
@@ -1718,6 +1728,31 @@ static void a2xx_gmeminit(struct adreno_device *adreno_dev)
 
 	adreno_regwrite(device, REG_RB_EDRAM_INFO, rb_edram_info.val);
 }
+static void a2xx_protect_init(struct kgsl_device *device)
+{
+	int index = 0;
+
+	
+	kgsl_regwrite(device, REG_RBBM_INT_CNTL,
+			RBBM_INT_CNTL__PROTECT_INT_MASK);
+
+	
+	adreno_set_protected_registers(device, &index, 0x03C, 0x0);
+	
+	adreno_set_protected_registers(device, &index, 0x3B4, 0x1);
+	
+	adreno_set_protected_registers(device, &index, 0x140, 0xF);
+
+	
+	adreno_set_protected_registers(device, &index, 0x1C0, 0x20);
+	
+	adreno_set_protected_registers(device, &index, 0x1EC, 0x1);
+	
+	adreno_set_protected_registers(device, &index, 0x1F6, 0x7);
+
+	
+	adreno_set_protected_registers(device, &index, 0x042, 0x0);
+}
 
 static void a2xx_start(struct adreno_device *adreno_dev)
 {
@@ -1764,6 +1799,9 @@ static void a2xx_start(struct adreno_device *adreno_dev)
 		adreno_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0x80);
 
 	adreno_regwrite(device, REG_RBBM_DEBUG, 0x00080000);
+
+	
+	a2xx_protect_init(device);
 
 	
 	adreno_regwrite(device, REG_RBBM_INT_CNTL, 0);

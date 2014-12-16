@@ -1408,7 +1408,7 @@ rndis_function_init(struct android_usb_function *f,
 	if (dev->pdata && dev->pdata->manufacturer_name)
 		strncpy(rndis->manufacturer,
 			dev->pdata->manufacturer_name,
-			sizeof(rndis->manufacturer));
+			sizeof(rndis->manufacturer) - 1);
 	rndis->vendorID = dev->pdata->vendor_id;
 
 	return 0;
@@ -1436,7 +1436,11 @@ rndis_function_bind_config(struct android_usb_function *f,
 		rndis->ethaddr[0], rndis->ethaddr[1], rndis->ethaddr[2],
 		rndis->ethaddr[3], rndis->ethaddr[4], rndis->ethaddr[5]);
 
-	ret = gether_setup_name(c->cdev->gadget, rndis->ethaddr, "usb");
+	if (rndis->ethaddr[0])
+		ret = gether_setup_name(c->cdev->gadget, NULL, "usb");
+	else
+		ret = gether_setup_name(c->cdev->gadget, rndis->ethaddr,
+								"usb");
 	if (ret) {
 		pr_err("%s: gether_setup failed\n", __func__);
 		return ret;
@@ -2865,7 +2869,7 @@ static struct platform_driver android_platform_driver = {
 	.remove = android_remove,
 };
 
-char *board_cid(void);
+
 static void android_usb_init_work(struct work_struct *data)
 {
 	struct android_dev *dev = _android_dev;
@@ -2877,13 +2881,9 @@ static void android_usb_init_work(struct work_struct *data)
 #ifdef CONFIG_SENSE_4_PLUS
 	
 	if (board_mfg_mode() != 2) {
-		if (!strncmp(board_cid(), "GOOGL", 5))
-			USB_INFO("[USB] Stockui project, don't enable mtp as default function\n");
-		else {
-			ret = android_enable_function(dev, "mtp");
-			if (ret)
-				pr_err("android_usb: Cannot enable '%s'", "mtp");
-		}
+		ret = android_enable_function(dev, "mtp");
+		if (ret)
+			pr_err("android_usb: Cannot enable '%s'", "mtp");
 	}
 #endif
 	ret = android_enable_function(dev, "mass_storage");

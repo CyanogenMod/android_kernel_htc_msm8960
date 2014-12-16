@@ -1028,11 +1028,16 @@ static ssize_t oom_score_adj_write(struct file *file, const char __user *buf,
 	if (has_capability_noaudit(current, CAP_SYS_RESOURCE))
 		task->signal->oom_score_adj_min = oom_score_adj;
 	trace_oom_score_adj_update(task);
-	if (task->signal->oom_score_adj == OOM_SCORE_ADJ_MIN)
-		task->signal->oom_adj = OOM_DISABLE;
-	else
-		task->signal->oom_adj = (oom_score_adj * OOM_ADJUST_MAX) /
-							OOM_SCORE_ADJ_MAX;
+	if (task->signal->oom_score_adj == OOM_SCORE_ADJ_MAX) {
+		task->signal->oom_adj = OOM_ADJUST_MAX;
+	} else {
+		int mult = 1;
+		if (task->signal->oom_score_adj < 0)
+			mult = -1;
+		task->signal->oom_adj = roundup(mult * task->signal->oom_score_adj *
+					-OOM_DISABLE, OOM_SCORE_ADJ_MAX) /
+					OOM_SCORE_ADJ_MAX * mult;
+	}
 err_sighand:
 	unlock_task_sighand(task, &flags);
 err_task_lock:

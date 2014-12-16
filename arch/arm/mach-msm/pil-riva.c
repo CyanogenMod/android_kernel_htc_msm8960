@@ -269,8 +269,10 @@ static int pil_riva_reset(struct pil_desc *pil)
 
 	reg |= PLL_MODE_RESET_N;
 	writel_relaxed(reg, RIVA_PLL_MODE);
+#if 0
 	reg |= PLL_MODE_OUTCTRL;
 	writel_relaxed(reg, RIVA_PLL_MODE);
+#endif
 
 	
 	mb();

@@ -156,6 +156,7 @@ extern int usbnet_suspend(struct usb_interface *, pm_message_t);
 extern int usbnet_resume(struct usb_interface *);
 extern void usbnet_disconnect(struct usb_interface *);
 
+extern void dbg_log_event_debug(struct usbnet *, char *);
 
 struct cdc_state {
 	struct usb_cdc_header_desc	*header;

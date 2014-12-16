@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,7 @@
 #include <linux/cdev.h>
 #include <media/msm/vidc_init.h>
 
+#define NUM_OF_DRIVER_NODES 2
 #define VID_ENC_MAX_NUM_OF_BUFF 100
 
 enum venc_buffer_dir{
@@ -32,8 +33,8 @@ struct vid_enc_msg {
 
 struct vid_enc_dev {
 
-	struct cdev cdev;
-	struct device *device;
+	struct cdev cdev[NUM_OF_DRIVER_NODES];
+	struct device *device[NUM_OF_DRIVER_NODES];
 	resource_size_t phys_base;
 	void __iomem *virt_base;
 	unsigned int irq;
@@ -150,5 +151,23 @@ u32 vid_enc_free_recon_buffers(struct video_client_ctx *client_ctx,
 
 u32 vid_enc_get_recon_buffer_size(struct video_client_ctx *client_ctx,
 		struct venc_recon_buff_size *venc_recon_size);
+
+u32 vid_enc_get_curr_perf_level(struct video_client_ctx *client_ctx,
+		u32 *curr_perf_level);
+
+u32 vid_enc_set_get_ltrmode(struct video_client_ctx *client_ctx,
+		struct venc_ltrmode *encoder_ltrmode, u32 set_flag);
+
+u32 vid_enc_set_get_ltrcount(struct video_client_ctx *client_ctx,
+		struct venc_ltrcount *encoder_ltrcount, u32 set_flag);
+
+u32 vid_enc_set_get_ltrperiod(struct video_client_ctx *client_ctx,
+		struct venc_ltrperiod *encoder_ltrperiod, u32 set_flag);
+
+u32 vid_enc_get_capability_ltrcount(struct video_client_ctx *client_ctx,
+		struct venc_range *venc_capltrcount);
+
+u32 vid_enc_set_get_ltruse(struct video_client_ctx *client_ctx,
+		struct venc_ltruse *encoder_ltruse, u32 set_flag);
 
 #endif

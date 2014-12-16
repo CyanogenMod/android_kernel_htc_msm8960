@@ -585,7 +585,7 @@ static int unlock_set_func(const char *val, struct kernel_param *kp)
 	PINFO("started(%d)...", strlen(val));
 	ret = param_set_int(val, kp);
 	ret2 = strlen(simlock_code);
-	strcpy(scode, simlock_code);
+	strncpy(scode, simlock_code, sizeof(scode));
 	scode[ret2 - 1] = 0;
 	PINFO("finished(%d): %d, '%s'...", ret, unlock_mask, scode);
 	ret2 = secure_simlock_unlock(unlock_mask, scode);

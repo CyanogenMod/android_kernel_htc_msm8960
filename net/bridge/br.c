@@ -90,7 +90,7 @@ static void __exit br_deinit(void)
 
 	unregister_pernet_subsys(&br_net_ops);
 
-	rcu_barrier(); /* Wait for completion of call_rcu()'s */
+	rcu_barrier(); 
 
 	br_netfilter_fini();
 #if IS_ENABLED(CONFIG_ATM_LANE)

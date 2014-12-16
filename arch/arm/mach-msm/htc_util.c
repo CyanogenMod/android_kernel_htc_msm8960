@@ -55,6 +55,12 @@ struct current_pid_found {
 };
 #endif 
 
+extern unsigned int get_tamper_sf(void);
+extern unsigned long get_kernel_flag(void);
+
+#define FORCE_CHARGE			(1<<2)
+#define Y_CABLE			(1<<26)
+
 struct process_monitor_statistic {
     unsigned int pid;
     char *ppid_name;
@@ -79,6 +85,18 @@ static int statistic_monitor_period = 1;
 static struct process_monitor_statistic process_monitor_5_in_10_array[PROCESS_MONITOR_ARRAY_5_IN_10_SIZE];
 #define SIZE_OF_PROCESS_MONITOR_5_IN_10_ARRAY           ARRAY_SIZE(process_monitor_5_in_10_array)
 #endif 
+
+static void htc_debug_flag_show(void)
+{
+
+	unsigned int cfg = 0 ;
+    
+	if(get_tamper_sf() == 0){
+		if((get_kernel_flag()& FORCE_CHARGE) || (get_kernel_flag()& Y_CABLE))
+			cfg = 1 ;
+		pr_info("[K] CFG:0x%x", cfg);
+	 }
+}
 
 #ifdef arch_idle_time
 
@@ -319,6 +337,10 @@ void htc_pm_monitor_work(struct work_struct *work)
 #ifdef CONFIG_PERFLOCK
 	htc_print_active_perf_locks();
 #endif
+
+	
+	htc_debug_flag_show();
+
 	
 	
 	htc_print_active_wake_locks(WAKE_LOCK_SUSPEND);

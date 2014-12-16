@@ -397,6 +397,9 @@ static s32 wl_notify_escan_complete(struct wl_priv *wl,
 static s32 wl_cfg80211_tdls_oper(struct wiphy *wiphy, struct net_device *dev,
 	u8 *peer, enum nl80211_tdls_operation oper);
 #endif 
+#ifdef WL_SCHED_SCAN
+static int wl_cfg80211_sched_scan_stop(struct wiphy *wiphy, struct net_device *dev);
+#endif
 
 static s32 wl_create_event_handler(struct wl_priv *wl);
 static void wl_destroy_event_handler(struct wl_priv *wl);
@@ -1962,6 +1965,7 @@ wl_get_valid_channels(struct net_device *ndev, u8 *valid_chan_list, s32 size)
 static bool first_broadcast_scan = TRUE;
 #endif 
 
+extern int mIs_screen_off;
 
 static s32
 wl_run_escan(struct wl_priv *wl, struct net_device *ndev,
@@ -2037,6 +2041,11 @@ wl_run_escan(struct wl_priv *wl, struct net_device *ndev,
 			params->params.passive_time = FIRST_SCAN_PASSIVE_DWELL_TIME_MS;
 		}
 #endif 
+        if (mIs_screen_off) {
+            printf("Is Screen Off Scan");
+            params->params.active_time = 20;
+            params->params.passive_time = 40;
+        }
 		params->version = htod32(ESCAN_REQ_VERSION);
 		params->action =  htod16(action);
 		wl_escan_set_sync_id(params->sync_id, wl);
@@ -3524,6 +3533,11 @@ wl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 #if !defined(ESCAN_RESULT_PATCH)
 	if (wl->scan_request) {
 		wl_notify_escan_complete(wl, dev, true, true);
+	}
+#endif
+#ifdef WL_SCHED_SCAN
+	if (wl->sched_scan_req) {
+		wl_cfg80211_sched_scan_stop(wiphy, wl_to_prmry_ndev(wl));
 	}
 #endif
 #if defined(ESCAN_RESULT_PATCH)
@@ -7006,6 +7020,12 @@ wl_cfg80211_add_set_beacon(struct wiphy *wiphy, struct net_device *dev,
 			if (err)
 				WL_ERR(("%s fail to set maxassoc, err=(%d)\n", __func__, err));
 			
+
+            
+            bcm_mkiovar("prslmt", (char *)&prslmt, 4, wl->ioctl_buf, WLC_IOCTL_MAXLEN);
+            if ((err = wldev_ioctl(dev, WLC_SET_VAR, wl->ioctl_buf, WLC_IOCTL_MAXLEN, TRUE)) < 0)
+                 WL_ERR(("%s set probe response limit for HostAPD failed %d\n", __FUNCTION__, err));
+
 			memset(&join_params, 0, sizeof(join_params));
 			
 			join_params_size = sizeof(join_params.ssid);
@@ -7018,10 +7038,6 @@ wl_cfg80211_add_set_beacon(struct wiphy *wiphy, struct net_device *dev,
 				wl_set_drv_status(wl, AP_CREATED, dev);
 			}
 
-			
-			bcm_mkiovar("prslmt", (char *)&prslmt, 4, wl->ioctl_buf, WLC_IOCTL_MAXLEN);
-			if ((err = wldev_ioctl(dev, WLC_SET_VAR, wl->ioctl_buf, WLC_IOCTL_MAXLEN, TRUE)) < 0)
-				WL_ERR(("%s set probe response limit for HostAPD failed %d\n", __FUNCTION__, err));
 		}
 	} else if (wl_get_drv_status(wl, AP_CREATED, dev)) {
 		ap = 1;
@@ -7260,7 +7276,7 @@ fail:
 #endif 
 
 #ifdef WL_SCHED_SCAN
-#define PNO_TIME		30
+#define PNO_TIME		75
 #define PNO_REPEAT		4
 #define PNO_FREQ_EXPO_MAX	2
 int wl_cfg80211_sched_scan_start(struct wiphy *wiphy,
@@ -8958,6 +8974,7 @@ wl_notify_sched_scan_results(struct wl_priv *wl, struct net_device *ndev,
 				wl_clr_drv_status(wl, SCANNING, ndev);
 				goto out_err;
 			}
+			p2p_scan(wl) = false;
 		}
 
 		wl_set_drv_status(wl, SCANNING, ndev);

@@ -450,7 +450,7 @@ static int wl_android_set_suspendopt(struct net_device *dev, char *command, int 
 		}
 	return ret;
 }
-
+int mIs_screen_off = 0;
 static int wl_android_set_suspendmode(struct net_device *dev, char *command, int total_len)
 {
 	int ret = 0;
@@ -461,7 +461,7 @@ static int wl_android_set_suspendmode(struct net_device *dev, char *command, int
 	suspend_flag = *(command + strlen(CMD_SETSUSPENDMODE) + 1) - '0';
 	if (suspend_flag != 0)
 		suspend_flag = 1;
-
+        mIs_screen_off = suspend_flag;
 #ifdef CUSTOMER_HW_ONE
 	if (suspend_flag == 1)
 		dhdcdc_wifiLock = 0;
@@ -575,18 +575,25 @@ wls_parse_batching_cmd(struct net_device *dev, char *command, int total_len)
 		err = dhd_dev_pno_set_for_batch(dev, &batch_params);
 		if (err < 0) {
 			DHD_ERROR(("failed to configure batch scan\n"));
+		} else {
+			memset(command, 0, total_len);
+			err = sprintf(command, "%d", err);
 		}
 	} else if (!strncmp(pos, PNO_BATCHING_GET, strlen(PNO_BATCHING_GET))) {
 		err = dhd_dev_pno_get_for_batch(dev, command, total_len);
 		if (err < 0) {
 			DHD_ERROR(("failed to getting batching results\n"));
 		} else {
+            printk("get batch result[%s]\n", command);
 			err = strlen(command);
 		}
 	} else if (!strncmp(pos, PNO_BATCHING_STOP, strlen(PNO_BATCHING_STOP))) {
 		err = dhd_dev_pno_stop_for_batch(dev);
 		if (err < 0) {
 			DHD_ERROR(("failed to stop batching scan\n"));
+		} else {
+			memset(command, 0, total_len);
+			err = sprintf(command, "OK");
 		}
 	} else {
 		DHD_ERROR(("%s : unknown command\n", __FUNCTION__));
@@ -1593,6 +1600,7 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 		bytes_written = (enable)? 0 : dhd_dev_pno_stop_for_ssid(net);
 	}
 	else if (strnicmp(command, CMD_WLS_BATCHING, strlen(CMD_WLS_BATCHING)) == 0) {
+        printk(">>>>CMD_WLS_BATCHING<<<<\n");
 		bytes_written = wls_parse_batching_cmd(net, command, priv_cmd.total_len);
 	}
 #endif 
@@ -1855,7 +1863,7 @@ int wl_android_init(void)
 	mutex_init(&wl_wificall_mutex);
 	mutex_init(&wl_wifionoff_mutex);
 	wlan_init_perf();
-	dhd_msg_level |= DHD_ERROR_VAL;
+	dhd_msg_level |= DHD_ERROR_VAL | DHD_PNO_VAL;
 #endif
 #ifdef WL_GENL
 	wl_genl_init();

@@ -21,7 +21,6 @@
 #include <asm/uaccess.h>
 #include "br_private.h"
 
-/* called with RTNL */
 static int get_bridge_ifindices(struct net *net, int *indices, int num)
 {
 	struct net_device *dev;
@@ -37,7 +36,6 @@ static int get_bridge_ifindices(struct net *net, int *indices, int num)
 	return i;
 }
 
-/* called with RTNL */
 static void get_port_ifindices(struct net_bridge *br, int *ifindices, int num)
 {
 	struct net_bridge_port *p;
@@ -48,13 +46,6 @@ static void get_port_ifindices(struct net_bridge *br, int *ifindices, int num)
 	}
 }
 
-/*
- * Format up to a page worth of forwarding table entries
- * userbuf -- where to copy result
- * maxnum  -- maximum number of entries desired
- *            (limited to a page for sanity)
- * offset  -- number of records to skip
- */
 static int get_fdb_entries(struct net_bridge *br, void __user *userbuf,
 			   unsigned long maxnum, unsigned long offset)
 {
@@ -62,7 +53,7 @@ static int get_fdb_entries(struct net_bridge *br, void __user *userbuf,
 	void *buf;
 	size_t size;
 
-	/* Clamp size to PAGE_SIZE, test maxnum to avoid overflow */
+	
 	if (maxnum > PAGE_SIZE/sizeof(struct __fdb_entry))
 		maxnum = PAGE_SIZE/sizeof(struct __fdb_entry);
 
@@ -82,7 +73,6 @@ static int get_fdb_entries(struct net_bridge *br, void __user *userbuf,
 	return num;
 }
 
-/* called with RTNL */
 static int add_del_if(struct net_bridge *br, int ifindex, int isadd)
 {
 	struct net_device *dev;
@@ -103,11 +93,6 @@ static int add_del_if(struct net_bridge *br, int ifindex, int isadd)
 	return ret;
 }
 
-/*
- * Legacy ioctl's through SIOCDEVPRIVATE
- * This interface is deprecated because it was too difficult to
- * to do the translation for 32/64bit ioctl compatibility.
- */
 static int old_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 {
 	struct net_bridge *br = netdev_priv(dev);

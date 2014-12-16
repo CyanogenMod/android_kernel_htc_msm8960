@@ -155,10 +155,9 @@ void tcp_select_initial_window(int __space, __u32 mss,
 	}
 
 	if (mss > (1 << *rcv_wscale)) {
-		int init_cwnd = TCP_DEFAULT_INIT_RCVWND;
+		int init_cwnd = sysctl_tcp_default_init_rwnd;
 		if (mss > 1460)
-			init_cwnd =
-			max_t(u32, (1460 * TCP_DEFAULT_INIT_RCVWND) / mss, 2);
+			init_cwnd = max_t(u32, (1460 * init_cwnd) / mss, 2);
 		if (init_rcv_wnd)
 			*rcv_wnd = min(*rcv_wnd, init_rcv_wnd * mss);
 		else

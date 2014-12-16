@@ -1755,6 +1755,10 @@ static int snd_pcm_link(struct snd_pcm_substream *substream, int fd)
 	struct snd_pcm_substream *substream1;
 	struct snd_pcm_group *group;
 
+	
+	if (PCM_RUNTIME_CHECK(substream))
+		return -ENXIO;
+
 	file = snd_pcm_file_fd(fd);
 	if (!file)
 		return -EBADFD;
@@ -1766,10 +1770,6 @@ static int snd_pcm_link(struct snd_pcm_substream *substream, int fd)
 		goto _nolock;
 	}
 	down_write(&snd_pcm_link_rwsem);
-
-	
-	if (PCM_RUNTIME_CHECK(substream))
-		return -ENXIO;
 
 	write_lock_irq(&snd_pcm_link_rwlock);
 	if (substream->runtime->status->state == SNDRV_PCM_STATE_OPEN ||
@@ -3658,13 +3658,13 @@ static int snd_pcm_hw_refine_old_user(struct snd_pcm_substream *substream,
 	struct snd_pcm_hw_params_old *oparams = NULL;
 	int err;
 
-	params = kmalloc(sizeof(*params), GFP_KERNEL);
-	if (!params)
-		return -ENOMEM;
-
 	
 	if (PCM_RUNTIME_CHECK(substream))
 		return -ENXIO;
+
+	params = kmalloc(sizeof(*params), GFP_KERNEL);
+	if (!params)
+		return -ENOMEM;
 
 	oparams = memdup_user(_oparams, sizeof(*oparams));
 	if (IS_ERR(oparams)) {
@@ -3692,13 +3692,13 @@ static int snd_pcm_hw_params_old_user(struct snd_pcm_substream *substream,
 	struct snd_pcm_hw_params_old *oparams = NULL;
 	int err;
 
-	params = kmalloc(sizeof(*params), GFP_KERNEL);
-	if (!params)
-		return -ENOMEM;
-
 	
 	if (PCM_RUNTIME_CHECK(substream))
 		return -ENXIO;
+
+	params = kmalloc(sizeof(*params), GFP_KERNEL);
+	if (!params)
+		return -ENOMEM;
 
 	oparams = memdup_user(_oparams, sizeof(*oparams));
 	if (IS_ERR(oparams)) {

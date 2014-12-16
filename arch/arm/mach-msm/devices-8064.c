@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1412,6 +1412,7 @@ struct msm_vidc_platform_data apq8064_vidc_platform_data = {
 	.disable_fullhd = 0,
 	.cont_mode_dpb_count = 18,
 	.fw_addr = 0x9fe00000,
+	.enable_sec_metadata = 1,
 };
 
 struct platform_device apq8064_msm_device_vidc = {
@@ -2453,7 +2454,7 @@ static uint16_t msm_mpm_bypassed_apps_irqs[] __initdata = {
 	RIVA_APPS_WLAN_SMSM_IRQ,
 	RIVA_APPS_WLAN_RX_DATA_AVAIL_IRQ,
 	RIVA_APPS_WLAN_DATA_XFER_DONE_IRQ,
-#if defined (CONFIG_MACH_M7_UL) || defined (CONFIG_MACH_M7_WLS) || defined(CONFIG_MACH_M7_WLV) || defined(CONFIG_MACH_M7_DCG) || defined(CONFIG_MACH_M7_DUG) || defined(CONFIG_MACH_M7_DTU)
+#if defined (CONFIG_MACH_M7_UL) || defined (CONFIG_MACH_M7_WLS) || defined(CONFIG_MACH_M7_WLV) || defined(CONFIG_MACH_M7_DCG) || defined(CONFIG_MACH_M7_DUG) || defined(CONFIG_MACH_DUMMY)
 	INT_KEY_HP,
 #endif
 };

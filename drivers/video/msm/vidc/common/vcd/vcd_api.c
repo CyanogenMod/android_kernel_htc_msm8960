@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -117,37 +117,20 @@ static int is_session_invalid(u32 decoding, u32 flags)
 	int is_secure;
 	struct client_security_info sec_info;
 	int client_count = 0;
-	int secure_session_running = 0;
+	int secure_session_running = 0, non_secure_running = 0;
 	is_secure = (flags & VCD_CP_SESSION) ? 1 : 0;
 	client_count = vcd_get_clients_security_info(&sec_info);
 	secure_session_running = (sec_info.secure_enc > 0) ||
 			(sec_info.secure_dec > 0);
-	if (!decoding && is_secure) {
-		if ((sec_info.secure_dec == 1)) {
-			VCD_MSG_LOW("SE-SD: SUCCESS\n");
-		}
-		else {
-			VCD_MSG_LOW("SE is permitted only with SD: FAILURE\n");
-			return -EACCES;
-		}
-	} else if (!decoding && !is_secure) {
+	non_secure_running = sec_info.non_secure_dec + sec_info.non_secure_enc;
+	if (!is_secure) {
 		if (secure_session_running) {
-			VCD_MSG_LOW("SD-NSE: FAILURE\n");
-			VCD_MSG_LOW("SE-NSE: FAILURE\n");
-			return -EACCES;
-		}
-	} else if (decoding && is_secure) {
-		if (client_count > 0) {
-			VCD_MSG_LOW("S/NS-SD: FAILURE\n");
-			if (sec_info.secure_enc > 0 ||
-				sec_info.non_secure_enc > 0) {
-				return -EAGAIN;
-			}
+			pr_err("non secure session failed secure running\n");
 			return -EACCES;
 		}
 	} else {
-		if (sec_info.secure_dec > 0) {
-			VCD_MSG_LOW("SD-NSD: FAILURE\n");
+		if (non_secure_running) {
+			pr_err("Secure session failed non secure running\n");
 			return -EACCES;
 		}
 	}

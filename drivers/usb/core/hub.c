@@ -2664,7 +2664,6 @@ hub_port_init (struct usb_hub *hub, struct usb_device *udev, int port1,
 			}
 			udev->descriptor.bMaxPacketSize0 =
 					buf->bMaxPacketSize0;
-			kfree(buf);
 
 			if (le16_to_cpu(buf->idVendor) != 0x1a0a) {
 				retval = hub_port_reset(hub, port1, udev,
@@ -2685,6 +2684,8 @@ hub_port_init (struct usb_hub *hub, struct usb_device *udev, int port1,
 				retval = -EMSGSIZE;
 				continue;
 			}
+
+			kfree(buf);
 #undef GET_DESCRIPTOR_BUFSIZE
 		}
 

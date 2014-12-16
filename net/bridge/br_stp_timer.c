@@ -17,7 +17,6 @@
 #include "br_private.h"
 #include "br_private_stp.h"
 
-/* called under bridge lock */
 static int br_is_designated_for_some_port(const struct net_bridge *br)
 {
 	struct net_bridge_port *p;
@@ -59,11 +58,6 @@ static void br_message_age_timer_expired(unsigned long arg)
 		(unsigned) p->port_no, p->dev->name,
 		id->prio[0], id->prio[1], &id->addr);
 
-	/*
-	 * According to the spec, the message age timer cannot be
-	 * running when we are the root bridge. So..  this was_root
-	 * check is redundant. I'm leaving it in for now, though.
-	 */
 	spin_lock(&br->lock);
 	if (p->state == BR_STATE_DISABLED)
 		goto unlock;
@@ -166,7 +160,6 @@ void br_stp_port_timer_init(struct net_bridge_port *p)
 		      (unsigned long) p);
 }
 
-/* Report ticks left (in USER_HZ) used for API */
 unsigned long br_timer_value(const struct timer_list *timer)
 {
 	return timer_pending(timer)

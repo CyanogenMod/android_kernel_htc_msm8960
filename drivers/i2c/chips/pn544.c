@@ -21,6 +21,9 @@
 
 int is_debug = 0;
 int is_alive = 1;
+int is_uicc_swp = 1;
+int is_tmo_pl_sim = 0;
+int is_ese_switch = 0;
 
 #define DBUF(buff,count) \
 	if (is_debug) \
@@ -43,6 +46,7 @@ int is_alive = 1;
 struct pn544_dev	{
 	struct class		*pn544_class;
 	struct device		*pn_dev;
+	struct device		*comn_dev;
 	wait_queue_head_t	read_wq;
 	struct mutex		read_mutex;
 	struct wake_lock io_wake_lock;
@@ -562,6 +566,63 @@ static ssize_t nxp_chip_alive_show(struct device *dev,
 }
 static DEVICE_ATTR(nxp_chip_alive, 0664, nxp_chip_alive_show, NULL);
 
+static ssize_t nxp_uicc_swp_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	int ret = 0;
+	I("%s is %d\n", __func__, is_uicc_swp);
+	ret = sprintf(buf, "%d\n", is_uicc_swp);
+	return ret;
+}
+
+static ssize_t nxp_uicc_swp_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	sscanf(buf, "%d", &is_uicc_swp);
+	return count;
+}
+
+static DEVICE_ATTR(nxp_uicc_swp, 0664, nxp_uicc_swp_show, nxp_uicc_swp_store);
+
+static ssize_t tmo_pl_sim_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	int ret = 0;
+	I("%s is %d\n", __func__, is_tmo_pl_sim);
+	ret = sprintf(buf, "%d\n", is_tmo_pl_sim);
+	return ret;
+}
+
+static ssize_t tmo_pl_sim_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	sscanf(buf, "%d", &is_tmo_pl_sim);
+	return count;
+}
+
+static DEVICE_ATTR(tmo_pl_sim, 0664, tmo_pl_sim_show, tmo_pl_sim_store);
+
+static ssize_t nxp_ese_switch_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	int ret = 0;
+	I("%s is %d\n", __func__, is_ese_switch);
+	ret = sprintf(buf, "%d\n", is_ese_switch);
+	return ret;
+}
+
+static ssize_t nxp_ese_switch_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	sscanf(buf, "%d", &is_ese_switch);
+	return count;
+}
+
+static DEVICE_ATTR(nxp_ese_switch, 0664, nxp_ese_switch_show, nxp_ese_switch_store);
+
 static int pn544_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
 {
@@ -730,7 +791,30 @@ static int pn544_probe(struct i2c_client *client,
 		E("pn544_probe device_create_file dev_attr_nxp_chip_alive failed\n");
 	}
 
-	I("%s: Probe success! is_alive : %d\n", __func__, is_alive);
+	pni->comn_dev = device_create(pni->pn544_class, NULL, 0, "%s", "comn");
+	if (unlikely(IS_ERR(pni->comn_dev))) {
+		ret = PTR_ERR(pni->comn_dev);
+		pni->comn_dev = NULL;
+		E("%s : device_create failed\n", __func__);
+		goto err_create_pn_device;
+	}
+
+	ret = device_create_file(pni->comn_dev, &dev_attr_nxp_uicc_swp);
+	if (ret) {
+		E("pn544_probe device_create_file dev_attrnxp_uicc_swp failed\n");
+	}
+
+	ret = device_create_file(pni->comn_dev, &dev_attr_tmo_pl_sim);
+	if (ret) {
+		E("pn544_probe device_create_file dev_attr_tmo_pl_sim failed\n");
+	}
+
+	ret = device_create_file(pni->comn_dev, &dev_attr_nxp_ese_switch);
+	if (ret) {
+		E("pn544_probe device_create_file dev_attr_nxp_ese_switch failed\n");
+	}
+
+	I("%s: Probe success! is_alive : %d, is_uicc_swp : %d, is_ese_switch :%d\n", __func__, is_alive, is_uicc_swp, is_ese_switch);
 	return 0;
 
 err_create_pn_file:

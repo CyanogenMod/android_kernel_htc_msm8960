@@ -26,12 +26,6 @@
 
 #include "br_private.h"
 
-/*
- * Determine initial path cost based on speed.
- * using recommendations from 802.1d standard
- *
- * Since driver might sleep need to not be holding any locks.
- */
 static int port_cost(struct net_device *dev)
 {
 	struct ethtool_cmd ecmd;
@@ -49,18 +43,17 @@ static int port_cost(struct net_device *dev)
 		}
 	}
 
-	/* Old silly heuristics based on name */
+	
 	if (!strncmp(dev->name, "lec", 3))
 		return 7;
 
 	if (!strncmp(dev->name, "plip", 4))
 		return 2500;
 
-	return 100;	/* assume old 10Mbps */
+	return 100;	
 }
 
 
-/* Check for port carrier transistions. */
 void br_port_carrier_check(struct net_bridge_port *p)
 {
 	struct net_device *dev = p->dev;
@@ -115,15 +108,6 @@ static void destroy_nbp_rcu(struct rcu_head *head)
 	destroy_nbp(p);
 }
 
-/* Delete port(interface) from bridge is done in two steps.
- * via RCU. First step, marks device as down. That deletes
- * all the timers and stops new packets from flowing through.
- *
- * Final cleanup doesn't occur until after all CPU's finished
- * processing packets.
- *
- * Protected from multiple admin operations by RTNL mutex
- */
 static void del_nbp(struct net_bridge_port *p)
 {
 	struct net_bridge *br = p->br;
@@ -160,7 +144,6 @@ static void del_nbp(struct net_bridge_port *p)
 	call_rcu(&p->rcu, destroy_nbp_rcu);
 }
 
-/* Delete bridge device */
 void br_dev_delete(struct net_device *dev, struct list_head *head)
 {
 	struct net_bridge *br = netdev_priv(dev);
@@ -176,7 +159,6 @@ void br_dev_delete(struct net_device *dev, struct list_head *head)
 	unregister_netdevice_queue(br->dev, head);
 }
 
-/* find an available port number */
 static int find_portno(struct net_bridge *br)
 {
 	int index;
@@ -188,7 +170,7 @@ static int find_portno(struct net_bridge *br)
 	if (!inuse)
 		return -ENOMEM;
 
-	set_bit(0, inuse);	/* zero is reserved */
+	set_bit(0, inuse);	
 	list_for_each_entry(p, &br->port_list, list) {
 		set_bit(p->port_no, inuse);
 	}
@@ -198,7 +180,6 @@ static int find_portno(struct net_bridge *br)
 	return (index >= BR_MAX_PORTS) ? -EXFULL : index;
 }
 
-/* called with RTNL but without bridge lock */
 static struct net_bridge_port *new_nbp(struct net_bridge *br,
 				       struct net_device *dev)
 {
@@ -256,15 +237,15 @@ int br_del_bridge(struct net *net, const char *name)
 	rtnl_lock();
 	dev = __dev_get_by_name(net, name);
 	if (dev == NULL)
-		ret =  -ENXIO; 	/* Could not find device */
+		ret =  -ENXIO; 	
 
 	else if (!(dev->priv_flags & IFF_EBRIDGE)) {
-		/* Attempt to delete non bridge device! */
+		
 		ret = -EPERM;
 	}
 
 	else if (dev->flags & IFF_UP) {
-		/* Not shutdown yet. */
+		
 		ret = -EBUSY;
 	}
 
@@ -275,7 +256,6 @@ int br_del_bridge(struct net *net, const char *name)
 	return ret;
 }
 
-/* MTU of the bridge pseudo-device: ETH_DATA_LEN or the minimum of the ports */
 int br_min_mtu(const struct net_bridge *br)
 {
 	const struct net_bridge_port *p;
@@ -294,9 +274,6 @@ int br_min_mtu(const struct net_bridge *br)
 	return mtu;
 }
 
-/*
- * Recomputes features using slave's features
- */
 netdev_features_t br_features_recompute(struct net_bridge *br,
 	netdev_features_t features)
 {
@@ -317,28 +294,27 @@ netdev_features_t br_features_recompute(struct net_bridge *br,
 	return features;
 }
 
-/* called with RTNL */
 int br_add_if(struct net_bridge *br, struct net_device *dev)
 {
 	struct net_bridge_port *p;
 	int err = 0;
 	bool changed_addr;
 
-	/* Don't allow bridging non-ethernet like devices */
+	
 	if ((dev->flags & IFF_LOOPBACK) ||
 	    dev->type != ARPHRD_ETHER || dev->addr_len != ETH_ALEN ||
 	    !is_valid_ether_addr(dev->dev_addr))
 		return -EINVAL;
 
-	/* No bridging of bridges */
+	
 	if (dev->netdev_ops->ndo_start_xmit == br_dev_xmit)
 		return -ELOOP;
 
-	/* Device is already being bridged */
+	
 	if (br_port_exists(dev))
 		return -EBUSY;
 
-	/* No bridging devices that dislike that (e.g. wireless) */
+	
 	if (dev->priv_flags & IFF_DONT_BRIDGE)
 		return -EOPNOTSUPP;
 
@@ -408,7 +384,7 @@ err3:
 	sysfs_remove_link(br->ifobj, p->dev->name);
 err2:
 	kobject_put(&p->kobj);
-	p = NULL; /* kobject_put frees */
+	p = NULL; 
 err1:
 	dev_set_promiscuity(dev, -1);
 put_back:
@@ -417,7 +393,6 @@ put_back:
 	return err;
 }
 
-/* called with RTNL */
 int br_del_if(struct net_bridge *br, struct net_device *dev)
 {
 	struct net_bridge_port *p;

@@ -261,7 +261,7 @@ int headset_notifier_register(struct headset_notifier *notifier)
 		hs_mgr_notifier.hs_1wire_report_type = notifier->func;
 		break;
 	case HEADSET_REG_1WIRE_OPEN:
-		HS_LOG("Register HEADSET_REG_1WIRE_OPEN notifier");
+		HS_LOG("Register 1WIRE_OPEN notifier");
 		hs_mgr_notifier.hs_1wire_open = notifier->func;
 		break;
 	case HEADSET_REG_HS_INSERT:

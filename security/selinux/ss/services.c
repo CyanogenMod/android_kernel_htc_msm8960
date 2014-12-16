@@ -952,7 +952,7 @@ static int context_struct_to_string(struct context *context, char **scontext, u3
 		return -ENOMEM;
 	*scontext = scontextp;
 
-	sprintf(scontextp, "%s:%s:%s",
+	snprintf(scontextp, *scontext_len, "%s:%s:%s",
 		sym_name(&policydb, SYM_USERS, context->user - 1),
 		sym_name(&policydb, SYM_ROLES, context->role - 1),
 		sym_name(&policydb, SYM_TYPES, context->type - 1));

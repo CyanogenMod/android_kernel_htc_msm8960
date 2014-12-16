@@ -763,6 +763,10 @@ void mdp4_dsi_cmd_free_base_pipe(struct msm_fb_data_type *mfd)
 
 	
 	pipe = vctrl->base_pipe;
+
+	if (pipe == NULL)
+		return ;
+
 	mdp4_mixer_stage_down(pipe, 1);
 	mdp4_overlay_pipe_free(pipe, 1);
 	vctrl->base_pipe = NULL;

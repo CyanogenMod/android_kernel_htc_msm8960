@@ -121,8 +121,10 @@ static struct kset *htc_batt_kset;
 
 #define BATT_REMOVED_SHUTDOWN_DELAY_MS (50)
 #define BATT_CRITICAL_VOL_SHUTDOWN_DELAY_MS (1000)
+#define BATT_QB_MODE_REAL_POWEROFF_DELAY_MS (5000)
 static void shutdown_worker(struct work_struct *work);
 struct delayed_work shutdown_work;
+static void batt_qb_mode_pwr_consumption_check(unsigned long cur_jiffies);
 
 #define BATT_CRITICAL_LOW_VOLTAGE		(3000)
 #define VOL_ALARM_RESUME_AFTER_LEVEL		(5)
@@ -140,6 +142,7 @@ static int ac_suspend_flag;
 #endif
 static int htc_ext_5v_output_now;
 static int htc_ext_5v_output_old;
+static bool qb_mode_enter = false;
 
 static int latest_chg_src = CHARGER_BATTERY;
 
@@ -398,6 +401,14 @@ int htc_gauge_event_notify(enum htc_gauge_event event)
 	case HTC_GAUGE_EVENT_EOC_STOP_CHG:
 		sw_stimer_counter = 0;
 		htc_batt_schedule_batt_info_update();
+		break;
+	case HTC_GAUGE_EVENT_QB_MODE_ENTER:
+		htc_batt_schedule_batt_info_update();
+		break;
+	case HTC_GAUGE_EVENT_QB_MODE_DO_REAL_POWEROFF:
+		wake_lock(&batt_shutdown_wake_lock);
+		schedule_delayed_work(&shutdown_work,
+			msecs_to_jiffies(BATT_QB_MODE_REAL_POWEROFF_DELAY_MS));
 		break;
 	default:
 		pr_info("[BATT] unsupported gauge event(%d)\n", event);
@@ -985,6 +996,37 @@ static void htc_batt_trigger_store_battery_data(int triggle_flag)
 				htc_batt_info.igauge->store_battery_data) {
 			htc_batt_info.igauge->store_battery_data();
 		}
+	}
+	return;
+}
+
+static void htc_batt_qb_mode_shutdown_status(int triggle_flag)
+{
+	if (triggle_flag == 1)
+	{
+		if (htc_batt_info.igauge &&
+				htc_batt_info.igauge->enter_qb_mode) {
+			qb_mode_enter = true;
+			htc_batt_info.igauge->enter_qb_mode();
+		}
+	}
+
+	if (triggle_flag == 0)
+	{
+		if (htc_batt_info.igauge &&
+				htc_batt_info.igauge->exit_qb_mode) {
+			qb_mode_enter = false;
+			htc_batt_info.igauge->exit_qb_mode();
+		}
+	}
+	return;
+}
+
+static void batt_qb_mode_pwr_consumption_check(unsigned long time_since_last_update_ms)
+{
+	if (htc_batt_info.igauge &&
+			htc_batt_info.igauge->qb_mode_pwr_consumption_check) {
+		htc_batt_info.igauge->qb_mode_pwr_consumption_check(time_since_last_update_ms);
 	}
 	return;
 }
@@ -2396,6 +2438,9 @@ static void batt_worker(struct work_struct *work)
 		&& htc_batt_info.igauge->calculate_pj_level)
 		power_jacket_info_update();
 
+	
+	if(qb_mode_enter)
+		batt_qb_mode_pwr_consumption_check(time_since_last_update_ms);
 
 	
 	if (htc_batt_info.icharger) {
@@ -2803,6 +2848,8 @@ static int htc_battery_probe(struct platform_device *pdev)
 										pdata->notify_pnpmgr_charging_enabled;
 	htc_battery_core_ptr->func_trigger_store_battery_data =
 											htc_batt_trigger_store_battery_data;
+	htc_battery_core_ptr->func_qb_mode_shutdown_status =
+											htc_batt_qb_mode_shutdown_status;
 
 	htc_battery_core_register(&pdev->dev, htc_battery_core_ptr);
 

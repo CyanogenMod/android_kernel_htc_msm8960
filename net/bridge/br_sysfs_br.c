@@ -24,9 +24,6 @@
 #define to_dev(obj)	container_of(obj, struct device, kobj)
 #define to_bridge(cd)	((struct net_bridge *)netdev_priv(to_net_dev(cd)))
 
-/*
- * Common code for storing bridge parameters.
- */
 static ssize_t store_bridge_parm(struct device *d,
 				 const char *buf, size_t len,
 				 int (*set)(struct net_bridge *, unsigned long))
@@ -308,7 +305,7 @@ static ssize_t store_group_addr(struct device *d,
 		   &new_addr[3], &new_addr[4], &new_addr[5]) != 6)
 		return -EINVAL;
 
-	/* Must be 01:80:c2:00:00:0X */
+	
 	for (i = 0; i < 5; i++)
 		if (new_addr[i] != br_group_address[i])
 			return -EINVAL;
@@ -316,9 +313,9 @@ static ssize_t store_group_addr(struct device *d,
 	if (new_addr[5] & ~0xf)
 		return -EINVAL;
 
-	if (new_addr[5] == 1 ||		/* 802.3x Pause address */
-	    new_addr[5] == 2 ||		/* 802.3ad Slow protocols */
-	    new_addr[5] == 3)		/* 802.1X PAE address */
+	if (new_addr[5] == 1 ||		
+	    new_addr[5] == 2 ||		
+	    new_addr[5] == 3)		
 		return -EINVAL;
 
 	spin_lock_bh(&br->lock);
@@ -726,12 +723,6 @@ static struct attribute_group bridge_group = {
 	.attrs = bridge_attrs,
 };
 
-/*
- * Export the forwarding information table as a binary file
- * The records are struct __fdb_entry.
- *
- * Returns the number of bytes read.
- */
 static ssize_t brforward_read(struct file *filp, struct kobject *kobj,
 			      struct bin_attribute *bin_attr,
 			      char *buf, loff_t off, size_t count)
@@ -740,7 +731,7 @@ static ssize_t brforward_read(struct file *filp, struct kobject *kobj,
 	struct net_bridge *br = to_bridge(dev);
 	int n;
 
-	/* must read whole records */
+	
 	if (off % sizeof(struct __fdb_entry) != 0)
 		return -EINVAL;
 
@@ -760,17 +751,6 @@ static struct bin_attribute bridge_forward = {
 	.read = brforward_read,
 };
 
-/*
- * Add entries in sysfs onto the existing network class device
- * for the bridge.
- *   Adds a attribute group "bridge" containing tuning parameters.
- *   Binary attribute containing the forward table
- *   Sub directory to hold links to interfaces.
- *
- * Note: the ifobj exists only to be a subdirectory
- *   to hold links.  The ifobj exists in same data structure
- *   as it's parent the bridge so reference counting works.
- */
 int br_sysfs_addbr(struct net_device *dev)
 {
 	struct kobject *brobj = &dev->dev.kobj;

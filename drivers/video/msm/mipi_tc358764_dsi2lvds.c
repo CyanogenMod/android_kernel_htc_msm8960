@@ -619,7 +619,7 @@ static ssize_t mipi_d2l_enable_3d_read(struct device *dev,
 				struct device_attribute *attr,
 				char *buf)
 {
-	return snprintf((char *)buf, sizeof(buf), "%u\n", d2l_enable_3d);
+	return scnprintf((char *)buf, PAGE_SIZE, "%u\n", d2l_enable_3d);
 }
 
 static ssize_t mipi_d2l_enable_3d_write(struct device *dev,

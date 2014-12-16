@@ -138,47 +138,6 @@ KGSL_DEBUGFS_LOG(mem_log);
 KGSL_DEBUGFS_LOG(pwr_log);
 KGSL_DEBUGFS_LOG(ft_log);
 
-static int memfree_hist_print(struct seq_file *s, void *unused)
-{
-	void *base = kgsl_driver.memfree_hist.base_hist_rb;
-
-	struct kgsl_memfree_hist_elem *wptr = kgsl_driver.memfree_hist.wptr;
-	struct kgsl_memfree_hist_elem *p;
-	char str[16];
-
-	seq_printf(s, "%8s %8s %8s %11s\n",
-			"pid", "gpuaddr", "size", "flags");
-
-	mutex_lock(&kgsl_driver.memfree_hist_mutex);
-	p = wptr;
-	for (;;) {
-		kgsl_get_memory_usage(str, sizeof(str), p->flags);
-		if (p->size)
-			seq_printf(s, "%8d %08x %8d %11s\n",
-				p->pid, p->gpuaddr, p->size, str);
-		p++;
-		if ((void *)p >= base + kgsl_driver.memfree_hist.size)
-			p = (struct kgsl_memfree_hist_elem *) base;
-
-		if (p == kgsl_driver.memfree_hist.wptr)
-			break;
-	}
-	mutex_unlock(&kgsl_driver.memfree_hist_mutex);
-	return 0;
-}
-
-static int memfree_hist_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, memfree_hist_print, inode->i_private);
-}
-
-static const struct file_operations memfree_hist_fops = {
-	.open = memfree_hist_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
-};
-
 void kgsl_device_debugfs_init(struct kgsl_device *device)
 {
 	if (kgsl_debugfs_dir && !IS_ERR(kgsl_debugfs_dir))
@@ -198,8 +157,6 @@ void kgsl_device_debugfs_init(struct kgsl_device *device)
 				&mem_log_fops);
 	debugfs_create_file("log_level_pwr", 0644, device->d_debugfs, device,
 				&pwr_log_fops);
-	debugfs_create_file("memfree_history", 0444, device->d_debugfs, device,
-				&memfree_hist_fops);
 	debugfs_create_file("contexpid_dump",  0644, device->d_debugfs, device,
 				&ctx_dump_fops);
 
@@ -315,14 +272,38 @@ static int process_mem_print(struct seq_file *s, void *unused)
 
 static int process_mem_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, process_mem_print, inode->i_private);
+	int ret;
+	pid_t pid = (pid_t) (unsigned long) inode->i_private;
+	struct kgsl_process_private *private = NULL;
+
+	private = kgsl_process_private_find(pid);
+
+	if (!private)
+		return -ENODEV;
+
+	ret = single_open(file, process_mem_print, private);
+	if (ret)
+		kgsl_process_private_put(private);
+
+	return ret;
+}
+
+static int process_mem_release(struct inode *inode, struct file *file)
+{
+	struct kgsl_process_private *private =
+		((struct seq_file *)file->private_data)->private;
+
+	if (private)
+		kgsl_process_private_put(private);
+
+	return single_release(inode, file);
 }
 
 static const struct file_operations process_mem_fops = {
 	.open = process_mem_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.release = single_release,
+	.release = process_mem_release,
 };
 
 int

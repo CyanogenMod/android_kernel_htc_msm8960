@@ -23,6 +23,8 @@ enum htc_gauge_event {
 	HTC_GAUGE_EVENT_OVERLOAD,
 	HTC_GAUGE_EVENT_EOC_STOP_CHG,
 	HTC_GAUGE_EVENT_PJ_FULL,
+	HTC_GAUGE_EVENT_QB_MODE_ENTER,
+	HTC_GAUGE_EVENT_QB_MODE_DO_REAL_POWEROFF,
 };
 
 struct htc_gauge {
@@ -51,6 +53,9 @@ struct htc_gauge {
 	int (*enable_lower_voltage_alarm)(int enable);
 	int (*set_lower_voltage_alarm_threshold)(int thres_mV);
 	int (*set_chg_ovp)(int is_ovp);
+	int (*enter_qb_mode)(void);
+	int (*exit_qb_mode)(void);
+	int (*qb_mode_pwr_consumption_check)(unsigned long time_stamp);
 };
 
 int htc_gauge_event_notify(enum htc_gauge_event);

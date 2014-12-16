@@ -33,4 +33,4 @@ extern void llc_build_and_send_xid_pkt(struct llc_sap *sap,
 				       struct sk_buff *skb,
 				       unsigned char *dmac,
 				       unsigned char dsap);
-#endif /* LLC_SAP_H */
+#endif 

@@ -1067,6 +1067,7 @@ static long htcdrm_gdrive_ioctl(struct file *file, unsigned int command, unsigne
 			}
 			if ((out_buf = kmalloc(hmsg.resp_len, GFP_KERNEL)) == NULL) {
 				PERR("Alloc memory fail");
+				kfree(in_buf);
 				return -ENOMEM;
 			}
 			if (copy_from_user(in_buf, (void __user *)hmsg.req_buf, hmsg.req_len)) {

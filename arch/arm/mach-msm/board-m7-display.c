@@ -794,7 +794,7 @@ static struct msm_panel_common_pdata mdp_pdata = {
 	.cont_splash_enabled = 0x00,
 	.mdp_gamma = m7_mdp_gamma,
 	.mdp_iommu_split_domain = 1,
-	.mdp_max_clk = 200000000,
+	.mdp_max_clk = 266667000,
 };
 
 static char wfd_check_mdp_iommu_split_domain(void)
