@@ -708,6 +708,12 @@ config SENSORS_BMA250
 	help
 	  BMA250 G-sensor driver for HTC
 
+config SENSORS_ONLY_BMA250
+	tristate "BMA250 acceleration sensor support"
+	depends on I2C=y
+	help
+	  BMA250 ONLY G-sensor Driver implemented by HTC.
+
 config SENSORS_BMA250_BOSCH
 	tristate "BMA250 accelerometer sensor support (M7)"
 	depends on I2C=y

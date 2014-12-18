@@ -69,6 +69,7 @@ obj-$(CONFIG_SENSORS_AKM8975)		+= akm8975.o
 obj-$(CONFIG_SENSORS_PANASONIC_GYRO)	+= ewtzmu2.o
 obj-$(CONFIG_SENSORS_BMA250)		+= bma250.o
 obj-$(CONFIG_SENSORS_BMA250_BOSCH)	+= bma250_bosch.o
+obj-$(CONFIG_SENSORS_ONLY_BMA250)      += bma250_without_Ecompass.o
 obj-$(CONFIG_INPUT_CAPELLA_CM3629)	+= cm3629.o
 obj-$(CONFIG_SENSORS_R3GD20)		+= r3gd20.o
 obj-y 					+= mpu3050/
