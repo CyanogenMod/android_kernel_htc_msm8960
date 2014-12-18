@@ -1952,7 +1952,7 @@ static int sitar_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 			SITAR_RELEASE_LOCK(sitar->codec_resource_lock);
 		}
 
-#if defined(CONFIG_MACH_M4_UL) || defined(CONFIG_MACH_T6_UL)
+#if defined(CONFIG_MACH_M4_UL) || defined(CONFIG_MACH_T6_UL) || defined(CONFIG_MACH_ZARA)
 		snd_soc_update_bits(codec, w->reg, 0x0E, 0x0A);
 #else
 		snd_soc_update_bits(codec, w->reg, 0x1E, 0x00);
@@ -3404,7 +3404,7 @@ static int sitar_get_channel_map(struct snd_soc_dai *dai,
 		}
 	} else if (dai->id == AIF1_CAP) {
 		*tx_num = sitar_dai[dai->id - 1].capture.channels_max;
-#ifdef CONFIG_MACH_M4_UL
+#if defined(CONFIG_MACH_M4_UL) || defined(CONFIG_MACH_ZARA)
 		tx_slot[0] = tx_ch[2 + cnt];
 		tx_slot[1] = tx_ch[3 + cnt];
 		tx_slot[2] = tx_ch[cnt];
