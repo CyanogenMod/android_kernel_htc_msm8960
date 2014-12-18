@@ -60,5 +60,6 @@ obj-$(CONFIG_REGULATOR_WM8350) += wm8350-regulator.o
 obj-$(CONFIG_REGULATOR_WM8400) += wm8400-regulator.o
 obj-$(CONFIG_REGULATOR_WM8994) += wm8994-regulator.o
 obj-$(CONFIG_REGULATOR_QPNP) += qpnp-regulator.o
+obj-$(CONFIG_REGULATOR_NCP6924) += ncp6924.o
 
 ccflags-$(CONFIG_REGULATOR_DEBUG) += -DDEBUG

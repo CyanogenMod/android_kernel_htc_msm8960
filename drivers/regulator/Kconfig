@@ -427,4 +427,11 @@ config REGULATOR_QPNP
 	  comply with QPNP.  QPNP is a SPMI based PMIC implementation.  These
 	  chips provide several different varieties of LDO and switching
 	  regulators.  They also provide voltage switches and boost regulators.
+
+config REGULATOR_NCP6924
+	tristate "NCP6924 regulator support"
+	depends on MACH_ZARA
+	help
+	  Say Y here to enable support for NCP6924 PMIC FUNCTIONS.
+
 endif
