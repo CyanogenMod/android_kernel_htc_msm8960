@@ -20,14 +20,14 @@
 #define FCC_CC_COLS		5
 #define FCC_TEMP_COLS		8
 
-#if defined(CONFIG_MACH_M7_UL) || defined(CONFIG_MACH_M4_UL) || defined(CONFIG_MACH_T6_UL)
+#if defined(CONFIG_MACH_M7_UL) || defined(CONFIG_MACH_M4_UL) || defined(CONFIG_MACH_T6_UL) || defined(CONFIG_MACH_ZARA)
 #define PC_CC_ROWS             31
 #else
 #define PC_CC_ROWS             29
 #endif
 #define PC_CC_COLS             13
 
-#if defined (CONFIG_MACH_M7_UL) || defined(CONFIG_MACH_M4_UL) || defined(CONFIG_MACH_T6_UL)
+#if defined (CONFIG_MACH_M7_UL) || defined(CONFIG_MACH_M4_UL) || defined(CONFIG_MACH_T6_UL) || defined(CONFIG_MACH_ZARA)
 #define PC_TEMP_ROWS		31
 #else
 #define PC_TEMP_ROWS		29
