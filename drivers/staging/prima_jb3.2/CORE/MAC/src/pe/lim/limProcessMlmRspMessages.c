@@ -1888,6 +1888,7 @@ void limProcessStaMlmAddStaRsp( tpAniSirGlobal pMac, tpSirMsgQ limMsgQ ,tpPESess
         limLog( pMac, LOGE, FL( "Encountered NULL Pointer" ));
         return;
     }
+
     if (true == psessionEntry->fDeauthReceived)
     {
       PELOGE(limLog(pMac, LOGE,
@@ -1900,6 +1901,11 @@ void limProcessStaMlmAddStaRsp( tpAniSirGlobal pMac, tpSirMsgQ limMsgQ ,tpPESess
                   "eSIR_SME_JOIN_DEAUTH_FROM_AP_DURING_ADD_STA staIdx: %d"
                   "limMlmState: %d"), pAddStaParams->staIdx,
                    psessionEntry->limMlmState);)
+          if(psessionEntry->limSmeState == eLIM_SME_WT_REASSOC_STATE)
+                mesgType = LIM_MLM_REASSOC_CNF;
+          //We are sending result code eSIR_SME_JOIN_DEAUTH_FROM_AP_DURING_ADD_STA
+          //which will trigger proper cleanup (DEL_STA/DEL_BSS both required) in
+          //either assoc cnf or reassoc cnf handler.
           mlmAssocCnf.resultCode =
               (tSirResultCodes) eSIR_SME_JOIN_DEAUTH_FROM_AP_DURING_ADD_STA;
           psessionEntry->staId = pAddStaParams->staIdx;
@@ -1918,8 +1924,9 @@ void limProcessStaMlmAddStaRsp( tpAniSirGlobal pMac, tpSirMsgQ limMsgQ ,tpPESess
             mlmAssocCnf.resultCode = (tSirResultCodes) eSIR_SME_REFUSED;
             goto end;
         }
-    if (psessionEntry->limSmeState == eLIM_SME_WT_REASSOC_STATE)
-             mesgType = LIM_MLM_REASSOC_CNF;
+
+        if(psessionEntry->limSmeState == eLIM_SME_WT_REASSOC_STATE)
+              mesgType = LIM_MLM_REASSOC_CNF;
         //
         // Update the DPH Hash Entry for this STA
         // with proper state info

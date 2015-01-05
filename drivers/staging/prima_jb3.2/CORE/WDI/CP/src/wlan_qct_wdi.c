@@ -20343,7 +20343,8 @@ WDI_ResponseTimerCB
     wpalWcnssResetIntr();
     if(wpalIsWDresetInProgress())
     {
-        wpalDevicePanic();
+      if(wpalIsSsrPanicOnFailure())
+          wpalDevicePanic();
     }
     /* if this timer fires, it means Riva did not receive the FIQ */
     wpalTimerStart(&pWDICtx->ssrTimer, WDI_SSR_TIMEOUT);

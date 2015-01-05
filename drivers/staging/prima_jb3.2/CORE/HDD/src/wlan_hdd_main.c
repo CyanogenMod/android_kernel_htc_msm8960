@@ -443,7 +443,9 @@ int wlan_hdd_validate_context(hdd_context_t *pHddCtx)
     if (pHddCtx->isLogpInProgress)
     {
         VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
-                  "%s: LOGP in Progress. Ignore!!!", __func__);
+                  "%s: LOGP %s. Ignore!!", __func__,
+                    vos_is_wlan_in_badState(VOS_MODULE_ID_HDD, NULL)
+                    ?"failed":"in Progress");
         return -EAGAIN;
     }
 
@@ -3474,6 +3476,9 @@ VOS_STATUS hdd_init_station_mode( hdd_adapter_t *pAdapter )
 #endif
 
    //Set the Connection State to Not Connected
+   hddLog(VOS_TRACE_LEVEL_INFO,
+            "%s: Set HDD connState to eConnectionState_NotConnected",
+                   __func__);
    pHddStaCtx->conn_info.connState = eConnectionState_NotConnected;
 
    //Set the default operation channel
@@ -3877,6 +3882,7 @@ hdd_adapter_t* hdd_open_adapter( hdd_context_t *pHddCtx, tANI_U8 session_type,
                                  const char *iface_name, tSirMacAddr macAddr,
                                  tANI_U8 rtnl_held )
 {
+   int ret = 0;
    hdd_adapter_t *pAdapter = NULL;
    hdd_adapter_list_node_t *pHddAdapterNode = NULL;
    VOS_STATUS status = VOS_STATUS_E_FAILURE;
@@ -3934,10 +3940,36 @@ hdd_adapter_t* hdd_open_adapter( hdd_context_t *pHddCtx, tANI_U8 session_type,
 
          // Workqueue which gets scheduled in IPv4 notification callback.
          INIT_WORK(&pAdapter->ipv4NotifierWorkQueue, hdd_ipv4_notifier_work_queue);
+         // Register IPv4 notifier to notify if any change in IP
+         // So that we can reconfigure the offload parameters
+         pAdapter->ipv4_notifier.notifier_call = wlan_hdd_ipv4_changed;
+         ret = register_inetaddr_notifier(&pAdapter->ipv4_notifier);
+         if (ret)
+         {
+             hddLog(LOGE, FL("Failed to register IPv4 notifier"));
+         }
+         else
+         {
+             hddLog(LOG1, FL("Registered IPv4 notifier"));
+             pAdapter->ipv4_notifier_registered = true;
+         }
 
 #ifdef WLAN_NS_OFFLOAD
          // Workqueue which gets scheduled in IPv6 notification callback.
          INIT_WORK(&pAdapter->ipv6NotifierWorkQueue, hdd_ipv6_notifier_work_queue);
+         // Register IPv6 notifier to notify if any change in IP
+         // So that we can reconfigure the offload parameters
+         pAdapter->ipv6_notifier.notifier_call = wlan_hdd_ipv6_changed;
+         ret = register_inet6addr_notifier(&pAdapter->ipv6_notifier);
+         if (ret)
+         {
+             hddLog(LOGE, FL("Failed to register IPv6 notifier"));
+         }
+         else
+         {
+             hddLog(LOG1, FL("Registered IPv6 notifier"));
+             pAdapter->ipv6_notifier_registered = true;
+         }
 #endif
          //Stop the Interface TX queue.
          netif_tx_disable(pAdapter->dev);
@@ -4521,6 +4553,9 @@ VOS_STATUS hdd_reconnect_all_adapters( hdd_context_t *pHddCtx )
          hdd_station_ctx_t *pHddStaCtx = WLAN_HDD_GET_STATION_CTX_PTR(pAdapter);
          hdd_wext_state_t *pWextState = WLAN_HDD_GET_WEXT_STATE_PTR(pAdapter);
 
+         hddLog(VOS_TRACE_LEVEL_INFO,
+            "%s: Set HDD connState to eConnectionState_NotConnected",
+                   __func__);
          pHddStaCtx->conn_info.connState = eConnectionState_NotConnected;
          init_completion(&pAdapter->disconnect_comp_var);
          sme_RoamDisconnect(pHddCtx->hHal, pAdapter->sessionId,
@@ -6143,10 +6178,6 @@ int hdd_wlan_startup(struct device *dev )
                        pHddCtx->cfg_ini->isRoamOffloadScanEnabled);
    }
 #endif
-#ifdef FEATURE_WLAN_SCAN_PNO
-   /*SME must send channel update configuration to RIVA*/
-   sme_UpdateChannelConfig(pHddCtx->hHal); 
-#endif
 
    sme_Register11dScanDoneCallback(pHddCtx->hHal, hdd_11d_scan_done);
 
@@ -6221,8 +6252,6 @@ int hdd_wlan_startup(struct device *dev )
 
    mutex_init(&pHddCtx->sap_lock);
 
-   pHddCtx->isLoadUnloadInProgress = FALSE;
-
 #ifdef WLAN_OPEN_SOURCE
 #ifdef WLAN_FEATURE_HOLD_RX_WAKELOCK
    /* Initialize the wake lcok */
@@ -6239,8 +6268,15 @@ int hdd_wlan_startup(struct device *dev )
    vos_event_init(&pHddCtx->scan_info.scan_finished_event);
    pHddCtx->scan_info.scan_pending_option = WEXT_SCAN_PENDING_GIVEUP;
 
+   pHddCtx->isLoadUnloadInProgress = FALSE;
    vos_set_load_unload_in_progress(VOS_MODULE_ID_VOSS, FALSE);
    hdd_allow_suspend();
+
+#ifdef FEATURE_WLAN_SCAN_PNO
+   /*SME must send channel update configuration to RIVA*/
+   sme_UpdateChannelConfig(pHddCtx->hHal);
+#endif
+
 #ifndef CONFIG_ENABLE_LINUX_REG
    /*updating wiphy so that regulatory user hints can be processed*/
    if (wiphy)
@@ -6558,18 +6594,19 @@ static void hdd_driver_exit(void)
    {
        INIT_COMPLETION(pHddCtx->ssr_comp_var);
 
-       if (pHddCtx->isLogpInProgress)
+       if ((pHddCtx->isLogpInProgress) &&
+           (FALSE == vos_is_wlan_in_badState(VOS_MODULE_ID_HDD, NULL)))
        {
-         VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_FATAL,
-              "%s:SSR in Progress; block rmmod !!!", __func__);
-         rc = wait_for_completion_timeout(&pHddCtx->ssr_comp_var,
-                                          msecs_to_jiffies(30000));
-         if(!rc)
-         {
-              VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_FATAL,
-              "%s:SSR timedout, fatal error", __func__);
-              VOS_BUG(0);
-         }
+           VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_FATAL,
+                     "%s:SSR in Progress; block rmmod !!!", __func__);
+           rc = wait_for_completion_timeout(&pHddCtx->ssr_comp_var,
+                                             msecs_to_jiffies(30000));
+           if(!rc)
+           {
+               VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_FATAL,
+                         "%s:SSR timedout, fatal error", __func__);
+               VOS_BUG(0);
+           }
        }
 
       pHddCtx->isLoadUnloadInProgress = TRUE;
