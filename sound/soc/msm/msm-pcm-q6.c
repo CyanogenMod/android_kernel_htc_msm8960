@@ -40,9 +40,10 @@ struct snd_msm {
 	struct snd_pcm *pcm;
 };
 
-#define PLAYBACK_NUM_PERIODS		8
-#define PLAYBACK_MAX_PERIOD_SIZE	4096
-#define PLAYBACK_MIN_PERIOD_SIZE	1024
+#define PLAYBACK_MIN_NUM_PERIODS 2
+#define PLAYBACK_MAX_NUM_PERIODS 8
+#define PLAYBACK_MIN_PERIOD_SIZE 128
+#define PLAYBACK_MAX_PERIOD_SIZE 12288
 #define CAPTURE_MIN_NUM_PERIODS 2
 #define CAPTURE_MAX_NUM_PERIODS 16
 #define CAPTURE_MAX_PERIOD_SIZE 4096
@@ -82,11 +83,12 @@ static struct snd_pcm_hardware msm_pcm_hardware_playback = {
 	.rate_max =             48000,
 	.channels_min =         1,
 	.channels_max =         2,
-	.buffer_bytes_max =     PLAYBACK_NUM_PERIODS * PLAYBACK_MAX_PERIOD_SIZE,
+	.buffer_bytes_max =     PLAYBACK_MAX_NUM_PERIODS *
+				PLAYBACK_MAX_PERIOD_SIZE,
 	.period_bytes_min =	PLAYBACK_MIN_PERIOD_SIZE,
 	.period_bytes_max =     PLAYBACK_MAX_PERIOD_SIZE,
-	.periods_min =          PLAYBACK_NUM_PERIODS,
-	.periods_max =          PLAYBACK_NUM_PERIODS,
+	.periods_min =          PLAYBACK_MIN_NUM_PERIODS,
+	.periods_max =          PLAYBACK_MAX_NUM_PERIODS,
 	.fifo_size =            0,
 };
 
@@ -408,8 +410,8 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		ret = snd_pcm_hw_constraint_minmax(runtime,
 			SNDRV_PCM_HW_PARAM_BUFFER_BYTES,
-			PLAYBACK_NUM_PERIODS * PLAYBACK_MIN_PERIOD_SIZE,
-			PLAYBACK_NUM_PERIODS * PLAYBACK_MAX_PERIOD_SIZE);
+			PLAYBACK_MIN_NUM_PERIODS * PLAYBACK_MIN_PERIOD_SIZE,
+			PLAYBACK_MAX_NUM_PERIODS * PLAYBACK_MAX_PERIOD_SIZE);
 		if (ret < 0) {
 			pr_err("constraint for buffer bytes min max ret = %d\n",
 									ret);
@@ -756,6 +758,12 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 			prtd->audio_client,
 			(params_buffer_bytes(params) / params_periods(params)),
 			params_periods(params));
+
+	pr_debug("buff bytes = %d, period count = %d, period size = %d\n",
+		 params_buffer_bytes(params),
+		 params_periods(params),
+		 params_buffer_bytes(params) / params_periods(params));
+
 	if (ret < 0) {
 		pr_err("Audio Start: Buffer Allocation failed \
 					rc = %d\n", ret);
@@ -771,7 +779,6 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 	dma_buf->private_data = NULL;
 	dma_buf->area = buf[0].data;
 	dma_buf->addr =  buf[0].phys;
-	dma_buf->bytes = runtime->hw.buffer_bytes_max;
 	dma_buf->bytes = params_buffer_bytes(params);
 
 	if (!dma_buf->area)
