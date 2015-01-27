@@ -1055,9 +1055,9 @@ static void m7_set_backlight(struct msm_fb_data_type *mfd)
 			resume_blk = 0;
 			gpio_tlmm_config(GPIO_CFG(BL_HW_EN, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 			gpio_set_value(BL_HW_EN, 1);
-			hr_msleep(1);
+			hr_msleep(4);
 			pwmic_config(idx, val, sizeof(idx));
-			hr_msleep(1);
+			hr_msleep(12);
 			pwmic_config(idx0, val0, sizeof(idx0));
 		}
 	} else {
