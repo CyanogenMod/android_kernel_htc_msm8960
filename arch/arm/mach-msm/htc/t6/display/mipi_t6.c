@@ -39,9 +39,11 @@ static  struct pm8xxx_mpp_config_data MPP_DISABLE = {
 };
 
 static struct dsi_cmd_desc *display_off_cmds = NULL;
+static struct dsi_cmd_desc *display_on_cmds = NULL;
 static struct dsi_cmd_desc *panel_on_cmds = NULL;
 static struct dsi_cmd_desc *backlight_cmds = NULL;
 static int display_off_cmds_count = 0;
+static int display_on_cmds_count = 0;
 static int panel_on_cmds_count = 0;
 static int backlight_cmds_count = 0;
 
@@ -56,6 +58,10 @@ static char lock_command[2] = {0xB0, 0x03};
 static char samsung_ctrl_brightness[2] = {0x51, 0xFF};
 static char write_display_brightness[3]= {0x51, 0x0F, 0xFF};
 static char write_control_display[2] = {0x53, 0x24};
+
+static struct dsi_cmd_desc renesas_display_on_cmds[] = {
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
+};
 
 static struct dsi_cmd_desc samsung_cmd_backlight_cmds[] = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(samsung_ctrl_brightness), samsung_ctrl_brightness},
@@ -130,7 +136,6 @@ static struct dsi_cmd_desc jdi_renesas_cmd_on_cmds[] = {
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(Write_Content_Adaptive_Brightness_Control), Write_Content_Adaptive_Brightness_Control},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(cabc_bl_limit), cabc_bl_limit},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(enable_te), enable_te},
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
 };
 
 static struct dsi_cmd_desc jdi_renesas_cmd_on_cmds_c3[] = {
@@ -147,7 +152,6 @@ static struct dsi_cmd_desc jdi_renesas_cmd_on_cmds_c3[] = {
 	{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(Write_Content_Adaptive_Brightness_Control), Write_Content_Adaptive_Brightness_Control},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(cabc_bl_limit), cabc_bl_limit},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(enable_te), enable_te},
-	{DTYPE_DCS_LWRITE, 1, 0, 0, 0, sizeof(display_on), display_on},
 };
 
 static struct dsi_cmd_desc jdi_display_off_cmds[] = {
@@ -513,9 +517,46 @@ static int t6_lcd_off(struct platform_device *pdev)
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
 
-	send_display_cmds(display_off_cmds, display_off_cmds_count, false);
-
 	resume_blk = 1;
+
+	return 0;
+}
+
+static int t6_display_on(struct platform_device *pdev)
+{
+	struct msm_fb_data_type *mfd;
+	bool clk_ctrl = false;
+
+	mfd = platform_get_drvdata(pdev);
+	if (!mfd)
+		return -ENODEV;
+	if (mfd->key != MFD_KEY)
+		return -EINVAL;
+
+	if (mfd && mfd->panel_info.type == MIPI_CMD_PANEL)
+		clk_ctrl = true;
+
+	send_display_cmds(display_on_cmds, display_on_cmds_count, clk_ctrl);
+
+	return 0;
+}
+
+static int t6_display_off(struct platform_device *pdev)
+{
+	struct msm_fb_data_type *mfd;
+	bool clk_ctrl = false;
+
+	mfd = platform_get_drvdata(pdev);
+
+	if (!mfd)
+		return -ENODEV;
+	if (mfd->key != MFD_KEY)
+		return -EINVAL;
+
+	if (mfd && mfd->panel_info.type == MIPI_CMD_PANEL)
+		clk_ctrl = true;
+
+	send_display_cmds(display_off_cmds, display_off_cmds_count, clk_ctrl);
 
 	return 0;
 }
@@ -599,6 +640,8 @@ static void scorpius_jdi_renesas_panel_init(void)
 {
 	panel_on_cmds = jdi_renesas_cmd_on_cmds;
 	panel_on_cmds_count = ARRAY_SIZE(jdi_renesas_cmd_on_cmds);
+	display_on_cmds = renesas_display_on_cmds;
+	display_on_cmds_count = ARRAY_SIZE(renesas_display_on_cmds);
 	display_off_cmds = jdi_display_off_cmds;
 	display_off_cmds_count = ARRAY_SIZE(jdi_display_off_cmds);
 	backlight_cmds = samsung_cmd_backlight_cmds;
@@ -641,6 +684,8 @@ static void scorpius_jdi_panel_init_c3(void)
 {
 	panel_on_cmds = jdi_renesas_cmd_on_cmds_c3;
 	panel_on_cmds_count = ARRAY_SIZE(jdi_renesas_cmd_on_cmds_c3);
+	display_on_cmds = renesas_display_on_cmds;
+	display_on_cmds_count = ARRAY_SIZE(renesas_display_on_cmds);
 	display_off_cmds = jdi_display_off_cmds;
 	display_off_cmds_count = ARRAY_SIZE(jdi_display_off_cmds);
 	backlight_cmds = samsung_cmd_backlight_cmds;
@@ -721,6 +766,8 @@ static struct msm_fb_panel_data t6_panel_data = {
 	.on = t6_lcd_on,
 	.off = t6_lcd_off,
 	.set_backlight = t6_set_backlight,
+	.late_init = t6_display_on,
+	.early_off = t6_display_off,
 #ifdef COLOR_ENHANCE
 	.color_enhance = t6_color_enhance,
 #endif
