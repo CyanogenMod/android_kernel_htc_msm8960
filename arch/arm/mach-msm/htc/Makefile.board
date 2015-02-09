@@ -22,3 +22,6 @@ obj-$(CONFIG_MACH_T6_UL) += t6/
 
 # M4
 obj-$(CONFIG_MACH_M4_UL) += m4/
+
+# ZARA
+obj-$(CONFIG_MACH_ZARA) += zara/

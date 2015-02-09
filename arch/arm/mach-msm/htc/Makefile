@@ -14,6 +14,7 @@ obj-y += emmc_partitions.o
 obj-y += htc_acoustic_8960.o
 obj-y += htc_lpm.o
 
+obj-$(CONFIG_MACH_ZARA) += htc_sleep_clk.o
 obj-$(CONFIG_MACH_M4_UL) += htc_sleep_clk.o
 obj-$(CONFIG_MACH_M7_UL) += htc_4335_wl_reg.o
 

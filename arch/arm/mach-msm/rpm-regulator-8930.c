@@ -205,7 +205,11 @@ static struct vreg vregs_msm8930_pm8038[] = {
 	LDO(8038_L22,  "8038_l22",  "8038_l22_pc", pldo,     LDO_50,   0),
 	LDO(8038_L23,  "8038_l23",  "8038_l23_pc", pldo,     LDO_50,   0),
 	LDO(8038_L24,  "8038_l24",  NULL,          nldo1200, LDO_1200, 1),
+#ifdef CONFIG_MACH_ZARA
+	LDO(8038_L25,  "8038_l25",  NULL,          ln_ldo,   LDO_50,   0),
+#else
 	LDO(8038_L25,  "8038_l25",  NULL,          ln_ldo,   LDO_5,    0),
+#endif
 	LDO(8038_L26,  "8038_l26",  "8038_l26_pc", nldo,     LDO_150,  1),
 	LDO(8038_L27,  "8038_l27",  NULL,          nldo1200, LDO_1200, 1),
 

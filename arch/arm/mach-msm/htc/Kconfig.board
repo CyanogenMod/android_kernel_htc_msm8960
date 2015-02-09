@@ -23,5 +23,8 @@ source "arch/arm/mach-msm/htc/t6/Kconfig"
 # M4
 source "arch/arm/mach-msm/htc/m4/Kconfig"
 
+# ZARA
+source "arch/arm/mach-msm/htc/zara/Kconfig"
+
 config MACH_HTC_DUMMY
 	bool "NONE (No device)"

@@ -1,0 +1,17 @@
+config BOARD_HEADER_FILE
+	string "HTC board specific header file name"
+	default ""
+
+config MACH_ZARA
+	depends on ARCH_MSM8930
+	select MACH_HTC
+	bool "ZARA"
+	help
+	  Support for the HTC ZARA
+
+config CABC_DIMMING_SWITCH
+	depends on MACH_ZARA
+	bool "Enable panel CABC dimming switch"
+	default y
+	help
+	   Enable CABC dimming switch.

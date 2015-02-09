@@ -1,0 +1,13 @@
+obj-$(CONFIG_MACH_ZARA) += board-zara.o
+obj-$(CONFIG_MACH_ZARA) += board-zara-audio.o
+obj-$(CONFIG_MACH_ZARA) += board-zara-camera.o
+obj-$(CONFIG_MACH_ZARA) += board-zara-gpiomux.o
+obj-$(CONFIG_MACH_ZARA) += board-zara-keypad.o
+obj-$(CONFIG_MACH_ZARA) += board-zara-mmc.o
+obj-$(CONFIG_MACH_ZARA) += board-zara-pmic.o
+obj-$(CONFIG_MACH_ZARA) += board-zara-regulator.o
+obj-$(CONFIG_MACH_ZARA) += board-zara-rfkill.o
+obj-$(CONFIG_MACH_ZARA) += board-zara-storage.o
+obj-$(CONFIG_MACH_ZARA) += board-zara-wifi.o
+obj-$(CONFIG_MACH_ZARA) += display/
+CFLAGS_board-zara-display.o += -Idrivers/video

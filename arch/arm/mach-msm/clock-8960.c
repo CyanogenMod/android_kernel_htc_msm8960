@@ -4350,7 +4350,7 @@ static struct rcg_clk vcodec_clk = {
 		.dbg_name = "vcodec_clk",
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP3(LOW,  100000000, NOMINAL, 200000000,
-#ifdef CONFIG_MACH_M4_UL
+#if defined(CONFIG_MACH_M4_UL) || defined(CONFIG_MACH_ZARA)
 				  HIGH, 266670000),
 #else
 				  HIGH, 228571000),
@@ -4388,7 +4388,7 @@ static struct clk_freq_tbl clk_tbl_vpe[] = {
 	F_VPE( 96000000, pll8,  4),
 	F_VPE(100000000, pll2,  8),
 	F_VPE(160000000, pll2,  5),
-#if defined(CONFIG_MACH_M4_UL) || defined(CONFIG_MACH_T6_UL)
+#if defined(CONFIG_MACH_M4_UL) || defined(CONFIG_MACH_T6_UL) || defined(CONFIG_MACH_ZARA)
 	F_VPE(200000000, pll2,  4),
 #endif
 	F_END
@@ -4414,7 +4414,7 @@ static struct rcg_clk vpe_clk = {
 	.c = {
 		.dbg_name = "vpe_clk",
 		.ops = &clk_ops_rcg,
-#if defined(CONFIG_MACH_M4_UL) || defined(CONFIG_MACH_T6_UL)
+#if defined(CONFIG_MACH_M4_UL) || defined(CONFIG_MACH_T6_UL) || defined(CONFIG_MACH_ZARA)
 		VDD_DIG_FMAX_MAP2(LOW, 76800000, NOMINAL, 200000000),
 #else
 		VDD_DIG_FMAX_MAP2(LOW, 76800000, NOMINAL, 160000000),
@@ -4548,7 +4548,7 @@ static struct clk_freq_tbl clk_tbl_aif_osr_393[] = {
 	F_AIF_OSR( 8192000, pll4, 4, 1,  12),
 	F_AIF_OSR(12288000, pll4, 4, 1,   8),
 	F_AIF_OSR(24576000, pll4, 4, 1,   4),
-#if defined(CONFIG_MACH_M7_UL) || defined(CONFIG_MACH_M4_UL) || defined(CONFIG_MACH_T6_UL)
+#if defined(CONFIG_MACH_M7_UL) || defined(CONFIG_MACH_M4_UL) || defined(CONFIG_MACH_T6_UL) || defined(CONFIG_MACH_ZARA)
 	F_AIF_OSR(18432000, pll4, 4, 3,  16),
 #endif
 	F_AIF_OSR(27000000, pxo,  1, 0,   0),
@@ -5804,6 +5804,7 @@ static struct clk_lookup msm_clocks_8960_common[] __initdata = {
 	CLK_LOOKUP("mem_clk",		rpm_msg_ram_p_clk.c,	""),
 	CLK_LOOKUP("cam_clk",		cam0_clk.c,	"4-001a"),
 	CLK_LOOKUP("cam_clk",		cam0_clk.c,	"4-0010"),
+	CLK_LOOKUP("cam_clk",		cam1_clk.c,	"4-002d"),
 	CLK_LOOKUP("cam_clk",		cam0_clk.c,	"4-006c"),
 	CLK_LOOKUP("cam_clk",		cam0_clk.c,	"4-0048"),
 	CLK_LOOKUP("cam_clk",		cam2_clk.c,		NULL),
@@ -6172,6 +6173,8 @@ static struct clk_lookup msm_clocks_8930[] = {
 	CLK_LOOKUP("cam_clk",		cam0_clk.c,	"4-0010"),
 	CLK_LOOKUP("cam_clk",		cam0_clk.c,	"4-0034"),
 	CLK_LOOKUP("cam_clk",		cam0_clk.c,	"4-0036"),
+	CLK_LOOKUP("cam_clk",		cam1_clk.c,	"4-0036"),
+	CLK_LOOKUP("cam_clk",		cam1_clk.c,	"4-003c"),
 	CLK_LOOKUP("cam_clk",		cam1_clk.c,	"4-006c"),
 	CLK_LOOKUP("cam_clk",		cam1_clk.c,	"4-0048"),
 	CLK_LOOKUP("cam_clk",		cam2_clk.c,		NULL),
