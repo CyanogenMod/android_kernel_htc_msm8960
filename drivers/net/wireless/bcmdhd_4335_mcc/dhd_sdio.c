@@ -67,7 +67,7 @@
 #include <sdiovar.h>
 #ifdef CUSTOMER_HW_ONE
 #include <linux/regulator/consumer.h>
-#include "../../../../arch/arm/mach-msm/msm_watchdog.h"
+#include <msm_watchdog.h>
 
 #define MAX_SDIO_ERR_COUNT 6
 #define WIFI_MAC_PARAM_STR     "macaddr="

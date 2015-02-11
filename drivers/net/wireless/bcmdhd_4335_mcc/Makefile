@@ -14,7 +14,8 @@ DHDCFLAGS = -DLINUX -DBCMDRIVER -DBCMDONGLEHOST -DUNRELEASEDCHIP -DBCMDMA32  \
 	-DWLLXIW -DUSE_IW \
 	-Wall -Wstrict-prototypes -Werror                                    \
 	-I$(M) -I$(M)/include \
-	-Idrivers/net/wireless/bcmdhd_4335_mcc -Idrivers/net/wireless/bcmdhd_4335_mcc/include
+	-Idrivers/net/wireless/bcmdhd_4335_mcc -Idrivers/net/wireless/bcmdhd_4335_mcc/include \
+	-Iarch/arm/mach-msm
 	# CFG 80211 and P2P compile flag
 	#-DWL_CFG80211 -DWLP2P -DWL_COMPAT_WIRELESS  -DBCMWAPI_WAI -DBCMWAPI_WPI -DAP_ONLY\
 
@@ -86,6 +87,10 @@ DHDCFLAGS += -DHTC_TX_TRACKING
 
 #HTC_REDUCE_FIRST_SCAN
 DHDCFLAGS += -DREDUCE_FIRST_SCAN
+
+ifneq ($(CONFIG_DHD_USE_SCHED_SCAN),)
+DHDCFLAGS += -DWL_SCHED_SCAN
+endif
 
 ifdef COMPAT_WIRELESS
 NOSTDINC_FLAGS := -I$(COMPAT_WIRELESS)/include/ \

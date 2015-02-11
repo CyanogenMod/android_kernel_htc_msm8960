@@ -3550,18 +3550,19 @@ enum {
 
 #define PFN_VERSION		2
 #define PFN_SCANRESULT_VERSION	1
-#define PFN_LSCANRESULT_VERSION 2
 #define MAX_PFN_LIST_COUNT	16
 
 #define PFN_COMPLETE			1
 #define PFN_INCOMPLETE			0
-#define PFN_OUTOFMEMORY			2
 
 #define DEFAULT_BESTN			2
 #define DEFAULT_MSCAN			0
 #define DEFAULT_REPEAT			10
 #define DEFAULT_EXP				2
 #define DEFAULT_RTTN			0
+
+#define PFN_PARTIAL_SCAN_BIT		0
+#define PFN_PARTIAL_SCAN_MASK		1
 
 typedef struct wl_pfn_subnet_info {
 	struct ether_addr BSSID;
@@ -3577,11 +3578,12 @@ typedef struct wl_pfn_net_info {
 } wl_pfn_net_info_t;
 
 typedef struct wl_pfn_lnet_info {
-	wl_pfn_subnet_info_t pfnsubnet;
-	int32 	RSSI;
-	uint32  timestamp;
-	uint16	rtt0;
-	uint16 	rtt1;
+	wl_pfn_subnet_info_t pfnsubnet; 
+	uint16	flags; 
+	int16	RSSI; 
+	uint32	timestamp; 
+	uint16	rtt0; 
+	uint16	rtt1; 
 } wl_pfn_lnet_info_t;
 
 typedef struct wl_pfn_lscanresults {
@@ -3609,7 +3611,6 @@ typedef struct wl_pfn_param {
 	uint8 repeat;			
 	uint8 exp;			
 	int32 slow_freq;		
-	uint8	rttn;
 } wl_pfn_param_t;
 
 typedef struct wl_pfn_bssid {

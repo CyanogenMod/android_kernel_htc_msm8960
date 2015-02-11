@@ -3,7 +3,7 @@
  * Prefered Network Offload code and Wi-Fi Location Service(WLS) code.
  * $Copyright Open Broadcom Corporation$
  *
- * $Id: dhd_pno.h 419969 2013-08-23 18:54:36Z $
+ * $Id: dhd_pno.h 423669 2013-09-12 23:01:55Z $
  */
 
 #ifndef __DHD_PNO_H__
@@ -134,6 +134,7 @@ struct dhd_pno_get_batch_info {
 	uint32 expired_tot_scan_cnt;
 	uint32 top_node_cnt;
 	uint32 bufsize;
+	uint32 bytes_written;
 	int reason;
 	struct list_head scan_results_list;
 	struct list_head expired_scan_results_list;
