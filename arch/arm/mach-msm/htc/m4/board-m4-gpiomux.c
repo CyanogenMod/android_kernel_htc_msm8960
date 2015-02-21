@@ -68,7 +68,6 @@ static struct gpiomux_setting audio_auxpcm[] = {
 };
 
 static struct gpiomux_setting audio_auxpcm_output[] = {
-
 	{
 		.func = GPIOMUX_FUNC_GPIO,
 		.drv = GPIOMUX_DRV_2MA,
@@ -84,22 +83,20 @@ static struct gpiomux_setting audio_auxpcm_output[] = {
 };
 
 static struct gpiomux_setting audio_auxpcm_input[] = {
+	{
+		.func = GPIOMUX_FUNC_GPIO,
+		.drv = GPIOMUX_DRV_2MA,
+		.pull = GPIOMUX_PULL_DOWN,
+		.dir = GPIOMUX_IN,
+	},
 
-        {
-                .func = GPIOMUX_FUNC_GPIO,
-                .drv = GPIOMUX_DRV_2MA,
-                .pull = GPIOMUX_PULL_DOWN,
-                .dir = GPIOMUX_IN,
-        },
-
-        {
-                .func = GPIOMUX_FUNC_1,
-                .drv = GPIOMUX_DRV_2MA,
-                .pull = GPIOMUX_PULL_NONE,
-                .dir = GPIOMUX_IN,
-        },
+	{
+		.func = GPIOMUX_FUNC_1,
+		.drv = GPIOMUX_DRV_2MA,
+		.pull = GPIOMUX_PULL_NONE,
+		.dir = GPIOMUX_IN,
+	},
 };
-
 
 
 static struct gpiomux_setting slimbus_out = {
