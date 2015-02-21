@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm 3.4.82 Kernel Configuration
+# Linux/arm 3.4.105 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_ARM_HAS_SG_CHAIN=y
@@ -381,6 +381,7 @@ CONFIG_MACH_HTC=y
 # CONFIG_MACH_JET is not set
 # CONFIG_MACH_VILLE is not set
 CONFIG_MACH_M4_UL=y
+# CONFIG_MACH_ZARA is not set
 # CONFIG_MACH_HTC_DUMMY is not set
 
 #
@@ -741,7 +742,6 @@ CONFIG_BINFMT_ELF=y
 CONFIG_ARCH_BINFMT_ELF_RANDOMIZE_PIE=y
 # CONFIG_CORE_DUMP_DEFAULT_ELF_HEADERS is not set
 CONFIG_HAVE_AOUT=y
-# CONFIG_BINFMT_AOUT is not set
 # CONFIG_BINFMT_MISC is not set
 
 #
