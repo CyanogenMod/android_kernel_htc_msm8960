@@ -3742,11 +3742,12 @@ static void __init zara_init(void)
 
 #ifdef CONFIG_BT
 	bt_export_bd_address();
-#endif
-
-#ifdef CONFIG_SERIAL_MSM_HS
 	msm_uart_dm6_pdata.wakeup_irq = gpio_to_irq(MSM_BT_HOST_WAKE);
+#ifdef CONFIG_SERIAL_MSM_HS_BRCM
 	msm_device_uart_dm6.name = "msm_serial_hs_brcm";
+#else
+	msm_device_uart_dm6.name = "msm_serial_hs";
+#endif
 	msm_device_uart_dm6.dev.platform_data = &msm_uart_dm6_pdata;
 #endif
 
