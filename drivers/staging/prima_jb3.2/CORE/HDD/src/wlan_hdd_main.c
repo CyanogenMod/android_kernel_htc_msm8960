@@ -280,7 +280,7 @@ static int hdd_netdev_notifier_call(struct notifier_block * nb,
 
    case NETDEV_GOING_DOWN:
         result = wlan_hdd_scan_abort(pAdapter);
-        if (result <= 0)
+        if (result < 0)
         {
             VOS_TRACE( VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
                        "%s: Timeout occurred while waiting for abortscan %ld",
@@ -4398,8 +4398,6 @@ VOS_STATUS hdd_stop_all_adapters( hdd_context_t *pHddCtx )
    while ( NULL != pAdapterNode && VOS_STATUS_SUCCESS == status )
    {
       pAdapter = pAdapterNode->pAdapter;
-      netif_tx_disable(pAdapter->dev);
-      netif_carrier_off(pAdapter->dev);
 
       hdd_stop_adapter( pHddCtx, pAdapter );
 
@@ -5147,14 +5145,38 @@ void hdd_wlan_exit(hdd_context_t *pHddCtx)
       // Unloading, restart logic is no more required.
       wlan_hdd_restart_deinit(pHddCtx);
 
+#ifdef FEATURE_WLAN_TDLS
+      /* At the time of driver unloading; if tdls connection is present;
+       * hdd_rx_packet_cbk calls wlan_hdd_tdls_find_peer.
+       * wlan_hdd_tdls_find_peer always checks for valid context;
+       * as load/unload in progress there can be a race condition.
+       * hdd_rx_packet_cbk calls wlan_hdd_tdls_find_peer only
+       * when tdls state is enabled.
+       * As soon as driver set load/unload flag; tdls flag also needs
+       * to be disabled so that hdd_rx_packet_cbk won't call
+       * wlan_hdd_tdls_find_peer.
+       */
+      wlan_hdd_tdls_set_mode(pHddCtx, eTDLS_SUPPORT_DISABLED, FALSE);
+#endif
+
       vosStatus = hdd_get_front_adapter ( pHddCtx, &pAdapterNode );
       while (NULL != pAdapterNode && VOS_STATUS_E_EMPTY != vosStatus)
       {
          pAdapter = pAdapterNode->pAdapter;
          if (NULL != pAdapter)
          {
-            wlan_hdd_cfg80211_pre_voss_stop(pAdapter);
-            hdd_UnregisterWext(pAdapter->dev);
+            /* Disable TX on the interface, after this hard_start_xmit() will
+             * not be called on that interface
+             */
+            netif_tx_disable(pAdapter->dev);
+
+            /* Mark the interface status as "down" for outside world */
+            netif_carrier_off(pAdapter->dev);
+
+            /* DeInit the adapter. This ensures that all data packets
+             * are freed.
+             */
+            hdd_deinit_adapter(pHddCtx, pAdapter);
 
             if (WLAN_HDD_INFRA_STATION ==  pAdapter->device_mode ||
                 WLAN_HDD_P2P_CLIENT == pAdapter->device_mode)
@@ -6081,6 +6103,8 @@ int hdd_wlan_startup(struct device *dev )
        hddLog(VOS_TRACE_LEVEL_ERROR,"%s: wiphy register failed", __func__);
        goto err_vosstop;
    }
+
+   wcnss_wlan_set_drvdata(pHddCtx->parent_dev, pHddCtx);
 
    if (VOS_STA_SAP_MODE == hdd_get_conparam())
    {
@@ -7169,7 +7193,7 @@ int wlan_hdd_scan_abort(hdd_adapter_t *pAdapter)
 {
     hdd_context_t *pHddCtx = WLAN_HDD_GET_CTX(pAdapter);
     hdd_scaninfo_t *pScanInfo = NULL;
-    int status;
+    long status = 0;
 
     pScanInfo = &pHddCtx->scan_info;
     if (pScanInfo->mScanPending)
@@ -7180,15 +7204,15 @@ int wlan_hdd_scan_abort(hdd_adapter_t *pAdapter)
         status = wait_for_completion_interruptible_timeout(
                            &pScanInfo->abortscan_event_var,
                            msecs_to_jiffies(5000));
-        if ((!status) || (status == -ERESTARTSYS))
+        if (0 >= status)
         {
            VOS_TRACE( VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
-                  "%s: Timeout occurred while waiting for abort scan",
-                  __func__);
+                  "%s: Timeout or Interrupt occurred while waiting for abort"
+                  "scan, status- %ld", __func__, status);
             return -ETIMEDOUT;
         }
     }
-    return status;
+    return 0;
 }
 
 //Register the module init/exit functions

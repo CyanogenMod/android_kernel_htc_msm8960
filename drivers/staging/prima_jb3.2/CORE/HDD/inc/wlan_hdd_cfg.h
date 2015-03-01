@@ -120,7 +120,7 @@
 #define CFG_COUNTRY_CODE_PRIORITY_NAME         "gCountryCodePriority"
 #define CFG_COUNTRY_CODE_PRIORITY_MIN          ( 0 )
 #define CFG_COUNTRY_CODE_PRIORITY_MAX          ( 1 )
-#define CFG_COUNTRY_CODE_PRIORITY_DEFAULT      ( 0 )
+#define CFG_COUNTRY_CODE_PRIORITY_DEFAULT      ( 1 )
 
 #define CFG_ENFORCE_COUNTRY_CODE_MATCH_NAME    "gEnforceCountryCodeMatch"
 #define CFG_ENFORCE_COUNTRY_CODE_MATCH_MIN     ( 0 )
@@ -233,6 +233,16 @@
 #define CFG_IMPS_MAXIMUM_SLEEP_TIME_MIN        ( 0 )
 #define CFG_IMPS_MAXIMUM_SLEEP_TIME_MAX        ( 65535 )
 #define CFG_IMPS_MAXIMUM_SLEEP_TIME_DEFAULT    ( 15 )
+
+/*If there is scan on STA interface back to back with
+ *time diff nDeferScanTimeInterval, driver will not
+ *issue a new scan. Driver will return cached result to kernel.
+ *the interval is in msec
+ */
+#define CFG_DEFER_SCAN_TIME_INTERVAL            "gDeferScanTimeInterval"
+#define CFG_DEFER_SCAN_TIME_INTERVAL_MIN        ( 0 )
+#define CFG_DEFER_SCAN_TIME_INTERVAL_MAX        ( 65535 )
+#define CFG_DEFER_SCAN_TIME_INTERVAL_DEFAULT    ( 2000  )
 
 //BMPS = BeaconModePowerSave
 #define CFG_ENABLE_BMPS_NAME                   "gEnableBmps"
@@ -1872,6 +1882,7 @@ typedef struct
    v_BOOL_t      ShortSlotTimeEnabled;
    v_BOOL_t      Is11dSupportEnabled;
    v_BOOL_t      Is11hSupportEnabled;
+   v_U32_t       nDeferScanTimeInterval;
    v_BOOL_t      fEnforce11dChannels;
    v_BOOL_t      fSupplicantCountryCodeHasPriority;
    v_BOOL_t      fEnforceCountryCodeMatch;
