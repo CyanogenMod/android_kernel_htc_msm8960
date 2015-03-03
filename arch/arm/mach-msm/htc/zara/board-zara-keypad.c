@@ -13,19 +13,12 @@
  *
  */
 
-#include <linux/platform_device.h>
-#include <linux/input.h>
-#include <linux/interrupt.h>
 #include <linux/gpio_event.h>
+#include <linux/input.h>
 #include <linux/keyreset.h>
-#include <asm/mach-types.h>
-#include <linux/gpio.h>
+#include <linux/platform_device.h>
 #include <mach/gpio.h>
-#include <linux/delay.h>
 #include "board-zara.h"
-
-#undef MODULE_PARAM_PREFIX
-#define MODULE_PARAM_PREFIX "board_zara."
 
 static void config_gpio_table(uint32_t *table, int len)
 {
@@ -64,13 +57,6 @@ static void zara_setup_input_gpio(void)
 
 	config_gpio_table(inputs_gpio_table, ARRAY_SIZE(inputs_gpio_table));
 }
-
-uint32_t hw_clr_gpio_table[] = {
-	GPIO_CFG(MSM_HW_RST_CLRz, 0, GPIO_CFG_INPUT,
-		GPIO_CFG_PULL_UP, GPIO_CFG_2MA),
-	GPIO_CFG(MSM_HW_RST_CLRz, 0, GPIO_CFG_OUTPUT,
-		GPIO_CFG_PULL_UP, GPIO_CFG_2MA),
-};
 
 static struct gpio_event_input_info zara_keypad_input_info = {
 	.info.func             = gpio_event_input_func,

@@ -10,77 +10,78 @@
  * GNU General Public License for more details.
  *
  */
+
+#include <asm/hardware/gic.h>
+#include <asm/mach/arch.h>
+
+#include <linux/bma250.h>
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/irq.h>
-#include <linux/i2c.h>
-#include <linux/i2c/isl9519.h>
-#include <linux/gpio.h>
 #include <linux/msm_ssbi.h>
 #include <linux/regulator/msm-gpio-regulator.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/mfd/pm8xxx/pm8xxx-adc.h>
 #include <linux/regulator/consumer.h>
-#include <linux/spi/spi.h>
 #include <linux/slimbus/slimbus.h>
 #include <linux/bootmem.h>
-#ifdef CONFIG_ANDROID_PMEM
-#include <linux/android_pmem.h>
-#endif
+#include <linux/cm3629.h>
 #include <linux/dma-contiguous.h>
 #include <linux/dma-mapping.h>
-#include <linux/platform_data/qcom_crypto_device.h>
+#include <linux/fmem.h>
+#include <linux/gpio.h>
+#include <linux/htc_flashlight.h>
+#include <linux/i2c.h>
+#include <linux/i2c/isl9519.h>
 #include <linux/leds.h>
 #include <linux/leds-pm8038.h>
-#include <linux/msm_tsens.h>
 #include <linux/gpio_keys.h>
 #include <linux/memory.h>
 #include <linux/memblock.h>
+#include <linux/mfd/wcd9xxx/pdata.h>
+#include <linux/msm_ion.h>
 #include <linux/msm_thermal.h>
+#include <linux/msm_tsens.h>
+#include <linux/platform_data/qcom_crypto_device.h>
+#include <linux/rt5501.h>
+#include <linux/spi/spi.h>
 #include <linux/synaptics_i2c_rmi.h>
-
 #include <linux/slimbus/slimbus.h>
 #include <linux/mfd/wcd9xxx/core.h>
-#include <linux/mfd/wcd9xxx/pdata.h>
-
 #include <asm/mach-types.h>
-#include <asm/mach/arch.h>
 #include <asm/setup.h>
-#include <asm/hardware/gic.h>
 #include <asm/mach/mmc.h>
-
 #include <mach/board.h>
-#include <mach/msm_iomap.h>
-#include <mach/msm_spi.h>
-#include <linux/usb/msm_hsusb.h>
+#include <linux/tfa9887.h>
 #include <linux/usb/android.h>
+#include <linux/usb/msm_hsusb.h>
 #include <mach/usbdiag.h>
-#include <mach/socinfo.h>
-#include <mach/rpm.h>
-#include <mach/gpiomux.h>
+
+#include <mach/board_htc.h>
+#include <mach/cable_detect.h>
+#include <mach/dma.h>
+#include <mach/htc_headset_gpio.h>
+#include <mach/htc_headset_mgr.h>
+#include <mach/htc_headset_one_wire.h>
+#include <mach/htc_headset_pmic.h>
+#include <mach/iommu_domains.h>
+#include <mach/mpm.h>
 #include <mach/msm_bus_board.h>
 #include <mach/msm_memtypes.h>
-#include <mach/dma.h>
+#include <mach/gpiomux.h>
+#include <mach/rpm.h>
+#include <mach/msm_iomap.h>
 #include <mach/msm_serial_hs.h>
+#include <mach/msm_spi.h>
 #include <mach/msm_xo.h>
 #include <mach/restart.h>
+#include <mach/socinfo.h>
 
 #include <linux/ion.h>
-#include <linux/msm_ion.h>
 #include <mach/ion.h>
 #include <mach/mdm2.h>
-#ifdef CONFIG_MSM_RTB
-#include <mach/msm_rtb.h>
-#endif
-#include <linux/fmem.h>
-#ifdef CONFIG_MSM_CACHE_DUMP
-#include <mach/msm_cache_dump.h>
-#endif
-#include <mach/iommu_domains.h>
-
 #include <mach/kgsl.h>
-
 #include "timer.h"
 #include "devices.h"
 #include "devices-msm8x60.h"
@@ -88,38 +89,36 @@
 #include "pm.h"
 #include <mach/cpuidle.h>
 #include "rpm_resources.h"
-#include <mach/mpm.h>
 #include "clock.h"
 #include "smd_private.h"
 #include "pm-boot.h"
 #include "msm_watchdog.h"
 #include "board-8930.h"
 #include "acpuclock-krait.h"
-
-#include <linux/proc_fs.h>
 #include "board-zara.h"
-#include <mach/board_htc.h>
-#include <mach/htc_headset_mgr.h>
-#include <mach/htc_headset_pmic.h>
-#include <mach/htc_headset_gpio.h>
-#include <mach/htc_headset_one_wire.h>
-#include <mach/cable_detect.h>
-#include <linux/tfa9887.h>
+#include <linux/proc_fs.h>
 #include <mach/ncp6924.h>
-#include <linux/rt5501.h>
-#include <linux/htc_flashlight.h>
-#include <linux/bma250.h>
-#include <linux/cm3629.h>
 
+
+
+#ifdef CONFIG_ANDROID_PMEM
+#include <linux/android_pmem.h>
+#endif
 #ifdef CONFIG_BT
 #include <mach/htc_bdaddress.h>
 #endif
-
 #ifdef CONFIG_HTC_BATT_8960
-#include "mach/htc_battery_8960.h"
-#include "mach/htc_battery_cell.h"
-#include "linux/mfd/pm8xxx/pm8921-charger.h"
+#include <mach/htc_battery_8960.h>
+#include <mach/htc_battery_cell.h>
+#include <linux/mfd/pm8xxx/pm8921-charger.h>
 #endif
+#ifdef CONFIG_MSM_CACHE_DUMP
+#include <mach/msm_cache_dump.h>
+#endif
+#ifdef CONFIG_MSM_RTB
+#include <mach/msm_rtb.h>
+#endif
+
 
 static struct platform_device msm_fm_platform_init = {
 	.name = "iris_fm",
@@ -332,7 +331,6 @@ static int msm8930_paddr_to_memtype(unsigned int paddr)
 }
 
 #define FMEM_ENABLED 0
-
 #ifdef CONFIG_ION_MSM
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 static struct ion_cp_heap_pdata cp_mm_zara_ion_pdata = {
@@ -946,15 +944,15 @@ static struct sf_lut rbatt_sf_id_1 = {
 };
 
 static struct pm8921_bms_battery_data  bms_battery_data_id_1 = {
-	.fcc                = 2100,
+	.fcc		= 2100,
 	.fcc_temp_lut		= &fcc_temp_id_1,
-	.fcc_sf_lut		= &fcc_sf_id_1,
-	.pc_temp_ocv_lut	= &pc_temp_ocv_id_1,
+	.fcc_sf_lut			= &fcc_sf_id_1,
+	.pc_temp_ocv_lut		= &pc_temp_ocv_id_1,
 	.pc_sf_lut		= &pc_sf_id_1,
 	.rbatt_sf_lut		= &rbatt_sf_id_1,
-	.rbatt_est_ocv_lut	= &rbatt_est_ocv_id_1,
-	.default_rbatt_mohm = 250,
-	.delta_rbatt_mohm     = 0,
+	.rbatt_est_ocv_lut		= &rbatt_est_ocv_id_1,
+	.default_rbatt_mohm		=250,
+	.delta_rbatt_mohm		= 0,
 };
 
 static struct single_row_lut fcc_temp_id_2 = {
@@ -1058,15 +1056,15 @@ static struct sf_lut rbatt_sf_id_2 = {
 };
 
 static struct pm8921_bms_battery_data  bms_battery_data_id_2 = {
-	.fcc                   = 2100,
-	.fcc_temp_lut          = &fcc_temp_id_2,
-	.fcc_sf_lut            = &fcc_sf_id_2,
-	.pc_temp_ocv_lut       = &pc_temp_ocv_id_2,
-	.pc_sf_lut             = &pc_sf_id_2,
-	.rbatt_sf_lut          = &rbatt_sf_id_2,
-	.rbatt_est_ocv_lut     = &rbatt_est_ocv_id_2,
-	.default_rbatt_mohm    = 250,
-	.delta_rbatt_mohm     = 0,
+	.fcc		= 2100,
+	.fcc_temp_lut		= &fcc_temp_id_2,
+	.fcc_sf_lut		= &fcc_sf_id_2,
+	.pc_temp_ocv_lut	= &pc_temp_ocv_id_2,
+	.pc_sf_lut		= &pc_sf_id_2,
+	.rbatt_sf_lut		= &rbatt_sf_id_2,
+	.rbatt_est_ocv_lut	= &rbatt_est_ocv_id_2,
+	.default_rbatt_mohm		=250,
+	.delta_rbatt_mohm		= 0,
 };
 
 static struct htc_battery_cell htc_battery_cells[] = {
@@ -1752,7 +1750,8 @@ static int cm3629_power(int ls_or_ps, uint8_t enable)
 	return rc;
 }
 
-static uint8_t cm3629_mapping_table[] = {0x0, 0x3, 0x6, 0x9, 0xC,
+static uint8_t cm3629_mapping_table[] = {
+	0x0, 0x3, 0x6, 0x9, 0xC,
 	0xF, 0x12, 0x15, 0x18, 0x1B,
 	0x1E, 0x21, 0x24, 0x27, 0x2A,
 	0x2D, 0x30, 0x33, 0x36, 0x39,
@@ -1974,8 +1973,6 @@ static struct platform_device android_usb_device = {
 	},
 };
 
-#define EVM_VERSION		0x99
-
 static void zara_add_usb_devices(void)
 {
 	printk(KERN_INFO "%s rev: %d\n", __func__, system_rev);
@@ -2102,7 +2099,6 @@ static struct msm_spm_platform_data msm_spm_l2_data[] __initdata = {
 		.num_modes = ARRAY_SIZE(msm_spm_l2_seq_list),
 	},
 };
-
 
 static void config_flashlight_gpios(void)
 {
@@ -3425,35 +3421,30 @@ static struct msm_rpmrs_level msm_rpmrs_levels[] __initdata = {
 		false,
 		2000, 138, 1208400, 3200,
 	},
-
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
 		MSM_RPMRS_LIMITS(ON, HSFS_OPEN, ACTIVE, RET_HIGH),
 		false,
 		6000, 119, 1850300, 9000,
 	},
-
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
 		MSM_RPMRS_LIMITS(OFF, GDHS, MAX, ACTIVE),
 		false,
 		9200, 68, 2839200, 16400,
 	},
-
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
 		MSM_RPMRS_LIMITS(OFF, HSFS_OPEN, MAX, ACTIVE),
 		false,
 		10300, 63, 3128000, 18200,
 	},
-
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
 		MSM_RPMRS_LIMITS(OFF, HSFS_OPEN, ACTIVE, RET_HIGH),
 		false,
 		18000, 10, 4602600, 27000,
 	},
-
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
 		MSM_RPMRS_LIMITS(OFF, HSFS_OPEN, RET_HIGH, RET_LOW),
@@ -3767,7 +3758,6 @@ static void __init zara_init(void)
 	zara_init_cam();
 	msm8930_init_mmc();
 	zara_init_mmc();
-
 	register_i2c_devices();
 	zara_init_fb();
 	syn_init_vkeys_zara();

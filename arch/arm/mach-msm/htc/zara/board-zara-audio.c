@@ -321,7 +321,6 @@ static int msm8930_i2s_startup(struct snd_pcm_substream *substream)
 			return ret;
 		}
 
-
 		ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBS_CFS);
 		if (ret < 0) {
 			pr_info("%s: set format for cpu dai failed\n", __func__);
@@ -949,7 +948,6 @@ static int msm8930_hw_params(struct snd_pcm_substream *substream,
 				__func__);
 			goto end;
 		}
-
 	}
 end:
 	return ret;

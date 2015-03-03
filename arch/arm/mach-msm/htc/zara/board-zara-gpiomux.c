@@ -58,7 +58,6 @@ static struct gpiomux_setting audio_auxpcm[] = {
 		.pull = GPIOMUX_PULL_NONE,
 		.dir = GPIOMUX_OUT_LOW,
 	},
-
 	{
 		.func = GPIOMUX_FUNC_1,
 		.drv = GPIOMUX_DRV_2MA,
@@ -73,7 +72,6 @@ static struct gpiomux_setting audio_auxpcm_output[] = {
 		.pull = GPIOMUX_PULL_NONE,
 		.dir = GPIOMUX_OUT_LOW,
 	},
-
 	{
 		.func = GPIOMUX_FUNC_1,
 		.drv = GPIOMUX_DRV_2MA,
@@ -86,9 +84,8 @@ static struct gpiomux_setting audio_auxpcm_input[] = {
 		.func = GPIOMUX_FUNC_GPIO,
 		.drv = GPIOMUX_DRV_2MA,
 		.pull = GPIOMUX_PULL_DOWN,
-                .dir = GPIOMUX_IN,
+		.dir = GPIOMUX_IN,
 	},
-
 	{
 		.func = GPIOMUX_FUNC_1,
 		.drv = GPIOMUX_DRV_2MA,
@@ -96,7 +93,6 @@ static struct gpiomux_setting audio_auxpcm_input[] = {
 		.dir = GPIOMUX_IN,
 	},
 };
-
 
 static struct gpiomux_setting slimbus_out = {
 	.func = GPIOMUX_FUNC_1,
@@ -160,9 +156,6 @@ static struct gpiomux_setting mdp_vsync_active_cfg = {
 	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_DOWN,
 };
-
-
-
 
 static struct msm_gpiomux_config msm8960_gsbi_configs[] __initdata = {
 	{
@@ -246,14 +239,12 @@ static struct msm_gpiomux_config msm8960_wcd_reset_configs[] __initdata = {
 };
 
 static struct gpiomux_setting  pri_i2s[] = {
-
 	{
 		.func = GPIOMUX_FUNC_GPIO,
 		.drv = GPIOMUX_DRV_2MA,
 		.pull = GPIOMUX_PULL_NONE,
 		.dir = GPIOMUX_OUT_LOW,
 	},
-
 	{
 		.func = GPIOMUX_FUNC_1,
 		.drv = GPIOMUX_DRV_2MA,
@@ -263,14 +254,12 @@ static struct gpiomux_setting  pri_i2s[] = {
 };
 
 static struct gpiomux_setting  pri_i2s_input[] = {
-
 	{
 		.func = GPIOMUX_FUNC_GPIO,
 		.drv = GPIOMUX_DRV_2MA,
 		.pull = GPIOMUX_PULL_DOWN,
 		.dir =  GPIOMUX_IN,
 	},
-
 	{
 		.func = GPIOMUX_FUNC_1,
 		.drv = GPIOMUX_DRV_2MA,
