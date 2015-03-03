@@ -11,21 +11,15 @@
  *
  */
 
-#include <linux/init.h>
-#include <linux/ioport.h>
 #include <linux/platform_device.h>
-#include <linux/bootmem.h>
 #include <linux/gpio.h>
-#include <asm/mach-types.h>
 #include <asm/mach/mmc.h>
-#include <mach/msm_bus_board.h>
-#include <mach/board.h>
 #include <mach/gpiomux.h>
 #include <mach/socinfo.h>
-#include "devices.h"
 
 #include "board-8930.h"
 #include "board-storage-common-a.h"
+
 #define	GPIO(X)		(X)
 #define	SD_CDETz	GPIO(10)
 
@@ -39,7 +33,6 @@ enum sdcc_controllers {
 };
 
 static struct msm_mmc_reg_data mmc_vdd_reg_data[MAX_SDCC_CONTROLLER] = {
-
 	[SDCC1] = {
 		.name = "sdc_vdd",
 		.high_vol_level = 2950000,
@@ -49,7 +42,6 @@ static struct msm_mmc_reg_data mmc_vdd_reg_data[MAX_SDCC_CONTROLLER] = {
 		.lpm_uA = 9000,
 		.hpm_uA = 200000,
 	},
-
 	[SDCC3] = {
 		.name = "sdc_vdd",
 		.high_vol_level = 2950000,
@@ -60,7 +52,6 @@ static struct msm_mmc_reg_data mmc_vdd_reg_data[MAX_SDCC_CONTROLLER] = {
 };
 
 static struct msm_mmc_reg_data mmc_vdd_io_reg_data[MAX_SDCC_CONTROLLER] = {
-
 	[SDCC1] = {
 		.name = "sdc_vdd_io",
 		.always_on = 1,
@@ -68,26 +59,22 @@ static struct msm_mmc_reg_data mmc_vdd_io_reg_data[MAX_SDCC_CONTROLLER] = {
 		.low_vol_level = 1800000,
 		.hpm_uA = 200000,
 	},
-
 	[SDCC3] = {
 		.name = "sdc_vdd_io",
 		.high_vol_level = 2950000,
 		.low_vol_level = 1850000,
 		.always_on = 1,
 		.lpm_sup = 1,
-
 		.hpm_uA = 16000,
 		.lpm_uA = 2000,
 	}
 };
 
 static struct msm_mmc_slot_reg_data mmc_slot_vreg_data[MAX_SDCC_CONTROLLER] = {
-
 	[SDCC1] = {
 		.vdd_data = &mmc_vdd_reg_data[SDCC1],
 		.vdd_io_data = &mmc_vdd_io_reg_data[SDCC1],
 	},
-
 	[SDCC3] = {
 		.vdd_data = &mmc_vdd_reg_data[SDCC3],
 		.vdd_io_data = &mmc_vdd_io_reg_data[SDCC3],
@@ -189,7 +176,6 @@ static struct msm_mmc_pin_data mmc_slot_pin_data[MAX_SDCC_CONTROLLER] = {
 };
 
 #define MSM_MPM_PIN_SDC1_DAT1	17
-#define MSM_MPM_PIN_SDC3_DAT1	21
 
 static unsigned int sdc1_sup_clk_rates[] = {
 	400000, 24000000, 48000000, 96000000
@@ -238,28 +224,16 @@ static struct mmc_platform_data msm8930_sdc3_data = {
 void __init msm8930_init_mmc(void)
 {
 #ifdef CONFIG_MMC_MSM_SDC1_SUPPORT
-
 	msm_add_sdcc(1, &msm8930_sdc1_data);
 #endif
 #ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
 	if ((SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 1 &&
-			SOCINFO_VERSION_MINOR(socinfo_get_version()) >= 2) ||
-			machine_is_msm8930_cdp()) {
+			SOCINFO_VERSION_MINOR(socinfo_get_version()) >= 2)) {
 		msm8930_sdc3_data.vreg_data->vdd_data->always_on = false;
 		msm8930_sdc3_data.vreg_data->vdd_data->reset_at_init = false;
 	}
 
-	if (!machine_is_msm8930_cdp()) {
-		msm8930_sdc3_data.wpswitch_gpio = 0;
-	}
+	msm8930_sdc3_data.wpswitch_gpio = 0;
 	msm_add_sdcc(3, &msm8930_sdc3_data);
 #endif
 }
-
-struct msm_mmc_pad_drv_data *mmc_get_pdd_drv_data(int controller)
-{
-	if (controller >= MAX_SDCC_CONTROLLER)
-		return NULL;
-	return &mmc_pad_drv_data[controller];
-}
-

@@ -10,120 +10,83 @@
  * GNU General Public License for more details.
  *
  */
-#include <linux/kernel.h>
-#include <linux/platform_device.h>
-#include <linux/io.h>
-#include <linux/irq.h>
-#include <linux/i2c.h>
-#include <linux/i2c/isl9519.h>
-#include <linux/gpio.h>
-#include <linux/msm_ssbi.h>
-#include <linux/regulator/msm-gpio-regulator.h>
-#include <linux/mfd/pm8xxx/pm8921.h>
-#include <linux/mfd/pm8xxx/pm8xxx-adc.h>
-#include <linux/regulator/consumer.h>
-#include <linux/spi/spi.h>
-#include <linux/slimbus/slimbus.h>
+
+#include <asm/hardware/gic.h>
+#include <asm/mach/arch.h>
+
+#include <linux/akm8963.h>
+#include <linux/bma250.h>
 #include <linux/bootmem.h>
-#ifdef CONFIG_ANDROID_PMEM
-#include <linux/android_pmem.h>
-#endif
+#include <linux/cm3629.h>
 #include <linux/dma-contiguous.h>
 #include <linux/dma-mapping.h>
-#include <linux/platform_data/qcom_crypto_device.h>
-#include <linux/leds.h>
-#include <linux/leds-pm8038.h>
-#include <linux/msm_tsens.h>
-#include <linux/gpio_keys.h>
-#include <linux/memory.h>
+#include <linux/fmem.h>
+#include <linux/gpio.h>
+#include <linux/htc_flashlight.h>
+#include <linux/i2c.h>
+#include <linux/i2c/isl9519.h>
 #include <linux/memblock.h>
-#include <linux/msm_thermal.h>
-#include <linux/synaptics_i2c_rmi.h>
-
-#include <linux/slimbus/slimbus.h>
-#include <linux/mfd/wcd9xxx/core.h>
 #include <linux/mfd/wcd9xxx/pdata.h>
-
-#include <asm/mach-types.h>
-#include <asm/mach/arch.h>
-#include <asm/setup.h>
-#include <asm/hardware/gic.h>
-#include <asm/mach/mmc.h>
-
-#include <mach/board.h>
-#include <mach/msm_iomap.h>
-#include <mach/msm_spi.h>
-#include <linux/usb/msm_hsusb.h>
+#include <linux/mpu.h>
+#include <linux/msm_ion.h>
+#include <linux/msm_thermal.h>
+#include <linux/msm_tsens.h>
+#include <linux/platform_data/qcom_crypto_device.h>
+#include <linux/r3gd20.h>
+#include <linux/rt5501.h>
+#include <linux/spi/spi.h>
+#include <linux/synaptics_i2c_rmi.h>
+#include <linux/tfa9887.h>
 #include <linux/usb/android.h>
-#include <mach/usbdiag.h>
-#include <mach/socinfo.h>
-#include <mach/rpm.h>
-#include <mach/gpiomux.h>
-#include <mach/msm_bus_board.h>
-#include <mach/msm_memtypes.h>
+#include <linux/usb/msm_hsusb.h>
+
+#include <mach/board_htc.h>
+#include <mach/cable_detect.h>
 #include <mach/dma.h>
+#include <mach/htc_headset_gpio.h>
+#include <mach/htc_headset_mgr.h>
+#include <mach/htc_headset_one_wire.h>
+#include <mach/htc_headset_pmic.h>
+#include <mach/htc_ramdump.h>
+#include <mach/iommu_domains.h>
+#include <mach/mpm.h>
+#include <mach/msm_bus_board.h>
 #include <mach/msm_serial_hs.h>
+#include <mach/msm_spi.h>
 #include <mach/msm_xo.h>
 #include <mach/restart.h>
-
-#include <linux/msm_ion.h>
-#include <mach/ion.h>
-#ifdef CONFIG_MSM_RTB
-#include <mach/msm_rtb.h>
-#endif
-#include <linux/fmem.h>
-#ifdef CONFIG_MSM_CACHE_DUMP
-#include <mach/msm_cache_dump.h>
-#endif
-#include <mach/iommu_domains.h>
-
-#include <mach/kgsl.h>
+#include <mach/socinfo.h>
 
 #include "timer.h"
 #include "devices.h"
 #include "devices-msm8x60.h"
 #include "spm.h"
-#include "pm.h"
-#include <mach/cpuidle.h>
 #include "rpm_resources.h"
-#include <mach/mpm.h>
-#include "clock.h"
 #include "smd_private.h"
 #include "pm-boot.h"
-#include "msm_watchdog.h"
 #include "board-8930.h"
 #include "acpuclock-krait.h"
-
 #include "board-m4.h"
-#include <mach/board_htc.h>
-#include <mach/htc_headset_mgr.h>
-#include <mach/htc_headset_pmic.h>
-#include <mach/htc_headset_gpio.h>
-#include <mach/htc_headset_one_wire.h>
-#include <mach/htc_ramdump.h>
-#include <mach/cable_detect.h>
-#include <linux/tfa9887.h>
-#include <linux/rt5501.h>
-#include <linux/htc_flashlight.h>
-#include <linux/mpu.h>
-#include <linux/r3gd20.h>
-#include <linux/akm8963.h>
-#include <linux/bma250.h>
-#include <linux/cm3629.h>
 
+#ifdef CONFIG_ANDROID_PMEM
+#include <linux/android_pmem.h>
+#endif
 #ifdef CONFIG_BT
 #include <mach/htc_bdaddress.h>
 #endif
-
 #ifdef CONFIG_HTC_BATT_8960
-#include "mach/htc_battery_8960.h"
-#include "mach/htc_battery_cell.h"
-#include "linux/mfd/pm8xxx/pm8921-charger.h"
+#include <mach/htc_battery_8960.h>
+#include <mach/htc_battery_cell.h>
+#include <linux/mfd/pm8xxx/pm8921-charger.h>
+#endif
+#ifdef CONFIG_MSM_CACHE_DUMP
+#include <mach/msm_cache_dump.h>
+#endif
+#ifdef CONFIG_MSM_RTB
+#include <mach/msm_rtb.h>
 #endif
 
-unsigned skuid;
 extern unsigned int system_rev;
-extern unsigned int engineerid;
 
 static struct platform_device msm_fm_platform_init = {
 	.name = "iris_fm",
@@ -137,7 +100,6 @@ static struct platform_device msm_fm_platform_init = {
 #else
 #define MSM_PMEM_SIZE 0x2800000 /* 40 Mbytes */
 #endif
-#define MSM_LIQUID_PMEM_SIZE 0x4000000 /* 64 Mbytes */
 
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 #define HOLE_SIZE	0x20000
@@ -179,7 +141,6 @@ early_param("msm_contig_mem_size", msm_contig_mem_size_setup);
 #endif
 
 int __init parse_tag_memsize(const struct tag *tags);
-static unsigned int mem_size_mb;
 
 #ifdef CONFIG_ANDROID_PMEM
 static unsigned pmem_size = MSM_PMEM_SIZE;
@@ -251,7 +212,7 @@ static struct platform_device msm8930_android_pmem_audio_device = {
 #endif /* CONFIG_MSM_MULTIMEDIA_USE_ION */
 #endif /* CONFIG_ANDROID_PMEM */
 
-struct fmem_platform_data msm8930_fmem_pdata = {
+static struct fmem_platform_data msm8930_fmem_pdata = {
 };
 
 #define DSP_RAM_BASE_8960 0x8da00000
@@ -404,7 +365,7 @@ static struct platform_device ion_adsp_heap_device = {
  * to each other.
  * Don't swap the order unless you know what you are doing!
  */
-struct ion_platform_heap msm8930_heaps[] = {
+static struct ion_platform_heap msm8930_heaps[] = {
 		{
 			.id	= ION_SYSTEM_HEAP_ID,
 			.type	= ION_HEAP_TYPE_SYSTEM,
@@ -493,7 +454,7 @@ static struct platform_device msm8930_ion_dev = {
 };
 #endif
 
-struct platform_device msm8930_fmem_device = {
+static struct platform_device msm8930_fmem_device = {
 	.name = "fmem",
 	.id = 1,
 	.dev = { .platform_data = &msm8930_fmem_pdata },
@@ -969,7 +930,7 @@ static struct sf_lut rbatt_sf_id_1 = {
 		}
 };
 
-struct pm8921_bms_battery_data  bms_battery_data_id_1 = {
+static struct pm8921_bms_battery_data  bms_battery_data_id_1 = {
 	.fcc			= 1800,
 	.fcc_temp_lut		= &fcc_temp_id_1,
 	.fcc_sf_lut		= &fcc_sf_id_1,
@@ -1094,7 +1055,7 @@ static struct sf_lut rbatt_sf_id_2 = {
 		}
 };
 
-struct pm8921_bms_battery_data  bms_battery_data_id_2 = {
+static struct pm8921_bms_battery_data  bms_battery_data_id_2 = {
 	.fcc			= 1800,
 	.fcc_temp_lut		= &fcc_temp_id_2,
 	.fcc_sf_lut		= &fcc_sf_id_2,
@@ -1386,9 +1347,7 @@ static struct platform_device qseecom_device = {
 #endif
 
 #if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
-		defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE) || \
-		defined(CONFIG_CRYPTO_DEV_QCEDEV) || \
-		defined(CONFIG_CRYPTO_DEV_QCEDEV_MODULE)
+		defined(CONFIG_CRYPTO_DEV_QCEDEV)
 
 #define QCE_SIZE		0x10000
 #define QCE_0_BASE		0x18500000
@@ -1451,9 +1410,7 @@ static struct resource qcedev_resources[] = {
 };
 #endif
 
-#if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
-		defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE)
-
+#if defined(CONFIG_CRYPTO_DEV_QCRYPTO)
 static struct msm_ce_hw_support qcrypto_ce_hw_suppport = {
 	.ce_shared = QCE_CE_SHARED,
 	.shared_ce_resource = QCE_SHARE_CE_RESOURCE,
@@ -1498,7 +1455,7 @@ static uint32_t usb_ID_PIN_ouput_table[] = {
 	GPIO_CFG(MSM_USB_ID1, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
 };
 
-void config_k2_m4_usb_id_gpios(bool output)
+static void config_k2_m4_usb_id_gpios(bool output)
 {
 	if (output) {
 		gpio_tlmm_config(usb_ID_PIN_ouput_table[0], GPIO_CFG_ENABLE);
@@ -1525,9 +1482,7 @@ static struct platform_device cable_detect_device = {
 	},
 };
 
-#if defined(CONFIG_CRYPTO_DEV_QCEDEV) || \
-		defined(CONFIG_CRYPTO_DEV_QCEDEV_MODULE)
-
+#if defined(CONFIG_CRYPTO_DEV_QCEDEV)
 static struct msm_ce_hw_support qcedev_ce_hw_suppport = {
 	.ce_shared = QCE_CE_SHARED,
 	.shared_ce_resource = QCE_SHARE_CE_RESOURCE,
@@ -1954,9 +1909,7 @@ static struct platform_device android_usb_device = {
 	},
 };
 
-#define EVM_VERSION		0x99
-
-void m4_add_usb_devices(void)
+static void m4_add_usb_devices(void)
 {
 	printk(KERN_INFO "%s rev: %d\n", __func__, system_rev);
 	if ((system_rev >= PVT_VERSION) && (system_rev < EVM_VERSION))
@@ -2918,23 +2871,22 @@ static struct platform_device m4_device_rpm_regulator __devinitdata = {
 	.name	= "rpm-regulator",
 	.id	= -1,
 	.dev	= {
-	.platform_data = &m4_rpm_regulator_pdata,
+		.platform_data = &m4_rpm_regulator_pdata,
 	},
 };
 
 #ifdef CONFIG_BT
 static struct msm_serial_hs_platform_data msm_uart_dm6_pdata = {
-#ifndef CONFIG_SERIAL_MSM_HS_BRCM
+#ifdef CONFIG_SERIAL_MSM_HS_BRCM
+	.inject_rx_on_wakeup = 0,
+	.bt_wakeup_pin = MSM_BT_DEV_WAKE,
+	.host_wakeup_pin = MSM_BT_HOST_WAKE,
+#else
 	.config_gpio		= 4,
 	.uart_tx_gpio		= MSM_BT_UART_TX,
 	.uart_rx_gpio		= MSM_BT_UART_RX,
 	.uart_cts_gpio		= MSM_BT_UART_CTSz,
 	.uart_rfr_gpio		= MSM_BT_UART_RTSz,
-#endif
-#ifdef CONFIG_SERIAL_MSM_HS_BRCM
-	.inject_rx_on_wakeup = 0,
-	.bt_wakeup_pin = MSM_BT_DEV_WAKE,
-	.host_wakeup_pin = MSM_BT_HOST_WAKE,
 #endif
 };
 
@@ -2954,7 +2906,7 @@ static struct ramdump_platform_data m4_ramdump_data = {
 	}
 };
 
-struct platform_device device_htc_ramdump = {
+static struct platform_device device_htc_ramdump = {
 	.name	= "htc_ramdump",
 	.id	= 0,
 	.dev	= {
@@ -2990,13 +2942,11 @@ static struct platform_device *common_devices[] __initdata = {
 	&qseecom_device,
 #endif
 
-#if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
-		defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE)
+#if defined(CONFIG_CRYPTO_DEV_QCRYPTO)
 	&qcrypto_device,
 #endif
 
-#if defined(CONFIG_CRYPTO_DEV_QCEDEV) || \
-		defined(CONFIG_CRYPTO_DEV_QCEDEV_MODULE)
+#if defined(CONFIG_CRYPTO_DEV_QCEDEV)
 	&qcedev_device,
 #endif
 #ifdef CONFIG_ANDROID_PMEM
@@ -3124,35 +3074,30 @@ static struct msm_rpmrs_level msm_rpmrs_levels[] __initdata = {
 		false,
 		2000, 138, 1208400, 3200,
 	},
-
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
 		MSM_RPMRS_LIMITS(ON, HSFS_OPEN, ACTIVE, RET_HIGH),
 		false,
 		6000, 119, 1850300, 9000,
 	},
-
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
 		MSM_RPMRS_LIMITS(OFF, GDHS, MAX, ACTIVE),
 		false,
 		9200, 68, 2839200, 16400,
 	},
-
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
 		MSM_RPMRS_LIMITS(OFF, HSFS_OPEN, MAX, ACTIVE),
 		false,
 		10300, 63, 3128000, 18200,
 	},
-
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
 		MSM_RPMRS_LIMITS(OFF, HSFS_OPEN, ACTIVE, RET_HIGH),
 		false,
 		18000, 10, 4602600, 27000,
 	},
-
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
 		MSM_RPMRS_LIMITS(OFF, HSFS_OPEN, RET_HIGH, RET_LOW),
@@ -3196,7 +3141,6 @@ static struct msm_pm_boot_platform_data msm_pm_boot_pdata __initdata = {
 #define I2C_SURF 1
 #define I2C_FFA  (1 << 1)
 #define I2C_RUMI (1 << 2)
-#define I2C_SIM  (1 << 3)
 #define I2C_FLUID (1 << 4)
 #define I2C_LIQUID (1 << 5)
 
@@ -3742,6 +3686,8 @@ static void __init m4_init(void)
 static void __init m4_fixup(struct tag *tags,
 				 char **cmdline, struct meminfo *mi)
 {
+	unsigned int skuid, mem_size_mb;
+
 	mem_size_mb = parse_tag_memsize((const struct tag *)tags);
 	printk(KERN_DEBUG "%s: mem_size_mb=%u\n, mfg_mode = %d", __func__, mem_size_mb, board_mfg_mode());
 

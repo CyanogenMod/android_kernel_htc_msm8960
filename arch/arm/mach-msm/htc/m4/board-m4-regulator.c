@@ -248,14 +248,6 @@ VREG_CONSUMERS(VDD_DIG_CORNER) = {
 		.enable_time		= _enable_time, \
 	}
 
-#define PM8XXX_LDO(_id, _name, _always_on, _pull_down, _min_uV, _max_uV, \
-		_enable_time, _supply_regulator, _system_uA, _reg_id) \
-	PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, REGULATOR_MODE_NORMAL \
-		| REGULATOR_MODE_IDLE, REGULATOR_CHANGE_VOLTAGE | \
-		REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_MODE | \
-		REGULATOR_CHANGE_DRMS, 0, _pull_down, _always_on, \
-		_supply_regulator, _system_uA, _enable_time, _reg_id)
-
 #define PM8XXX_NLDO1200(_id, _name, _always_on, _pull_down, _min_uV, \
 		_max_uV, _enable_time, _supply_regulator, _system_uA, _reg_id) \
 	PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, REGULATOR_MODE_NORMAL \
@@ -263,59 +255,6 @@ VREG_CONSUMERS(VDD_DIG_CORNER) = {
 		REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_MODE | \
 		REGULATOR_CHANGE_DRMS, 0, _pull_down, _always_on, \
 		_supply_regulator, _system_uA, _enable_time, _reg_id)
-
-#define PM8XXX_SMPS(_id, _name, _always_on, _pull_down, _min_uV, _max_uV, \
-		_enable_time, _supply_regulator, _system_uA, _reg_id) \
-	PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, REGULATOR_MODE_NORMAL \
-		| REGULATOR_MODE_IDLE, REGULATOR_CHANGE_VOLTAGE | \
-		REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_MODE | \
-		REGULATOR_CHANGE_DRMS, 0, _pull_down, _always_on, \
-		_supply_regulator, _system_uA, _enable_time, _reg_id)
-
-#define PM8XXX_FTSMPS(_id, _name, _always_on, _pull_down, _min_uV, _max_uV, \
-		_enable_time, _supply_regulator, _system_uA, _reg_id) \
-	PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, REGULATOR_MODE_NORMAL, \
-		REGULATOR_CHANGE_VOLTAGE | REGULATOR_CHANGE_STATUS \
-		| REGULATOR_CHANGE_MODE, 0, _pull_down, _always_on, \
-		_supply_regulator, _system_uA, _enable_time, _reg_id)
-
-#define PM8XXX_VS(_id, _name, _always_on, _pull_down, _enable_time, \
-		_supply_regulator, _reg_id) \
-	PM8XXX_VREG_INIT(_id, _name, 0, 0, 0, REGULATOR_CHANGE_STATUS, 0, \
-		_pull_down, _always_on, _supply_regulator, 0, _enable_time, \
-		_reg_id)
-
-#define PM8XXX_VS300(_id, _name, _always_on, _pull_down, _enable_time, \
-		_supply_regulator, _reg_id) \
-	PM8XXX_VREG_INIT(_id, _name, 0, 0, 0, REGULATOR_CHANGE_STATUS, 0, \
-		_pull_down, _always_on, _supply_regulator, 0, _enable_time, \
-		_reg_id)
-
-#define PM8XXX_NCP(_id, _name, _always_on, _min_uV, _max_uV, _enable_time, \
-		_supply_regulator, _reg_id) \
-	PM8XXX_VREG_INIT(_id, _name, _min_uV, _max_uV, 0, \
-		REGULATOR_CHANGE_VOLTAGE | REGULATOR_CHANGE_STATUS, 0, 0, \
-		_always_on, _supply_regulator, 0, _enable_time, _reg_id)
-
-/* Pin control initialization */
-#define PM8XXX_PC(_id, _name, _always_on, _pin_fn, _pin_ctrl, \
-		  _supply_regulator, _reg_id) \
-	{ \
-		.init_data = { \
-			.constraints = { \
-				.valid_ops_mask	= REGULATOR_CHANGE_STATUS, \
-				.always_on	= _always_on, \
-				.name		= _name, \
-			}, \
-			.num_consumer_supplies	= \
-					ARRAY_SIZE(vreg_consumers_##_id##_PC), \
-			.consumer_supplies	= vreg_consumers_##_id##_PC, \
-			.supply_regulator  = _supply_regulator, \
-		}, \
-		.id		= _reg_id, \
-		.pin_fn		= PM8XXX_VREG_PIN_FN_##_pin_fn, \
-		.pin_ctrl	= _pin_ctrl, \
-	}
 
 #define RPM_INIT(_id, _min_uV, _max_uV, _modes, _ops, _apply_uV, _default_uV, \
 		 _peak_uA, _avg_uA, _pull_down, _pin_ctrl, _freq, _pin_fn, \
@@ -386,16 +325,6 @@ VREG_CONSUMERS(VDD_DIG_CORNER) = {
 		 RPM_VREG_STATE_OFF, _sleep_selectable, _always_on, \
 		 _supply_regulator, 0)
 
-#define RPM_NCP(_id, _always_on, _sleep_selectable, _min_uV, _max_uV, \
-		_supply_regulator, _freq) \
-	RPM_INIT(_id, _min_uV, _max_uV, 0, REGULATOR_CHANGE_VOLTAGE \
-		 | REGULATOR_CHANGE_STATUS, 0, _max_uV, 1000, 1000, 0, \
-		 RPM_VREG_PIN_CTRL_NONE, _freq, RPM_VREG_PIN_FN_8930_NONE, \
-		 RPM_VREG_FORCE_MODE_8930_NONE, \
-		 RPM_VREG_FORCE_MODE_8930_NONE, RPM_VREG_POWER_MODE_8930_PWM, \
-		 RPM_VREG_STATE_OFF, _sleep_selectable, _always_on, \
-		 _supply_regulator, 0)
-
 #define RPM_CORNER(_id, _always_on, _sleep_selectable, _min_uV, _max_uV, \
 		_supply_regulator) \
 	RPM_INIT(_id, _min_uV, _max_uV, 0, REGULATOR_CHANGE_VOLTAGE \
@@ -405,24 +334,6 @@ VREG_CONSUMERS(VDD_DIG_CORNER) = {
 		 RPM_VREG_FORCE_MODE_8930_NONE, RPM_VREG_POWER_MODE_8930_PWM, \
 		 RPM_VREG_STATE_OFF, _sleep_selectable, _always_on, \
 		 _supply_regulator, 0)
-
-/* Pin control initialization */
-#define RPM_PC_INIT(_id, _always_on, _pin_fn, _pin_ctrl, _supply_regulator) \
-	{ \
-		.init_data = { \
-			.constraints = { \
-				.valid_ops_mask	= REGULATOR_CHANGE_STATUS, \
-				.always_on	= _always_on, \
-			}, \
-			.num_consumer_supplies	= \
-					ARRAY_SIZE(vreg_consumers_##_id##_PC), \
-			.consumer_supplies	= vreg_consumers_##_id##_PC, \
-			.supply_regulator	= _supply_regulator, \
-		}, \
-		.id	  = RPM_VREG_ID_PM8038_##_id##_PC, \
-		.pin_fn	  = RPM_VREG_PIN_FN_8930_##_pin_fn, \
-		.pin_ctrl = _pin_ctrl, \
-	}
 
 #define GPIO_VREG(_id, _reg_name, _gpio_label, _gpio, _supply_regulator) \
 	[MSM8930_GPIO_VREG_ID_##_id] = { \

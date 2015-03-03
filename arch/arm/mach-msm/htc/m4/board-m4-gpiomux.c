@@ -11,14 +11,8 @@
  *
  */
 
-#include <asm/mach-types.h>
 #include <mach/gpio.h>
 #include <mach/gpiomux.h>
-#include <mach/socinfo.h>
-#include "devices.h"
-#include "board-8930.h"
-#include <asm/setup.h>
-
 
 static struct gpiomux_setting gpio_i2c_config = {
 	.func = GPIOMUX_FUNC_1,
@@ -52,14 +46,12 @@ static struct gpiomux_setting cdc_mclk = {
 };
 
 static struct gpiomux_setting audio_auxpcm[] = {
-
 	{
 		.func = GPIOMUX_FUNC_GPIO,
 		.drv = GPIOMUX_DRV_2MA,
 		.pull = GPIOMUX_PULL_NONE,
 		.dir = GPIOMUX_OUT_LOW,
 	},
-
 	{
 		.func = GPIOMUX_FUNC_1,
 		.drv = GPIOMUX_DRV_2MA,
@@ -74,7 +66,6 @@ static struct gpiomux_setting audio_auxpcm_output[] = {
 		.pull = GPIOMUX_PULL_NONE,
 		.dir = GPIOMUX_OUT_LOW,
 	},
-
 	{
 		.func = GPIOMUX_FUNC_1,
 		.drv = GPIOMUX_DRV_2MA,
@@ -89,7 +80,6 @@ static struct gpiomux_setting audio_auxpcm_input[] = {
 		.pull = GPIOMUX_PULL_DOWN,
 		.dir = GPIOMUX_IN,
 	},
-
 	{
 		.func = GPIOMUX_FUNC_1,
 		.drv = GPIOMUX_DRV_2MA,
@@ -97,7 +87,6 @@ static struct gpiomux_setting audio_auxpcm_input[] = {
 		.dir = GPIOMUX_IN,
 	},
 };
-
 
 static struct gpiomux_setting slimbus_out = {
 	.func = GPIOMUX_FUNC_1,
@@ -130,28 +119,6 @@ static struct gpiomux_setting atmel_ldo_en_act_cfg = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
-#ifdef MSM8930_PHASE_2
-static struct gpiomux_setting hsusb_sus_cfg = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_NONE,
-	.dir = GPIOMUX_OUT_LOW,
-};
-static struct msm_gpiomux_config msm8930_hsusb_configs[] = {
-	{
-		.gpio = 63,
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &hsusb_sus_cfg,
-		},
-	},
-	{
-		.gpio = 97,
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &hsusb_sus_cfg,
-		},
-	},
-};
-#endif
 static struct gpiomux_setting mdp_vsync_suspend_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
@@ -163,9 +130,6 @@ static struct gpiomux_setting mdp_vsync_active_cfg = {
 	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_DOWN,
 };
-
-
-
 
 static struct msm_gpiomux_config msm8960_gsbi_configs[] __initdata = {
 	{
@@ -249,14 +213,12 @@ static struct msm_gpiomux_config msm8960_wcd_reset_configs[] __initdata = {
 };
 
 static struct gpiomux_setting  pri_i2s[] = {
-
 	{
 		.func = GPIOMUX_FUNC_GPIO,
 		.drv = GPIOMUX_DRV_2MA,
 		.pull = GPIOMUX_PULL_NONE,
 		.dir = GPIOMUX_OUT_LOW,
 	},
-
 	{
 		.func = GPIOMUX_FUNC_1,
 		.drv = GPIOMUX_DRV_2MA,
@@ -266,14 +228,12 @@ static struct gpiomux_setting  pri_i2s[] = {
 };
 
 static struct gpiomux_setting  pri_i2s_input[] = {
-
 	{
 		.func = GPIOMUX_FUNC_GPIO,
 		.drv = GPIOMUX_DRV_2MA,
 		.pull = GPIOMUX_PULL_DOWN,
 		.dir =  GPIOMUX_IN,
 	},
-
 	{
 		.func = GPIOMUX_FUNC_1,
 		.drv = GPIOMUX_DRV_2MA,
@@ -501,15 +461,6 @@ int __init msm8930_init_gpiomux(void)
 
 	msm_gpiomux_install(wcnss_5wire_interface,
 			ARRAY_SIZE(wcnss_5wire_interface));
-
-	if (machine_is_msm8930_mtp() || machine_is_msm8930_fluid() ||
-		machine_is_msm8930_cdp()) {
-#ifdef MSM8930_PHASE_2
-		msm_gpiomux_install(msm8930_hsusb_configs,
-			ARRAY_SIZE(msm8930_hsusb_configs));
-#endif
-	}
-
 
 	msm_gpiomux_install(msm8960_mdp_vsync_configs,
 			ARRAY_SIZE(msm8960_mdp_vsync_configs));

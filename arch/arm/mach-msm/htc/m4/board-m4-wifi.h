@@ -12,4 +12,4 @@
  * GNU General Public License for more details.
  */
 
-extern unsigned char *get_wifi_nvs_ram(void);
+unsigned char *get_wifi_nvs_ram(void);

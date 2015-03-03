@@ -15,36 +15,31 @@
 #include <linux/gpio.h>
 #include <linux/mfd/pm8xxx/misc.h>
 #include <linux/platform_device.h>
-#include <linux/gpio.h>
-#include <linux/slab.h>
-#include <sound/core.h>
-#include <sound/soc.h>
-#include <sound/soc-dapm.h>
-#include <sound/pcm.h>
-#include <sound/q6asm.h>
-#include <sound/jack.h>
-#include <asm/mach-types.h>
-#include <mach/socinfo.h>
-#include <linux/module.h>
+#include <linux/rt5501.h>
+#include <linux/tfa9887.h>
+
 #include <mach/htc_acoustic_8960.h>
 #include <mach/htc_audiogpio_8930.h>
-#include <linux/tfa9887.h>
-#include <linux/rt5501.h>
+
+#include <sound/core.h>
+#include <sound/jack.h>
+#include <sound/pcm.h>
+#include <sound/q6asm.h>
+#include <sound/soc.h>
+#include <sound/soc-dapm.h>
+
 #include "board-m4.h"
 #include "../../../../../sound/soc/msm/msm-pcm-routing.h"
 #include "../../../../../sound/soc/msm/msm-compr-q6.h"
 #include "../../../../../sound/soc/codecs/wcd9304.h"
 
 #define MSM8930_SPK_ON 1
-#define MSM8930_SPK_OFF 0
 
 #define BTSCO_RATE_8KHZ 8000
 #define BTSCO_RATE_16KHZ 16000
 
 #define SITAR_EXT_CLK_RATE 12288000
 
-#define SITAR_MBHC_DEF_BUTTONS 8
-#define SITAR_MBHC_DEF_RLOADS 5
 #define BOTTOM_SPK_AMP_POS	0x1
 #define BOTTOM_SPK_AMP_NEG	0x2
 #define TOP_SPK_AMP_POS		0x4
@@ -61,7 +56,6 @@ static int msm8930_ext_bottom_spk_pamp;
 static int msm8930_ext_top_spk_pamp;
 static int msm8930_hs_pamp;
 static int msm8930_rcv_pamp;
-extern struct htc_8930_gpio_pdata htc_audio_gpio;
 static int msm8930_slim_0_rx_ch = 1;
 static int msm8930_slim_0_tx_ch = 1;
 
@@ -77,9 +71,8 @@ static struct snd_soc_jack hs_jack;
 static struct snd_soc_jack button_jack;
 
 static atomic_t q6_effect_mode = ATOMIC_INIT(-1);
-extern unsigned int system_rev;
-extern unsigned int engineerid;
-extern unsigned skuid;
+
+static struct htc_8930_gpio_pdata htc_audio_gpio;
 
 static int msm8930_enable_codec_ext_clk(
 		struct snd_soc_codec *codec, int enable,
@@ -318,7 +311,6 @@ static int msm8930_i2s_startup(struct snd_pcm_substream *substream)
 			return ret;
 		}
 
-		
 		ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBS_CFS);
 		if (ret < 0) {
 			pr_info("%s: set format for cpu dai failed\n", __func__);
@@ -945,7 +937,6 @@ static int msm8930_hw_params(struct snd_pcm_substream *substream,
 				__func__);
 			goto end;
 		}
-
 	}
 end:
 	return ret;
@@ -1216,7 +1207,7 @@ static struct snd_soc_dai_link msm8930_dai[] = {
 		.codec_name = "snd-soc-dummy",
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST, SND_SOC_DPCM_TRIGGER_POST},
 		.ignore_suspend = 1,
-		.ignore_pmdown_time = 1, 
+		.ignore_pmdown_time = 1,
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA1,
 	},
 	{
@@ -1229,7 +1220,7 @@ static struct snd_soc_dai_link msm8930_dai[] = {
 		.codec_name = "snd-soc-dummy",
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST, SND_SOC_DPCM_TRIGGER_POST},
 		.ignore_suspend = 1,
-		.ignore_pmdown_time = 1, 
+		.ignore_pmdown_time = 1,
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA2,
 	},
 	{
@@ -1244,7 +1235,7 @@ static struct snd_soc_dai_link msm8930_dai[] = {
 		.be_id = MSM_FRONTEND_DAI_CS_VOICE,
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.ignore_suspend = 1,
-		.ignore_pmdown_time = 1, 
+		.ignore_pmdown_time = 1,
 	},
 	{
 		.name = "MSM VoIP",
@@ -1256,7 +1247,7 @@ static struct snd_soc_dai_link msm8930_dai[] = {
 		.codec_name = "snd-soc-dummy",
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST, SND_SOC_DPCM_TRIGGER_POST},
 		.ignore_suspend = 1,
-		.ignore_pmdown_time = 1, 
+		.ignore_pmdown_time = 1,
 		.be_id = MSM_FRONTEND_DAI_VOIP,
 	},
 	{
@@ -1269,7 +1260,7 @@ static struct snd_soc_dai_link msm8930_dai[] = {
 		.codec_name = "snd-soc-dummy",
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST, SND_SOC_DPCM_TRIGGER_POST},
 		.ignore_suspend = 1,
-		.ignore_pmdown_time = 1, 
+		.ignore_pmdown_time = 1,
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA3,
 	},
 	{
@@ -1283,8 +1274,7 @@ static struct snd_soc_dai_link msm8930_dai[] = {
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST, SND_SOC_DPCM_TRIGGER_POST},
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.ignore_suspend = 1,
-		.ignore_pmdown_time = 1, 
-		
+		.ignore_pmdown_time = 1,
 	},
 	{
 		.name = "INT_FM Hostless",
@@ -1308,7 +1298,7 @@ static struct snd_soc_dai_link msm8930_dai[] = {
 		.codec_dai_name = "msm-stub-rx",
 		.platform_name  = "msm-pcm-afe",
 		.ignore_suspend = 1,
-		.ignore_pmdown_time = 1, 
+		.ignore_pmdown_time = 1,
 	},
 	{
 		.name = "MSM AFE-PCM TX",
@@ -1329,7 +1319,7 @@ static struct snd_soc_dai_link msm8930_dai[] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 		.ignore_suspend = 1,
-		.ignore_pmdown_time = 1, 
+		.ignore_pmdown_time = 1,
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA4,
 	},
 	{
@@ -1429,7 +1419,7 @@ static struct snd_soc_dai_link msm8930_dai[] = {
 		.init = &msm8930_audrx_init,
 		.be_hw_params_fixup = msm8930_slim_0_rx_be_hw_params_fixup,
 		.ops = &msm8930_be_ops,
-		.ignore_pmdown_time = 1, 
+		.ignore_pmdown_time = 1,
 	},
 	{
 		.name = LPASS_BE_SLIMBUS_0_TX,
@@ -1454,7 +1444,7 @@ static struct snd_soc_dai_link msm8930_dai[] = {
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_INT_BT_SCO_RX,
 		.be_hw_params_fixup = msm8930_btsco_be_hw_params_fixup,
-		.ignore_pmdown_time = 1, 
+		.ignore_pmdown_time = 1,
 	},
 	{
 		.name = LPASS_BE_INT_BT_SCO_TX,
@@ -1477,7 +1467,7 @@ static struct snd_soc_dai_link msm8930_dai[] = {
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_INT_FM_RX,
 		.be_hw_params_fixup = msm8930_be_hw_params_fixup,
-		.ignore_pmdown_time = 1, 
+		.ignore_pmdown_time = 1,
 	},
 	{
 		.name = LPASS_BE_INT_FM_TX,
@@ -1500,7 +1490,7 @@ static struct snd_soc_dai_link msm8930_dai[] = {
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_HDMI_RX,
 		.be_hw_params_fixup = msm8930_hdmi_be_hw_params_fixup,
-		.ignore_pmdown_time = 1, 
+		.ignore_pmdown_time = 1,
 	},
 	{
 		.name = LPASS_BE_PRI_I2S_TX,
@@ -1617,7 +1607,7 @@ static struct snd_soc_dai_link msm8930_dai[] = {
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_INCALL_RECORD_RX,
 		.be_hw_params_fixup = msm8930_be_hw_params_fixup,
-		.ignore_pmdown_time = 1, 
+		.ignore_pmdown_time = 1,
 	},
 	{
 		.name = "MI2S Hostless",
@@ -1674,7 +1664,7 @@ static void m4_amp_hac(bool en)
 {
 }
 
-struct htc_8930_gpio_pdata htc_audio_gpio = {
+static struct htc_8930_gpio_pdata htc_audio_gpio = {
 	.amp_speaker = m4_amp_speaker,
 	.amp_receiver = m4_amp_receiver,
 	.amp_headset = m4_amp_headset,
@@ -1734,7 +1724,6 @@ struct htc_8930_gpio_pdata htc_audio_gpio = {
 	},
 	},
 };
-EXPORT_SYMBOL_GPL(htc_audio_gpio);
 
 static int m4_get_hw_revision(void)
 {
@@ -1787,11 +1776,6 @@ static int __init m4_audio_init(void)
         int ret=0;
         pr_info("%s\n", __func__);
 
-        if (!cpu_is_msm8930() && !cpu_is_msm8930aa()) {
-                pr_err("%s: Not the right machine type\n", __func__);
-                return -ENODEV ;
-        }
-
         msm8930_snd_device = platform_device_alloc("soc-audio", 0);
         if (!msm8930_snd_device) {
                 pr_err("Platform device allocation failed\n");
@@ -1836,19 +1820,5 @@ static int __init m4_audio_init(void)
 	pr_info("%s", __func__);
 	return ret;
 }
-module_init(m4_audio_init);
 
-static void __exit m4_audio_exit(void)
-{
-	if (!cpu_is_msm8930() && !cpu_is_msm8930aa()) {
-		pr_err("%s: Not the right machine type\n", __func__);
-		return ;
-	}
-	pr_info("%s", __func__);
-	platform_device_unregister(msm8930_snd_device);
-	mutex_destroy(&aux_pcm_mutex);
-}
-module_exit(m4_audio_exit);
-
-MODULE_DESCRIPTION("ALSA Board M4");
-MODULE_LICENSE("GPL v2");
+device_initcall(m4_audio_init);

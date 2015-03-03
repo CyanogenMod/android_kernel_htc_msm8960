@@ -11,47 +11,23 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#include <linux/kernel.h>
-#include <linux/init.h>
-#include <linux/platform_device.h>
-#include <linux/delay.h>
-#include <linux/mmc/host.h>
-#include <linux/mmc/sdio_ids.h>
-#include <linux/err.h>
-#include <linux/debugfs.h>
+
 #include <linux/gpio.h>
-#include <linux/irq.h>
-#include <asm/gpio.h>
-#include <asm/io.h>
-
-#include <mach/vreg.h>
-#include <mach/htc_pwrsink.h>
-
-#include <asm/mach/mmc.h>
-#include <mach/msm_iomap.h>
 #include <linux/mfd/pm8xxx/pm8038.h>
+#include <linux/mmc/host.h>
+
 #include <mach/htc_sleep_clk.h>
+
 #include "board-8930.h"
-#include "board-storage-common-a.h"
-
-#include "devices.h"
-#include "board-m4.h"
-#include <mach/proc_comm.h>
-#include <linux/export.h>
-
 #include "board-m4-mmc.h"
-
-#include <mach/rpm.h>
-#include <mach/rpm-regulator.h>
+#include "board-m4.h"
+#include "board-storage-common-a.h"
+#include "devices.h"
 #include "rpm_resources.h"
 
-int msm_proc_comm(unsigned cmd, unsigned *data1, unsigned *data2);
-
-
-#define PM8058_GPIO_BASE			NR_MSM_GPIOS
-#define PM8058_GPIO_PM_TO_SYS(pm_gpio)		(pm_gpio + PM8058_GPIO_BASE)
-#define PM8058_GPIO_SYS_TO_PM(sys_gpio)		(sys_gpio - PM8058_GPIO_BASE)
-
+static void (*wifi_status_cb)(int card_present, void *dev_id);
+static void *wifi_status_cb_devid;
+static int m4_wifi_cd;
 
 static uint32_t wifi_on_gpio_table[] = {
 	GPIO_CFG(MSM_WIFI_SD_D3, 2, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP, GPIO_CFG_8MA),
@@ -96,9 +72,6 @@ static struct embedded_sdio_data m4_wifi_emb_data = {
 	}
 };
 
-static void (*wifi_status_cb)(int card_present, void *dev_id);
-static void *wifi_status_cb_devid;
-
 static int
 m4_wifi_status_register(void (*callback)(int card_present, void *dev_id),
 				void *dev_id)
@@ -110,8 +83,6 @@ m4_wifi_status_register(void (*callback)(int card_present, void *dev_id),
 	wifi_status_cb_devid = dev_id;
 	return 0;
 }
-
-static int m4_wifi_cd;
 
 static unsigned int m4_wifi_status(struct device *dev)
 {
@@ -142,7 +113,6 @@ static struct mmc_platform_data m4_wifi_data = {
 	.translate_vdd	= m4_wifi_setup_power,
 };
 
-
 int m4_wifi_set_carddetect(int val)
 {
 	printk(KERN_INFO "%s: %d\n", __func__, val);
@@ -153,19 +123,15 @@ int m4_wifi_set_carddetect(int val)
 		printk(KERN_WARNING "%s: Nobody to notify\n", __func__);
 	return 0;
 }
-EXPORT_SYMBOL(m4_wifi_set_carddetect);
 
 int m4_wifi_power(int on)
 {
-
 	printk(KERN_INFO "%s: %d\n", __func__, on);
 
 	if (on) {
-
 		config_gpio_table(wifi_on_gpio_table,
 				  ARRAY_SIZE(wifi_on_gpio_table));
 	} else {
-
 		config_gpio_table(wifi_off_gpio_table,
 				  ARRAY_SIZE(wifi_off_gpio_table));
 	}
@@ -177,13 +143,6 @@ int m4_wifi_power(int on)
 	mdelay(1);
 	gpio_set_value(MSM_WL_HOST_WAKE, on);
 	mdelay(120);
-	return 0;
-}
-EXPORT_SYMBOL(m4_wifi_power);
-
-int m4_wifi_reset(int on)
-{
-	printk(KERN_INFO "%s: do nothing\n", __func__);
 	return 0;
 }
 
@@ -200,35 +159,30 @@ static struct msm_rpmrs_level msm_rpmrs_levels[] __initdata = {
 		false,
 		2000, 138, 1208400, 3200,
 	},
-
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
 		MSM_RPMRS_LIMITS(ON, HSFS_OPEN, ACTIVE, RET_HIGH),
 		false,
 		6000, 119, 1850300, 9000,
 	},
-
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
 		MSM_RPMRS_LIMITS(OFF, GDHS, MAX, ACTIVE),
 		false,
 		9200, 68, 2839200, 16400,
 	},
-
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
 		MSM_RPMRS_LIMITS(OFF, HSFS_OPEN, MAX, ACTIVE),
 		false,
 		10300, 63, 3128000, 18200,
 	},
-
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
 		MSM_RPMRS_LIMITS(OFF, HSFS_OPEN, ACTIVE, RET_HIGH),
 		false,
 		18000, 10, 4602600, 27000,
 	},
-
 	{
 		MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
 		MSM_RPMRS_LIMITS(OFF, HSFS_OPEN, RET_HIGH, RET_LOW),
@@ -245,10 +199,6 @@ int __init m4_init_mmc()
 
 	printk(KERN_INFO "m4: %s\n", __func__);
 
-
-
-#if 1
-
 	pm_config.direction = PM_GPIO_DIR_OUT;
 	pm_config.output_buffer = PM_GPIO_OUT_BUF_CMOS;
 	pm_config.output_value = 0;
@@ -260,20 +210,16 @@ int __init m4_init_mmc()
 	pm_config.disable_pin = 0;
 	pm8xxx_gpio_config(PM8038_GPIO_PM_TO_SYS(8), &pm_config);
 	mdelay(5);
-#endif
-
 
 	id = GPIO_CFG(MSM_WL_HOST_WAKE, 0, GPIO_CFG_OUTPUT,
 		GPIO_CFG_NO_PULL, GPIO_CFG_2MA);
 	gpio_tlmm_config(id, 0);
 	gpio_set_value(MSM_WL_HOST_WAKE, 1);
 
-
 	id = GPIO_CFG(MSM_WL_REG_ON, 0, GPIO_CFG_OUTPUT,
 		GPIO_CFG_NO_PULL, GPIO_CFG_2MA);
 	gpio_tlmm_config(id, 0);
 	gpio_set_value(MSM_WL_REG_ON, 0);
-
 
 	m4_wifi_data.cpu_dma_latency = msm_rpmrs_levels[0].latency_us;
 

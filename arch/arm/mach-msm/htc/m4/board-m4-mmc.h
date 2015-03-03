@@ -12,4 +12,8 @@
  * GNU General Public License for more details.
  */
 
-extern int msm_add_sdcc(unsigned int controller, struct mmc_platform_data *plat);
+struct mmc_platform_data;
+
+int msm_add_sdcc(unsigned int controller, struct mmc_platform_data *plat);
+int m4_wifi_power(int on);
+int m4_wifi_set_carddetect(int on);

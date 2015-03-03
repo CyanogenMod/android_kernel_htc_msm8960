@@ -11,13 +11,10 @@
  *
  */
 
-#include <linux/interrupt.h>
 #include <linux/leds-pm8038.h>
 #include <linux/mfd/pm8xxx/pm8038.h>
 #include <linux/mfd/pm8xxx/pm8xxx-adc.h>
 #include <linux/msm_ssbi.h>
-#include <asm/mach-types.h>
-#include <mach/msm_bus_board.h>
 #include <mach/restart.h>
 #include "devices.h"
 #include "board-8930.h"
@@ -33,23 +30,6 @@ struct pm8xxx_mpp_init {
 	struct pm8xxx_mpp_config_data	config;
 };
 
-#define PM8XXX_GPIO_INIT(_gpio, _dir, _buf, _val, _pull, _vin, _out_strength, \
-			_func, _inv, _disable) \
-{ \
-	.gpio	= PM8038_GPIO_PM_TO_SYS(_gpio), \
-	.config	= { \
-		.direction	= _dir, \
-		.output_buffer	= _buf, \
-		.output_value	= _val, \
-		.pull		= _pull, \
-		.vin_sel	= _vin, \
-		.out_strength	= _out_strength, \
-		.function	= _func, \
-		.inv_int_pol	= _inv, \
-		.disable_pin	= _disable, \
-	} \
-}
-
 #define PM8XXX_MPP_INIT(_mpp, _type, _level, _control) \
 { \
 	.mpp	= PM8038_MPP_PM_TO_SYS(_mpp), \
@@ -60,39 +40,7 @@ struct pm8xxx_mpp_init {
 	} \
 }
 
-#define PM8XXX_GPIO_DISABLE(_gpio) \
-	PM8XXX_GPIO_INIT(_gpio, PM_GPIO_DIR_IN, 0, 0, 0, PM8038_GPIO_VIN_L11, \
-			 0, 0, 0, 1)
-
-#define PM8XXX_GPIO_OUTPUT(_gpio, _val) \
-	PM8XXX_GPIO_INIT(_gpio, PM_GPIO_DIR_OUT, PM_GPIO_OUT_BUF_CMOS, _val, \
-			PM_GPIO_PULL_NO, PM8038_GPIO_VIN_L11, \
-			PM_GPIO_STRENGTH_HIGH, \
-			PM_GPIO_FUNC_NORMAL, 0, 0)
-
-#define PM8XXX_GPIO_INPUT(_gpio, _pull) \
-	PM8XXX_GPIO_INIT(_gpio, PM_GPIO_DIR_IN, PM_GPIO_OUT_BUF_CMOS, 0, \
-			_pull, PM8038_GPIO_VIN_L11, \
-			PM_GPIO_STRENGTH_NO, \
-			PM_GPIO_FUNC_NORMAL, 0, 0)
-
-#define PM8XXX_GPIO_OUTPUT_FUNC(_gpio, _val, _func) \
-	PM8XXX_GPIO_INIT(_gpio, PM_GPIO_DIR_OUT, PM_GPIO_OUT_BUF_CMOS, _val, \
-			PM_GPIO_PULL_NO, PM8038_GPIO_VIN_L11, \
-			PM_GPIO_STRENGTH_HIGH, \
-			_func, 0, 0)
-
-#define PM8XXX_GPIO_OUTPUT_VIN(_gpio, _val, _vin) \
-	PM8XXX_GPIO_INIT(_gpio, PM_GPIO_DIR_OUT, PM_GPIO_OUT_BUF_CMOS, _val, \
-			PM_GPIO_PULL_NO, _vin, \
-			PM_GPIO_STRENGTH_HIGH, \
-			PM_GPIO_FUNC_NORMAL, 0, 0)
-
 /* GPIO and MPP configurations for MSM8930 + PM8038 targets */
-
-/* Initial PM8038 GPIO configurations */
-static struct pm8xxx_gpio_init pm8038_gpios[] __initdata = {
-};
 
 /* Initial PM8038 MPP configurations */
 static struct pm8xxx_mpp_init pm8038_mpps[] __initdata = {
@@ -102,15 +50,6 @@ static struct pm8xxx_mpp_init pm8038_mpps[] __initdata = {
 void __init m4_pm8038_gpio_mpp_init(void)
 {
 	int i, rc;
-
-	for (i = 0; i < ARRAY_SIZE(pm8038_gpios); i++) {
-		rc = pm8xxx_gpio_config(pm8038_gpios[i].gpio,
-					&pm8038_gpios[i].config);
-		if (rc) {
-			pr_err("%s: pm8xxx_gpio_config: rc=%d\n", __func__, rc);
-			break;
-		}
-	}
 
 	/* Initial MPP configuration. */
 	for (i = 0; i < ARRAY_SIZE(pm8038_mpps); i++) {
@@ -285,7 +224,6 @@ static int pm8038_led0_pwm_duty_pcts[64] = {
 			0, 0, 0, 0, 0, 0, 0, 0,
 			0, 0, 0, 0, 0, 0, 0, 0,
 			0, 0, 0, 0, 0, 0, 0, 0
-
 };
 
 static struct pm8xxx_pwm_duty_cycles pm8038_led0_pwm_duty_cycles = {

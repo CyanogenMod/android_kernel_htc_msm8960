@@ -9,6 +9,8 @@
 #define	GPIO(X)		(X)
 
 #define PVT_VERSION	0x80
+#define EVM_VERSION	0x99
+
 extern struct gpio_regulator_platform_data
 	m4_gpio_regulator_pdata[] __devinitdata;
 

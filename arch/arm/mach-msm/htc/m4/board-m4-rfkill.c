@@ -14,12 +14,10 @@
  */
 
 #include <linux/delay.h>
-#include <linux/device.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/rfkill.h>
 #include <linux/gpio.h>
-#include <asm/mach-types.h>
 #include <mach/htc_sleep_clk.h>
 
 #include "board-m4.h"
@@ -28,46 +26,36 @@ static struct rfkill *bt_rfk;
 static const char bt_name[] = "bcm4334";
 
 static uint32_t m4_bt_on_table[] = {
-
-
 	GPIO_CFG(MSM_BT_UART_RTSz,
 				2,
 				GPIO_CFG_OUTPUT,
 				GPIO_CFG_NO_PULL,
 				GPIO_CFG_2MA),
-
 	GPIO_CFG(MSM_BT_UART_CTSz,
 				2,
 				GPIO_CFG_INPUT,
 				GPIO_CFG_PULL_UP,
 				GPIO_CFG_2MA),
-
 	GPIO_CFG(MSM_BT_UART_RX,
 				2,
 				GPIO_CFG_INPUT,
 				GPIO_CFG_PULL_UP,
 				GPIO_CFG_2MA),
-
 	GPIO_CFG(MSM_BT_UART_TX,
 				2,
 				GPIO_CFG_OUTPUT,
 				GPIO_CFG_NO_PULL,
 				GPIO_CFG_2MA),
-
-
 	GPIO_CFG(MSM_BT_HOST_WAKE,
 				0,
 				GPIO_CFG_INPUT,
 				GPIO_CFG_NO_PULL,
 				GPIO_CFG_2MA),
-
 	GPIO_CFG(MSM_BT_DEV_WAKE,
 				0,
 				GPIO_CFG_OUTPUT,
 				GPIO_CFG_NO_PULL,
 				GPIO_CFG_2MA),
-
-
 	GPIO_CFG(MSM_BT_REG_ON,
 				0,
 				GPIO_CFG_OUTPUT,
@@ -76,46 +64,36 @@ static uint32_t m4_bt_on_table[] = {
 };
 
 static uint32_t m4_bt_off_table[] = {
-
-
 	GPIO_CFG(MSM_BT_UART_RTSz,
 				0,
 				GPIO_CFG_OUTPUT,
 				GPIO_CFG_NO_PULL,
 				GPIO_CFG_2MA),
-
 	GPIO_CFG(MSM_BT_UART_CTSz,
 				0,
 				GPIO_CFG_INPUT,
 				GPIO_CFG_PULL_DOWN,
 				GPIO_CFG_2MA),
-
 	GPIO_CFG(MSM_BT_UART_RX,
 				0,
 				GPIO_CFG_INPUT,
 				GPIO_CFG_PULL_DOWN,
 				GPIO_CFG_2MA),
-
 	GPIO_CFG(MSM_BT_UART_TX,
 				0,
 				GPIO_CFG_OUTPUT,
 				GPIO_CFG_NO_PULL,
 				GPIO_CFG_2MA),
-
-
 	GPIO_CFG(MSM_BT_REG_ON,
 				0,
 				GPIO_CFG_OUTPUT,
 				GPIO_CFG_NO_PULL,
 				GPIO_CFG_2MA),
-
-
 	GPIO_CFG(MSM_BT_HOST_WAKE,
 				0,
 				GPIO_CFG_INPUT,
 				GPIO_CFG_PULL_DOWN,
 				GPIO_CFG_2MA),
-
 	GPIO_CFG(MSM_BT_DEV_WAKE,
 				0,
 				GPIO_CFG_OUTPUT,
@@ -159,7 +137,6 @@ static void m4_config_bt_off(void)
 	gpio_set_value(MSM_BT_REG_ON, 0);
 	mdelay(2);
 
-
 	config_bt_table(m4_bt_off_table,
 				ARRAY_SIZE(m4_bt_off_table));
 	mdelay(2);
@@ -196,10 +173,6 @@ static int m4_rfkill_probe(struct platform_device *pdev)
 	int rc = 0;
 	bool default_state = true;
 
-
-
-
-
 	bluetooth_set_power(NULL, default_state);
 
 	bt_rfk = rfkill_alloc(bt_name, &pdev->dev, RFKILL_TYPE_BLUETOOTH,
@@ -210,8 +183,6 @@ static int m4_rfkill_probe(struct platform_device *pdev)
 	}
 
 	rfkill_set_states(bt_rfk, default_state, false);
-
-
 
 	rc = rfkill_register(bt_rfk);
 	if (rc)
@@ -246,13 +217,4 @@ static int __init m4_rfkill_init(void)
 	return platform_driver_register(&m4_rfkill_driver);
 }
 
-static void __exit m4_rfkill_exit(void)
-{
-	platform_driver_unregister(&m4_rfkill_driver);
-}
-
-module_init(m4_rfkill_init);
-module_exit(m4_rfkill_exit);
-MODULE_DESCRIPTION("m4 rfkill");
-MODULE_AUTHOR("htc_ssdbt <htc_ssdbt@htc.com>");
-MODULE_LICENSE("GPL");
+device_initcall(m4_rfkill_init);
