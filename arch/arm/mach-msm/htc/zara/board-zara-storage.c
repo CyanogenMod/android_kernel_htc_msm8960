@@ -216,12 +216,10 @@ static struct mmc_platform_data msm8930_sdc3_data = {
 #endif
 	.vreg_data	= &mmc_slot_vreg_data[SDCC3],
 	.pin_data	= &mmc_slot_pin_data[SDCC3],
-#ifdef CONFIG_MMC_MSM_CARD_HW_DETECTION
 	.status_gpio	= SD_CDETz,
 	.status_irq	= MSM_GPIO_TO_INT(SD_CDETz),
 	.irq_flags	= IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 	.is_status_gpio_active_low = true,
-#endif
 	.msm_bus_voting_data = &sps_to_ddr_bus_voting_data,
 };
 #endif
