@@ -132,7 +132,6 @@ static struct platform_device msm_fm_platform_init = {
 #else
 #define MSM_PMEM_SIZE 0x2800000 /* 40 Mbytes */
 #endif
-#define MSM_LIQUID_PMEM_SIZE 0x4000000 /* 64 Mbytes */
 
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 #define HOLE_SIZE	0x20000
@@ -152,11 +151,6 @@ static struct platform_device msm_fm_platform_init = {
 #define MSM_ION_MFC_SIZE	SZ_8K
 #define MSM_ION_AUDIO_SIZE	MSM_PMEM_AUDIO_SIZE
 
-#define MSM_LIQUID_ION_MM_SIZE (MSM_ION_MM_SIZE + 0x600000)
-#define MSM_LIQUID_ION_SF_SIZE MSM_LIQUID_PMEM_SIZE
-#define MSM_HDMI_PRIM_ION_SF_SIZE MSM_HDMI_PRIM_PMEM_SIZE
-
-#define MSM_MM_FW_SIZE	(0x200000 - HOLE_SIZE)
 #define MSM8930_FIXED_AREA_START (0xa0000000 - (MSM_ION_MM_FW_SIZE + \
 								HOLE_SIZE))
 #define MAX_FIXED_AREA_SIZE	0x10000000
