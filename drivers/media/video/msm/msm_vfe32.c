@@ -3079,8 +3079,6 @@ static void vfe32_process_reg_update_irq(void)
 			}
 			break;
 		case VFE_STATE_STARTED:
-			if (vfe32_ctrl->recording_state == VFE_STATE_STARTED)
-				vfe32_ctrl->vfe_capture_count--;
 			if (!vfe32_ctrl->vfe_capture_count &&
 				(vfe32_ctrl->outpath.output_mode &
 					VFE32_OUTPUT_MODE_PRIMARY)) {
