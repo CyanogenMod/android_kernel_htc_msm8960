@@ -1003,9 +1003,10 @@ static ssize_t attr_enable_store(struct device *dev,
 	if (strict_strtoul(buf, 10, &val))
 		return -EINVAL;
 
-	if (val)
+	if (val) {
 		r3gd20_enable(gyro);
-	else
+		r3gd20_update_odr(gyro, gyro->pdata->poll_interval);
+	} else
 		r3gd20_disable(gyro);
 
 	return size;
@@ -1640,7 +1641,8 @@ static int r3gd20_probe(struct i2c_client *client,
 
 	int err = -1;
 
-	I("%s: probe start v03.\n", R3GD20_GYR_DEV_NAME);
+	I("%s: probe start v04-Fix L polling rate issue.\n",
+	  R3GD20_GYR_DEV_NAME);
 
 	
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
