@@ -10,6 +10,9 @@ struct tfa9887_platform_data {
 
 };
 
+extern int tfa9887l_step;
+extern int tfa9887l_step_en;
+
 void set_tfa9887_spkamp(int en, int dsp_mode);
 void set_tfa9887l_spkamp(int en, int dsp_mode);
 int tfa9887_l_write(char *txData, int length);
