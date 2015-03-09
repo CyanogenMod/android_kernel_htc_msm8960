@@ -4350,7 +4350,7 @@ static struct rcg_clk vcodec_clk = {
 		.dbg_name = "vcodec_clk",
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP3(LOW,  100000000, NOMINAL, 200000000,
-#if defined(CONFIG_MACH_M4_UL) || defined(CONFIG_MACH_ZARA)
+#ifdef CONFIG_MACH_M4_UL
 				  HIGH, 266670000),
 #else
 				  HIGH, 228571000),
