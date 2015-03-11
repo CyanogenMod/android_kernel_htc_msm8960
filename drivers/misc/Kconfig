@@ -689,6 +689,12 @@ config BU52031NVX_POUCHDETECT
 	help
 	  depends on BU52031NVX
 
+config UID_CPUTIME
+	tristate "Per-UID cpu time statistics"
+	default n
+	help
+	  Per UID based cpu time statistics exported to /proc/uid_cputime
+
 config CABLE_DETECT_8XXX
 	boolean "Cable detect driver"
 	default n
