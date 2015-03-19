@@ -1952,7 +1952,7 @@ static int sitar_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 			SITAR_RELEASE_LOCK(sitar->codec_resource_lock);
 		}
 
-#if defined(CONFIG_MACH_M4_UL) || defined(CONFIG_MACH_T6_UL) || defined(CONFIG_MACH_ZARA)
+#if defined(CONFIG_MACH_M4_UL) || defined(CONFIG_MACH_T6_UL) || defined(CONFIG_MACH_ZARA) || defined(CONFIG_MACH_DLXP)
 		snd_soc_update_bits(codec, w->reg, 0x0E, 0x0A);
 #else
 		snd_soc_update_bits(codec, w->reg, 0x1E, 0x00);
