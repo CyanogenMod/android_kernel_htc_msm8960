@@ -70,12 +70,11 @@
 
 #define TABLA_MBHC_DEF_BUTTONS 8
 #define TABLA_MBHC_DEF_RLOADS 5
+
 #define HAC_PAMP_GPIO        6
 #define RCV_PAMP_PMGPIO     33
 #define RCV_SPK_SEL_PMGPIO  24
 #define AUD_HP_EN_GPIO      PM8921_GPIO_PM_TO_SYS(37)
-
-static int msm_hac_control;
 
 /* Shared channel numbers for Slimbus ports that connect APQ to MDM. */
 enum {
@@ -308,42 +307,6 @@ static void msm_ext_spk_power_amp_off(u32 spk)
 		usleep_range(4000, 4000);
 
 	}
-}
-
-static int msm_get_hac(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	pr_info("%s: msm_hac_control = %d", __func__, msm_hac_control);
-	ucontrol->value.integer.value[0] = msm_hac_control;
-	return 0;
-}
-
-static int msm_set_hac(struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol)
-{
-	int ret = 0;
-	if (msm_hac_control == ucontrol->value.integer.value[0])
-		return 0;
-
-	msm_hac_control = ucontrol->value.integer.value[0];
-	pr_info("%s()  %d\n", __func__, msm_hac_control);
-	ret = gpio_request(HAC_PAMP_GPIO, "AUDIO_HAC_AMP");
-	if (ret) {
-		pr_err("%s: Error requesting GPIO %d\n", __func__,
-			HAC_PAMP_GPIO);
-			return ret;
-		}
-		else {
-			if (msm_hac_control) {
-				pr_info("%s: enable hac amp gpio %d\n", __func__, HAC_PAMP_GPIO);
-				gpio_direction_output(HAC_PAMP_GPIO, 1);
-			} else {
-				pr_info("%s: disable hac amp gpio %d\n", __func__, HAC_PAMP_GPIO);
-				gpio_direction_output(HAC_PAMP_GPIO, 0);
-			}
-			gpio_free(HAC_PAMP_GPIO);
-		}
-	return 1;
 }
 
 static void msm_ext_control(struct snd_soc_codec *codec)
@@ -955,8 +918,6 @@ static const struct snd_kcontrol_new tabla_msm_controls[] = {
 		msm_incall_rec_mode_get, msm_incall_rec_mode_put),
 	SOC_ENUM_EXT("SLIM_3_RX Channels", msm_enum[1],
 		msm_slim_3_rx_ch_get, msm_slim_3_rx_ch_put),
-	SOC_ENUM_EXT("HAC AMP EN", msm_enum[0], msm_get_hac,
-		msm_set_hac),
 	SOC_ENUM_EXT("HDMI_RX Channels", msm_enum[3],
 		msm_hdmi_rx_ch_get, msm_hdmi_rx_ch_put),
 	SOC_ENUM_EXT("HDMI RX Rate", msm_enum[4],
