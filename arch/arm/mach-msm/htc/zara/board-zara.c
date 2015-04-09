@@ -95,6 +95,7 @@
 #include "msm_watchdog.h"
 #include "board-8930.h"
 #include "acpuclock-krait.h"
+#include <linux/pn544.h>
 #include "board-zara.h"
 #include <linux/proc_fs.h>
 #include <mach/ncp6924.h>
@@ -2121,6 +2122,35 @@ static struct i2c_board_info i2c_tps61310_flashlight[] = {
 	},
 };
 
+#ifdef CONFIG_SENSORS_NFC_PN544
+static void nfc_gpio_init(void)
+{
+	static uint32_t nfc_gpio_table[] = {
+	GPIO_CFG(MSM_NFC_IRQ, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+	};
+	printk(KERN_INFO"[NFC] %s, config NFC_IRQ pin\n",__func__);
+	gpio_tlmm_config(nfc_gpio_table[0], GPIO_CFG_ENABLE);
+	return;
+}
+
+static struct pn544_i2c_platform_data nfc_platform_data = {
+	.irq_gpio = MSM_NFC_IRQ,
+	.ven_gpio = MSM_NFC_VEN,
+	.firm_gpio = MSM_NFC_DL_MODE,
+	.ven_isinvert = 1,
+	.gpio_init = nfc_gpio_init,
+};
+
+static struct i2c_board_info pn544_i2c_boardinfo[] = {
+	{
+		I2C_BOARD_INFO(PN544_I2C_NAME, 0x50 >> 1),
+		.platform_data = &nfc_platform_data,
+		.irq = MSM_GPIO_TO_INT(MSM_NFC_IRQ),
+	},
+};
+
+#endif
+
 static ssize_t syn_vkeys_show(struct kobject *kobj,
 			struct kobj_attribute *attr, char *buf)
 {
@@ -3602,6 +3632,12 @@ static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 		ARRAY_SIZE(isl_charger_i2c_info),
 	},
 #endif
+	{
+		I2C_SURF | I2C_FFA | I2C_FLUID,
+		MSM_8930_GSBI9_QUP_I2C_BUS_ID,
+		pn544_i2c_boardinfo,
+		ARRAY_SIZE(pn544_i2c_boardinfo),
+	},
 	{
 		I2C_SURF | I2C_FFA | I2C_FLUID,
 		MSM_8930_GSBI3_QUP_I2C_BUS_ID,
