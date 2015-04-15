@@ -413,6 +413,22 @@ static void cy8c_rawdata_print(struct work_struct *work)
 	if (cs->vk_id) {
 		reset_cnt++;
 		if (reset_cnt % CY8C_KEYLOCKRESET == 0) {
+			switch (cs->vk_id) {
+				case 0x01:
+					input_report_key(cs->input_dev, cs->keycode[0], 0);
+					break;
+				case 0x02:
+					input_report_key(cs->input_dev, cs->keycode[1], 0);
+					break;
+				case 0x04:
+					input_report_key(cs->input_dev, cs->keycode[2], 0);
+					break;
+				case 0x08:
+					input_report_key(cs->input_dev, cs->keycode[3], 0);
+					break;
+			}
+			input_sync(cs->input_dev);
+
 			pr_info("[cap] keylock reset\n");
 			cs->reset();
 			reset_cnt = 0;
