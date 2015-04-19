@@ -95,7 +95,9 @@
 #include "msm_watchdog.h"
 #include "board-8930.h"
 #include "acpuclock-krait.h"
+#ifdef CONFIG_SENSORS_NFC_PN544
 #include <linux/pn544.h>
+#endif
 #include "board-zara.h"
 #include <linux/proc_fs.h>
 #include <mach/ncp6924.h>
@@ -3632,12 +3634,14 @@ static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 		ARRAY_SIZE(isl_charger_i2c_info),
 	},
 #endif
+#ifdef CONFIG_SENSORS_NFC_PN544
 	{
 		I2C_SURF | I2C_FFA | I2C_FLUID,
 		MSM_8930_GSBI9_QUP_I2C_BUS_ID,
 		pn544_i2c_boardinfo,
 		ARRAY_SIZE(pn544_i2c_boardinfo),
 	},
+#endif
 	{
 		I2C_SURF | I2C_FFA | I2C_FLUID,
 		MSM_8930_GSBI3_QUP_I2C_BUS_ID,
