@@ -7357,6 +7357,8 @@ void limHandleDeferMsgError(tpAniSirGlobal pMac, tpSirMsgQ pLimMsg)
 {
       if(SIR_BB_XPORT_MGMT_MSG == pLimMsg->type) 
         {
+            /*Decrement the Pending count before droping */
+            limDecrementPendingMgmtCount (pMac);
             vos_pkt_return_packet((vos_pkt_t*)pLimMsg->bodyptr);
         }
       else if(pLimMsg->bodyptr != NULL)
@@ -7810,4 +7812,16 @@ tANI_U8 limGetShortSlotFromPhyMode(tpAniSirGlobal pMac, tpPESession psessionEntr
     }
     limLog(pMac, LOG1, FL("phyMode = %u shortslotsupported = %u"), phyMode, val);
     return val;
+}
+
+void limDecrementPendingMgmtCount (tpAniSirGlobal pMac)
+{
+    if( pMac->sys.gSysBbtPendingMgmtCount )
+    {
+         vos_spin_lock_acquire( &pMac->sys.lock );
+         pMac->sys.gSysBbtPendingMgmtCount--;
+         vos_spin_lock_release( &pMac->sys.lock );
+    }
+    else
+         limLog(pMac, LOGW, FL("Pending Management count going negative"));
 }
