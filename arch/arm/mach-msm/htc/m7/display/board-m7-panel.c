@@ -601,9 +601,6 @@ void __init m7_init_fb(void)
 {
 	wa_xo = msm_xo_get(MSM_XO_TCXO_D0, "mipi");
 
-	if (panel_type == PANEL_ID_M7_SHARP_RENESAS)
-		mdp_pdata.cont_splash_enabled = 0x1;
-
 	m7_set_display_params("mipi_m7", "hdmi_msm");
 	platform_device_register(&msm_fb_device);
 
