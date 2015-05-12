@@ -166,7 +166,7 @@ static int msm_isp_notify_VFE_BUF_EVT(struct msm_cam_media_controller *pmctl,
 
 	int vfe_id = vdata->evt_msg.msg_id;
 	if (!pcam) {
-		pr_debug("%s pcam is null. return\n", __func__);
+		D("%s pcam is null. return\n", __func__);
 		msm_isp_sync_free(vdata);
 		return rc;
 	}
@@ -196,7 +196,7 @@ static int msm_isp_notify_VFE_BUF_EVT(struct msm_cam_media_controller *pmctl,
 		break;
 	case VFE_MSG_V32_CAPTURE:
 	case VFE_MSG_V2X_CAPTURE:
-		pr_debug("%s Got V32_CAPTURE: getting buffer for id = %d",
+		D("%s Got V32_CAPTURE: getting buffer for id = %d",
 						__func__, vfe_id);
 		msm_mctl_reserve_free_buf(pmctl, NULL,
 					image_mode, &free_buf);
@@ -269,7 +269,7 @@ static int msm_enable_dropframe(struct v4l2_subdev *sd,
 		return -EFAULT;
 	} else {
 		atomic_set(&pmctl->dropframe_enabled, dropframe_enabled);
-		pr_info("%s: set dropframe_enabled %d", __func__, atomic_read(&pmctl->dropframe_enabled));
+		D("%s: set dropframe_enabled %d", __func__, atomic_read(&pmctl->dropframe_enabled));
 
 		
 		if (!dropframe_enabled)
@@ -289,7 +289,7 @@ static int msm_set_dropframe_num(struct v4l2_subdev *sd,
 		return -EFAULT;
 	} else {
 		atomic_set(&pmctl->snap_dropframe_num, snap_dropframe_num);
-		pr_info("%s: set snap_dropframe_num %d", __func__, atomic_read(&pmctl->snap_dropframe_num));
+		D("%s: set snap_dropframe_num %d", __func__, atomic_read(&pmctl->snap_dropframe_num));
 	}
 
 	return 0;
@@ -329,7 +329,7 @@ static int msm_isp_should_drop_frame(struct msm_cam_media_controller *pmctl, uin
 	}
 
 	if (atomic_read(&pmctl->dropframe_enabled))
-		pr_info("%s: FRAME (%d): drop_frame %d [enable %d num %d drop_snap %d]",
+		D("%s: FRAME (%d): drop_frame %d [enable %d num %d drop_snap %d]",
 				__func__, msgid, drop_frame,
 				atomic_read(&pmctl->dropframe_enabled),
 				atomic_read(&pmctl->snap_dropframe_num),
@@ -403,7 +403,7 @@ static int msm_isp_notify_vfe(struct v4l2_subdev *sd,
 			isp_msg->msg_id == MSG_ID_SOF_ACK)
 		{
 			isp_event->isp_data.isp_msg.msg_id = MSG_ID_HDR_SOF_ACK;
-			pr_info("%s MSG_ID_HDR_SOF_ACK", __func__);
+			D("%s MSG_ID_HDR_SOF_ACK", __func__);
 		}
 
 		break;
