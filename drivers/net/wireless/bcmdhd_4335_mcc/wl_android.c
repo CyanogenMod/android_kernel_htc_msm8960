@@ -2586,7 +2586,7 @@ void wl_android_traffic_monitor(struct net_device *dev)
 	dhd_get_txrx_stats(dev, &rx_packets_count, &tx_packets_count);
 	current_traffic_count = rx_packets_count + tx_packets_count;
 
-	if ((current_traffic_count >= last_traffic_count && jiffies > last_traffic_count_jiffies) || screen_off || !sta_connected) {
+	if ((current_traffic_count >= last_traffic_count && jiffies > (last_traffic_count_jiffies + 2*HZ)) || screen_off || !sta_connected) {
         
         if (screen_off || !sta_connected) {
             printf("set traffic = 0 and relase performace lock when %s", screen_off? "screen off": "disconnected");
@@ -2594,8 +2594,8 @@ void wl_android_traffic_monitor(struct net_device *dev)
         }
         else {
         
-            jiffies_diff = jiffies - last_traffic_count_jiffies;
             if (jiffies_diff < 7*HZ) {
+                jiffies_diff = jiffies - last_traffic_count_jiffies;
                 traffic_diff = (current_traffic_count - last_traffic_count) / jiffies_diff * HZ;
             }
             else {
@@ -2642,9 +2642,9 @@ void wl_android_traffic_monitor(struct net_device *dev)
         default:
             break;
         }
+        last_traffic_count_jiffies = jiffies;
+        last_traffic_count = current_traffic_count;
 	}
-    last_traffic_count_jiffies = jiffies;
-	last_traffic_count = current_traffic_count;
 	
 }
 
