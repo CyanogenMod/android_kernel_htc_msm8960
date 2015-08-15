@@ -706,7 +706,7 @@ int wlan_hdd_cfg80211_init(struct device *dev,
 
        if (NULL == wiphy->bands[i])
        {
-          hddLog(VOS_TRACE_LEVEL_ERROR,"%s: wiphy->bands[i] is NULL, i = %d",
+          hddLog(VOS_TRACE_LEVEL_INFO,"%s: wiphy->bands[i] is NULL, i = %d",
                  __func__, i);
           continue;
        }
@@ -5577,7 +5577,7 @@ static int wlan_hdd_cfg80211_set_cipher( hdd_adapter_t *pAdapter,
 
     if (!cipher)
     {
-        hddLog(VOS_TRACE_LEVEL_ERROR, "%s: received cipher %d - considering none",
+        hddLog(VOS_TRACE_LEVEL_INFO, "%s: received cipher %d - considering none",
                 __func__, cipher);
         encryptionType = eCSR_ENCRYPT_TYPE_NONE;
     }
