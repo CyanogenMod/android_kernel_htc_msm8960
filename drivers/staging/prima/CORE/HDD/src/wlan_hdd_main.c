@@ -3947,11 +3947,11 @@ hdd_adapter_t* hdd_open_adapter( hdd_context_t *pHddCtx, tANI_U8 session_type,
          ret = register_inetaddr_notifier(&pAdapter->ipv4_notifier);
          if (ret)
          {
-             hddLog(LOGE, FL("Failed to register IPv4 notifier"));
+             hddLog(VOS_TRACE_LEVEL_ERROR, FL("Failed to register IPv4 notifier"));
          }
          else
          {
-             hddLog(LOG1, FL("Registered IPv4 notifier"));
+             hddLog(VOS_TRACE_LEVEL_INFO, FL("Registered IPv4 notifier"));
              pAdapter->ipv4_notifier_registered = true;
          }
 
@@ -3964,11 +3964,11 @@ hdd_adapter_t* hdd_open_adapter( hdd_context_t *pHddCtx, tANI_U8 session_type,
          ret = register_inet6addr_notifier(&pAdapter->ipv6_notifier);
          if (ret)
          {
-             hddLog(LOGE, FL("Failed to register IPv6 notifier"));
+             hddLog(VOS_TRACE_LEVEL_ERROR, FL("Failed to register IPv6 notifier"));
          }
          else
          {
-             hddLog(LOG1, FL("Registered IPv6 notifier"));
+             hddLog(VOS_TRACE_LEVEL_INFO, FL("Registered IPv6 notifier"));
              pAdapter->ipv6_notifier_registered = true;
          }
 #endif
