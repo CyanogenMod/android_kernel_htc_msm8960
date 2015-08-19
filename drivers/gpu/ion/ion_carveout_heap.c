@@ -2,7 +2,7 @@
  * drivers/gpu/ion/ion_carveout_heap.c
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -314,7 +314,7 @@ int ion_carveout_cache_ops(struct ion_heap *heap, struct ion_buffer *buffer,
 		}
 	}
 
-	if (carveout_heap->has_outer_cache) {
+	if (outer_cache_op && carveout_heap->has_outer_cache) {
 		unsigned long pstart = buffer->priv_phys + offset;
 		outer_cache_op(pstart, pstart + length);
 	}
