@@ -126,7 +126,6 @@ static atomic_t rv_status;
 static atomic_t la_status;
 static atomic_t gv_status;
 
-static atomic_t off_status;
 static atomic_t off_status_hal;
 static int m_o_times;
 
@@ -2552,31 +2551,11 @@ static int __devexit ewtzmu2_i2c_remove(struct i2c_client *client)
 
 static int ewtzmu2_suspend(struct i2c_client *client, pm_message_t mesg)
 {
-    if (!atomic_read(&off_status)) {
-		atomic_set(&off_status, 1);
-		I("Gyro sys off on:g_status=%d off_status=%d\n",
-			atomic_read(&g_status),
-			atomic_read(&off_status));
-		
-	}
-	I("GyroB sys off on:g_status=%d off_status=%d\n",
-		atomic_read(&g_status),
-		atomic_read(&off_status));
 	return 0;
 }
 
 static int ewtzmu2_resume(struct i2c_client *client)
 {
-	if (atomic_read(&off_status)) {
-		atomic_set(&off_status, 0);
-		I("Gyro sys on on:g_status=%d off_status=%d\n",
-			atomic_read(&g_status),
-			atomic_read(&off_status));
-		
-	}
-	I("GyroB sys off on:g_status=%d off_status=%d\n",
-		atomic_read(&g_status),
-		atomic_read(&off_status));
 	return 0;
 }
 
@@ -2631,7 +2610,6 @@ static int __init ewtzmu2_init(void)
 	atomic_set(&rv_status, 0);
 	atomic_set(&la_status, 0);
 	atomic_set(&gv_status, 0);
-	atomic_set(&off_status, 0);
 
 	ret = i2c_add_driver(&ewtzmu2_i2c_driver);
 	if (ret != 0) {
@@ -2657,7 +2635,6 @@ static void __exit ewtzmu2_exit(void)
 	atomic_set(&rv_status, 0);
 	atomic_set(&la_status, 0);
 	atomic_set(&gv_status, 0);
-	atomic_set(&off_status, 0);
 
 	i2c_del_driver(&ewtzmu2_i2c_driver);
 }
