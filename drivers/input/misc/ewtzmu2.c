@@ -32,6 +32,7 @@
 #include <linux/gpio.h>
 #include <linux/akm8975.h>
 #include <linux/module.h>
+#include <linux/semaphore.h>
 
 #ifndef HTC_VERSION
 #include <linux/i2c/ak8973.h>
@@ -79,6 +80,7 @@ struct ewtzmu_pedo_t {
 struct _ewtzmumid_data {
 	rwlock_t datalock;
 	rwlock_t ctrllock;
+	struct rw_semaphore powerlock;
 	int controldata[EW_CB_LENGTH];
 	int dirpolarity[EW_DP_LENGTH];
 	int pedometerparam[EW_PD_LENGTH];
@@ -127,7 +129,8 @@ static atomic_t gv_status;
 static atomic_t off_status_hal;
 static int m_o_times;
 
-static int EWTZMU2_I2C_Read(int reg_addr, int buf_len, int *buf)
+/* Must be called with powerlock acquired */
+static int EWTZMU2_I2C_Read_Locked(int reg_addr, int buf_len, int *buf)
 {
 	int res = 0;
 	u8  regaddr;
@@ -139,6 +142,11 @@ static int EWTZMU2_I2C_Read(int reg_addr, int buf_len, int *buf)
 	*buf = 0;
 	E("%s  error, ewtzmu_i2c_client = NULL\n", __func__);
 	return -2;
+	}
+
+	if (atomic_read(&off_status_hal)) {
+		*buf = 0;
+		return EW_DEVICE_POWERED_OFF;
 	}
 
 	regaddr = (u8)reg_addr;
@@ -163,7 +171,8 @@ static int EWTZMU2_I2C_Read(int reg_addr, int buf_len, int *buf)
 	return 1;
 }
 
-static int EWTZMU2_I2C_Write(int reg_addr, int buf_len, int *buf)
+/* Must be called with powerlock acquired */
+static int EWTZMU2_I2C_Write_Locked(int reg_addr, int buf_len, int *buf)
 {
 	int res = 0;
 	u8 databuffer[64];
@@ -180,6 +189,11 @@ static int EWTZMU2_I2C_Write(int reg_addr, int buf_len, int *buf)
 	if (!ewtzmu_i2c_client) {
 	E("%s  error, ewtzmu_i2c_client = NULL\n", __func__);
 	return -2;
+	}
+
+	if (atomic_read(&off_status_hal)) {
+		*buf = 0;
+		return EW_DEVICE_POWERED_OFF;
 	}
 
 	databuffer[0] = (u8)reg_addr;
@@ -257,10 +271,15 @@ exit_EWTZMU2_Chipset_Init:
 	return 0;
 }
 
-static int EWTZMU2_Chip_Set_SampleRate(int sample_rate_state)
+/* Must be called with powerlock acquired */
+static int EWTZMU2_Chip_Set_SampleRate_Locked(int sample_rate_state)
 {
 	u8 databuf[10];
 	int res = 0;
+
+	if (atomic_read(&off_status_hal)) {
+		return EW_DEVICE_POWERED_OFF;
+	}
 
 	I("sample_rate_state=%d\n", sample_rate_state);
 	if (gpio_get_value(ewtzmumid_data.sleep_pin) == 1) {
@@ -334,7 +353,8 @@ static int EWTZMU2_WIA(char *wia, int bufsize)
 	return 0;
 }
 
-static int EWTZMU2_ReadSensorData(char *buf, int bufsize)
+/* Must be called with powerlock acquired */
+static int EWTZMU2_ReadSensorData_Locked(char *buf, int bufsize)
 {
 	char cmd;
 	int mode = 0;
@@ -348,6 +368,11 @@ static int EWTZMU2_ReadSensorData(char *buf, int bufsize)
 	if (!ewtzmu_i2c_client) {
 		*buf = 0;
 		return EW_CLIENT_ERROR;
+	}
+
+	if (atomic_read(&off_status_hal)) {
+		*buf = 0;
+		return EW_DEVICE_POWERED_OFF;
 	}
 
 	read_lock(&ewtzmu_data.lock);
@@ -386,8 +411,8 @@ exit_EWTZMU2_ReadSensorData:
 	return res;
 }
 
-
-static int EWTZMU2_ReadSensorDataFIFO(unsigned char *buf, int bufsize)
+/* Must be called with powerlock acquired */
+static int EWTZMU2_ReadSensorData_FIFO_Locked(unsigned char *buf, int bufsize)
 {
 	char cmd;
 	int mode = 0;
@@ -400,6 +425,11 @@ static int EWTZMU2_ReadSensorDataFIFO(unsigned char *buf, int bufsize)
 	if (!ewtzmu_i2c_client) {
 		*buf = 0;
 		return EW_CLIENT_ERROR;
+	}
+
+	if (atomic_read(&off_status_hal)) {
+		*buf = 0;
+		return EW_DEVICE_POWERED_OFF;
 	}
 
 	read_lock(&ewtzmu_data.lock);
@@ -822,7 +852,7 @@ static int EWTZMU2_Power_On(void)
 		i++;
 	}
 	i = 0;
-	EWTZMU2_Chip_Set_SampleRate(Gyro_samplerate_status);
+	EWTZMU2_Chip_Set_SampleRate_Locked(Gyro_samplerate_status);
 	I("%s end\n", __func__);
 	return 0;
 }
@@ -837,7 +867,9 @@ static ssize_t show_chipinfo_value(struct device *dev, struct device_attribute *
 static ssize_t show_sensordata_value(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	char strbuf[EW_BUFSIZE];
-	EWTZMU2_ReadSensorData(strbuf, EW_BUFSIZE);
+	down_read(&ewtzmumid_data.powerlock);
+	EWTZMU2_ReadSensorData_Locked(strbuf, EW_BUFSIZE);
+	up_read(&ewtzmumid_data.powerlock);
 return sprintf(buf, "%s\n", strbuf);
 }
 
@@ -1021,18 +1053,26 @@ static long ewtzmu2_ioctl(struct file *file, unsigned int cmd, unsigned long arg
 		data = (void __user *) arg;
 		if (data == NULL)
 			break;
-		retval = EWTZMU2_ReadSensorData(strbuf, EW_BUFSIZE);
-		if (copy_to_user(data, strbuf, strlen(strbuf) + 1))
+		down_read(&ewtzmumid_data.powerlock);
+		EWTZMU2_ReadSensorData_Locked(strbuf, EW_BUFSIZE);
+		up_read(&ewtzmumid_data.powerlock);
+		if (copy_to_user(data, strbuf, strlen(strbuf) + 1)) {
+			retval = -EFAULT;
 			goto err_out;
+		}
 	break;
 
 	case EW_IOCTL_READ_SENSORDATA_FIFO:
 		data = (void __user *) arg;
 		if (data == NULL)
 			break;
-		retval = EWTZMU2_ReadSensorDataFIFO(databuf, EW_BUFSIZE);
-		if (copy_to_user(data, &(databuf[1]), databuf[0]))
+		down_read(&ewtzmumid_data.powerlock);
+		EWTZMU2_ReadSensorData_FIFO_Locked(databuf, EW_BUFSIZE);
+		up_read(&ewtzmumid_data.powerlock);
+		if (copy_to_user(data, &(databuf[1]), databuf[0])) {
+			retval = -EFAULT;
 			goto err_out;
+		}
 	break;
 
 	case EW_IOCTL_READ_POSTUREDATA:
@@ -1099,7 +1139,9 @@ static long ewtzmu2_ioctl(struct file *file, unsigned int cmd, unsigned long arg
 			retval = -EFAULT;
 			goto err_out;
 		}
-		EWTZMU2_Chip_Set_SampleRate(gyro_sample_rate);
+		down_read(&ewtzmumid_data.powerlock);
+		EWTZMU2_Chip_Set_SampleRate_Locked(gyro_sample_rate);
+		up_read(&ewtzmumid_data.powerlock);
 	break;
 
 	case EW_IOCTL_READ_GYRODATA:
@@ -1208,27 +1250,26 @@ static long ewtzmu2_ioctl(struct file *file, unsigned int cmd, unsigned long arg
 		memcpy(&ewtzmumid_data.controldata[0], controlbuf, sizeof(controlbuf));
 		write_unlock(&ewtzmumid_data.ctrllock);
 		Set_Report_Sensor_Flag(ewtzmumid_data.controldata[EW_CB_ACTIVESENSORS]);
-		if (!atomic_read(&g_status) && !atomic_read(&rv_status) &&
-		!atomic_read(&la_status) && !atomic_read(&gv_status) &&
-		!atomic_read(&o_status) && !atomic_read(&off_status_hal)) {
-
-				atomic_set(&off_status_hal, 1);
-				I("cal_Gyro power off:g_status=%d"
-					"off_status_hal=%d\n",
-					atomic_read(&g_status),
-					atomic_read(&off_status_hal));
-				return EWTZMU2_Power_Off();
-			} else if ((atomic_read(&g_status) || atomic_read(&rv_status) ||
-			atomic_read(&la_status) || atomic_read(&gv_status) ||
-			atomic_read(&o_status))  && atomic_read(&off_status_hal)) {
-
-				atomic_set(&off_status_hal, 0);
-				I("Cal_Gyro power on:g_status=%d"
-					"off_status_hal=%d\n",
-					atomic_read(&g_status),
-					atomic_read(&off_status_hal));
-				return EWTZMU2_Power_On();
-			}
+		down_write(&ewtzmumid_data.powerlock);
+		if (!atomic_read(&g_status)
+				&& !atomic_read(&rv_status)
+				&& !atomic_read(&la_status)
+				&& !atomic_read(&gv_status)
+				&& !atomic_read(&o_status)
+				&& !atomic_read(&off_status_hal)) {
+			atomic_set(&off_status_hal, 1);
+			retval = EWTZMU2_Power_Off();
+		} else if ((atomic_read(&g_status)
+					|| atomic_read(&rv_status)
+					|| atomic_read(&la_status)
+					|| atomic_read(&gv_status)
+					|| atomic_read(&o_status))
+				&& atomic_read(&off_status_hal)) {
+			atomic_set(&off_status_hal, 0);
+			retval = EWTZMU2_Power_On();
+		}
+		up_write(&ewtzmumid_data.powerlock);
+		return retval;
 	break;
 
 	case EW_IOCTL_WRITE_MODE:
@@ -1370,8 +1411,10 @@ static long ewtzmu2_ioctl(struct file *file, unsigned int cmd, unsigned long arg
 			"i2caddr=0x%x,len=%d,data=0x%x",
 			__func__, i2cwrdata[0],
 			i2cwrdata[1], i2cwrdata[2]);
-			retval = EWTZMU2_I2C_Write(i2cwrdata[0],
+			down_read(&ewtzmumid_data.powerlock);
+			retval = EWTZMU2_I2C_Write_Locked(i2cwrdata[0],
 				i2cwrdata[1], &i2cwrdata[2]);
+			up_read(&ewtzmumid_data.powerlock);
 			if (retval != 1) {
 				E("%s: EW_IOCTL_WRITE_I2CDATA Error :"
 				"i2caddr=0x%x,len=%d,data=0x%x",
@@ -1405,9 +1448,10 @@ static long ewtzmu2_ioctl(struct file *file, unsigned int cmd, unsigned long arg
 			data = (void __user *)arg;
 			if (data == NULL)
 				break;
-
-			retval = EWTZMU2_I2C_Read(ewtzmu_data.i2c_read_addr,
+			down_read(&ewtzmumid_data.powerlock);
+			retval = EWTZMU2_I2C_Read_Locked(ewtzmu_data.i2c_read_addr,
 				ewtzmu_data.i2c_read_len, &i2cwrdata[0]);
+			up_read(&ewtzmumid_data.powerlock);
 			I("%s: EW_IOCTL_READ_I2CDATA :"
 				"R addr=0x%x,len=%d,data=0x%x",
 				__func__, ewtzmu_data.i2c_read_addr,
@@ -1513,7 +1557,9 @@ struct file *file, unsigned int cmd,
 		data = (void __user *) arg;
 		if (data == NULL)
 			break;
-		EWTZMU2_ReadSensorData(databuf, EW_BUFSIZE);
+		down_read(&ewtzmumid_data.powerlock);
+		EWTZMU2_ReadSensorData_Locked(databuf, EW_BUFSIZE);
+		up_read(&ewtzmumid_data.powerlock);
 		if (copy_to_user(data, databuf, strlen(databuf) + 1)) {
 			retval = -EFAULT;
 			goto err_out;
@@ -1524,13 +1570,9 @@ struct file *file, unsigned int cmd,
 		data = (void __user *) arg;
 		if (data == NULL)
 			break;
-		EWTZMU2_ReadSensorDataFIFO(databuf, EW_BUFSIZE);
-		DIF("sensordata 1:lenth:%d, data: %d ,%d %d, %d %d\n",
-			databuf[0], databuf[1], databuf[2],
-			databuf[3], databuf[4], databuf[5]);
-		DIF("sensordata 2:%d %d ,%d %d, %d %d, %d\n",
-			databuf[6], databuf[7], databuf[8],
-			databuf[9], databuf[10], databuf[11], databuf[12]);
+		down_read(&ewtzmumid_data.powerlock);
+		EWTZMU2_ReadSensorData_FIFO_Locked(databuf, EW_BUFSIZE);
+		up_read(&ewtzmumid_data.powerlock);
 		if (copy_to_user(data, &(databuf[1]), databuf[0])) {
 			retval = -EFAULT;
 			goto err_out;
@@ -1662,7 +1704,9 @@ struct file *file, unsigned int cmd,
 			retval = -EFAULT;
 			goto err_out;
 		}
-		EWTZMU2_Chip_Set_SampleRate(gyro_sample_rate[0]);
+		down_read(&ewtzmumid_data.powerlock);
+		EWTZMU2_Chip_Set_SampleRate_Locked(gyro_sample_rate[0]);
+		up_read(&ewtzmumid_data.powerlock);
 	break;
 
 	case EWDAE_IOCTL_GET_DIRPOLARITY:
@@ -1837,8 +1881,10 @@ struct file *file, unsigned int cmd,
 			"i2caddr=0x%x,len=%d,data=0x%x",
 			__func__, i2cwrdata[0],
 			i2cwrdata[1], i2cwrdata[2]);
-			retval = EWTZMU2_I2C_Write(i2cwrdata[0],
+			down_read(&ewtzmumid_data.powerlock);
+			retval = EWTZMU2_I2C_Write_Locked(i2cwrdata[0],
 				i2cwrdata[1], &i2cwrdata[2]);
+			up_read(&ewtzmumid_data.powerlock);
 			if (retval != 1) {
 				E("%s: EWDAE_IOCTL_WRITE_I2CDATA Error"
 					": i2caddr=0x%x,len=%d,data=0x%x",
@@ -1870,8 +1916,10 @@ struct file *file, unsigned int cmd,
 			data = (void __user *)arg;
 			if (data == NULL)
 				break;
-			retval = EWTZMU2_I2C_Read(ewtzmu_data.i2c_read_addr,
+			down_read(&ewtzmumid_data.powerlock);
+			retval = EWTZMU2_I2C_Read_Locked(ewtzmu_data.i2c_read_addr,
 				ewtzmu_data.i2c_read_len, &i2cwrdata[0]);
+			up_read(&ewtzmumid_data.powerlock);
 			I("%s: EWDAE_IOCTL_READ_I2CDATA :"
 				"R addr=0x%x,len=%d,data=0x%x",
 				__func__, ewtzmu_data.i2c_read_addr,
@@ -1945,7 +1993,9 @@ static long ewtzmu2hal_ioctl(struct file *file, unsigned int cmd, unsigned long 
 		data = (void __user *) arg;
 		if (data == NULL)
 			break;
-		EWTZMU2_ReadSensorData(strbuf, EW_BUFSIZE);
+		down_read(&ewtzmumid_data.powerlock);
+		EWTZMU2_ReadSensorData_Locked(strbuf, EW_BUFSIZE);
+		up_read(&ewtzmumid_data.powerlock);
 		if (copy_to_user(data, strbuf, strlen(strbuf) + 1)) {
 			retval = -EFAULT;
 			goto err_out;
@@ -2060,27 +2110,25 @@ static long ewtzmu2hal_ioctl(struct file *file, unsigned int cmd, unsigned long 
 				atomic_read(&la_status),
 				atomic_read(&gv_status));
 
-			if (!atomic_read(&g_status) && !atomic_read(&rv_status) && !atomic_read(&la_status) && !atomic_read(&gv_status) && !atomic_read(&o_status)) {
-
-				I("Gyro power off:g_status=%d"
-					"off_status_hal=%d\n",
-				atomic_read(&g_status),
-				atomic_read(&off_status_hal));
-				if (!atomic_read(&off_status_hal)) {
-					atomic_set(&off_status_hal, 1);
-					ret = EWTZMU2_Power_Off();
-				}
-			} else if ((atomic_read(&g_status) || atomic_read(&rv_status) || atomic_read(&la_status) || atomic_read(&gv_status) || atomic_read(&o_status))) {
-
-				I("Gyro power on:g_status=%d"
-					"off_status_hal=%d\n",
-					atomic_read(&g_status),
-					atomic_read(&off_status_hal));
-				if (atomic_read(&off_status_hal)) {
-					atomic_set(&off_status_hal, 0);
-					ret = EWTZMU2_Power_On();
-				}
+			down_write(&ewtzmumid_data.powerlock);
+			if (!atomic_read(&g_status)
+					&& !atomic_read(&rv_status)
+					&& !atomic_read(&la_status)
+					&& !atomic_read(&gv_status)
+					&& !atomic_read(&o_status)
+					&& !atomic_read(&off_status_hal)) {
+				atomic_set(&off_status_hal, 1);
+				ret = EWTZMU2_Power_Off();
+			} else if ((atomic_read(&g_status)
+						|| atomic_read(&rv_status)
+						|| atomic_read(&la_status)
+						|| atomic_read(&gv_status)
+						|| atomic_read(&o_status))
+					&& atomic_read(&off_status_hal)) {
+				atomic_set(&off_status_hal, 0);
+				ret = EWTZMU2_Power_On();
 			}
+			up_write(&ewtzmumid_data.powerlock);
 			if (ewtzmumid_data.controldata[EW_CB_ACTIVESENSORS]) {
 				atomic_set(&open_flag, 1);
 				wake_up(&open_wq);
@@ -2567,6 +2615,7 @@ static int __init ewtzmu2_init(void)
     I("ewtzmu2: driver version:%s\n", DRIVER_VERSION);
     rwlock_init(&ewtzmumid_data.ctrllock);
     rwlock_init(&ewtzmumid_data.datalock);
+	init_rwsem(&ewtzmumid_data.powerlock);
     rwlock_init(&ewtzmu_data.lock);
     memset(&ewtzmumid_data.controldata[0], 0, sizeof(int)*EW_CB_LENGTH);
     ewtzmumid_data.controldata[EW_CB_LOOPDELAY] = EW_DEFAULT_POLLING_TIME;
