@@ -4346,6 +4346,13 @@ static int iw_ftm_setchar_getnone(struct net_device *dev, struct iw_request_info
     sub_cmd = wrqu->data.flags;
     pAdapter = (hdd_adapter_t *)netdev_priv(dev);
 
+    if (!capable(CAP_NET_ADMIN))
+    {
+        VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
+                  FL("permission check failed"));
+        return -EPERM;
+    }
+
     /* we cannot use iotctl_private_iw_point in kernel to allocate memory
      * to store data from userspace as IW_SETCHAR_GETNONE is defined as
      * odd number which assigns set_args to zero.we assisgn memory using
