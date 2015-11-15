@@ -535,7 +535,7 @@ static void irq_timeout_handler(struct work_struct *w)
 		update_mhl_status(false, CONNECT_TYPE_UNKNOWN);
 	}
 }
-#ifdef CONFIG_HAS_EARLYSUSPEND
+
 static int sii9234_suspend(struct i2c_client *client, pm_message_t mesg)
 {
 	if (Status_Query() != POWER_STATE_D3)
@@ -543,8 +543,7 @@ static int sii9234_suspend(struct i2c_client *client, pm_message_t mesg)
 	return 0;
 }
 
-
-#if 0
+#ifndef CONFIG_HAS_EARLYSUSPEND
 static int sii9234_resume(struct i2c_client *client)
 {
 	if (Status_Query() != POWER_STATE_D3)
@@ -558,6 +557,7 @@ void sii9234_change_usb_owner(bool bMHL)
 
 }
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static void sii9234_early_suspend(struct early_suspend *h)
 {
 	T_MHL_SII9234_INFO *pInfo;
@@ -845,7 +845,7 @@ static struct i2c_driver sii9234_driver = {
 	.id_table = sii9234_i2c_id,
 	.probe = sii9234_probe,
 	.remove = sii9234_remove,
-#ifdef CONFIG_HAS_EARLYSUSPEND
+#ifndef CONFIG_HAS_EARLYSUSPEND
 	.suspend = sii9234_suspend,
 	.resume = sii9234_resume,
 #endif
