@@ -1,5 +1,5 @@
 comment "Qualcomm Atheros Prima WLAN module"
-config PRIMA_WLAN_3x
+config PRIMA_WLAN
 	tristate "Qualcomm Atheros Prima WLAN module"
 	default n
 	help
@@ -9,7 +9,7 @@ config PRIMA_WLAN_3x
 #	depends on CFG80211
 #        depends on WCNSS_CORE
 
-if PRIMA_WLAN_3x != n
+if PRIMA_WLAN != n
 
 config PRIMA_WLAN_BTAMP
 	bool "Enable the Prima WLAN BT-AMP feature"
@@ -35,4 +35,4 @@ config QCOM_TDLS
 	bool "Enable TDLS feature"
 	default y
 
-endif # PRIMA_WLAN_3x
+endif # PRIMA_WLAN
