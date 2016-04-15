@@ -63,6 +63,7 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/wireless.h>
+#include <linux/ratelimit.h>
 #include <wlan_hdd_includes.h>
 #include <wlan_btc_svc.h>
 #include <wlan_nlink_common.h>
@@ -113,6 +114,10 @@
 #include "qc_sap_ioctl.h"
 #include "sme_Api.h"
 #include "vos_trace.h"
+
+#ifdef DEBUG_ROAM_DELAY
+#include "vos_utils.h"
+#endif
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 extern void hdd_suspend_wlan(struct early_suspend *wlan_suspend);
@@ -213,7 +218,11 @@ static const hdd_freq_chan_map_t freq_chan_map[] = { {2412, 1}, {2417, 2},
 #define WE_ENABLE_DXE_STALL_DETECT 6
 #define WE_DISPLAY_DXE_SNAP_SHOT   7
 #define WE_DISPLAY_DATAPATH_SNAP_SHOT    9
-#define WE_SET_REASSOC_TRIGGER     8
+
+#ifdef DEBUG_ROAM_DELAY
+#define WE_DUMP_ROAM_TIMER_LOG     10
+#define WE_RESET_ROAM_TIMER_LOG    11
+#endif
 
 /* Private ioctls and their sub-ioctls */
 #define WLAN_PRIV_SET_VAR_INT_GET_NONE   (SIOCIWFIRSTPRIV + 7)
@@ -339,6 +348,13 @@ static const hdd_freq_chan_map_t freq_chan_map[] = { {2412, 1}, {2417, 2},
 #define TX_PER_TRACKING_DEFAULT_RATIO             5
 #define TX_PER_TRACKING_MAX_RATIO                10
 #define TX_PER_TRACKING_DEFAULT_WATERMARK         5
+
+#define HDD_IOCTL_RATELIMIT_INTERVAL 20*HZ
+#define HDD_IOCTL_RATELIMIT_BURST 1
+
+static DEFINE_RATELIMIT_STATE(hdd_ioctl_timeout_rs, \
+        HDD_IOCTL_RATELIMIT_INTERVAL,     \
+        HDD_IOCTL_RATELIMIT_BURST);
 
 /*MCC Configuration parameters */
 enum {
@@ -814,13 +830,22 @@ VOS_STATUS wlan_hdd_get_roam_rssi(hdd_adapter_t *pAdapter, v_S7_t *rssi_value)
    pHddCtx = WLAN_HDD_GET_CTX(pAdapter);
    pHddStaCtx = WLAN_HDD_GET_STATION_CTX_PTR(pAdapter);
 
-   if(eConnectionState_Associated != pHddStaCtx->conn_info.connState)
+   if (eConnectionState_Associated != pHddStaCtx->conn_info.connState)
    {
        VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO, "%s:Not associated!",__func__);
        /* return a cached value */
        *rssi_value = 0;
        return VOS_STATUS_SUCCESS;
    }
+
+   if (VOS_TRUE == pHddStaCtx->hdd_ReassocScenario)
+   {
+       VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO,
+                 "%s: Roaming in progress, hence return last cached RSSI", __func__);
+       *rssi_value = pAdapter->rssi;
+       return VOS_STATUS_SUCCESS;
+   }
+
    init_completion(&context.completion);
    context.pAdapter = pAdapter;
    context.magic = RSSI_CONTEXT_MAGIC;
@@ -2518,6 +2543,24 @@ static int iw_get_linkspeed(struct net_device *dev,
    return rc;
 }
 
+/*
+ * Helper function to return correct value for WLAN_GET_LINK_SPEED
+ *
+ */
+static int iw_get_linkspeed_priv(struct net_device *dev,
+                                 struct iw_request_info *info,
+                                 union iwreq_data *wrqu, char *extra)
+{
+   int rc;
+
+   rc = iw_get_linkspeed(dev, info, wrqu, extra);
+
+   if (rc < 0)
+       return rc;
+
+   /* a value is being successfully returned */
+   return 0;
+}
 
 /*
  * Support for the RSSI & RSSI-APPROX private commands
@@ -2619,6 +2662,12 @@ VOS_STATUS  wlan_hdd_enter_bmps(hdd_adapter_t *pAdapter, int mode)
 
    hddLog(VOS_TRACE_LEVEL_INFO_HIGH, "power mode=%d", mode);
    pHddCtx = WLAN_HDD_GET_CTX(pAdapter);
+   if (pHddCtx->isLogpInProgress) {
+      VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
+                "%s:LOGP in Progress. Ignore!!!", __func__);
+      return VOS_STATUS_E_FAILURE;
+   }
+
    init_completion(&context.completion);
 
    context.pAdapter = pAdapter;
@@ -3754,6 +3803,7 @@ static int iw_setint_getnone(struct net_device *dev, struct iw_request_info *inf
     hdd_adapter_t *pAdapter = WLAN_HDD_GET_PRIV_PTR(dev);
     tHalHandle hHal = WLAN_HDD_GET_HAL_CTX(pAdapter);
     hdd_wext_state_t  *pWextState =  WLAN_HDD_GET_WEXT_STATE_PTR(pAdapter);
+    hdd_context_t *pHddCtx = WLAN_HDD_GET_CTX(pAdapter);
     int *value = (int *)extra;
     int sub_cmd = value[0];
     int set_value = value[1];
@@ -3762,14 +3812,14 @@ static int iw_setint_getnone(struct net_device *dev, struct iw_request_info *inf
 #ifdef CONFIG_HAS_EARLYSUSPEND
     v_U8_t nEnableSuspendOld;
 #endif
-    INIT_COMPLETION(pWextState->completion_var);
 
-    if ((WLAN_HDD_GET_CTX(pAdapter))->isLogpInProgress)
+    if (0 != wlan_hdd_validate_context(pHddCtx))
     {
-        VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_FATAL,
-                                  "%s:LOGP in Progress. Ignore!!!", __func__);
+        hddLog(VOS_TRACE_LEVEL_ERROR, FL("HDD context is not valid"));
         return -EBUSY;
     }
+
+    INIT_COMPLETION(pWextState->completion_var);
 
     switch(sub_cmd)
     {
@@ -4217,8 +4267,10 @@ static int iw_setnone_getint(struct net_device *dev, struct iw_request_info *inf
 
     if ((WLAN_HDD_GET_CTX(pAdapter))->isLogpInProgress)
     {
-        VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_FATAL,
+        if (__ratelimit(&hdd_ioctl_timeout_rs)) {
+            VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_FATAL,
                                   "%s:LOGP in Progress. Ignore!!!", __func__);
+        }
         return -EBUSY;
     }
 
@@ -4718,18 +4770,19 @@ static int iw_setnone_getnone(struct net_device *dev, struct iw_request_info *in
             WLANTL_TLDebugMessage(VOS_TRUE);
             break;
         }
-        case  WE_SET_REASSOC_TRIGGER:
+#ifdef DEBUG_ROAM_DELAY
+        case WE_DUMP_ROAM_TIMER_LOG:
         {
-            hdd_adapter_t *pAdapter = WLAN_HDD_GET_PRIV_PTR(dev);
-            tpAniSirGlobal pMac = WLAN_HDD_GET_HAL_CTX(pAdapter);
-            v_U32_t roamId = 0;
-            tCsrRoamModifyProfileFields modProfileFields;
-            sme_GetModifyProfileFields(pMac, pAdapter->sessionId, &modProfileFields);
-            sme_RoamReassoc(pMac, pAdapter->sessionId, NULL, modProfileFields, &roamId, 1);
-            return 0;
+            vos_dump_roam_time_log_service();
+            break;
         }
-        
 
+        case WE_RESET_ROAM_TIMER_LOG:
+        {
+            vos_reset_roam_timer_log();
+            break;
+        }
+#endif
         default:
         {
             hddLog(LOGE, "%s: unknown ioctl %d", __func__, sub_cmd);
@@ -4837,12 +4890,14 @@ int iw_set_var_ints_getnone(struct net_device *dev, struct iw_request_info *info
     {
         case WE_LOG_DUMP_CMD:
             {
+                vos_ssr_protect(__func__);
                 hddLog(LOG1, "%s: LOG_DUMP %d arg1 %d arg2 %d arg3 %d arg4 %d",
                         __func__, apps_args[0], apps_args[1], apps_args[2],
                         apps_args[3], apps_args[4]);
 
                 logPrintf(hHal, apps_args[0], apps_args[1], apps_args[2],
                         apps_args[3], apps_args[4]);
+                vos_ssr_unprotect(__func__);
 
             }
             break;
@@ -6814,7 +6869,8 @@ int hdd_setBand_helper(struct net_device *dev, tANI_U8* ptr)
                         * then change the band*/
 
              hddLog(VOS_TRACE_LEVEL_INFO,
-                     "%s STA connected in band %u, Changing band to %u, Issuing Disconnect",
+                     "%s STA connected in band %u, Changing band to %u, Issuing Disconnect."
+                     " Set HDD connState to eConnectionState_NotConnected",
                         __func__, csrGetCurrentBand(hHal), band);
 
              pHddStaCtx->conn_info.connState = eConnectionState_NotConnected;
@@ -7156,7 +7212,7 @@ static const iw_handler we_private[] = {
    [WLAN_PRIV_SET_MCBC_FILTER           - SIOCIWFIRSTPRIV]   = iw_set_dynamic_mcbc_filter,
    [WLAN_PRIV_CLEAR_MCBC_FILTER         - SIOCIWFIRSTPRIV]   = iw_clear_dynamic_mcbc_filter,
    [WLAN_SET_POWER_PARAMS               - SIOCIWFIRSTPRIV]   = iw_set_power_params_priv,
-   [WLAN_GET_LINK_SPEED                 - SIOCIWFIRSTPRIV]   = iw_get_linkspeed,
+   [WLAN_GET_LINK_SPEED                 - SIOCIWFIRSTPRIV]   = iw_get_linkspeed_priv,
 };
 
 /*Maximum command length can be only 15 */
@@ -7415,12 +7471,18 @@ static const struct iw_priv_args we_private_args[] = {
         0,
         0,
         "dataSnapshot"},
+#ifdef DEBUG_ROAM_DELAY
     {
-        WE_SET_REASSOC_TRIGGER,
+        WE_DUMP_ROAM_TIMER_LOG,
         0,
         0,
-        "reassoc" },
-
+        "dumpRoamDelay" },
+    {
+        WE_RESET_ROAM_TIMER_LOG,
+        0,
+        0,
+        "resetRoamDelay" },
+#endif
     /* handlers for main ioctl */
     {   WLAN_PRIV_SET_VAR_INT_GET_NONE,
         IW_PRIV_TYPE_INT | MAX_VAR_ARGS,
@@ -7890,7 +7952,12 @@ int hdd_UnregisterWext(struct net_device *dev)
 
    EXIT();
 #endif
+
+   VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO,"In %s", __func__);
+   rtnl_lock();
    dev->wireless_handlers = NULL;
+   rtnl_unlock();
+
    return 0;
 }
 

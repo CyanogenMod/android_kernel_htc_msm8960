@@ -53,6 +53,10 @@
 #include <limAdmitControl.h>
 #include "wmmApsd.h"
 
+#ifdef DEBUG_ROAM_DELAY
+#include "vos_utils.h"
+#endif
+
 #define LIM_FT_RIC_BA_SSN                       1
 #define LIM_FT_RIC_BA_DIALOG_TOKEN_TID_0         248
 #define LIM_FT_RIC_DESCRIPTOR_RESOURCE_TYPE_BA  1
@@ -330,14 +334,18 @@ void limPerformFTPreAuth(tpAniSirGlobal pMac, eHalStatus status, tANI_U32 *data,
         // Only 11r assoc has FT IEs.
         if (pMac->ft.ftPEContext.pFTPreAuthReq->ft_ies == NULL) 
         {
-            PELOGE(limLog( pMac, LOGE, "%s: FTIEs for Auth Req Seq 1 is absent");)
-            return;
+            PELOGE(limLog( pMac, LOGE,
+                           "%s: FTIEs for Auth Req Seq 1 is absent",
+                           __func__);)
+            goto preauth_fail;
         }
     }
     if (status != eHAL_STATUS_SUCCESS) 
     {
-        PELOGE(limLog( pMac, LOGE, "%s: Change channel not successful for FT pre-auth");)
-        return;
+        PELOGE(limLog( pMac, LOGE,
+                       "%s: Change channel not successful for FT pre-auth",
+                       __func__);)
+        goto preauth_fail;
     }
     pMac->ft.ftPEContext.psavedsessionEntry = psessionEntry;
 
@@ -383,6 +391,9 @@ MTRACE(macTrace(pMac, TRACE_CODE_TIMER_ACTIVATE, psessionEntry->peSessionId, eLI
         pMac->ft.ftPEContext.pFTPreAuthReq->preAuthbssId,
         LIM_NO_WEP_IN_FC, psessionEntry);
 
+    return;
+preauth_fail:
+    limHandleFTPreAuthRsp(pMac, eSIR_FAILURE, NULL, 0, psessionEntry);
     return;
 }
 
@@ -1294,6 +1305,9 @@ void limProcessMlmFTReassocReq(tpAniSirGlobal pMac, tANI_U32 *pMsgBuf,
     }
     // Dont need this anymore
     pMac->ft.ftPEContext.pAddBssReq = NULL;
+#ifdef DEBUG_ROAM_DELAY
+    vos_record_roam_event(e_LIM_ADD_BS_REQ, NULL, 0);
+#endif
     return;
 }
 
