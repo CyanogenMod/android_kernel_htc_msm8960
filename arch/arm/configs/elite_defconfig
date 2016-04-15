@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm 3.4.105 Kernel Configuration
+# Linux/arm 3.4.111 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_ARM_HAS_SG_CHAIN=y
@@ -3091,11 +3091,6 @@ CONFIG_PRIMA_WLAN_OKC=y
 # CONFIG_PRIMA_WLAN_11AC_HIGH_TP is not set
 # CONFIG_QCOM_VOWIFI_11R is not set
 # CONFIG_QCOM_TDLS is not set
-
-#
-# Qualcomm Atheros Prima WLAN module
-#
-# CONFIG_PRIMA_WLAN_3x is not set
 
 #
 # Qualcomm MSM specific device drivers
