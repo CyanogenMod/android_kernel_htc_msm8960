@@ -1928,6 +1928,7 @@ void dxeRXResourceAvailableTimerExpHandler
 )
 {
    WLANDXE_CtrlBlkType      *dxeCtxt    = NULL;
+   wpt_uint32               numRxFreePackets;
 
    dxeCtxt = (WLANDXE_CtrlBlkType *)usrData;
 
@@ -1935,7 +1936,30 @@ void dxeRXResourceAvailableTimerExpHandler
             "RX Low resource, Durign wait time period %d, RX resource not allocated",
             T_WLANDXE_MAX_RX_PACKET_WAIT);
 
-   if(0 != dxeCtxt)
+   //This API wil also try to replenish packets
+   wpalGetNumRxFreePacket(&numRxFreePackets);
+
+   if (numRxFreePackets > 0)
+   {
+      /* If no. of free packets is greater than 0, it means
+       * that some packets were replenished and can be used
+       * by DXE to receive frames. So try to restart the
+       * resourceAvailable timer here, it will be stopped
+       * by the DXE's low resource callback if atleast one
+       * free packet reaches DXE.
+       */
+      if (NULL != dxeCtxt)
+      {
+         HDXE_MSG(eWLAN_MODULE_DAL_DATA, eWLAN_PAL_TRACE_LEVEL_FATAL,
+                  "%s: Replenish successful. Restart the Rx Low resource timer",
+                  __func__);
+         wpalTimerStart(&dxeCtxt->rxResourceAvailableTimer,
+                        T_WLANDXE_MAX_RX_PACKET_WAIT);
+         return;
+      }
+   }
+
+   if (NULL != dxeCtxt)
       dxeCtxt->driverReloadInProcessing = eWLAN_PAL_TRUE;
 
    wpalWlanReload();
@@ -5282,8 +5306,10 @@ void dxeTxThreadSetPowerStateEventHandler
 {
    wpt_msg                  *msgContent = (wpt_msg *)msgPtr;
    WLANDXE_CtrlBlkType      *dxeCtxt;
-   wpt_status                status = eWLAN_PAL_STATUS_E_FAILURE;
+   wpt_status                status = eWLAN_PAL_STATUS_SUCCESS;
    WLANDXE_PowerStateType    reqPowerState;
+   wpt_int8                  i;
+   WLANDXE_ChannelCBType     *channelEntry;
 
    HDXE_MSG(eWLAN_MODULE_DAL_DATA, eWLAN_PAL_TRACE_LEVEL_INFO_LOW,
             "%s Enter", __func__);
@@ -5311,7 +5337,31 @@ void dxeTxThreadSetPowerStateEventHandler
       case WLANDXE_POWER_STATE_IMPS:
          if(WLANDXE_RIVA_POWER_STATE_ACTIVE == dxeCtxt->rivaPowerState)
          {
-            dxeCtxt->rivaPowerState = WLANDXE_RIVA_POWER_STATE_IMPS_UNKNOWN;
+
+            for(i = WDTS_CHANNEL_TX_LOW_PRI; i < WDTS_CHANNEL_RX_LOW_PRI; i++)
+            {
+               channelEntry = &dxeCtxt->dxeChannel[i];
+               if(channelEntry->tailCtrlBlk != channelEntry->headCtrlBlk)
+               {
+                  status = eWLAN_PAL_STATUS_E_FAILURE;
+                  HDXE_MSG(eWLAN_MODULE_DAL_DATA, eWLAN_PAL_TRACE_LEVEL_INFO_LOW,
+                           "%11s : %s :TX Pending frame",
+                           channelType[channelEntry->channelType], __func__);
+
+                  dxeChannelMonitor("DXE_IMP_ERR", channelEntry);
+                  dxeDescriptorDump(channelEntry,
+                                    channelEntry->headCtrlBlk->linkedDesc, 0);
+                  dxeChannelRegisterDump(channelEntry, "DXE_IMPS_ERR");
+                  dxeChannelAllDescDump(channelEntry,
+                                        channelEntry->channelType);
+               }
+            }
+
+            if (eWLAN_PAL_STATUS_SUCCESS == status)
+            {
+               dxeCtxt->rivaPowerState = WLANDXE_RIVA_POWER_STATE_IMPS_UNKNOWN;
+               dxeCtxt->hostPowerState = WLANDXE_POWER_STATE_IMPS;
+            }
          }
          else
          {
@@ -5462,7 +5512,6 @@ wpt_status WLANDXE_SetPowerState
          hostPowerState = WLANDXE_POWER_STATE_BMPS;
          break;
       case WDTS_POWER_STATE_IMPS:
-         pDxeCtrlBlk->hostPowerState = WLANDXE_POWER_STATE_IMPS;
          hostPowerState = WLANDXE_POWER_STATE_IMPS;
          break;
       case WDTS_POWER_STATE_DOWN:
@@ -5555,6 +5604,10 @@ wpt_status WLANDXE_SetPowerState
       {
          pDxeCtrlBlk->hostPowerState = hostPowerState;
          pDxeCtrlBlk->rivaPowerState = WLANDXE_RIVA_POWER_STATE_BMPS_UNKNOWN;
+      }
+      else if ( hostPowerState == WLANDXE_POWER_STATE_IMPS )
+      {
+         pDxeCtrlBlk->hostPowerState = WLANDXE_POWER_STATE_IMPS;
       }
       else
       {

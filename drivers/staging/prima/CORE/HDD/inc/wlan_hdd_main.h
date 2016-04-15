@@ -725,6 +725,11 @@ typedef struct hdd_scaninfo_s
 
    hdd_scan_pending_option_e scan_pending_option;
 
+   /* time to store last station scan done. */
+   v_TIME_t     last_scan_timestamp;
+   tANI_U8 last_scan_channelList[WNI_CFG_VALID_CHANNEL_LIST_LEN];
+   tANI_U8 last_scan_numChannels;
+
 }hdd_scaninfo_t;
 
 #define WLAN_HDD_MAX_MC_ADDR_LIST 10
@@ -1205,4 +1210,5 @@ void hdd_ipv6_notifier_work_queue(struct work_struct *work);
 #endif
 
 int hdd_wmmps_helper(hdd_adapter_t *pAdapter, tANI_U8 *ptr);
+int wlan_hdd_scan_abort(hdd_adapter_t *pAdapter);
 #endif    // end #if !defined( WLAN_HDD_MAIN_H )

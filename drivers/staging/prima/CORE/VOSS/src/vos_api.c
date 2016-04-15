@@ -691,7 +691,8 @@ VOS_STATUS vos_start( v_CONTEXT_t vosContext )
      vos_event_reset( &(gpVosContext->wdaCompleteEvent) );
      if (vos_is_logp_in_progress(VOS_MODULE_ID_VOSS, NULL))
      {
-         VOS_BUG(0);
+       if (isSsrPanicOnFailure())
+           VOS_BUG(0);
      }
      WDA_setNeedShutdown(vosContext);
      return VOS_STATUS_E_FAILURE;
@@ -705,7 +706,11 @@ VOS_STATUS vos_start( v_CONTEXT_t vosContext )
   if ( vStatus != VOS_STATUS_SUCCESS )
   {
      VOS_TRACE( VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
-                 "%s: Failed to start WDA", __func__);
+                 "%s: Failed to start WDA - WDA_shutdown needed", __func__);
+     if ( vStatus == VOS_STATUS_E_TIMEOUT )
+      {
+         WDA_setNeedShutdown(vosContext);
+      }
      return VOS_STATUS_E_FAILURE;
   }
   VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_INFO,
@@ -1767,6 +1772,11 @@ VOS_STATUS vos_rx_mq_serialize( VOS_MQ_ID msgQueueId, vos_msg_t *pMsg )
        pTargetMq = &(gpVosContext->vosSched.wdiRxMq);
        break;
     }
+    case VOS_MQ_ID_TL:
+    {
+       pTargetMq = &(gpVosContext->vosSched.tlRxMq);
+       break;
+    }
 
     default:
 
@@ -2191,4 +2201,28 @@ v_VOID_t vos_fwDumpReq(tANI_U32 cmd, tANI_U32 arg1, tANI_U32 arg2,
                         tANI_U32 arg3, tANI_U32 arg4)
 {
    WDA_HALDumpCmdReq(NULL, cmd, arg1, arg2, arg3, arg4, NULL);
+}
+
+/**---------------------------------------------------------------------------
+
+  \brief vos_is_wlan_in_badState() - get isFatalError flag from WD Ctx
+
+  \param  - VOS_MODULE_ID   - module id
+          - moduleContext   - module context
+
+  \return -  isFatalError value if WDCtx is valid otherwise true
+
+  --------------------------------------------------------------------------*/
+v_BOOL_t vos_is_wlan_in_badState(VOS_MODULE_ID moduleId,
+                                 v_VOID_t *moduleContext)
+{
+    struct _VosWatchdogContext *pVosWDCtx = get_vos_watchdog_ctxt();
+
+    if (pVosWDCtx == NULL){
+        VOS_TRACE(moduleId, VOS_TRACE_LEVEL_ERROR,
+                "%s: global wd context is null", __func__);
+
+        return TRUE;
+    }
+    return pVosWDCtx->isFatalError;
 }

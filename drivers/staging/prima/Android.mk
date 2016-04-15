@@ -3,7 +3,7 @@
 # Build/Package options for 8960 target
 ifeq ($(TARGET_BOARD_PLATFORM),msm8960)
 WLAN_CHIPSET := prima
-WLAN_SELECT := CONFIG_PRIMA_WLAN=m
+WLAN_SELECT := CONFIG_PRIMA_WLAN_3x=m
 endif
 
 # Build/Package options for 8974, 8226 targets

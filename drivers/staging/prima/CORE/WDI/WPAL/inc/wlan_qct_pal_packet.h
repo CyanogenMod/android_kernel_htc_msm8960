@@ -336,4 +336,14 @@ wpt_status wpalIsPacketLocked( wpt_packet *pPacket);
 ---------------------------------------------------------------------------*/
 wpt_status wpalGetNumRxRawPacket(wpt_uint32 *numRxResource);
 
+/*---------------------------------------------------------------------------
+   wpalGetNumRxFreePacket   Query available RX Free buffer count
+   param:
+       numRxResource  pointer of queried value
+
+   return:
+       WPT_STATUS
+---------------------------------------------------------------------------*/
+wpt_status wpalGetNumRxFreePacket(wpt_uint32 *numRxResource);
+
 #endif // __WLAN_QCT_PAL_PACKET_H

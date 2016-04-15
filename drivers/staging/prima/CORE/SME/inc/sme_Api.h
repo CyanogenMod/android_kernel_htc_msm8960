@@ -118,6 +118,7 @@ typedef struct _smeConfigParams
     tANI_BOOLEAN  isWESModeEnabled;
 #endif
     tANI_U8  isAmsduSupportInAMPDU;
+    tANI_BOOLEAN  fScanOffload;
 } tSmeConfigParams, *tpSmeConfigParams;
 
 
@@ -825,25 +826,6 @@ eHalStatus sme_CfgSetInt(tHalHandle hHal, tANI_U32 cfgId, tANI_U32 ccmValue,
 eHalStatus sme_CfgSetStr(tHalHandle hHal, tANI_U32 cfgId, tANI_U8 *pStr, 
                          tANI_U32 length, tCcmCfgSetCallback callback, 
                          eAniBoolean toBeSaved) ;
-
-
-/* ---------------------------------------------------------------------------
-    \fn sme_GetModifyProfileFields
-    \brief HDD or SME - QOS calls this function to get the current values of 
-    connected profile fields, changing which can cause reassoc.
-    This function must be called after CFG is downloaded and STA is in connected
-    state. Also, make sure to call this function to get the current profile
-    fields before calling the reassoc. So that pModifyProfileFields will have
-    all the latest values plus the one(s) has been updated as part of reassoc
-    request.
-    \param pModifyProfileFields - pointer to the connected profile fields 
-    changing which can cause reassoc
-
-    \return eHalStatus     
-  -------------------------------------------------------------------------------*/
-eHalStatus sme_GetModifyProfileFields(tHalHandle hHal, tANI_U8 sessionId, 
-                                     tCsrRoamModifyProfileFields * pModifyProfileFields);
-
 
 /*--------------------------------------------------------------------------
     \fn sme_SetConfigPowerSave
