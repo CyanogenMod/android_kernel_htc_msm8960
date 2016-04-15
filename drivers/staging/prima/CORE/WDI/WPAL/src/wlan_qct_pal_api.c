@@ -460,7 +460,7 @@ void wpalFwDumpReq(wpt_uint32 cmd, wpt_uint32 arg1, wpt_uint32 arg2,
 ---------------------------------------------------------------------------*/
 void wpalDevicePanic(void)
 {
-   BUG_ON(0);
+   BUG_ON(1);
    return;
 }
 
@@ -475,4 +475,17 @@ void wpalDevicePanic(void)
 int  wpalIsWDresetInProgress(void)
 {
    return isWDresetInProgress();
+}
+
+/*---------------------------------------------------------------------------
+    wpalIsSsrPanicOnFailure -  calls vos API isSsrPanicOnFailure()
+
+    Param:
+       NONE
+    Return:
+       STATUS
+ ---------------------------------------------------------------------------*/
+int  wpalIsSsrPanicOnFailure(void)
+{
+   return isSsrPanicOnFailure();
 }
