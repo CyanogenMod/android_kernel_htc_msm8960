@@ -1483,6 +1483,7 @@ CONFIG_BCMDHD_FW_PATH="/system/etc/firmware/fw_bcm4334.bin"
 CONFIG_BCMDHD_NVRAM_PATH="/system/etc/calibration.gpio4"
 # CONFIG_DHD_USE_STATIC_BUF is not set
 # CONFIG_DHD_USE_SCHED_SCAN is not set
+# CONFIG_BCMDHD_4335_MCC is not set
 # CONFIG_BRCMFMAC is not set
 # CONFIG_HOSTAP is not set
 # CONFIG_IWM is not set
@@ -1667,6 +1668,7 @@ CONFIG_INPUT_GPIO=y
 # CONFIG_SENSORS_AKM8975 is not set
 # CONFIG_SENSORS_PANASONIC_GYRO is not set
 # CONFIG_SENSORS_BMA250 is not set
+# CONFIG_SENSORS_ONLY_BMA250 is not set
 # CONFIG_SENSORS_BMA250_BOSCH is not set
 CONFIG_INPUT_CAPELLA_CM3629=y
 CONFIG_SENSORS_R3GD20=y
@@ -3128,11 +3130,6 @@ CONFIG_ANDROID_LOW_MEMORY_KILLER_AUTODETECT_OOM_ADJ_VALUES=y
 # Qualcomm Atheros Prima WLAN module
 #
 # CONFIG_PRIMA_WLAN is not set
-
-#
-# Qualcomm Atheros Prima WLAN module
-#
-# CONFIG_PRIMA_WLAN_3x is not set
 
 #
 # Qualcomm MSM specific device drivers
