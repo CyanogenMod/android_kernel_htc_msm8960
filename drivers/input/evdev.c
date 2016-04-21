@@ -62,6 +62,29 @@ struct evdev_client {
 	struct input_event buffer[];
 };
 
+const char * const wants_boottime_dev_names[] = {
+#ifdef CONFIG_INPUT_CAPELLA_CM3629
+	"proximity",
+	"lightsensor-level",
+#endif
+#ifdef CONFIG_SENSORS_R3GD20
+	"r3gd20_gyr",
+#endif
+#ifdef CONFIG_SENSORS_PANASONIC_GYRO
+	"ewtzmu2_gyroscope",
+#endif
+#ifdef CONFIG_SENSORS_BMA250_BOSCH
+	"bma250",
+	"sig_motion",
+#endif
+#if defined(CONFIG_SENSORS_BMA250_BOSCH) || defined(CONFIG_SENSORS_ONLY_BMA250)
+	"CIRSensor",
+#endif
+#if defined(CONFIG_MPU_SENSORS_AK8963) || defined(CONFIG_SENSORS_AKM8963_NST) || defined(CONFIG_SENSORS_AKM8975)
+	"compass",
+#endif
+};
+
 static int evdev_set_clk_type(struct evdev_client *client, unsigned int clkid)
 {
 	switch (clkid) {
@@ -324,6 +347,18 @@ static unsigned int evdev_compute_buffer_size(struct input_dev *dev)
 	return roundup_pow_of_two(n_events);
 }
 
+static bool evdev_wants_boottime(const char *name)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(wants_boottime_dev_names); i++) {
+		if (!strcmp(name, wants_boottime_dev_names[i]))
+			return 1;
+	}
+
+	return 0;
+}
+
 static int evdev_open(struct inode *inode, struct file *file)
 {
 	struct evdev *evdev;
@@ -356,7 +391,11 @@ static int evdev_open(struct inode *inode, struct file *file)
 		goto err_put_evdev;
 	}
 
-	client->clk_type = EV_CLK_MONO;
+	if (evdev_wants_boottime(evdev->handle.dev->name))
+		client->clk_type = EV_CLK_BOOT;
+	else
+		client->clk_type = EV_CLK_MONO;
+
 	client->bufsize = bufsize;
 	spin_lock_init(&client->buffer_lock);
 	snprintf(client->name, sizeof(client->name), "%s-%d",
