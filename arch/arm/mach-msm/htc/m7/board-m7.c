@@ -4848,7 +4848,7 @@ static void __init m7_fixup(struct tag *tags, char **cmdline, struct meminfo *mi
 	skuid = parse_tag_skuid((const struct tag *)tags);
 }
 
-MACHINE_START(M7_UL, "UNKNOWN")
+MACHINE_START(M7_UL, "m7")
 	.fixup = m7_fixup,
 	.map_io = m7_map_io,
 	.reserve = m7_reserve,
