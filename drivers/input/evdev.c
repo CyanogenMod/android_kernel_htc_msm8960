@@ -74,8 +74,10 @@ const char * const wants_boottime_dev_names[] = {
 	"ewtzmu2_gyroscope",
 #endif
 #ifdef CONFIG_SENSORS_BMA250_BOSCH
-	"bma250",
 	"sig_motion",
+#endif
+#if defined(CONFIG_SENSORS_BMA250_BOSCH) || defined(CONFIG_SENSORS_BMA250)
+	"bma250",
 #endif
 #if defined(CONFIG_SENSORS_BMA250_BOSCH) || defined(CONFIG_SENSORS_ONLY_BMA250)
 	"CIRSensor",
