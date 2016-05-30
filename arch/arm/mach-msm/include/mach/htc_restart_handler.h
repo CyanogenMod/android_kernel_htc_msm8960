@@ -25,12 +25,6 @@
 #define RESTART_REASON_OEM_BASE         0x6f656d00
 #define RESTART_REASON_RIL_FATAL        (RESTART_REASON_OEM_BASE | 0x99)
 
-int read_backup_cc_uv(void);
-void write_backup_cc_uv(int cc_reading);
-uint16_t read_backup_ocv_at_100(void);
-void write_backup_ocv_at_100(uint16_t ocv_reading);
-int read_backup_ocv_uv(void);
-void write_backup_ocv_uv(int ocv_backup);
 int set_restart_action(unsigned int reason, const char *msg);
 int set_restart_to_oem(unsigned int code, const char *msg);
 int set_restart_to_ramdump(const char *msg);
