@@ -32,6 +32,7 @@
 #endif
 #include <linux/atmel_qt602240.h>
 #include <linux/synaptics_i2c_rmi.h>
+#include <linux/cyttsp-qc.h>
 #include <linux/dma-contiguous.h>
 #include <linux/dma-mapping.h>
 #include <linux/platform_data/qcom_crypto_device.h>
@@ -123,11 +124,7 @@
 #include "linux/mfd/pm8xxx/pm8921-charger-htc.h"
 #endif
 
-#ifdef CONFIG_PERFLOCK
-#include <mach/perflock.h>
-#endif
-
-extern unsigned int engineerid; // bit 0
+extern unsigned int engineerid;
 
 #define HW_VER_ID_VIRT		(MSM_TLMM_BASE + 0x00002054)
 
@@ -137,8 +134,8 @@ unsigned skuid;
 static void config_flashlight_gpios(void)
 {
 	static uint32_t flashlight_gpio_table[] = {
-		GPIO_CFG(32, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-		GPIO_CFG(33, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+		GPIO_CFG(FIGHTER_GPIO_TORCH_FLASHz, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+		GPIO_CFG(FIGHTER_GPIO_DRIVER_EN, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
 	};
 
 	gpio_tlmm_config(flashlight_gpio_table[0], GPIO_CFG_ENABLE);
@@ -147,10 +144,10 @@ static void config_flashlight_gpios(void)
 
 static struct TPS61310_flashlight_platform_data fighter_flashlight_data = {
 	.gpio_init = config_flashlight_gpios,
-	.tps61310_strb0 = 33,
-	.tps61310_strb1 = 32,
-	.led_count = 1,
+	.tps61310_strb0 = FIGHTER_GPIO_DRIVER_EN,
+	.tps61310_strb1 = FIGHTER_GPIO_TORCH_FLASHz,
 	.flash_duration_ms = 600,
+	.mode_pin_suspend_state_low = 1,
 };
 
 static struct i2c_board_info i2c_tps61310_flashlight[] = {
@@ -183,16 +180,6 @@ enum {
 	GPIO_CAM_GP_LED_EN2,
 
 };
-#endif
-
-#ifdef CONFIG_I2C
-
-#define MSM_8960_GSBI2_QUP_I2C_BUS_ID 2
-#define MSM_8960_GSBI4_QUP_I2C_BUS_ID 4
-#define MSM_8960_GSBI3_QUP_I2C_BUS_ID 3
-#define MSM_8960_GSBI8_QUP_I2C_BUS_ID 8
-#define MSM_8960_GSBI12_QUP_I2C_BUS_ID 12
-
 #endif
 
 #define MSM_PMEM_ADSP_SIZE         0x6D00000
@@ -334,7 +321,9 @@ static struct memtype_reserve msm8960_reserve_table[] __initdata = {
 static void __init reserve_rtb_memory(void)
 {
 #if defined(CONFIG_MSM_RTB)
-	msm8960_reserve_table[MEMTYPE_EBI1].size += msm_rtb_pdata.size;
+	msm8960_reserve_table[MEMTYPE_EBI1].size += msm8960_rtb_pdata.size;
+	pr_info("mem_map: rtb reserved with size 0x%x in pool\n",
+			msm8960_rtb_pdata.size);
 #endif
 }
 
@@ -776,25 +765,16 @@ static void __init reserve_mdp_memory(void)
 	msm8960_mdp_writeback(msm8960_reserve_table);
 }
 
-static void reserve_cache_dump_memory(void)
+static void __init reserve_cache_dump_memory(void)
 {
 #ifdef CONFIG_MSM_CACHE_DUMP
-	unsigned int spare;
-	unsigned int l1_size;
 	unsigned int total;
-	int ret;
 
-	ret = scm_call(L1C_SERVICE_ID, L1C_BUFFER_GET_SIZE_COMMAND_ID, &spare,
-		sizeof(spare), &l1_size, sizeof(l1_size));
-
-	if (ret)
-		/* Fall back to something reasonable here */
-		l1_size = L1_BUFFER_SIZE;
-
-	total = l1_size + L2_BUFFER_SIZE;
-
+	total = msm8960_cache_dump_pdata.l1_size +
+		msm8960_cache_dump_pdata.l2_size;
 	msm8960_reserve_table[MEMTYPE_EBI1].size += total;
-	msm_cache_dump_pdata.l1_size = l1_size;
+	pr_info("mem_map: cache_dump reserved with size 0x%x in pool\n",
+			total);
 #endif
 }
 
@@ -850,12 +830,12 @@ static struct wcd9xxx_pdata tabla_platform_data = {
 	},
 	.irq = MSM_GPIO_TO_INT(62),
 	.irq_base = TABLA_INTERRUPT_BASE,
-	.num_irqs = NR_TABLA_IRQS,
+	.num_irqs = NR_WCD9XXX_IRQS,
 	.reset_gpio = PM8921_GPIO_PM_TO_SYS(34),
 	.micbias = {
 		.ldoh_v = TABLA_LDOH_2P85_V,
 		.cfilt1_mv = 1800,
-		.cfilt2_mv = 1800,
+		.cfilt2_mv = 2700,
 		.cfilt3_mv = 1800,
 		.bias1_cfilt_sel = TABLA_CFILT1_SEL,
 		.bias2_cfilt_sel = TABLA_CFILT2_SEL,
@@ -917,7 +897,7 @@ static struct wcd9xxx_pdata tabla20_platform_data = {
 	},
 	.irq = MSM_GPIO_TO_INT(62),
 	.irq_base = TABLA_INTERRUPT_BASE,
-	.num_irqs = NR_TABLA_IRQS,
+	.num_irqs = NR_WCD9XXX_IRQS,
 	.reset_gpio = PM8921_GPIO_PM_TO_SYS(34),
 	.amic_settings = {
 		.legacy_mode = 0x7F,
@@ -926,7 +906,7 @@ static struct wcd9xxx_pdata tabla20_platform_data = {
 	.micbias = {
 		.ldoh_v = TABLA_LDOH_2P85_V,
 		.cfilt1_mv = 1800,
-		.cfilt2_mv = 1800,
+		.cfilt2_mv = 2700,
 		.cfilt3_mv = 1800,
 		.bias1_cfilt_sel = TABLA_CFILT1_SEL,
 		.bias2_cfilt_sel = TABLA_CFILT2_SEL,
@@ -1019,10 +999,10 @@ static struct resource resources_wcnss_wlan[] = {
 		.flags	= IORESOURCE_MEM,
 	},
 	{
-		.start  = 84,
-		.end    = 88,
-		.name   = "wcnss_gpios_5wire",
-		.flags  = IORESOURCE_IO,
+		.start	= 84,
+		.end	= 88,
+		.name	= "wcnss_gpios_5wire",
+		.flags	= IORESOURCE_IO,
 	},
 };
 
@@ -1210,7 +1190,7 @@ static struct htc_battery_platform_data htc_battery_pdev_data = {
 #ifdef CONFIG_DUTY_CYCLE_LIMIT
 	.chg_limit_timer_sub_mask = HTC_BATT_CHG_LIMIT_BIT_THRML,
 #endif
-	.critical_low_voltage_mv = 3200,
+	.critical_low_voltage_mv = 3100,
 	.critical_alarm_vol_ptr = critical_alarm_voltage_mv,
 	.critical_alarm_vol_cols = sizeof(critical_alarm_voltage_mv) / sizeof(int),
 	.overload_vol_thr_mv = 4000,
@@ -1231,6 +1211,9 @@ static struct htc_battery_platform_data htc_battery_pdev_data = {
 						cable_detect_register_notifier,
 	.icharger.dump_all = pm8921_dump_all,
 	.icharger.get_attr_text = pm8921_charger_get_attr_text,
+	.icharger.max_input_current = pm8921_set_hsml_target_ma,
+	.icharger.is_safty_timer_timeout = pm8921_is_chg_safety_timer_timeout,
+	.icharger.is_battery_full_eoc_stop = pm8921_is_batt_full_eoc_stop,
 	/* gauge */
 	.igauge.name = "pm8921",
 	.igauge.get_battery_voltage = pm8921_get_batt_voltage,
@@ -1283,43 +1266,45 @@ struct pm8xxx_gpio_init {
 	} \
 }
 
-static uint32_t headset_gpio_xc[] = {
-	GPIO_CFG(FIGHTER_HS_TX_CPU, 0, GPIO_CFG_OUTPUT,
+static uint32_t headset_cpu_gpio[] = {
+	GPIO_CFG(FIGHTER_GPIO_AUD_UART_TX, 2, GPIO_CFG_OUTPUT,
 		 GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-	GPIO_CFG(FIGHTER_HS_RX_CPU, 0, GPIO_CFG_INPUT,
-		 GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
-	GPIO_CFG(FIGHTER_HS_MIC_BIAS_EN, 0, GPIO_CFG_OUTPUT,
+	GPIO_CFG(FIGHTER_GPIO_AUD_UART_RX, 2, GPIO_CFG_INPUT,
+		 GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+	GPIO_CFG(FIGHTER_GPIO_V_HSMIC_2v85_EN, 0, GPIO_CFG_OUTPUT,
 		 GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
 };
 
 struct pm8xxx_gpio_init headset_pmic_gpio[] = {
-	PM8XXX_GPIO_INIT(FIGHTER_HS_RX_PMIC_REMO, PM_GPIO_DIR_IN,
+	PM8XXX_GPIO_INIT(FIGHTER_PMGPIO_AUD_REMO_PRESz, PM_GPIO_DIR_IN,
 			 PM_GPIO_OUT_BUF_CMOS, 0, PM_GPIO_PULL_NO,
 			 PM_GPIO_VIN_L17, PM_GPIO_STRENGTH_LOW,
 			 PM_GPIO_FUNC_PAIRED, 0, 0),
 };
 
 struct pm8xxx_gpio_init headset_pmic_gpio_rx_xc[] = {
-	PM8XXX_GPIO_INIT(FIGHTER_HS_TX_PMIC_UART, PM_GPIO_DIR_IN,
-			 PM_GPIO_OUT_BUF_CMOS, 0, PM_GPIO_PULL_DN,
-			 PM_GPIO_VIN_S4, PM_GPIO_STRENGTH_LOW,
-			 PM_GPIO_FUNC_NORMAL, 0, 0),
-	PM8XXX_GPIO_INIT(FIGHTER_HS_TX_PMIC_REMO, PM_GPIO_DIR_IN,
+	PM8XXX_GPIO_INIT(FIGHTER_PMGPIO_AUD_REMO_PRESz, PM_GPIO_DIR_IN,
 			 PM_GPIO_OUT_BUF_CMOS, 0, PM_GPIO_PULL_NO,
 			 PM_GPIO_VIN_L17, PM_GPIO_STRENGTH_LOW,
-			 PM_GPIO_FUNC_NORMAL, 0, 0),
-	PM8XXX_GPIO_INIT(FIGHTER_HS_RX_PMIC_REMO, PM_GPIO_DIR_IN,
+			 PM_GPIO_FUNC_PAIRED, 0, 0),
+#ifdef CONFIG_HTC_HEADSET_ONE_WIRE
+	PM8XXX_GPIO_INIT(FIGHTER_PMGPIO_AUD_1WIRE_DI, PM_GPIO_DIR_OUT,
+			 PM_GPIO_OUT_BUF_CMOS, 0, PM_GPIO_PULL_NO,
+			 PM_GPIO_VIN_S4, PM_GPIO_STRENGTH_LOW,
+			 PM_GPIO_FUNC_PAIRED, 0, 0),
+	PM8XXX_GPIO_INIT(FIGHTER_PMGPIO_AUD_1WIRE_O, PM_GPIO_DIR_OUT,
 			 PM_GPIO_OUT_BUF_CMOS, 0, PM_GPIO_PULL_NO,
 			 PM_GPIO_VIN_L17, PM_GPIO_STRENGTH_LOW,
-			 PM_GPIO_FUNC_NORMAL, 0, 0),
-	PM8XXX_GPIO_INIT(FIGHTER_HS_RX_PMIC_UART, PM_GPIO_DIR_IN,
+			 PM_GPIO_FUNC_PAIRED, 0, 0),
+	PM8XXX_GPIO_INIT(FIGHTER_PMGPIO_AUD_1WIRE_DO, PM_GPIO_DIR_IN,
 			 PM_GPIO_OUT_BUF_CMOS, 0, PM_GPIO_PULL_DN,
 			 PM_GPIO_VIN_S4, PM_GPIO_STRENGTH_LOW,
-			 PM_GPIO_FUNC_NORMAL, 0, 0),
+			 PM_GPIO_FUNC_PAIRED, 0, 0),
+#endif
 };
 
 struct pm8xxx_gpio_init headset_pmic_gpio_rx_xd[] = {
-	PM8XXX_GPIO_INIT(FIGHTER_LS_EN, PM_GPIO_DIR_OUT,
+	PM8XXX_GPIO_INIT(FIGHTER_PMGPIO_NC_40, PM_GPIO_DIR_OUT,
 			 PM_GPIO_OUT_BUF_CMOS, 0, PM_GPIO_PULL_NO,
 			 PM_GPIO_VIN_S4, PM_GPIO_STRENGTH_HIGH,
 			 PM_GPIO_FUNC_NORMAL, 0, 0),
@@ -1334,20 +1319,20 @@ static void headset_init(void)
 
 	/* XA, XB */
 	if (system_rev < 2) {
-		rc = pm8xxx_gpio_config(headset_pmic_gpio[0].gpio,
-					&headset_pmic_gpio[0].config);
-		if (rc)
-			pr_info("[HS_BOARD] %s: Config ERROR: GPIO=%u, rc=%d\n",
-				__func__, headset_pmic_gpio[0].gpio, rc);
+		for (i = 0; i < ARRAY_SIZE(headset_pmic_gpio); i++) {
+			rc = pm8xxx_gpio_config(headset_pmic_gpio[i].gpio,
+						&headset_pmic_gpio[i].config);
+			if (rc)
+				pr_info("[HS_BOARD] %s: Config ERROR: GPIO=%u, rc=%d\n",
+					__func__, headset_pmic_gpio[i].gpio, rc);
+		}
 		return;
 	}
 
 	/* XC */
-	gpio_tlmm_config(headset_gpio_xc[0], GPIO_CFG_ENABLE);
-	gpio_tlmm_config(headset_gpio_xc[1], GPIO_CFG_ENABLE);
-	gpio_tlmm_config(headset_gpio_xc[2], GPIO_CFG_ENABLE);
-	gpio_set_value(FIGHTER_HS_TX_CPU, 0);
-	gpio_set_value(FIGHTER_HS_MIC_BIAS_EN, 0);
+	for (i = 0; i < ARRAY_SIZE(headset_cpu_gpio); i++)
+		gpio_tlmm_config(headset_cpu_gpio[i], GPIO_CFG_ENABLE);
+	gpio_set_value(FIGHTER_GPIO_V_HSMIC_2v85_EN, 0);
 
 	for (i = 0; i < ARRAY_SIZE(headset_pmic_gpio_rx_xc); i++) {
 		rc = pm8xxx_gpio_config(headset_pmic_gpio_rx_xc[i].gpio,
@@ -1366,7 +1351,7 @@ static void headset_init(void)
 					__func__,
 					headset_pmic_gpio_rx_xd[i].gpio, rc);
 		}
-		gpio_set_value(PM8921_GPIO_PM_TO_SYS(FIGHTER_LS_EN), 1);
+		gpio_set_value(PM8921_GPIO_PM_TO_SYS(FIGHTER_PMGPIO_NC_40), 1);
 	}
 }
 
@@ -1378,18 +1363,50 @@ static void headset_power(int enable)
 	pr_info("[HS_BOARD] (%s) Set MIC bias %d\n", __func__, enable);
 
 	if (enable)
-		gpio_set_value(FIGHTER_HS_MIC_BIAS_EN, 1);
+		gpio_set_value(FIGHTER_GPIO_V_HSMIC_2v85_EN, 1);
 	else
-		gpio_set_value(FIGHTER_HS_MIC_BIAS_EN, 0);
+		gpio_set_value(FIGHTER_GPIO_V_HSMIC_2v85_EN, 0);
 }
+
+#ifdef CONFIG_HTC_HEADSET_ONE_WIRE
+static uint32_t headset_1wire_gpio[] = {
+	GPIO_CFG(FIGHTER_GPIO_AUD_UART_RX, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+	GPIO_CFG(FIGHTER_GPIO_AUD_UART_TX, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+	GPIO_CFG(FIGHTER_GPIO_AUD_UART_RX, 2, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+	GPIO_CFG(FIGHTER_GPIO_AUD_UART_TX, 2, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+};
+
+static void uart_tx_gpo(int mode)
+{
+	switch (mode) {
+		case 0:
+			gpio_tlmm_config(headset_1wire_gpio[1], GPIO_CFG_ENABLE);
+			gpio_set_value_cansleep(FIGHTER_GPIO_AUD_UART_TX, 0);
+			break;
+		case 1:
+			gpio_tlmm_config(headset_1wire_gpio[1], GPIO_CFG_ENABLE);
+			gpio_set_value_cansleep(FIGHTER_GPIO_AUD_UART_TX, 1);
+			break;
+		case 2:
+			gpio_tlmm_config(headset_1wire_gpio[3], GPIO_CFG_ENABLE);
+			break;
+	}
+}
+
+static void uart_lv_shift_en(int enable)
+{
+	gpio_set_value_cansleep(PM8921_GPIO_PM_TO_SYS(FIGHTER_PMGPIO_NC_40), enable);
+}
+#endif
 
 /* HTC_HEADSET_PMIC Driver */
 static struct htc_headset_pmic_platform_data htc_headset_pmic_data = {
 	.driver_flag		= DRIVER_HS_PMIC_ADC,
-	.hpin_gpio		= PM8921_GPIO_PM_TO_SYS(FIGHTER_EARPHONE_DETz),
+	.hpin_gpio		= PM8921_GPIO_PM_TO_SYS(
+					FIGHTER_PMGPIO_EARPHONE_DETz),
 	.hpin_irq		= 0,
 	.key_gpio		= PM8921_GPIO_PM_TO_SYS(
-					FIGHTER_HS_RX_PMIC_REMO),
+					FIGHTER_PMGPIO_AUD_REMO_PRESz),
 	.key_irq		= 0,
 	.key_enable_gpio	= 0,
 	.adc_mic		= 0,
@@ -1408,21 +1425,42 @@ static struct platform_device htc_headset_pmic = {
 	},
 };
 
+#ifdef CONFIG_HTC_HEADSET_ONE_WIRE
+static struct htc_headset_1wire_platform_data htc_headset_1wire_data = {
+	.tx_level_shift_en	= PM8921_GPIO_PM_TO_SYS(FIGHTER_PMGPIO_NC_40),
+	.uart_sw		= 0,
+	.one_wire_remote	={0x7E, 0x7F, 0x7D, 0x7F, 0x7B, 0x7F},
+	.remote_press		= 0,
+	.onewire_tty_dev	= "/dev/ttyHSL2",
+};
+
+static struct platform_device htc_headset_one_wire = {
+	.name	= "HTC_HEADSET_1WIRE",
+	.id	= -1,
+	.dev	= {
+		.platform_data	= &htc_headset_1wire_data,
+	},
+};
+#endif
+
 /* HTC_HEADSET_MGR Driver */
 static struct platform_device *headset_devices[] = {
 	&htc_headset_pmic,
+#ifdef CONFIG_HTC_HEADSET_ONE_WIRE
+	&htc_headset_one_wire,
+#endif
 	/* Please put the headset detection driver on the last */
 };
 
 static struct headset_adc_config htc_headset_mgr_config[] = {
 	{
 		.type = HEADSET_MIC,
-		.adc_max = 1560,
-		.adc_min = 1244,
+		.adc_max = 1530,
+		.adc_min = 1223,
 	},
 	{
 		.type = HEADSET_BEATS,
-		.adc_max = 1243,
+		.adc_max = 1222,
 		.adc_min = 916,
 	},
 	{
@@ -1443,13 +1481,17 @@ static struct headset_adc_config htc_headset_mgr_config[] = {
 };
 
 static struct htc_headset_mgr_platform_data htc_headset_mgr_data = {
-	.driver_flag		= 0,
+	.driver_flag		= DRIVER_HS_MGR_OLD_AJ,
 	.headset_devices_num	= ARRAY_SIZE(headset_devices),
 	.headset_devices	= headset_devices,
 	.headset_config_num	= ARRAY_SIZE(htc_headset_mgr_config),
 	.headset_config		= htc_headset_mgr_config,
 	.headset_init		= headset_init,
 	.headset_power		= headset_power,
+#ifdef CONFIG_HTC_HEADSET_ONE_WIRE
+	.uart_tx_gpo		= uart_tx_gpo,
+	.uart_lv_shift_en	= uart_lv_shift_en,
+#endif
 };
 
 static struct platform_device htc_headset_mgr = {
@@ -1462,7 +1504,8 @@ static struct platform_device htc_headset_mgr = {
 
 static void headset_device_register(void)
 {
-	pr_info("[HS_BOARD] (%s) Headset device register\n", __func__);
+	pr_info("[HS_BOARD] (%s) Headset device register (system_rev=%d)\n",
+		__func__, system_rev);
 
 	platform_device_register(&htc_headset_mgr);
 }
@@ -1480,7 +1523,7 @@ static struct atmel_i2c_platform_data ts_atmel_data[] = {
 		.abs_pressure_max = 255,
 		.abs_width_min = 0,
 		.abs_width_max = 20,
-		.gpio_irq = FIGHTER_TP_ATTz,
+		.gpio_irq = FIGHTER_GPIO_TP_ATTz,
 		.config_T6 = {0, 0, 0, 0, 0, 0},
 		.config_T7 = {15, 8, 50},
 		.config_T8 = {27, 0, 5, 20, 0, 0, 2, 30, 16, 192},
@@ -1510,7 +1553,7 @@ static struct atmel_i2c_platform_data ts_atmel_data[] = {
 		.abs_pressure_max = 255,
 		.abs_width_min = 0,
 		.abs_width_max = 20,
-		.gpio_irq = FIGHTER_TP_ATTz,
+		.gpio_irq = FIGHTER_GPIO_TP_ATTz,
 		.config_T6 = {0, 0, 0, 0, 0, 0},
 		.config_T7 = {15, 8, 50},
 		.config_T8 = {20, 0, 5, 20, 0, 0, 2, 30, 16, 192},
@@ -1540,7 +1583,7 @@ static struct atmel_i2c_platform_data ts_atmel_data[] = {
 		.abs_pressure_max = 255,
 		.abs_width_min = 0,
 		.abs_width_max = 20,
-		.gpio_irq = FIGHTER_TP_ATTz,
+		.gpio_irq = FIGHTER_GPIO_TP_ATTz,
 		.config_T6 = {0, 0, 0, 0, 0, 0},
 		.config_T7 = {15, 8, 50},
 		.config_T8 = {20, 0, 5, 20, 0, 0, 2, 30, 16, 192},
@@ -1568,7 +1611,7 @@ static struct atmel_i2c_platform_data ts_atmel_data[] = {
 		.abs_pressure_max = 255,
 		.abs_width_min = 0,
 		.abs_width_max = 20,
-		.gpio_irq = FIGHTER_TP_ATTz,
+		.gpio_irq = FIGHTER_GPIO_TP_ATTz,
 		.config_T6 = {0, 0, 0, 0, 0, 0},
 		.config_T7 = {15, 8, 50},
 		.config_T8 = {20, 0, 5, 20, 0, 0, 2, 30, 16, 192},
@@ -1588,21 +1631,80 @@ static struct atmel_i2c_platform_data ts_atmel_data[] = {
 
 static struct synaptics_i2c_rmi_platform_data syn_ts_3k_data[] = { /* Synatpics sensor */
 	{
+		.version = 0x3332,
+		.packrat_number = 1293984,
+		.abs_x_min = 0,
+		.abs_x_max = 1000,
+		.abs_y_min = 0,
+		.abs_y_max = 1760,
+		.display_width = 540,
+		.display_height = 960,
+		.flags = SYNAPTICS_FLIP_Y,
+		.gpio_irq = FIGHTER_GPIO_TP_ATTz,
+		.report_type = SYN_AND_REPORT_TYPE_B,
+		.reduce_report_level = {65, 65, 50, 0, 0},
+		.default_config = 2,
+		.tw_pin_mask = 0x0080,
+		.config = {0x33, 0x32, 0x00, 0x01, 0x00, 0x7F, 0x03, 0x1E,
+			0x05, 0x09, 0x00, 0x01, 0x01, 0x00, 0x10, 0xE8,
+			0x03, 0x6C, 0x07, 0x02, 0x14, 0x1E, 0x05, 0x50,
+			0x24, 0x24, 0x7B, 0x02, 0x01, 0x3C, 0x17, 0x01,
+			0x1B, 0x01, 0x66, 0x4E, 0x66, 0x46, 0xEF, 0xBA,
+			0xCD, 0xB8, 0x00, 0xD0, 0x00, 0x00, 0x00, 0x00,
+			0x0A, 0x04, 0xC0, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x19, 0x01, 0x00, 0x0A, 0x0B, 0x13, 0x0A,
+			0x00, 0x14, 0x0A, 0x40, 0x64, 0x07, 0x66, 0x64,
+			0xC0, 0x43, 0x2A, 0x05, 0x00, 0x00, 0x00, 0x00,
+			0x4C, 0x6C, 0x74, 0x3C, 0x32, 0x00, 0x00, 0x00,
+			0x4C, 0x6C, 0x74, 0x1E, 0x05, 0x00, 0x02, 0x66,
+			0x01, 0x53, 0x03, 0x0E, 0x1F, 0x00, 0x3B, 0x00,
+			0x13, 0x04, 0x1B, 0x00, 0x10, 0x0A, 0x60, 0x60,
+			0x68, 0x60, 0x68, 0x60, 0x68, 0x60, 0x2F, 0x2F,
+			0x2E, 0x2D, 0x2B, 0x2A, 0x29, 0x28, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0xD0,
+			0x07, 0x00, 0x3C, 0x00, 0x2C, 0x01, 0xCD, 0x0A,
+			0xC0, 0xD0, 0x07, 0x00, 0xC0, 0x19, 0x02, 0x02,
+			0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x20, 0x20,
+			0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x5B, 0x5E,
+			0x60, 0x62, 0x65, 0x68, 0x6B, 0x6E, 0x00, 0x78,
+			0x00, 0x10, 0x28, 0x00, 0x00, 0x00, 0x02, 0x04,
+			0x06, 0x09, 0x0C, 0x0F, 0x10, 0x00, 0x31, 0x04,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF,
+			0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+			0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x51, 0x51, 0x51,
+			0x51, 0x51, 0x51, 0x51, 0x51, 0xCD, 0x0D, 0x04,
+			0x01, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
+			0x19, 0x1A, 0x1B, 0x11, 0xFF, 0xFF, 0xFF, 0x03,
+			0x05, 0x07, 0x13, 0x11, 0x0F, 0x0D, 0x0B, 0x0A,
+			0x09, 0x08, 0x01, 0x02, 0x04, 0x06, 0x0C, 0x0E,
+			0x10, 0x12, 0xFF, 0x00, 0x10, 0x00, 0x10, 0x00,
+			0x10, 0x00, 0x10, 0x80, 0x80, 0x80, 0x80, 0x80,
+			0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
+			0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
+			0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
+			0x80, 0x80, 0x80, 0x80, 0x80, 0x00, 0x0F, 0x01,
+			0x4F, 0x53},
+	},
+	{
 		.version = 0x3330,
 		.packrat_number = 1100754,
 		.abs_x_min = 0,
 		.abs_x_max = 1000,
 		.abs_y_min = 0,
 		.abs_y_max = 1760,
+		.display_width = 540,
+		.display_height = 960,
 		.flags = SYNAPTICS_FLIP_Y,
-		.gpio_irq = FIGHTER_TP_ATTz,
-		.gpio_reset = FIGHTER_TP_RSTz,
+		.gpio_irq = FIGHTER_GPIO_TP_ATTz,
+		.gpio_reset = FIGHTER_GPIO_TP_RSTz,
 		.report_type = SYN_AND_REPORT_TYPE_B,
 		.reduce_report_level = {65, 65, 50, 0, 0},
 		.large_obj_check = 1,
 		.default_config = 2,
 		.customer_register = {0xF9, 0x32, 0x05, 0x64},
 		.tw_pin_mask = 0x0080,
+		.multitouch_calibration = 1,
 		.config = {0x41, 0x30, 0x31, 0x40, 0x00, 0x3F, 0x03, 0x1E,
 			0x05, 0xB1, 0x09, 0x0B, 0x01, 0x01, 0x00, 0x00,
 			0xE8, 0x03, 0x75, 0x07, 0x02, 0x14, 0x1E, 0x05,
@@ -1645,13 +1747,14 @@ static struct synaptics_i2c_rmi_platform_data syn_ts_3k_data[] = { /* Synatpics 
 		.abs_y_min = 0,
 		.abs_y_max = 1760,
 		.flags = SYNAPTICS_FLIP_Y,
-		.gpio_irq = FIGHTER_TP_ATTz,
-		.gpio_reset = FIGHTER_TP_RSTz,
+		.gpio_irq = FIGHTER_GPIO_TP_ATTz,
+		.gpio_reset = FIGHTER_GPIO_TP_RSTz,
 		.report_type = SYN_AND_REPORT_TYPE_B,
 		.reduce_report_level = {65, 65, 120, 15, 15},
 		.large_obj_check = 1,
 		.default_config = 2,
 		.tw_pin_mask = 0x0080,
+		.multitouch_calibration = 1,
 		.config = {0x41, 0x30, 0x31, 0x39, 0x00, 0x3F, 0x03, 0x1E,
 			0x05, 0xB1, 0x09, 0x0B, 0x01, 0x01, 0x00, 0x00,
 			0xE8, 0x03, 0x75, 0x07, 0x02, 0x14, 0x1E, 0x05,
@@ -1693,13 +1796,14 @@ static struct synaptics_i2c_rmi_platform_data syn_ts_3k_data[] = { /* Synatpics 
 		.abs_y_min = 0,
 		.abs_y_max = 1760,
 		.flags = SYNAPTICS_FLIP_Y,
-		.gpio_irq = FIGHTER_TP_ATTz,
-		.gpio_reset = FIGHTER_TP_RSTz,
+		.gpio_irq = FIGHTER_GPIO_TP_ATTz,
+		.gpio_reset = FIGHTER_GPIO_TP_RSTz,
 		.report_type = SYN_AND_REPORT_TYPE_B,
 		.reduce_report_level = {65, 65, 120, 15, 15},
 		.large_obj_check = 1,
 		.default_config = 2,
 		.tw_pin_mask = 0x0080,
+		.multitouch_calibration = 1,
 		.config = {0x30, 0x30, 0x30, 0x33, 0x00, 0x3F, 0x03, 0x1E,
 			0x05, 0xB1, 0x09, 0x0B, 0x01, 0x01, 0x00, 0x00,
 			0xE8, 0x03, 0x75, 0x07, 0x02, 0x14, 0x1E, 0x05,
@@ -1740,7 +1844,7 @@ static struct synaptics_i2c_rmi_platform_data syn_ts_3k_data[] = { /* Synatpics 
 		.abs_y_min = 0,
 		.abs_y_max = 1770,
 		.flags = SYNAPTICS_FLIP_Y,
-		.gpio_irq = FIGHTER_TP_ATTz,
+		.gpio_irq = FIGHTER_GPIO_TP_ATTz,
 		.default_config = 1,
 		.config = {0x30, 0x30, 0x30, 0x34, 0x84, 0x0F, 0x03, 0x1E,
 			0x06, 0x20, 0xB1, 0x01, 0x0B, 0x19, 0x19, 0x00,
@@ -1778,7 +1882,7 @@ static struct synaptics_i2c_rmi_platform_data syn_ts_3k_data[] = { /* Synatpics 
 		.sensitivity_adjust = 0,
 		.finger_support = 10,
 		.flags = SYNAPTICS_FLIP_Y,
-		.gpio_irq = FIGHTER_TP_ATTz,
+		.gpio_irq = FIGHTER_GPIO_TP_ATTz,
 		.config = {0x30, 0x30, 0x30, 0x31, 0x84, 0x0F, 0x03, 0x1E,
 			0x05, 0x01, 0x0B, 0x19, 0x19, 0x00, 0x00, 0xE8,
 			0x03, 0x75, 0x07, 0x1E, 0x05, 0x28, 0xF5, 0x28,
@@ -1804,17 +1908,16 @@ static struct synaptics_i2c_rmi_platform_data syn_ts_3k_data[] = { /* Synatpics 
 	},
 };
 
-
-struct i2c_board_info msm_i2c_gsbi3_info[] = {
+static struct i2c_board_info msm_i2c_gsbi3_info[] = {
 	{
 		I2C_BOARD_INFO(ATMEL_MXT224E_NAME, 0x94 >> 1),
 		.platform_data = &ts_atmel_data,
-		.irq = MSM_GPIO_TO_INT(FIGHTER_TP_ATTz)
+		.irq = MSM_GPIO_TO_INT(FIGHTER_GPIO_TP_ATTz)
 	},
 	{
 		I2C_BOARD_INFO(SYNAPTICS_3200_NAME, 0x40 >> 1),
 		.platform_data = &syn_ts_3k_data,
-		.irq = MSM_GPIO_TO_INT(FIGHTER_TP_ATTz)
+		.irq = MSM_GPIO_TO_INT(FIGHTER_GPIO_TP_ATTz)
 	},
 };
 
@@ -1828,7 +1931,6 @@ static ssize_t virtual_atmel_keys_show(struct kobject *kobj,
 			":" __stringify(EV_KEY) ":" __stringify(KEY_SEARCH) ":482:1015:110:100"
 		"\n");
 }
-
 
 static ssize_t virtual_syn_keys_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
@@ -1867,7 +1969,7 @@ static struct attribute_group properties_attr_group = {
 };
 
 static struct bma250_platform_data gsensor_bma250_platform_data = {
-	.intr = FIGHTER_GSENSOR_INT,
+	.intr = FIGHTER_GPIO_GSENSOR_INT,
 	.chip_layout = 1,
 };
 
@@ -1877,9 +1979,9 @@ static struct akm8975_platform_data compass_platform_data = {
 };
 
 static struct pn544_i2c_platform_data nfc_platform_data = {
-	.irq_gpio = FIGHTER_NFC_IRQ,
-	.ven_gpio = FIGHTER_NFC_VEN,
-	.firm_gpio = FIGHTER_NFC_DL_MODE,
+	.irq_gpio = FIGHTER_GPIO_NFC_IRQ,
+	.ven_gpio = FIGHTER_GPIO_NFC_VEN,
+	.firm_gpio = FIGHTER_GPIO_NFC_DL_MODE,
 	.ven_isinvert = 1,
 };
 
@@ -1887,7 +1989,7 @@ static struct i2c_board_info pn544_i2c_boardinfo[] = {
 	{
 		I2C_BOARD_INFO(PN544_I2C_NAME, 0x50 >> 1),
 		.platform_data = &nfc_platform_data,
-		.irq = MSM_GPIO_TO_INT(FIGHTER_NFC_IRQ),
+		.irq = MSM_GPIO_TO_INT(FIGHTER_GPIO_NFC_IRQ),
 	},
 };
 
@@ -1895,15 +1997,14 @@ static struct i2c_board_info msm_i2c_gsbi12_info[] = {
 	{
 		I2C_BOARD_INFO(BMA250_I2C_NAME, 0x30 >> 1),
 		.platform_data = &gsensor_bma250_platform_data,
-		.irq = MSM_GPIO_TO_INT(FIGHTER_GSENSOR_INT),
+		.irq = MSM_GPIO_TO_INT(FIGHTER_GPIO_GSENSOR_INT),
 	},
 	{
 		I2C_BOARD_INFO(AKM8975_I2C_NAME, 0x1A >> 1),
 		.platform_data = &compass_platform_data,
-		.irq = MSM_GPIO_TO_INT(FIGHTER_COMPASS_INT),
+		.irq = MSM_GPIO_TO_INT(FIGHTER_GPIO_COMPASS_INT),
 	},
 };
-
 
 static DEFINE_MUTEX(capella_cm36282_lock);
 static struct regulator *PL_sensor_pwr;
@@ -1969,11 +2070,25 @@ static int capella_cm36282_power(int pwr_device, uint8_t enable)
 	mutex_unlock(&capella_cm36282_lock);
 	return ret;
 }
+static uint8_t cm3629_mapping_table[] = {
+	0x0,   0x3,  0x6,  0x9,  0xC,
+	0xF,  0x12, 0x15, 0x18, 0x1B,
+	0x1E, 0x21, 0x24, 0x27, 0x2A,
+	0x2D, 0x30, 0x33, 0x36, 0x39,
+	0x3C, 0x3F, 0x43, 0x47, 0x4B,
+	0x4F, 0x53, 0x57, 0x5B, 0x5F,
+	0x63, 0x67, 0x6B, 0x70, 0x75,
+	0x7A, 0x7F, 0x84, 0x89, 0x8E,
+	0x93, 0x98, 0x9D, 0xA2, 0xA8,
+	0xAE, 0xB4, 0xBA, 0xC0, 0xC6,
+	0xCC, 0xD3, 0xDA, 0xE1, 0xE8,
+	0xEF, 0xF6, 0xFF
+};
 
 static struct cm3629_platform_data cm36282_XD_pdata = {
 	.model = CAPELLA_CM36282,
 	.ps_select = CM3629_PS1_ONLY,
-	.intr = PM8921_GPIO_PM_TO_SYS(FIGHTER_PROXIMITY_INTz),
+	.intr = PM8921_GPIO_PM_TO_SYS(FIGHTER_PMGPIO_PROXIMITY_INTz),
 	.levels = { 9, 19, 29, 399, 1000, 2575, 4200, 4428, 4655, 65535},
 	.golden_adc = 3295,
 	.power = capella_cm36282_power,
@@ -1988,20 +2103,25 @@ static struct cm3629_platform_data cm36282_XD_pdata = {
 	.ps_conf2_val = CM3629_PS_ITB_2 | CM3629_PS_ITR_1 |
 			CM3629_PS2_INT_DIS | CM3629_PS1_INT_DIS,
 	.ps_conf3_val = CM3629_PS2_PROL_32,
+	.ps_debounce = 1,
+	.ps_delay_time = 200,
+	.dynamical_threshold = 1,
+	.mapping_table = cm3629_mapping_table,
+	.mapping_size = ARRAY_SIZE(cm3629_mapping_table),
 };
 
 static struct i2c_board_info i2c_CM36282_XD_devices[] = {
 	{
 		I2C_BOARD_INFO(CM3629_I2C_NAME, 0xC0 >> 1),
 		.platform_data = &cm36282_XD_pdata,
-		.irq =  PM8921_GPIO_IRQ(PM8921_IRQ_BASE, FIGHTER_PROXIMITY_INTz),
+		.irq =  PM8921_GPIO_IRQ(PM8921_IRQ_BASE, FIGHTER_PMGPIO_PROXIMITY_INTz),
 	},
 };
 
 static struct cm3629_platform_data cm36282_pdata = {
 	.model = CAPELLA_CM36282,
 	.ps_select = CM3629_PS1_ONLY,
-	.intr = PM8921_GPIO_PM_TO_SYS(FIGHTER_PROXIMITY_INTz),
+	.intr = PM8921_GPIO_PM_TO_SYS(FIGHTER_PMGPIO_PROXIMITY_INTz),
 	.levels = { 9, 19, 29, 399, 1000, 2575, 4200, 4428, 4655, 65535},
 	.golden_adc = 3295,
 	.power = capella_cm36282_power,
@@ -2016,33 +2136,38 @@ static struct cm3629_platform_data cm36282_pdata = {
 	.ps_conf2_val = CM3629_PS_ITB_1 | CM3629_PS_ITR_1 |
 			CM3629_PS2_INT_DIS | CM3629_PS1_INT_DIS,
 	.ps_conf3_val = CM3629_PS2_PROL_32,
+	.ps_debounce = 1,
+	.ps_delay_time = 200,
+	.dynamical_threshold = 1,
+	.mapping_table = cm3629_mapping_table,
+	.mapping_size = ARRAY_SIZE(cm3629_mapping_table),
 };
 
 static struct i2c_board_info i2c_CM36282_devices[] = {
 	{
 		I2C_BOARD_INFO(CM3629_I2C_NAME, 0xC0 >> 1),
 		.platform_data = &cm36282_pdata,
-		.irq =  PM8921_GPIO_IRQ(PM8921_IRQ_BASE, FIGHTER_PROXIMITY_INTz),
+		.irq =  PM8921_GPIO_IRQ(PM8921_IRQ_BASE, FIGHTER_PMGPIO_PROXIMITY_INTz),
 	},
 };
 
 static uint32_t usb_ID_PIN_input_table[] = {
-	GPIO_CFG(FIGHTER_USB_ID1, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+	GPIO_CFG(FIGHTER_GPIO_USB_ID1, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
 };
 
 static uint32_t usb_ID_PIN_ouput_table[] = {
-	GPIO_CFG(FIGHTER_USB_ID1, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+	GPIO_CFG(FIGHTER_GPIO_USB_ID1, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
 };
 
 void config_fighter_usb_id_gpios(bool output)
 {
 	if (output) {
 		gpio_tlmm_config(usb_ID_PIN_ouput_table[0], GPIO_CFG_ENABLE);
-		gpio_set_value(FIGHTER_USB_ID1, 1);
-		pr_info("[CABLE] %s: %d output high\n",  __func__, FIGHTER_USB_ID1);
+		gpio_set_value(FIGHTER_GPIO_USB_ID1, 1);
+		pr_info("[CABLE] %s: %d output high\n",  __func__, FIGHTER_GPIO_USB_ID1);
 	} else {
 		gpio_tlmm_config(usb_ID_PIN_input_table[0], GPIO_CFG_ENABLE);
-		pr_info("[CABLE] %s: %d input none pull\n",  __func__, FIGHTER_USB_ID1);
+		pr_info("[CABLE] %s: %d input none pull\n",  __func__, FIGHTER_GPIO_USB_ID1);
 	}
 }
 
@@ -2065,12 +2190,12 @@ int64_t fighter_get_usbid_adc(void)
 }
 
 static uint32_t usb_audio_switch_table[] = {
-	GPIO_CFG(FIGHTER_USBz_AUDIO_SW, 0, GPIO_CFG_OUTPUT,GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-	GPIO_CFG(FIGHTER_USBz_AUDIO_SW, 0, GPIO_CFG_INPUT,GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+	GPIO_CFG(FIGHTER_GPIO_USBz_AUDIO_SW, 0, GPIO_CFG_OUTPUT,GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
+	GPIO_CFG(FIGHTER_GPIO_USBz_AUDIO_SW, 0, GPIO_CFG_INPUT,GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
 };
 
 static uint32_t audio_uart_switch_table[] = {
-	GPIO_CFG(FIGHTER_AUDIOz_UART_SW, 0, GPIO_CFG_OUTPUT,
+	GPIO_CFG(FIGHTER_GPIO_AUDIOz_UART_SW, 0, GPIO_CFG_OUTPUT,
 		GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
 };
 
@@ -2089,20 +2214,20 @@ static void fighter_usb_dpdn_switch(int path)
 		pr_info("[CABLE] %s: Set USB path\n", __func__);
 
 		if ((system_rev == 0x80 && engineerid == 1) || system_rev < 0x80) {
-			gpio_set_value(FIGHTER_AUDIOz_UART_SW, 1);
+			gpio_set_value(FIGHTER_GPIO_AUDIOz_UART_SW, 1);
 		} else {
-			gpio_set_value(FIGHTER_AUDIOz_UART_SW, 1);
-			gpio_set_value(FIGHTER_USBz_AUDIO_SW, 0);
+			gpio_set_value(FIGHTER_GPIO_AUDIOz_UART_SW, 1);
+			gpio_set_value(FIGHTER_GPIO_USBz_AUDIO_SW, 0);
 		}
 		break;
 	case PATH_USB_AUD:
 		pr_info("[CABLE] %s: Set Audio path\n", __func__);
 
 		if ((system_rev == 0x80 && engineerid == 1) || system_rev < 0x80) {
-			gpio_set_value(FIGHTER_AUDIOz_UART_SW, 0);
+			gpio_set_value(FIGHTER_GPIO_AUDIOz_UART_SW, 0);
 		} else {
-			gpio_set_value(FIGHTER_AUDIOz_UART_SW, 0);
-			gpio_set_value(FIGHTER_USBz_AUDIO_SW, 1);
+			gpio_set_value(FIGHTER_GPIO_AUDIOz_UART_SW, 0);
+			gpio_set_value(FIGHTER_GPIO_USBz_AUDIO_SW, 1);
 		}
 		break;
 	}
@@ -2114,13 +2239,10 @@ static void fighter_usb_dpdn_switch(int path)
 
 static struct cable_detect_platform_data cable_detect_pdata = {
 	.detect_type		= CABLE_TYPE_PMIC_ADC,
-	.usb_id_pin_gpio	= FIGHTER_USB_ID1,
+	.usb_id_pin_gpio	= FIGHTER_GPIO_USB_ID1,
 	.get_adc_cb		= fighter_get_usbid_adc,
 	.config_usb_id_gpios	= config_fighter_usb_id_gpios,
 	.usb_dpdn_switch	= fighter_usb_dpdn_switch,
-	.ad_en_active_state = 1,
-	.ad_en_gpio = PM8921_GPIO_PM_TO_SYS(FIGHTER_AD_EN_MSM),
-	.ad_en_irq = PM8921_GPIO_PM_TO_SYS(FIGHTER_AD_EN_MSM),
 };
 
 static struct platform_device cable_detect_device = {
@@ -2133,7 +2255,7 @@ static struct platform_device cable_detect_device = {
 
 static void fighter_cable_detect_register(void)
 {
-	pr_info("%s:\n", __func__);
+	pr_info("%s\n", __func__);
 	platform_device_register(&cable_detect_device);
 }
 
@@ -2163,13 +2285,7 @@ static void __init fighter_init_irq(void)
 
 	msm_mpm_irq_extn_init(data);
 	gic_init(0, GIC_PPI_START, MSM_QGIC_DIST_BASE,
-						(void *)MSM_QGIC_CPU_BASE);
-
-	/* Edge trigger PPIs except AVS_SVICINT and AVS_SVICINTSWDONE */
-	writel_relaxed(0xFFFFD7FF, MSM_QGIC_DIST_BASE + GIC_DIST_CONFIG + 4);
-
-	writel_relaxed(0x0000FFFF, MSM_QGIC_DIST_BASE + GIC_DIST_ENABLE_SET);
-	mb();
+					(void *)MSM_QGIC_CPU_BASE);
 }
 
 static void __init msm8960_init_buses(void)
@@ -2264,10 +2380,11 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.mode			= USB_OTG,
 	.otg_control		= OTG_PMIC_CONTROL,
 	.phy_type		= SNPS_28NM_INTEGRATED_PHY,
-//	.pmic_id_irq		= PM8921_USB_ID_IN_IRQ(PM8921_IRQ_BASE),
+#if 0
+	.pmic_id_irq		= PM8921_USB_ID_IN_IRQ(PM8921_IRQ_BASE),
+#endif
 	.vbus_power		= msm_hsusb_vbus_power,
 	.power_budget		= 750,
-//	.ldo_power_collapse	= true,
 };
 #endif
 
@@ -2340,7 +2457,7 @@ static struct platform_device android_usb_device = {
 #define HW_8960_V3_2_1   0x07
 void fighter_add_usb_devices(void)
 {
-	if (VERSION_ID == HW_8960_V3_2_1) {
+	if (VERSION_ID >= HW_8960_V3_2_1) {
 		printk(KERN_INFO "%s rev: %d v3.2.1\n", __func__, system_rev);
 		msm_otg_pdata.phy_init_seq = phy_init_seq_v3_2_1;
 	} else {
@@ -2528,84 +2645,171 @@ static struct msm_spm_platform_data msm_spm_l2_data[] __initdata = {
 	},
 };
 
-#ifdef CONFIG_PERFLOCK
-static unsigned fighter_perf_acpu_table[] = {
-	810000000, /* LOWEST */
-	918000000, /* LOW */
-	1026000000, /* MEDIUM */
-	1242000000,/* HIGH */
-	1512000000, /* HIGHEST */
+#define CYTTSP_TS_GPIO_IRQ		11
+#define CYTTSP_TS_SLEEP_GPIO		50
+#define CYTTSP_TS_RESOUT_N_GPIO		52
+
+/*virtual key support */
+static ssize_t tma340_vkeys_show(struct kobject *kobj,
+			struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, 200,
+	__stringify(EV_KEY) ":" __stringify(KEY_BACK) ":73:1120:97:97"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_MENU) ":230:1120:97:97"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_HOME) ":389:1120:97:97"
+	":" __stringify(EV_KEY) ":" __stringify(KEY_SEARCH) ":544:1120:97:97"
+	"\n");
+}
+
+static struct kobj_attribute tma340_vkeys_attr = {
+	.attr = {
+		.mode = S_IRUGO,
+	},
+	.show = &tma340_vkeys_show,
 };
 
-static unsigned fighter_cpufreq_ceiling_acpu_table[] = {
-	702000000,
-	918000000,
-	1026000000,
+static struct attribute *tma340_properties_attrs[] = {
+	&tma340_vkeys_attr.attr,
+	NULL
 };
 
-static struct perflock_data fighter_perflock_data = {
-	.perf_acpu_table = fighter_perf_acpu_table,
-	.table_size = ARRAY_SIZE(fighter_perf_acpu_table),
+static struct attribute_group tma340_properties_attr_group = {
+	.attrs = tma340_properties_attrs,
 };
 
-static struct perflock_data fighter_cpufreq_ceiling_data = {
-	.perf_acpu_table = fighter_cpufreq_ceiling_acpu_table,
-	.table_size = ARRAY_SIZE(fighter_cpufreq_ceiling_acpu_table),
-};
+static int cyttsp_platform_init(struct i2c_client *client)
+{
+	int rc = 0;
+	static struct kobject *tma340_properties_kobj;
 
-static struct perflock_pdata perflock_pdata = {
-	.perf_floor = &fighter_perflock_data,
-	.perf_ceiling = &fighter_cpufreq_ceiling_data,
-};
+	tma340_vkeys_attr.attr.name = "virtualkeys.cyttsp-i2c";
+	tma340_properties_kobj = kobject_create_and_add("board_properties",
+								NULL);
+	if (tma340_properties_kobj)
+		rc = sysfs_create_group(tma340_properties_kobj,
+					&tma340_properties_attr_group);
+	if (!tma340_properties_kobj || rc)
+		pr_err("%s: failed to create board_properties\n",
+				__func__);
 
-struct platform_device msm8960_device_perf_lock = {
-	.name = "perf_lock",
-	.id = -1,
-	.dev = {
-		.platform_data = &perflock_pdata,
+	return 0;
+}
+
+static struct cyttsp_regulator regulator_data[] = {
+	{
+		.name = "vdd",
+		.min_uV = CY_TMA300_VTG_MIN_UV,
+		.max_uV = CY_TMA300_VTG_MAX_UV,
+		.hpm_load_uA = CY_TMA300_CURR_24HZ_UA,
+		.lpm_load_uA = CY_TMA300_SLEEP_CURR_UA,
+	},
+	/* TODO: Remove after runtime PM is enabled in I2C driver */
+	{
+		.name = "vcc_i2c",
+		.min_uV = CY_I2C_VTG_MIN_UV,
+		.max_uV = CY_I2C_VTG_MAX_UV,
+		.hpm_load_uA = CY_I2C_CURR_UA,
+		.lpm_load_uA = CY_I2C_SLEEP_CURR_UA,
 	},
 };
-#endif
 
-static uint32_t gsbi2_gpio_table[] = {
-	GPIO_CFG(FIGHTER_NFC_I2C_SDA, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
-	GPIO_CFG(FIGHTER_NFC_I2C_SCL, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+static struct cyttsp_platform_data cyttsp_pdata = {
+	.panel_maxx = 634,
+	.panel_maxy = 1166,
+	.disp_maxx = 616,
+	.disp_maxy = 1023,
+	.disp_minx = 0,
+	.disp_miny = 16,
+	.flags = 0x01,
+	.gen = CY_GEN3,	/* or */
+	.use_st = CY_USE_ST,
+	.use_mt = CY_USE_MT,
+	.use_hndshk = CY_SEND_HNDSHK,
+	.use_trk_id = CY_USE_TRACKING_ID,
+	.use_sleep = CY_USE_DEEP_SLEEP_SEL | CY_USE_LOW_POWER_SEL,
+	.use_gestures = CY_USE_GESTURES,
+	.fw_fname = "cyttsp_8960_cdp.hex",
+	/* activate up to 4 groups
+	 * and set active distance
+	 */
+	.gest_set = CY_GEST_GRP1 | CY_GEST_GRP2 |
+				CY_GEST_GRP3 | CY_GEST_GRP4 |
+				CY_ACT_DIST,
+	/* change act_intrvl to customize the Active power state
+	 * scanning/processing refresh interval for Operating mode
+	 */
+	.act_intrvl = CY_ACT_INTRVL_DFLT,
+	/* change tch_tmout to customize the touch timeout for the
+	 * Active power state for Operating mode
+	 */
+	.tch_tmout = CY_TCH_TMOUT_DFLT,
+	/* change lp_intrvl to customize the Low Power power state
+	 * scanning/processing refresh interval for Operating mode
+	 */
+	.lp_intrvl = CY_LP_INTRVL_DFLT,
+	.sleep_gpio = CYTTSP_TS_SLEEP_GPIO,
+	.resout_gpio = CYTTSP_TS_RESOUT_N_GPIO,
+	.irq_gpio = CYTTSP_TS_GPIO_IRQ,
+	.regulator_info = regulator_data,
+	.num_regulators = ARRAY_SIZE(regulator_data),
+	.init = cyttsp_platform_init,
+	.correct_fw_ver = 9,
+};
+
+static struct i2c_board_info cyttsp_info[] __initdata = {
+	{
+		I2C_BOARD_INFO(CY_I2C_NAME, 0x24),
+		.platform_data = &cyttsp_pdata,
+#ifndef CY_USE_TIMER
+		.irq = MSM_GPIO_TO_INT(CYTTSP_TS_GPIO_IRQ),
+#endif /* CY_USE_TIMER */
+	},
 };
 
 static uint32_t gsbi3_gpio_table[] = {
-	GPIO_CFG(FIGHTER_TP_I2C_SDA, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
-	GPIO_CFG(FIGHTER_TP_I2C_SCL, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+	GPIO_CFG(FIGHTER_GPIO_TP_I2C_SDA, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+	GPIO_CFG(FIGHTER_GPIO_TP_I2C_SCL, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+};
+
+static uint32_t gsbi3_gpio_table_gpio[] = {
+	GPIO_CFG(FIGHTER_GPIO_TP_I2C_SDA, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+	GPIO_CFG(FIGHTER_GPIO_TP_I2C_SCL, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
 };
 
 /* CAMERA setting */
 static uint32_t gsbi4_gpio_table[] = {
-	GPIO_CFG(FIGHTER_CAM_I2C_SDA, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
-	GPIO_CFG(FIGHTER_CAM_I2C_SCL, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+	GPIO_CFG(FIGHTER_GPIO_CAM_I2C_SDA, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+	GPIO_CFG(FIGHTER_GPIO_CAM_I2C_SCL, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+};
+
+static uint32_t gsbi4_gpio_table_gpio[] = {
+	GPIO_CFG(FIGHTER_GPIO_CAM_I2C_SDA, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+	GPIO_CFG(FIGHTER_GPIO_CAM_I2C_SCL, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
 };
 
 static uint32_t gsbi8_gpio_table[] = {
-	GPIO_CFG(FIGHTER_AC_I2C_SDA, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
-	GPIO_CFG(FIGHTER_AC_I2C_SCL, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+	GPIO_CFG(FIGHTER_GPIO_AC_I2C_SDA, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+	GPIO_CFG(FIGHTER_GPIO_AC_I2C_SCL, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+};
+
+static uint32_t gsbi8_gpio_table_gpio[] = {
+	GPIO_CFG(FIGHTER_GPIO_AC_I2C_SDA, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+	GPIO_CFG(FIGHTER_GPIO_AC_I2C_SCL, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
 };
 
 static uint32_t gsbi12_gpio_table[] = {
-	GPIO_CFG(FIGHTER_SENSOR_I2C_SDA, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
-	GPIO_CFG(FIGHTER_SENSOR_I2C_SCL, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+	GPIO_CFG(FIGHTER_GPIO_SENSOR_I2C_SDA, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+	GPIO_CFG(FIGHTER_GPIO_SENSOR_I2C_SCL, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+};
+
+static uint32_t gsbi12_gpio_table_gpio[] = {
+	GPIO_CFG(FIGHTER_GPIO_SENSOR_I2C_SDA, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+	GPIO_CFG(FIGHTER_GPIO_SENSOR_I2C_SCL, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
 };
 
 static void gsbi_qup_i2c_gpio_config(int adap_id, int config_type)
 {
 	printk(KERN_INFO "%s(): adap_id = %d, config_type = %d \n", __func__, adap_id, config_type);
-
-	if ((adap_id == MSM_8960_GSBI2_QUP_I2C_BUS_ID) && (config_type == 1)) {
-		gpio_tlmm_config(gsbi2_gpio_table[0], GPIO_CFG_ENABLE);
-		gpio_tlmm_config(gsbi2_gpio_table[1], GPIO_CFG_ENABLE);
-	}
-
-	if ((adap_id == MSM_8960_GSBI2_QUP_I2C_BUS_ID) && (config_type == 0)) {
-		gpio_tlmm_config(gsbi2_gpio_table[0], GPIO_CFG_DISABLE);
-		gpio_tlmm_config(gsbi2_gpio_table[1], GPIO_CFG_DISABLE);
-	}
 
 	if ((adap_id == MSM_8960_GSBI3_QUP_I2C_BUS_ID) && (config_type == 1)) {
 		gpio_tlmm_config(gsbi3_gpio_table[0], GPIO_CFG_ENABLE);
@@ -2613,8 +2817,8 @@ static void gsbi_qup_i2c_gpio_config(int adap_id, int config_type)
 	}
 
 	if ((adap_id == MSM_8960_GSBI3_QUP_I2C_BUS_ID) && (config_type == 0)) {
-		gpio_tlmm_config(gsbi3_gpio_table[0], GPIO_CFG_DISABLE);
-		gpio_tlmm_config(gsbi3_gpio_table[1], GPIO_CFG_DISABLE);
+		gpio_tlmm_config(gsbi3_gpio_table_gpio[0], GPIO_CFG_ENABLE);
+		gpio_tlmm_config(gsbi3_gpio_table_gpio[1], GPIO_CFG_ENABLE);
 	}
 
 	/* CAMERA setting */
@@ -2624,8 +2828,8 @@ static void gsbi_qup_i2c_gpio_config(int adap_id, int config_type)
 	}
 
 	if ((adap_id == MSM_8960_GSBI4_QUP_I2C_BUS_ID) && (config_type == 0)) {
-		gpio_tlmm_config(gsbi4_gpio_table[0], GPIO_CFG_DISABLE);
-		gpio_tlmm_config(gsbi4_gpio_table[1], GPIO_CFG_DISABLE);
+		gpio_tlmm_config(gsbi4_gpio_table_gpio[0], GPIO_CFG_ENABLE);
+		gpio_tlmm_config(gsbi4_gpio_table_gpio[1], GPIO_CFG_ENABLE);
 	}
 
 	if ((adap_id == MSM_8960_GSBI8_QUP_I2C_BUS_ID) && (config_type == 1)) {
@@ -2634,8 +2838,8 @@ static void gsbi_qup_i2c_gpio_config(int adap_id, int config_type)
 	}
 
 	if ((adap_id == MSM_8960_GSBI8_QUP_I2C_BUS_ID) && (config_type == 0)) {
-		gpio_tlmm_config(gsbi8_gpio_table[0], GPIO_CFG_DISABLE);
-		gpio_tlmm_config(gsbi8_gpio_table[1], GPIO_CFG_DISABLE);
+		gpio_tlmm_config(gsbi8_gpio_table_gpio[0], GPIO_CFG_ENABLE);
+		gpio_tlmm_config(gsbi8_gpio_table_gpio[1], GPIO_CFG_ENABLE);
 	}
 
 	if ((adap_id == MSM_8960_GSBI12_QUP_I2C_BUS_ID) && (config_type == 1)) {
@@ -2644,8 +2848,8 @@ static void gsbi_qup_i2c_gpio_config(int adap_id, int config_type)
 	}
 
 	if ((adap_id == MSM_8960_GSBI12_QUP_I2C_BUS_ID) && (config_type == 0)) {
-		gpio_tlmm_config(gsbi12_gpio_table[0], GPIO_CFG_DISABLE);
-		gpio_tlmm_config(gsbi12_gpio_table[1], GPIO_CFG_DISABLE);
+		gpio_tlmm_config(gsbi12_gpio_table_gpio[0], GPIO_CFG_ENABLE);
+		gpio_tlmm_config(gsbi12_gpio_table_gpio[1], GPIO_CFG_ENABLE);
 	}
 }
 
@@ -2713,7 +2917,9 @@ static struct msm_thermal_data msm_thermal_pdata = {
 	.poll_ms = 1000,
 	.limit_temp_degC = 60,
 	.temp_hysteresis_degC = 10,
-//	.limit_freq = 918000,
+#if 0
+	.limit_freq = 918000,
+#endif
 	.freq_step = 2,
 };
 
@@ -2791,6 +2997,9 @@ static struct platform_device *common_devices[] __initdata = {
 #ifdef CONFIG_ION_MSM
 	&ion_dev,
 #endif
+#ifdef CONFIG_MSM_IOMMU
+	&msm8960_iommu_domain_device,
+#endif
 	&msm8960_rpm_device,
 	&msm8960_rpm_log_device,
 	&msm8960_rpm_stat_device,
@@ -2802,12 +3011,13 @@ static struct platform_device *common_devices[] __initdata = {
 #endif
 	&msm8960_device_watchdog,
 #ifdef CONFIG_MSM_RTB
-	&msm_rtb_device,
+	&msm8960_rtb_device,
 #endif
+#ifdef CONFIG_MSM_CACHE_ERP
 	&msm8960_device_cache_erp,
-	&msm8960_iommu_domain_device,
+#endif
 #ifdef CONFIG_MSM_CACHE_DUMP
-	&msm_cache_dump_device,
+	&msm8960_cache_dump_device,
 #endif
 #ifdef CONFIG_HTC_BATT_8960
 	&htc_battery_pdev,
@@ -2864,9 +3074,6 @@ static struct platform_device *fighter_devices[] __initdata = {
 	&msm_bus_sys_fpb,
 	&msm_bus_cpss_fpb,
 	&msm_device_tz_log,
-#ifdef CONFIG_PERFLOCK
-	&msm8960_device_perf_lock,
-#endif
 	&scm_memchk_device,
 };
 
@@ -2926,21 +3133,25 @@ static void __init msm8960_gfx_init(void)
 
 #ifdef CONFIG_HTC_BATT_8960
 static struct pm8921_charger_batt_param chg_batt_params[] = {
+	/* for normal type battery */
 	[0] = {
 		.max_voltage = 4200,
 		.cool_bat_voltage = 4200,
 		.warm_bat_voltage = 4000,
 	},
+	/* for HV type battery */
 	[1] = {
 		.max_voltage = 4340,
 		.cool_bat_voltage = 4340,
 		.warm_bat_voltage = 4000,
 	},
+	/* for another HV type battery */
 	[2] = {
 		.max_voltage = 4300,
 		.cool_bat_voltage = 4300,
 		.warm_bat_voltage = 4000,
 	},
+	/* for HV type battery for SMB charger IC */
 	[3] = {
 		.max_voltage = 4350,
 		.cool_bat_voltage = 4350,
@@ -2949,20 +3160,21 @@ static struct pm8921_charger_batt_param chg_batt_params[] = {
 };
 
 static struct single_row_lut fcc_temp_id_1 = {
-	.x		= {-20, -10, 0, 5, 10, 20, 30, 40},
-	.y		= {900, 1050, 1350, 1450, 1520, 1600, 1620, 1630},
-	.cols	= 8
+	.x	= {-20, -10, 0, 5, 10, 20, 30, 40},
+	.y	= {900, 1050, 1350, 1450, 1520, 1600, 1620, 1630},
+	.cols	= 8,
 };
 
 static struct single_row_lut fcc_sf_id_1 = {
-	.x		= {100, 200, 300, 400, 500},
-	.y		= {100, 100, 100, 100, 100},
-	.cols	= 5
+	.x	= {100, 200, 300, 400, 500},
+	.y	= {100, 100, 100, 100, 100},
+	.cols	= 5,
 };
 
 static struct sf_lut pc_sf_id_1 = {
 	.rows		= 10,
 	.cols		= 5,
+	/* row_entries are cycle */
 	.row_entries	= {100, 200, 300, 400, 500},
 	.percent	= {100, 90, 80, 70, 60, 50, 40, 30, 20, 10},
 	.sf		= {
@@ -2982,7 +3194,7 @@ static struct sf_lut pc_sf_id_1 = {
 static struct pc_temp_ocv_lut pc_temp_ocv_id_1 = {
 	.rows		= 29,
 	.cols		= 8,
-	.temp		= {-20, -10, 0, 5, 10, 20, 30, 40},
+	.temp		= {-20, -10,  0, 5, 10, 20, 30, 40},
 	.percent	= {100, 95, 90, 85, 80, 75, 70, 65, 60, 55,
 				50, 45, 40, 35, 30, 25, 20, 15, 10, 9,
 				8, 7, 6, 5, 4, 3, 2, 1, 0
@@ -3017,7 +3229,7 @@ static struct pc_temp_ocv_lut pc_temp_ocv_id_1 = {
 			{3676, 3676, 3676, 3676, 3644, 3534, 3516, 3505},
 			{3670, 3670, 3670, 3670, 3633, 3497, 3478, 3468},
 			{3663, 3663, 3663, 3663, 3622, 3460, 3440, 3430}
-	}
+	},
 };
 
 struct pm8921_bms_battery_data bms_battery_data_id_1 = {
@@ -3025,24 +3237,25 @@ struct pm8921_bms_battery_data bms_battery_data_id_1 = {
 	.fcc_temp_lut		= &fcc_temp_id_1,
 	.fcc_sf_lut		= &fcc_sf_id_1,
 	.pc_temp_ocv_lut	= &pc_temp_ocv_id_1,
-	.pc_sf_lut		= &pc_sf_id_1
+	.pc_sf_lut		= &pc_sf_id_1,
 };
 
 static struct single_row_lut fcc_temp_id_2 = {
-	.x		= {-20, -10, 0, 5, 10, 20, 30, 40},
-	.y		= {900, 1050, 1360, 1540, 1500, 1600, 1620, 1630},
-	.cols	= 8
+	.x	= {-20, -10, 0, 5, 10, 20, 30, 40},
+	.y	= {900, 1050, 1360, 1540, 1500, 1600, 1620, 1630},
+	.cols	= 8,
 };
 
 static struct single_row_lut fcc_sf_id_2 = {
-	.x		= {100, 200, 300, 400, 500},
-	.y		= {100, 100, 100, 100, 100},
-	.cols	= 5
+	.x	= {100, 200, 300, 400, 500},
+	.y	= {100, 100, 100, 100, 100},
+	.cols	= 5,
 };
 
 static struct sf_lut pc_sf_id_2 = {
 	.rows		= 10,
 	.cols		= 5,
+	/* row_entries are cycle */
 	.row_entries	= {100, 200, 300, 400, 500},
 	.percent	= {100, 90, 80, 70, 60, 50, 40, 30, 20, 10},
 	.sf		= {
@@ -3097,7 +3310,7 @@ static struct pc_temp_ocv_lut pc_temp_ocv_id_2 = {
 			{3649, 3649, 3649, 3649, 3579, 3460, 3438, 3439},
 			{3635, 3635, 3635, 3635, 3549, 3419, 3398, 3400},
 			{3621, 3621, 3621, 3621, 3519, 3378, 3358, 3360}
-	}
+	},
 };
 
 struct pm8921_bms_battery_data bms_battery_data_id_2 = {
@@ -3105,24 +3318,25 @@ struct pm8921_bms_battery_data bms_battery_data_id_2 = {
 	.fcc_temp_lut		= &fcc_temp_id_2,
 	.fcc_sf_lut		= &fcc_sf_id_2,
 	.pc_temp_ocv_lut	= &pc_temp_ocv_id_2,
-	.pc_sf_lut		= &pc_sf_id_2
+	.pc_sf_lut		= &pc_sf_id_2,
 };
 
 static struct single_row_lut fcc_temp_id_3 = {
-	.x		= {-20, -10, 0, 5, 10, 20, 30, 40},
-	.y		= {1450, 1750, 1890, 2000, 2080, 2150, 2150, 2150},
-	.cols	= 8
+	.x	= {-20, -10, 0, 5, 10, 20, 30, 40},
+	.y	= {1450, 1750, 1890, 2000, 2080, 2150, 2150, 2150},
+	.cols	= 8,
 };
 
 static struct single_row_lut fcc_sf_id_3 = {
-	.x		= {100, 200, 300, 400, 500},
-	.y		= {100, 97, 93, 92, 90},
-	.cols	= 5
+	.x	= {100, 200, 300, 400, 500},
+	.y	= {100, 97, 93, 92, 90},
+	.cols	= 5,
 };
 
 static struct sf_lut pc_sf_id_3 = {
 	.rows		= 10,
 	.cols		= 5,
+	/* row_entries are cycle */
 	.row_entries	= {100, 200, 300, 400, 500},
 	.percent	= {100, 90, 80, 70, 60, 50, 40, 30, 20, 10},
 	.sf		= {
@@ -3177,7 +3391,7 @@ static struct pc_temp_ocv_lut pc_temp_ocv_id_3 = {
 			{3706, 3706, 3706, 3706, 3694, 3588, 3546, 3524},
 			{3703, 3703, 3703, 3703, 3692, 3555, 3502, 3474},
 			{3699, 3699, 3699, 3699, 3690, 3521, 3457, 3423}
-	}
+	},
 };
 
 struct pm8921_bms_battery_data bms_battery_data_id_3 = {
@@ -3185,7 +3399,7 @@ struct pm8921_bms_battery_data bms_battery_data_id_3 = {
 	.fcc_temp_lut		= &fcc_temp_id_3,
 	.fcc_sf_lut		= &fcc_sf_id_3,
 	.pc_temp_ocv_lut	= &pc_temp_ocv_id_3,
-	.pc_sf_lut		= &pc_sf_id_3
+	.pc_sf_lut		= &pc_sf_id_3,
 };
 
 static struct htc_battery_cell htc_battery_cells[] = {
@@ -3305,7 +3519,6 @@ static struct msm_rpmrs_level msm_rpmrs_levels[] = {
 	},
 };
 
-
 static struct msm_rpmrs_platform_data msm_rpmrs_data __initdata = {
 	.levels = &msm_rpmrs_levels[0],
 	.num_levels = ARRAY_SIZE(msm_rpmrs_levels),
@@ -3370,6 +3583,12 @@ static struct i2c_board_info msm_i2c_gsbi8_tpa2051d3_info[] = {
 
 static struct i2c_registry msm8960_i2c_devices[] __initdata = {
 	{
+		I2C_SURF | I2C_FFA | I2C_FLUID,
+		MSM_8960_GSBI3_QUP_I2C_BUS_ID,
+		cyttsp_info,
+		ARRAY_SIZE(cyttsp_info),
+	},
+	{
 		I2C_SURF | I2C_FFA,
 		MSM_8960_GSBI12_QUP_I2C_BUS_ID,
 		msm_i2c_gsbi12_info,
@@ -3427,12 +3646,11 @@ static void __init register_i2c_devices(void)
 	for (i = 0; i < ARRAY_SIZE(msm8960_i2c_devices); ++i) {
 		if (msm8960_i2c_devices[i].machs & mach_mask) {
 			i2c_register_board_info(msm8960_i2c_devices[i].bus,
-					msm8960_i2c_devices[i].info,
-					msm8960_i2c_devices[i].len);
+						msm8960_i2c_devices[i].info,
+						msm8960_i2c_devices[i].len);
 		}
 	}
 #ifdef CONFIG_MSM_CAMERA
-	/* HTC_START_Simon.Ti_Liu_20120711_IMPLEMENT_MCLK_SWITCH */
 	if (fighter_camera_i2c_devices.machs & mach_mask)
 		i2c_register_board_info(fighter_camera_i2c_devices.bus,
 				fighter_camera_i2c_devices.info,
@@ -3494,8 +3712,8 @@ static void __init msm8960ab_update_retention_spm(void)
 
 /*UART -> GSBI8*/
 static uint32_t msm_uart_gpio[] = {
-	GPIO_CFG(34, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
-	GPIO_CFG(35, 1, GPIO_CFG_INPUT, GPIO_CFG_PULL_UP, GPIO_CFG_8MA),
+	GPIO_CFG(FIGHTER_GPIO_DEBUG_UART_TX, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+	GPIO_CFG(FIGHTER_GPIO_DEBUG_UART_RX, 1, GPIO_CFG_INPUT, GPIO_CFG_PULL_UP, GPIO_CFG_8MA),
 };
 static void msm_uart_gsbi_gpio_init(void)
 {
@@ -3504,24 +3722,12 @@ static void msm_uart_gsbi_gpio_init(void)
 }
 
 static uint32_t msm_region_gpio[] = {
-	GPIO_CFG(FIGHTER_REGION_ID, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, 0),
+	GPIO_CFG(FIGHTER_GPIO_REGION_ID, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, 0),
 };
 static void msm_region_id_gpio_init(void)
 {
 	gpio_tlmm_config(msm_region_gpio[0], GPIO_CFG_ENABLE);
 }
-
-#ifdef CONFIG_RAWCHIP
-static struct spi_board_info rawchip_spi_board_info[] __initdata = {
-	{
-		.modalias               = "spi_rawchip",
-		.max_speed_hz           = 27000000,
-		.bus_num                = 1,
-		.chip_select            = 0,
-		.mode                   = SPI_MODE_0,
-	},
-};
-#endif
 
 static void __init fighter_init(void)
 {
@@ -3550,11 +3756,6 @@ static void __init fighter_init(void)
 	fighter_gpiomux_init();
 	msm8960_device_qup_spi_gsbi10.dev.platform_data =
 				&msm8960_qup_spi_gsbi10_pdata;
-#ifdef CONFIG_RAWCHIP
-	spi_register_board_info(rawchip_spi_board_info,
-				ARRAY_SIZE(rawchip_spi_board_info));
-#endif
-
 	fighter_init_pmic();
 	msm8960_i2c_init();
 	msm8960_gfx_init();
@@ -3597,9 +3798,6 @@ static void __init fighter_init(void)
 	slim_register_board_info(msm_slim_devices,
 		ARRAY_SIZE(msm_slim_devices));
 	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
-
-//	create_proc_read_entry("emmc", 0, NULL, emmc_partition_read_proc, NULL);
-//	create_proc_read_entry("dying_processes", 0, NULL, dying_processors_read_proc, NULL);
 
 	/*usb driver won't be loaded in MFG 58 station and gift mode*/
 	if (!(board_mfg_mode() == 6 || board_mfg_mode() == 7))

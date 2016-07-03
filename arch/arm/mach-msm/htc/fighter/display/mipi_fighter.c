@@ -223,10 +223,10 @@ static struct dsi_cmd_desc novatek_cmd_on_cmds[] = {
 		sizeof(display_on), display_on},
 	{DTYPE_MAX_PKTSIZE, 1, 0, 0, 0,
 		sizeof(max_pktsize), max_pktsize},
-	/*
-	   {DTYPE_DCS_WRITE1, 1, 0, 0, 0,
-	   sizeof(led_pwm1), led_pwm1},
-	   */
+/*
+	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
+		sizeof(led_pwm1), led_pwm1},
+*/
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
 		sizeof(led_pwm2), led_pwm2},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
@@ -352,10 +352,10 @@ static struct dsi_cmd_desc novatek_c2_cmd_on_cmds[] = {
 		sizeof(display_on), display_on},
 	{DTYPE_MAX_PKTSIZE, 1, 0, 0, 0,
 		sizeof(max_pktsize), max_pktsize},
-	/*
-	   {DTYPE_DCS_WRITE1, 1, 0, 0, 0,
-	   sizeof(led_pwm1), led_pwm1},
-	   */
+/*
+	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
+		sizeof(led_pwm1), led_pwm1},
+*/
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
 		sizeof(led_pwm2), led_pwm2},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
@@ -383,10 +383,10 @@ static struct dsi_cmd_desc novatek_c3_cmd_on_cmds[] = {
 		sizeof(display_on), display_on},
 	{DTYPE_MAX_PKTSIZE, 1, 0, 0, 0,
 		sizeof(max_pktsize), max_pktsize},
-	/*
-	   {DTYPE_DCS_WRITE1, 1, 0, 0, 0,
-	   sizeof(led_pwm1), led_pwm1},
-	   */
+/*
+	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
+		sizeof(led_pwm1), led_pwm1},
+*/
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
 		sizeof(led_pwm2), led_pwm2},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
@@ -505,10 +505,10 @@ static struct dsi_cmd_desc lg_novatek_cmd_on_cmds[] = {
 		sizeof(display_on), display_on},
 	{DTYPE_MAX_PKTSIZE, 1, 0, 0, 0,
 		sizeof(max_pktsize), max_pktsize},
-	/*
-	   {DTYPE_DCS_WRITE1, 1, 0, 0, 0,
-	   sizeof(led_pwm1), led_pwm1},
-	   */
+/*
+	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
+		sizeof(led_pwm1), led_pwm1},
+*/
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
 		sizeof(led_pwm2), led_pwm2},
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 0,
@@ -952,11 +952,13 @@ static unsigned char sony_gamma22_01[] = {
 	0x09, 0x04, 0x08, 0x0D,
 	0x08, 0x0E, 0x13, 0x0D,
 	0x08,
-	/*	0xe1, 0xff, 0xff, 0xff,
-		0xff, 0xff, 0xff, 0xff,
-		0xff, 0xff, 0xff, 0xff,
-		0xff, 0xff, 0xff, 0xff,
-		0x08,*/
+/*
+	0xe1, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff,
+	0x08,
+*/
 }; /* DTYPE_DCS_LWRITE :0xE100:0x11, 0xE101:0x19, 0xE102: 0x1e, ..., 0xff are padding for 4 bytes*/
 
 static unsigned char sony_gamma22_02[] = {0x00, 0x00}; /* DTYPE_DCS_WRITE1 :address shift*/

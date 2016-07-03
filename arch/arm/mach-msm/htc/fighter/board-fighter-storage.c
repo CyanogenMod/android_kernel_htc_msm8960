@@ -23,7 +23,9 @@
 #include "devices.h"
 #include "board-8960.h"
 #include "board-storage-common-a.h"
+#include "board-fighter.h"
 
+/* MSM8960 has 5 SDCC controllers */
 enum sdcc_controllers {
 	SDCC1,
 	SDCC2,
@@ -33,8 +35,9 @@ enum sdcc_controllers {
 	MAX_SDCC_CONTROLLER
 };
 
+/* All SDCC controllers require VDD/VCC voltage */
 static struct msm_mmc_reg_data mmc_vdd_reg_data[MAX_SDCC_CONTROLLER] = {
-	
+	/* SDCC1 : eMMC card connected */
 	[SDCC1] = {
 		.name = "sdc_vdd",
 		.high_vol_level = 2950000,
@@ -42,52 +45,59 @@ static struct msm_mmc_reg_data mmc_vdd_reg_data[MAX_SDCC_CONTROLLER] = {
 		.always_on = 1,
 		.lpm_sup = 1,
 		.lpm_uA = 9000,
-		.hpm_uA = 200000, 
+		.hpm_uA = 200000, /* 200mA */
 	},
-	
+	/* SDCC3 : External card slot connected */
 	[SDCC3] = {
 		.name = "sdc_vdd",
 		.high_vol_level = 2850000,
 		.low_vol_level = 2850000,
-		.hpm_uA = 600000, 
+		.hpm_uA = 600000, /* 600mA */
 	}
 };
 
+/* Only slots having eMMC card will require VCCQ voltage */
 static struct msm_mmc_reg_data mmc_vdd_io_reg_data[MAX_SDCC_CONTROLLER] = {
-	
+	/* SDCC1 : eMMC card connected */
 	[SDCC1] = {
 		.name = "sdc_vdd_io",
 		.always_on = 1,
 		.high_vol_level = 1800000,
 		.low_vol_level = 1800000,
-		.hpm_uA = 200000, 
+		.hpm_uA = 200000, /* 200mA */
 	},
-	
+	/* SDCC3 : External card slot connected */
 	[SDCC3] = {
 		.name = "sdc_vdd_io",
 		.high_vol_level = 2850000,
 		.low_vol_level = 1850000,
 		.always_on = 1,
 		.lpm_sup = 1,
-		
+		/* Max. Active current required is 16 mA */
 		.hpm_uA = 16000,
+		/*
+		 * Sleep current required is ~300 uA. But min. vote can be
+		 * in terms of mA (min. 1 mA). So let's vote for 2 mA
+		 * during sleep.
+		 */
 		.lpm_uA = 2000,
 	}
 };
 
 static struct msm_mmc_slot_reg_data mmc_slot_vreg_data[MAX_SDCC_CONTROLLER] = {
-	
+	/* SDCC1 : eMMC card connected */
 	[SDCC1] = {
 		.vdd_data = &mmc_vdd_reg_data[SDCC1],
 		.vdd_io_data = &mmc_vdd_io_reg_data[SDCC1],
 	},
-	
+	/* SDCC3 : External card slot connected */
 	[SDCC3] = {
 		.vdd_data = &mmc_vdd_reg_data[SDCC3],
 		.vdd_io_data = &mmc_vdd_io_reg_data[SDCC3]
 	}
 };
 
+/* SDC1 pad data */
 static struct msm_mmc_pad_drv sdc1_pad_drv_on_cfg[] = {
 	{TLMM_HDRV_SDC1_CLK, GPIO_CFG_10MA},
 	{TLMM_HDRV_SDC1_CMD, GPIO_CFG_6MA},
@@ -112,6 +122,7 @@ static struct msm_mmc_pad_pull sdc1_pad_pull_off_cfg[] = {
 	{TLMM_PULL_SDC1_DATA, GPIO_CFG_PULL_UP}
 };
 
+/* SDC3 pad data */
 static struct msm_mmc_pad_drv sdc3_pad_drv_on_cfg[] = {
 	{TLMM_HDRV_SDC3_CLK, GPIO_CFG_12MA},
 	{TLMM_HDRV_SDC3_CMD, GPIO_CFG_8MA},
@@ -132,7 +143,17 @@ static struct msm_mmc_pad_pull sdc3_pad_pull_on_cfg[] = {
 
 static struct msm_mmc_pad_pull sdc3_pad_pull_off_cfg[] = {
 	{TLMM_PULL_SDC3_CLK, GPIO_CFG_NO_PULL},
+	/*
+	 * SDC3 CMD line should be PULLed UP otherwise fluid platform will
+	 * see transitions (1 -> 0 and 0 -> 1) on card detection line,
+	 * which would result in false card detection interrupts.
+	 */
 	{TLMM_PULL_SDC3_CMD, GPIO_CFG_PULL_DOWN},
+	/*
+	 * Keeping DATA lines status to PULL UP will make sure that
+	 * there is no current leak during sleep if external pull up
+	 * is connected to DATA lines.
+	 */
 	{TLMM_PULL_SDC3_DATA, GPIO_CFG_PULL_DOWN}
 };
 
@@ -250,6 +271,24 @@ static struct mmc_platform_data msm8960_sdc1_data = {
 };
 #endif
 
+#ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
+static unsigned int sdc2_sup_clk_rates[] = {
+	400000, 24000000, 48000000
+};
+
+static struct mmc_platform_data msm8960_sdc2_data = {
+	.ocr_mask       = MMC_VDD_165_195,
+	.mmc_bus_width  = MMC_CAP_4_BIT_DATA,
+	.sup_clk_table  = sdc2_sup_clk_rates,
+	.sup_clk_cnt    = ARRAY_SIZE(sdc2_sup_clk_rates),
+	.pclk_src_dfab  = 1,
+	.vreg_data      = &mmc_slot_vreg_data[SDCC2],
+	.pin_data       = &mmc_slot_pin_data[SDCC2],
+	.sdiowakeup_irq = MSM_GPIO_TO_INT(90),
+	.msm_bus_voting_data = &sps_to_ddr_bus_voting_data,
+};
+#endif
+
 #ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
 static struct mmc_platform_data msm8960_sdc3_data = {
 	.ocr_mask       = MMC_VDD_27_28 | MMC_VDD_28_29,
@@ -261,6 +300,12 @@ static struct mmc_platform_data msm8960_sdc3_data = {
 #endif
 	.vreg_data	= &mmc_slot_vreg_data[SDCC3],
 	.pin_data	= &mmc_slot_pin_data[SDCC3],
+#ifdef CONFIG_MMC_MSM_SDC3_POLLING
+	.status_gpio	= PM8921_GPIO_PM_TO_SYS(FIGHTER_PMGPIO_SD_CDETz),
+	.status_irq	= PM8921_GPIO_IRQ(PM8921_IRQ_BASE, FIGHTER_PMGPIO_SD_CDETz),
+	.irq_flags	= IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+	.is_status_gpio_active_low = true,
+#endif
 	.xpc_cap	= 1,
 	.uhs_caps	= (MMC_CAP_UHS_SDR12 | MMC_CAP_UHS_SDR25 |
 			MMC_CAP_UHS_SDR50 | MMC_CAP_UHS_DDR50 |
@@ -291,19 +336,19 @@ static struct mmc_platform_data msm8960_sdc4_data = {
 void __init fighter_init_mmc(void)
 {
 #ifdef CONFIG_MMC_MSM_SDC1_SUPPORT
-	
+	/* SDC1 : eMMC card connected */
 	msm_add_sdcc(1, &msm8960_sdc1_data);
 #endif
 #ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
-	
+	/* SDC2: SDIO slot for WLAN*/
 	msm_add_sdcc(2, &msm8960_sdc2_data);
 #endif
 #ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
-	
+	/* SDC3: External card slot */
 	msm_add_sdcc(3, &msm8960_sdc3_data);
 #endif
 #ifdef CONFIG_MMC_MSM_SDC4_SUPPORT
-	
+	/* SDC4: SDIO slot for WLAN */
 	msm_add_sdcc(4, &msm8960_sdc4_data);
 #endif
 }

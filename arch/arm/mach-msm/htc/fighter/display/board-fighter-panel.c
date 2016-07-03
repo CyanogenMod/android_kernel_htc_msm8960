@@ -26,38 +26,29 @@
 #include "../../../devices.h"
 #include "../board-fighter.h"
 
-#if defined (CONFIG_FB_MSM_MDP_ABL)
-#include <linux/fb.h>
-#endif
-
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
-#define MSM_FB_PRIM_BUF_SIZE (960 * 544 * 4 * 3) /* 4 bpp x 3 pages */
+#define MSM_FB_PRIM_BUF_SIZE \
+      (roundup((roundup(960, 32) * roundup(540, 32) * 4), 4096) * 3)
+      /* 4 bpp x 3 pages */
 #else
-#define MSM_FB_PRIM_BUF_SIZE (960 * 544 * 4 * 2) /* 4 bpp x 2 pages */
+#define MSM_FB_PRIM_BUF_SIZE \
+      (roundup((roundup(960, 32) * roundup(540, 32) * 4), 4096) * 2)
+      /* 4 bpp x 2 pages */
 #endif
-
-#ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
-#define MSM_FB_EXT_BUF_SIZE (1920 * 1088 * 2 * 1) /* 2 bpp x 1 page */
-#elif defined(CONFIG_FB_MSM_TVOUT)
-#define MSM_FB_EXT_BUF_SIZE (720 * 576 * 2 * 2) /* 2 bpp x 2 pages */
-#else
-#define MSM_FB_EXT_BUF_SIZE 0
-#endif
-
 /* Note: must be multiple of 4096 */
-#define MSM_FB_SIZE roundup(MSM_FB_PRIM_BUF_SIZE + MSM_FB_EXT_BUF_SIZE, 4096)
-
+#define MSM_FB_SIZE roundup(MSM_FB_PRIM_BUF_SIZE, 4096)
 #ifdef CONFIG_FB_MSM_OVERLAY0_WRITEBACK
-#define MSM_FB_OVERLAY0_WRITEBACK_SIZE roundup((960 * 544 * 3 * 2), 4096)
+#define MSM_FB_OVERLAY0_WRITEBACK_SIZE \
+      roundup((roundup(960, 32) * roundup(540, 32) * 3 * 2), 4096)
 #else
 #define MSM_FB_OVERLAY0_WRITEBACK_SIZE (0)
-#endif
-
+#endif  /* CONFIG_FB_MSM_OVERLAY0_WRITEBACK */
 #ifdef CONFIG_FB_MSM_OVERLAY1_WRITEBACK
-#define MSM_FB_OVERLAY1_WRITEBACK_SIZE roundup((1920 * 1088 * 3 * 2), 4096)
+#define MSM_FB_OVERLAY1_WRITEBACK_SIZE \
+      roundup((roundup(1920, 32) * roundup(1080, 32) * 3 * 2), 4096)
 #else
 #define MSM_FB_OVERLAY1_WRITEBACK_SIZE (0)
-#endif
+#endif  /* CONFIG_FB_MSM_OVERLAY1_WRITEBACK */
 
 static struct resource msm_fb_resources[] = {
 	{
@@ -68,10 +59,10 @@ static struct resource msm_fb_resources[] = {
 static struct msm_fb_platform_data msm_fb_pdata;
 
 static struct platform_device msm_fb_device = {
-	.name = "msm_fb",
-	.id = 0,
-	.num_resources = ARRAY_SIZE(msm_fb_resources),
-	.resource = msm_fb_resources,
+	.name   = "msm_fb",
+	.id     = 0,
+	.num_resources     = ARRAY_SIZE(msm_fb_resources),
+	.resource          = msm_fb_resources,
 	.dev.platform_data = &msm_fb_pdata,
 };
 
@@ -85,7 +76,7 @@ void __init msm8960_allocate_fb_region(void)
 	msm_fb_resources[0].start = __pa(addr);
 	msm_fb_resources[0].end = msm_fb_resources[0].start + size - 1;
 	pr_info("allocating %lu bytes at %p (%lx physical) for fb\n",
-			size, addr, __pa(addr));
+		 size, addr, __pa(addr));
 }
 
 #ifdef CONFIG_MSM_BUS_SCALING
@@ -137,6 +128,37 @@ static struct msm_bus_vectors mdp_1080p_vectors[] = {
 	},
 };
 
+static struct msm_bus_vectors mdp_composition_1_vectors[] = {
+	/* 1 layers */
+	{
+		.src = MSM_BUS_MASTER_MDP_PORT0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 1280 * 736 * 4 * 60 * 2,
+		.ib = 1280 * 736 * 4 * 60 * 2 * 1.5,
+	},
+};
+
+static struct msm_bus_vectors mdp_composition_2_vectors[] = {
+	/* 2 layers */
+	{
+		.src = MSM_BUS_MASTER_MDP_PORT0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 1280 * 736 * 4 * 60 * 3,
+		.ib = 1280 * 736 * 4 * 60 * 3 * 1.5,
+	},
+};
+
+
+static struct msm_bus_vectors mdp_composition_3_vectors[] = {
+	/* 3 layers */
+	{
+		.src = MSM_BUS_MASTER_MDP_PORT0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 1280 * 736 * 4 * 60 * 4,
+		.ib = 1280 * 736 * 4 * 60 * 4 * 1.5,
+	},
+};
+
 static struct msm_bus_paths mdp_bus_scale_usecases[] = {
 	{
 		ARRAY_SIZE(mdp_init_vectors),
@@ -162,6 +184,18 @@ static struct msm_bus_paths mdp_bus_scale_usecases[] = {
 		ARRAY_SIZE(mdp_1080p_vectors),
 		mdp_1080p_vectors,
 	},
+	{
+		ARRAY_SIZE(mdp_composition_1_vectors),
+		mdp_composition_1_vectors,
+	},
+	{
+		ARRAY_SIZE(mdp_composition_2_vectors),
+		mdp_composition_2_vectors,
+	},
+	{
+		ARRAY_SIZE(mdp_composition_3_vectors),
+		mdp_composition_3_vectors,
+	},
 };
 
 static struct msm_bus_scale_pdata mdp_bus_scale_pdata = {
@@ -172,7 +206,7 @@ static struct msm_bus_scale_pdata mdp_bus_scale_pdata = {
 #endif
 
 static struct msm_panel_common_pdata mdp_pdata = {
-	.gpio = FIGHTER_LCD_TE,
+	.gpio = FIGHTER_GPIO_LCD_TE,
 	.mdp_max_clk = 200000000,
 	.mdp_max_bw = 2000000000,
 	.mdp_bw_ab_factor = 115,
@@ -292,9 +326,9 @@ static int mipi_dsi_panel_power(int on)
 			return -EINVAL;
 		}
 
-		rc = gpio_request(FIGHTER_LCD_RSTz, "LCM_RST_N");
+		rc = gpio_request(FIGHTER_GPIO_LCD_RSTz, "LCM_RST_N");
 		if (rc) {
-			printk(KERN_ERR "%s:LCM gpio %d request failed, rc=%d\n", __func__, FIGHTER_LCD_RSTz, rc);
+			printk(KERN_ERR "%s:LCM gpio %d request failed, rc=%d\n", __func__, FIGHTER_GPIO_LCD_RSTz, rc);
 			return -EINVAL;
 		}
 
@@ -351,17 +385,17 @@ static int mipi_dsi_panel_power(int on)
 				hr_msleep(1);
 			else
 				hr_msleep(10);
-			gpio_set_value(FIGHTER_LCD_RSTz, 1);
+			gpio_set_value(FIGHTER_GPIO_LCD_RSTz, 1);
 			if (isOrise())
 				hr_msleep(10);
 			else
 				hr_msleep(5);
-			gpio_set_value(FIGHTER_LCD_RSTz, 0);
+			gpio_set_value(FIGHTER_GPIO_LCD_RSTz, 0);
 			if (isOrise())
 				hr_msleep(10);
 			else
 				hr_msleep(30);
-			gpio_set_value(FIGHTER_LCD_RSTz, 1);
+			gpio_set_value(FIGHTER_GPIO_LCD_RSTz, 1);
 		}
 		if (isOrise())
 			hr_msleep(10);
@@ -375,7 +409,7 @@ static int mipi_dsi_panel_power(int on)
 		if (!bPanelPowerOn) return 0;
 		if (isOrise())
 			hr_msleep(120);
-		gpio_set_value(FIGHTER_LCD_RSTz, 0);
+		gpio_set_value(FIGHTER_GPIO_LCD_RSTz, 0);
 		if (isOrise())
 			hr_msleep(120);
 		else
@@ -427,7 +461,7 @@ static char mipi_dsi_splash_is_enabled(void)
 }
 
 static struct mipi_dsi_platform_data mipi_dsi_pdata = {
-	.vsync_gpio = FIGHTER_LCD_TE,
+	.vsync_gpio = FIGHTER_GPIO_LCD_TE,
 	.dsi_power_save = mipi_dsi_panel_power,
 	.splash_is_enabled = mipi_dsi_splash_is_enabled,
 };

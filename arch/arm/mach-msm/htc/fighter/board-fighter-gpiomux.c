@@ -14,33 +14,13 @@
 #include <mach/gpiomux.h>
 #include "board-fighter.h"
 
-static struct gpiomux_setting gsbi2 = {
+static struct gpiomux_setting gpio_i2c_config = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
 
-static struct gpiomux_setting gsbi3 = {
-	.func = GPIOMUX_FUNC_1,
-	.drv = GPIOMUX_DRV_8MA,
-	.pull = GPIOMUX_PULL_NONE,
-};
-
-#if 0	/* active in cam_settings */
-static struct gpiomux_setting gsbi4 = {
-	.func = GPIOMUX_FUNC_1,
-	.drv = GPIOMUX_DRV_8MA,
-	.pull = GPIOMUX_PULL_NONE,
-};
-#endif
-
-static struct gpiomux_setting gsbi8 = {
-	.func = GPIOMUX_FUNC_1,
-	.drv = GPIOMUX_DRV_8MA,
-	.pull = GPIOMUX_PULL_NONE,
-};
-
-static struct gpiomux_setting gsbi12 = {
+static struct gpiomux_setting gpio_i2c_config_sus = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
@@ -48,65 +28,45 @@ static struct gpiomux_setting gsbi12 = {
 
 static struct msm_gpiomux_config fighter_gsbi_configs[] __initdata = {
 	{
-		.gpio      = FIGHTER_NFC_I2C_SDA,	/* GSBI2 I2C QUP SDA */
+		.gpio      = FIGHTER_GPIO_TP_I2C_SDA,	/* GSBI3 I2C QUP SDA */
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &gsbi2,
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config_sus,
+			[GPIOMUX_ACTIVE] = &gpio_i2c_config,
 		},
 	},
 	{
-		.gpio      = FIGHTER_NFC_I2C_SCL,	/* GSBI2 I2C QUP SCL */
+		.gpio      = FIGHTER_GPIO_TP_I2C_SCL,	/* GSBI3 I2C QUP SCL */
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &gsbi2,
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config_sus,
+			[GPIOMUX_ACTIVE] = &gpio_i2c_config,
 		},
 	},
 	{
-		.gpio      = FIGHTER_TP_I2C_SDA,	/* GSBI3 I2C QUP SDA */
+		.gpio	   = FIGHTER_GPIO_AC_I2C_SDA,	/* GSBI8 I2C QUP SDA */
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &gsbi3,
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config_sus,
+			[GPIOMUX_ACTIVE] = &gpio_i2c_config,
 		},
 	},
 	{
-		.gpio      = FIGHTER_TP_I2C_SCL,	/* GSBI3 I2C QUP SCL */
+		.gpio	   = FIGHTER_GPIO_AC_I2C_SCL,	/* GSBI8 I2C QUP SCL */
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &gsbi3,
-		},
-	},
-#if 0	/* active in cam_settings */
-	{
-		.gpio      = FIGHTER_CAM_I2C_SDA,	/* GSBI4 I2C QUP SDA */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gsbi4,
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config_sus,
+			[GPIOMUX_ACTIVE] = &gpio_i2c_config,
 		},
 	},
 	{
-		.gpio      = FIGHTER_CAM_I2C_SCL,	/* GSBI4 I2C QUP SCL */
+		.gpio      = FIGHTER_GPIO_SENSOR_I2C_SDA,	/* GSBI12 I2C QUP SDA */
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &gsbi4,
-		},
-	},
-#endif
-	{
-		.gpio	   = FIGHTER_AC_I2C_SDA,	/* GSBI8 I2C QUP SDA */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gsbi8,
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config_sus,
+			[GPIOMUX_ACTIVE] = &gpio_i2c_config,
 		},
 	},
 	{
-		.gpio	   = FIGHTER_AC_I2C_SCL,	/* GSBI8 I2C QUP SCL */
+		.gpio      = FIGHTER_GPIO_SENSOR_I2C_SCL,	/* GSBI12 I2C QUP SCL */
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &gsbi8,
-		},
-	},
-	{
-		.gpio      = FIGHTER_SENSOR_I2C_SDA,	/* GSBI12 I2C QUP SDA */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gsbi12,
-		},
-	},
-	{
-		.gpio      = FIGHTER_SENSOR_I2C_SCL,	/* GSBI12 I2C QUP SCL */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gsbi12,
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config_sus,
+			[GPIOMUX_ACTIVE] = &gpio_i2c_config,
 		},
 	},
 };
@@ -119,7 +79,7 @@ static struct gpiomux_setting cdc_mclk = {
 
 static struct msm_gpiomux_config fighter_audio_codec_configs[] __initdata = {
 	{
-		.gpio = FIGHTER_AUD_WCD_MCLK,
+		.gpio = FIGHTER_GPIO_AUD_WCD_MCLK,
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &cdc_mclk,
 		},
@@ -134,13 +94,13 @@ static struct gpiomux_setting slimbus = {
 
 static struct msm_gpiomux_config fighter_slimbus_configs[] __initdata = {
 	{
-		.gpio	= FIGHTER_AUD_WCD_SB_CLK,		/* slimbus data */
+		.gpio	= FIGHTER_GPIO_AUD_WCD_SB_CLK,		/* slimbus clk */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &slimbus,
 		},
 	},
 	{
-		.gpio	= FIGHTER_AUD_WCD_SB_DATA,		/* slimbus clk */
+		.gpio	= FIGHTER_GPIO_AUD_WCD_SB_DATA,		/* slimbus data */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &slimbus,
 		},
@@ -149,47 +109,47 @@ static struct msm_gpiomux_config fighter_slimbus_configs[] __initdata = {
 
 static struct gpiomux_setting wcnss_5wire_suspend_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
-	.drv  = GPIOMUX_DRV_10MA,
+	.drv  = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
 
 static struct gpiomux_setting wcnss_5wire_active_cfg = {
 	.func = GPIOMUX_FUNC_1,
-	.drv  = GPIOMUX_DRV_10MA,
+	.drv  = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
 static struct msm_gpiomux_config wcnss_5wire_interface[] = {
 	{
-		.gpio = FIGHTER_WCN_CMD_DATA2,
+		.gpio = FIGHTER_GPIO_WCN_CMD_DATA2,
 		.settings = {
 			[GPIOMUX_ACTIVE]    = &wcnss_5wire_active_cfg,
 			[GPIOMUX_SUSPENDED] = &wcnss_5wire_suspend_cfg,
 		},
 	},
 	{
-		.gpio = FIGHTER_WCN_CMD_DATA1,
+		.gpio = FIGHTER_GPIO_WCN_CMD_DATA1,
 		.settings = {
 			[GPIOMUX_ACTIVE]    = &wcnss_5wire_active_cfg,
 			[GPIOMUX_SUSPENDED] = &wcnss_5wire_suspend_cfg,
 		},
 	},
 	{
-		.gpio = FIGHTER_WCN_CMD_DATA0,
+		.gpio = FIGHTER_GPIO_WCN_CMD_DATA0,
 		.settings = {
 			[GPIOMUX_ACTIVE]    = &wcnss_5wire_active_cfg,
 			[GPIOMUX_SUSPENDED] = &wcnss_5wire_suspend_cfg,
 		},
 	},
 	{
-		.gpio = FIGHTER_WCN_CMD_SET,
+		.gpio = FIGHTER_GPIO_WCN_CMD_SET,
 		.settings = {
 			[GPIOMUX_ACTIVE]    = &wcnss_5wire_active_cfg,
 			[GPIOMUX_SUSPENDED] = &wcnss_5wire_suspend_cfg,
 		},
 	},
 	{
-		.gpio = FIGHTER_WCN_CMD_CLK,
+		.gpio = FIGHTER_GPIO_WCN_CMD_CLK,
 		.settings = {
 			[GPIOMUX_ACTIVE]    = &wcnss_5wire_active_cfg,
 			[GPIOMUX_SUSPENDED] = &wcnss_5wire_suspend_cfg,
@@ -200,7 +160,7 @@ static struct msm_gpiomux_config wcnss_5wire_interface[] = {
 static struct gpiomux_setting mdp_vsync_active_cfg = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_DOWN,
+	.pull = GPIOMUX_PULL_NONE,
 };
 
 static struct gpiomux_setting mdp_vsync_suspend_cfg = {
@@ -211,7 +171,7 @@ static struct gpiomux_setting mdp_vsync_suspend_cfg = {
 
 static struct msm_gpiomux_config fighter_mdp_vsync_configs[] __initdata = {
 	{
-		.gpio = FIGHTER_LCD_TE,
+		.gpio = FIGHTER_GPIO_LCD_TE,
 		.settings = {
 			[GPIOMUX_ACTIVE]    = &mdp_vsync_active_cfg,
 			[GPIOMUX_SUSPENDED] = &mdp_vsync_suspend_cfg,
@@ -225,28 +185,14 @@ static struct gpiomux_setting usb_id_cfg = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
-static struct gpiomux_setting usb_audio_sw_cfg = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_NONE,
-	.dir = GPIOMUX_IN,
-};
-
 static struct msm_gpiomux_config cable_detect_usbid_config[] __initdata = {
 	{
-		.gpio = FIGHTER_USB_ID1,
+		.gpio = FIGHTER_GPIO_USB_ID1,
 		.settings = {
 			[GPIOMUX_ACTIVE] = &usb_id_cfg,
 			[GPIOMUX_SUSPENDED] = &usb_id_cfg,
 		},
-	},
-	{
-		.gpio = FIGHTER_USBz_AUDIO_SW,
-		.settings = {
-			[GPIOMUX_ACTIVE] = &usb_audio_sw_cfg,
-			[GPIOMUX_SUSPENDED] = &usb_audio_sw_cfg,
-		},
-	},
+	}
 };
 
 int __init fighter_gpiomux_init(void)

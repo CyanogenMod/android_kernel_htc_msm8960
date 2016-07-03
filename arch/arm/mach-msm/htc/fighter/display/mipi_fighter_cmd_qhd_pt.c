@@ -25,9 +25,6 @@ static struct msm_panel_info pinfo;
 static int __init mipi_cmd_fighter_qhd_pt_init(void)
 {
 	int ret;
-#if defined (CONFIG_FB_MSM_MDP_ABL)
-	pinfo.panel_char = smd_gamma_tbl;
-#endif
 
 	pinfo.xres = 540;
 	pinfo.yres = 960;

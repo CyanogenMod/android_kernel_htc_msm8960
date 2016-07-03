@@ -86,22 +86,11 @@ struct pm8xxx_mpp_init {
 			PM_GPIO_STRENGTH_HIGH, \
 			_func, 0, 0)
 
-#define PM8XXX_GPIO_OUTPUT_VIN_L17_FUNC(_gpio, _val) \
-	PM8XXX_GPIO_INIT(_gpio, PM_GPIO_DIR_OUT, PM_GPIO_OUT_BUF_CMOS, _val, \
-			PM_GPIO_PULL_NO, PM_GPIO_VIN_L17, \
-			PM_GPIO_STRENGTH_HIGH, \
-			PM_GPIO_FUNC_NORMAL, 0, 0)
-
-#define PM8XXX_GPIO_OUTPUT_VIN_S4_FUNC_XC(_gpio, _val) \
-	PM8XXX_GPIO_INIT(_gpio, PM_GPIO_DIR_OUT, PM_GPIO_OUT_BUF_CMOS, _val, \
-			PM_GPIO_PULL_NO, PM_GPIO_VIN_S4, \
-			PM_GPIO_STRENGTH_HIGH, \
-			PM_GPIO_FUNC_NORMAL, 0, 0)
 /* Initial PM8921 GPIO configurations */
 static struct pm8xxx_gpio_init pm8921_gpios[] __initdata = {
-	PM8XXX_GPIO_OUTPUT_VIN_BB_FUNC(FIGHTER_GREEN_LED, 1, PM_GPIO_FUNC_NORMAL),
-	PM8XXX_GPIO_OUTPUT_VIN_BB_FUNC(FIGHTER_AMBER_LED, 1, PM_GPIO_FUNC_NORMAL),
-	PM8XXX_GPIO_INIT(FIGHTER_EARPHONE_DETz, PM_GPIO_DIR_IN,
+	PM8XXX_GPIO_OUTPUT_VIN_BB_FUNC(FIGHTER_PMGPIO_GREEN_LED, 1, PM_GPIO_FUNC_NORMAL),
+	PM8XXX_GPIO_OUTPUT_VIN_BB_FUNC(FIGHTER_PMGPIO_AMBER_LED, 1, PM_GPIO_FUNC_NORMAL),
+	PM8XXX_GPIO_INIT(FIGHTER_PMGPIO_EARPHONE_DETz, PM_GPIO_DIR_IN,
 			 PM_GPIO_OUT_BUF_CMOS, 0, PM_GPIO_PULL_UP_1P5,
 			 PM_GPIO_VIN_S4, PM_GPIO_STRENGTH_LOW,
 			 PM_GPIO_FUNC_NORMAL, 0, 0),
@@ -109,6 +98,9 @@ static struct pm8xxx_gpio_init pm8921_gpios[] __initdata = {
 
 /* Initial PM8921 MPP configurations */
 static struct pm8xxx_mpp_init pm8921_mpps[] __initdata = {
+	/* External 5V regulator enable; shared by HDMI and USB_OTG switches. */
+	PM8XXX_MPP_INIT(PM8XXX_AMUX_MPP_4, D_BI_DIR, PM8921_MPP_DIG_LEVEL_L17, BI_PULLUP_10KOHM),
+	PM8XXX_MPP_INIT(PM8XXX_AMUX_MPP_12, D_BI_DIR, PM8921_MPP_DIG_LEVEL_L17, BI_PULLUP_10KOHM),
 };
 
 void __init fighter_pm8921_gpio_mpp_init(void)
@@ -185,7 +177,7 @@ static struct pm8921_charger_platform_data pm8921_chg_pdata __devinitdata = {
 	.warm_bat_chg_current	= 1025,
 	.cool_bat_voltage	= 4200,
 	.warm_bat_voltage	= 4000,
-	.mbat_in_gpio		= FIGHTER_MBAT_IN,
+	.mbat_in_gpio		= FIGHTER_GPIO_MBAT_IN,
 	.thermal_mitigation	= pm8921_therm_mitigation,
 	.thermal_levels		= ARRAY_SIZE(pm8921_therm_mitigation),
 	.cold_thr = PM_SMBC_BATT_TEMP_COLD_THR__HIGH,
@@ -198,9 +190,8 @@ static struct pm8xxx_misc_platform_data pm8xxx_misc_pdata = {
 
 static struct pm8921_bms_platform_data pm8921_bms_pdata __devinitdata = {
 	.r_sense		= 10,
-	.i_test			= 0, /* ori=2500 */
+	.i_test			= 0,
 	.v_failure		= 3000,
-        // .calib_delay_ms		= 600000,
 	.max_voltage_uv		= 4200 * 1000,
 };
 
@@ -208,8 +199,8 @@ static int __init check_dq_setup(char *str)
 {
 	if (!strcmp(str, "PASS")) {
 		pr_info("[BATT] overwrite HV battery config\n");
-                pm8921_chg_pdata.max_voltage = 4340;
-                pm8921_chg_pdata.cool_bat_voltage = 4340;
+		pm8921_chg_pdata.max_voltage = 4340;
+		pm8921_chg_pdata.cool_bat_voltage = 4340;
 		pm8921_bms_pdata.max_voltage_uv = 4340 * 1000;
 	} else {
 		pr_info("[BATT] use default battery config\n");
@@ -224,17 +215,17 @@ __setup("androidboot.dq=", check_dq_setup);
 static struct pm8xxx_vibrator_platform_data pm8xxx_vib_pdata = {
 	.initial_vibrate_ms = 0,
 	.max_timeout_ms = 15000,
-	.level_mV = 3100,
+	.level_mV = 3000,
 };
 
 static struct pm8xxx_gpio_init green_gpios[] = {
-	PM8XXX_GPIO_OUTPUT_VIN_BB_FUNC(FIGHTER_GREEN_LED, 1, PM_GPIO_FUNC_2),
-	PM8XXX_GPIO_OUTPUT_VIN_BB_FUNC(FIGHTER_GREEN_LED, 1, PM_GPIO_FUNC_NORMAL),
+	PM8XXX_GPIO_OUTPUT_VIN_BB_FUNC(FIGHTER_PMGPIO_GREEN_LED, 1, PM_GPIO_FUNC_2),
+	PM8XXX_GPIO_OUTPUT_VIN_BB_FUNC(FIGHTER_PMGPIO_GREEN_LED, 1, PM_GPIO_FUNC_NORMAL),
 };
 
 static struct pm8xxx_gpio_init amber_gpios[] = {
-	PM8XXX_GPIO_OUTPUT_VIN_BB_FUNC(FIGHTER_AMBER_LED, 1, PM_GPIO_FUNC_2),
-	PM8XXX_GPIO_OUTPUT_VIN_BB_FUNC(FIGHTER_AMBER_LED, 1, PM_GPIO_FUNC_NORMAL),
+	PM8XXX_GPIO_OUTPUT_VIN_BB_FUNC(FIGHTER_PMGPIO_AMBER_LED, 1, PM_GPIO_FUNC_2),
+	PM8XXX_GPIO_OUTPUT_VIN_BB_FUNC(FIGHTER_PMGPIO_AMBER_LED, 1, PM_GPIO_FUNC_NORMAL),
 };
 
 static void green_gpio_config(bool enable)
@@ -252,7 +243,6 @@ static void amber_gpio_config(bool enable)
 	else
 		pm8xxx_gpio_config(amber_gpios[1].gpio, &amber_gpios[1].config);
 }
-
 
 static struct pm8xxx_led_configure pm8921_led_info[] = {
 	[0] = {
@@ -294,7 +284,8 @@ static struct pm8xxx_led_platform_data pm8xxx_leds_pdata = {
 };
 
 static struct pm8xxx_ccadc_platform_data pm8xxx_ccadc_pdata = {
-    .r_sense_uohm		= 10000,
+	.r_sense_uohm	= 10000,
+	.calib_delay_ms	= 600000,
 };
 
 static struct pm8xxx_adc_amux pm8xxx_adc_channels_data[] = {
@@ -336,11 +327,10 @@ static struct pm8xxx_adc_amux pm8xxx_adc_channels_data[] = {
 		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
 };
 
-
 static struct pm8xxx_adc_properties pm8xxx_adc_data = {
 	.adc_vdd_reference	= 1800, /* milli-voltage for this adc */
 	.bitresolution		= 15,
-	.bipolar                = 0,
+	.bipolar		= 0,
 };
 
 static struct pm8xxx_adc_platform_data pm8xxx_adc_pdata = {
@@ -355,16 +345,16 @@ static struct pm8921_platform_data pm8921_platform_data __devinitdata = {
 	.irq_pdata		= &pm8xxx_irq_pdata,
 	.gpio_pdata		= &pm8xxx_gpio_pdata,
 	.mpp_pdata		= &pm8xxx_mpp_pdata,
-	.rtc_pdata              = &pm8xxx_rtc_pdata,
+	.rtc_pdata		= &pm8xxx_rtc_pdata,
 	.pwrkey_pdata		= &pm8xxx_pwrkey_pdata,
 	.misc_pdata		= &pm8xxx_misc_pdata,
 	.regulator_pdatas	= msm_pm8921_regulator_pdata,
-        .charger_pdata		= &pm8921_chg_pdata,
+	.charger_pdata		= &pm8921_chg_pdata,
 	.bms_pdata		= &pm8921_bms_pdata,
 	.adc_pdata		= &pm8xxx_adc_pdata,
-        .leds_pdata		= &pm8xxx_leds_pdata,
+	.leds_pdata		= &pm8xxx_leds_pdata,
 	.ccadc_pdata		= &pm8xxx_ccadc_pdata,
-	.vibrator_pdata         = &pm8xxx_vib_pdata,
+	.vibrator_pdata		= &pm8xxx_vib_pdata,
 };
 
 static struct msm_ssbi_platform_data msm8960_ssbi_pm8921_pdata __devinitdata = {
