@@ -5949,10 +5949,6 @@ msmsdcc_probe(struct platform_device *pdev)
 	mmc->caps2 |= MMC_CAP2_INIT_BKOPS;
 	mmc->caps2 |= MMC_CAP2_POWEROFF_NOTIFY;
 
-#ifdef CONFIG_MACH_HTC
-	if (plat->hc_erase_group_def)
-		mmc->caps2 |= MMC_CAP2_HC_ERASE_SZ;
-#endif
 	if (plat->nonremovable)
 		mmc->caps |= MMC_CAP_NONREMOVABLE;
 	mmc->caps |= MMC_CAP_SDIO_IRQ;

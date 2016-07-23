@@ -159,9 +159,6 @@ struct mmc_platform_data {
 	unsigned int msmsdcc_fmid;
 	unsigned int msmsdcc_fmax;
 	bool nonremovable;
-#ifdef CONFIG_MACH_HTC
-	bool hc_erase_group_def;
-#endif
 	unsigned int mpm_sdiowakeup_int;
 	int wpswitch_gpio;
 	bool is_wpswitch_active_low;
