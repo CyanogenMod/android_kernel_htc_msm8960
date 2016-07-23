@@ -204,7 +204,7 @@ bool Tri_state_dongle_GPIO0(void)
 {
 	bool result = true;
 
-	I2C_WriteByte(CBUS_SLAVE_ADDR,0x13, 0x33);       
+	I2C_WriteByte(CBUS_SLAVE_ADDR,0x13, 0x33); /* enable backdoor access */
 	I2C_WriteByte(CBUS_SLAVE_ADDR,0x14, 0x80);
 	I2C_WriteByte(CBUS_SLAVE_ADDR,0x12, 0x08);
 
@@ -243,14 +243,14 @@ void Low_dongle_GPIO0(void)
 
 void SiiMhlTxMscDetectCharger(uint8_t data1)
 {
-	
+	/* connected to TV; and TV has power output (default 0.5A min ) */
 	if ((data1 & 0x13) == 0x11) {
 		mscCmdInProgress = false;
 		mhlTxConfig.mscState = MSC_STATE_POW_DONE;
 		Chk_Dongle_Step = 0;
 
 		if (data1 & 0x10) {
-			
+			/* [bit4] POW ==1=AC charger attached */
 			TPI_DEBUG_PRINT(("1000mA charger!!\n"));
 			if (gStatusMHL != CONNECT_TYPE_MHL_AC) {
 				gStatusMHL = CONNECT_TYPE_MHL_AC;
@@ -265,7 +265,7 @@ void SiiMhlTxMscDetectCharger(uint8_t data1)
 		}
 	}
 
-	
+	/* 03=dongle */
 	if ((data1 & 0x03) == 0x03) {
 
 		if (Chk_Dongle_Step == 0) {
@@ -276,7 +276,7 @@ void SiiMhlTxMscDetectCharger(uint8_t data1)
 				return;
 			}
 
-			
+			/* GPIO0_state=3; */
 
 			mscCmdInProgress = false;
 			SiiMhlTxReadDevcap(0x02);
@@ -290,10 +290,10 @@ void SiiMhlTxMscDetectCharger(uint8_t data1)
 			mscCmdInProgress = false;
 
 			if (data1 & 0x10) {
-				
+				/* Turn off phone Vbus output ; */
 				Low_dongle_GPIO0();
 
-				
+				/* GPIO0_state = 0;  */
 #if 0
 				SiiMhlTxReadDevcap(0x02);
 #endif
@@ -306,7 +306,7 @@ void SiiMhlTxMscDetectCharger(uint8_t data1)
 
 				mhlTxConfig.mscState = MSC_STATE_POW_DONE;
 
-				
+				/* turn on phone VBUS output.; */
 				TPI_DEBUG_PRINT(("No charger!!\n"));
 
 				if (gStatusMHL != CONNECT_TYPE_INTERNAL) {
@@ -324,9 +324,9 @@ void SiiMhlTxMscDetectCharger(uint8_t data1)
 			Chk_Dongle_Step = 0;
 
 			if (data1 & 0x10) {
-				
+				/* Set charge battery current=AC charger rating-100mA ; */
 
-				
+				/* Enable battery charger; &*/
 				TPI_DEBUG_PRINT(("1000mA charger!!\n"));
 				if (gStatusMHL != CONNECT_TYPE_MHL_AC) {
 					gStatusMHL = CONNECT_TYPE_MHL_AC;
@@ -334,7 +334,7 @@ void SiiMhlTxMscDetectCharger(uint8_t data1)
 				}
 
 			} else {
-				
+				/* turn off phone VBUS output; */
 				TPI_DEBUG_PRINT(("500mA charger!!\n"));
 				if (gStatusMHL != CONNECT_TYPE_USB) {
 					gStatusMHL = CONNECT_TYPE_USB;
@@ -397,7 +397,7 @@ bool SiiMhlTxSetPathEn(void )
 {
 	TPI_DEBUG_PRINT(("MhlTx:SiiMhlTxSetPathEn\n"));
     SiiMhlTxTmdsEnable();
-    mhlTxConfig.linkMode |= MHL_STATUS_PATH_ENABLED;     
+    mhlTxConfig.linkMode |= MHL_STATUS_PATH_ENABLED;
     return SiiMhlTxSetStatus( MHL_STATUS_REG_LINK_MODE, mhlTxConfig.linkMode);
 }
 
@@ -405,7 +405,7 @@ bool SiiMhlTxClrPathEn( void )
 {
 	TPI_DEBUG_PRINT(("MhlTx: SiiMhlTxClrPathEn\n"));
     SiiMhlTxDrvTmdsControl( false );
-    mhlTxConfig.linkMode &= ~MHL_STATUS_PATH_ENABLED;    
+    mhlTxConfig.linkMode &= ~MHL_STATUS_PATH_ENABLED;
     return SiiMhlTxSetStatus( MHL_STATUS_REG_LINK_MODE, mhlTxConfig.linkMode);
 }
 
@@ -414,7 +414,10 @@ void	SiiMhlTxGotMhlStatus(uint8_t status_0, uint8_t status_1)
 	uint8_t StatusChangeBitMask0,StatusChangeBitMask1;
     StatusChangeBitMask0 = status_0 ^ mhlTxConfig.status_0;
     StatusChangeBitMask1 = status_1 ^ mhlTxConfig.status_1;
-	
+	/* Remember the event. Other code checks the saved values,
+	 * so save the values early, but not before the XOR
+	 * operations above.
+	 */
 	mhlTxConfig.status_0 = status_0;
 	mhlTxConfig.status_1 = status_1;
 
@@ -505,8 +508,8 @@ void	SiiMhlTxNotifyDsHpdChange(uint8_t dsHpdStatus)
 {
 	if (0 == dsHpdStatus) {
 		TPI_DEBUG_PRINT(("MhlTx: Disable TMDS - fake\n"));
-		
-		
+		/* mhlTxConfig.mhlHpdRSENflags &= ~MHL_HPD; */
+		/* SiiMhlTxDrvTmdsControl(false); */
 	} else {
 		TPI_DEBUG_PRINT(("MhlTx: Enable TMDS\n"));
 		TPI_DEBUG_PRINT(("MhlTx: DsHPD ON\n"));

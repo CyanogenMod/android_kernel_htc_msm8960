@@ -35,5 +35,5 @@
 #define SET_BITS    0xFF
 #define CLEAR_BITS  0x00
 
-#endif  
+#endif  /* __SI_DATATYPES_H__*/
 

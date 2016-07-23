@@ -15,19 +15,34 @@
 
 #ifndef _SII9234_H_
 #define _SII9234_H_
+//********************************************************************
+//  Nested Include Files
+//********************************************************************
 #include <asm/mach-types.h>
 #include <asm/uaccess.h>
 #include <linux/delay.h>
 #include <linux/errno.h>
 #include <linux/err.h>
+//********************************************************************
+//  Manifest Constants
+//********************************************************************
 
+//********************************************************************
+//  Type Definitions
+//********************************************************************
 
+//********************************************************************
+//  Define & Macro
+//********************************************************************
 
+//********************************************************************
+//  Prototype & Extern variable, function
+//********************************************************************
 extern int sii9234_I2C_RxData(uint8_t deviceID, char *rxData, uint32_t length);
 extern int sii9234_I2C_TxData(uint8_t deviceID, char *txData, uint32_t length);
 extern int sii9234_get_intr_status(void);
 extern void sii9234_reset(void);
 extern int sii9234_get_ci2ca(void);
 
-#endif
+#endif/*_SII9234_H_*/
 
