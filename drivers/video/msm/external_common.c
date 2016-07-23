@@ -513,7 +513,7 @@ static ssize_t hdmi_msm_wta_cec_logical_addr(struct device *dev,
 }
 
 static ssize_t hdmi_msm_rda_cec_frame(struct device *dev,
-				 struct device_attribute *attr, char *buf)	
+				 struct device_attribute *attr, char *buf)
 {
 	mutex_lock(&hdmi_msm_state_mutex);
 	if (hdmi_msm_state->cec_queue_rd == hdmi_msm_state->cec_queue_wr
@@ -1175,6 +1175,7 @@ static void hdmi_edid_extract_speaker_allocation_data(const uint8 *in_buf)
 	external_common_state->sadb_size = len;
 }
 
+/*Video Capability Data Block*/
 static void hdmi_edid_extract_vcdb(const uint8 *in_buf)
 {
 	uint8 len;
@@ -1210,6 +1211,12 @@ static void hdmi_edid_extract_extended_data_blocks(const uint8 *in_buf)
 	/* A Tage code of 7 identifies extended data blocks */
 	uint8 const *etag = hdmi_edid_find_block(in_buf, start_offset, 7, &len);
 
+	if (etag == NULL) {
+		external_common_state->pt_scan_info = 0;
+		external_common_state->it_scan_info = 0;
+		external_common_state->ce_scan_info = 0;
+		DEV_INFO("EDID: No extended data block\n");
+	}
 	while (etag != NULL) {
 		/* The extended data block should at least be 2 bytes long */
 		if (len < 2) {
@@ -1305,6 +1312,12 @@ static void hdmi_edid_detail_desc(const uint8 *data_buf, uint32 *disp_mode)
 	if (disp_mode == NULL)
 		return;
 
+	/* See VESA Spec */
+	/* EDID_TIMING_DESC_UPPER_H_NIBBLE[0x4]: Relative Offset to the EDID
+	 *   detailed timing descriptors - Upper 4 bit for each H active/blank
+	 *   field */
+	/* EDID_TIMING_DESC_H_ACTIVE[0x2]: Relative Offset to the EDID detailed
+	 *   timing descriptors - H active */
 	active_h = ((((uint32)data_buf[0x4] >> 0x4) & 0xF) << 8)
 		| data_buf[0x2];
 
@@ -1391,30 +1404,38 @@ static void add_supported_video_format(
 	struct hdmi_disp_mode_list_type *disp_mode_list,
 	uint32 video_format)
 {
-	const struct msm_hdmi_mode_timing_info *timing =
-		hdmi_common_get_supported_mode(video_format);
-	boolean supported = timing != NULL;
+	const struct msm_hdmi_mode_timing_info *timing;
+	boolean supported = false;
+	boolean mhl_supported = true;
 
 	if (video_format >= HDMI_VFRMT_MAX)
 		return;
 
+	timing = hdmi_common_get_supported_mode(video_format);
+	supported = timing != NULL;
+
 	DEV_DBG("EDID: format: %d [%s], %s\n",
 		video_format, msm_hdmi_mode_2string(video_format),
 		supported ? "Supported" : "Not-Supported");
-	if (supported) {
-		if (mhl_is_connected()) {
-			const struct msm_hdmi_mode_timing_info *mhl_timing =
-				hdmi_mhl_get_supported_mode(video_format);
-			boolean mhl_supported = mhl_timing != NULL;
-			DEV_DBG("EDID: format: %d [%s], %s by MHL\n",
-			video_format, video_format_2string(video_format),
-				mhl_supported ? "Supported" : "Not-Supported");
-			if (mhl_supported)
-				disp_mode_list->disp_mode_list[
+
+	if (mhl_is_connected()) {
+		const struct msm_hdmi_mode_timing_info *mhl_timing =
+			hdmi_mhl_get_supported_mode(video_format);
+		mhl_supported = mhl_timing != NULL;
+		DEV_DBG("EDID: format: %d [%s], %s by MHL\n",
+			video_format, msm_hdmi_mode_2string(video_format),
+			mhl_supported ? "Supported" : "Not-Supported");
+	}
+
+	if (supported && mhl_supported) {
+		disp_mode_list->disp_mode_list[
 			disp_mode_list->num_of_elements++] = video_format;
-		} else
-			disp_mode_list->disp_mode_list[
-			disp_mode_list->num_of_elements++] = video_format;
+		if (video_format == external_common_state->video_resolution) {
+			DEV_DBG("%s: Default resolution %d [%s] supported\n",
+				__func__, video_format,
+				msm_hdmi_mode_2string(video_format));
+			external_common_state->default_res_supported = true;
+		}
 	}
 }
 #ifdef SHOW_TV_NAME
@@ -1722,6 +1743,12 @@ static void hdmi_edid_get_display_mode(const uint8 *data_buf,
 	} else if (!num_og_cea_blocks) {
 		/* Detailed timing descriptors */
 		uint32 desc_offset = 0;
+		/* Maximum 4 timing descriptor in block 0 - No CEA
+		 * extension in this case */
+		/* EDID_FIRST_TIMING_DESC[0x36] - 1st detailed timing
+		 *   descriptor */
+		/* EDID_DETAIL_TIMING_DESC_BLCK_SZ[0x12] - Each detailed timing
+		 *   descriptor has block size of 18 */
 #ifdef SHOW_TV_NAME
 		while (4 > i) {
 #else
@@ -1919,6 +1946,7 @@ int hdmi_common_read_edid(void)
 		sizeof(external_common_state->spkr_alloc_data_block));
 	external_common_state->adb_size = 0;
 	external_common_state->sadb_size = 0;
+	external_common_state->default_res_supported = false;
 
 	status = hdmi_common_read_edid_block(0, edid_buf);
 	if (status || !check_edid_header(edid_buf)) {
@@ -2025,6 +2053,7 @@ error:
 	external_common_state->disp_mode_list.num_of_elements = 1;
 	external_common_state->disp_mode_list.disp_mode_list[0] =
 		external_common_state->video_resolution;
+	external_common_state->default_res_supported = true;
 	return status;
 }
 EXPORT_SYMBOL(hdmi_common_read_edid);
