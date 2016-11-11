@@ -30,11 +30,7 @@
 #include "msm-pcm-routing.h"
 #include "qdsp6/q6voice.h"
 
-#ifdef CONFIG_MACH_HTC
-#define VOIP_MAX_Q_LEN 2
-#else
 #define VOIP_MAX_Q_LEN 10
-#endif
 #define VOIP_MAX_VOC_PKT_SIZE 640
 #define VOIP_MIN_VOC_PKT_SIZE 320
 
