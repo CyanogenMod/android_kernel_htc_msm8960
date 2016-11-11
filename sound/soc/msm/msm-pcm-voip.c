@@ -907,7 +907,7 @@ static int voip_config_vocoder(struct snd_pcm_substream *substream)
 				   evrc_min_rate_type,
 				   evrc_max_rate_type);
 	else {
-		pr_debug("%s: Invalid rate playback %d, capture %d\n",
+		pr_err("%s: Invalid rate playback %d, capture %d\n",
 			 __func__, prtd->play_samp_rate,
 			 prtd->cap_samp_rate);
 
