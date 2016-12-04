@@ -3079,7 +3079,169 @@ static struct spi_board_info rawchip_spi_board_info[] __initdata = {
 #endif
 
 #ifdef CONFIG_FPR_SPI
+#define FPC_IRQ_GPIO 55
+
 extern unsigned int engineerid;
+
+static struct gpiomux_setting fpc_settings[] = {
+	{
+		.func = GPIOMUX_FUNC_GPIO,
+		.drv = GPIOMUX_DRV_6MA,
+		.pull = GPIOMUX_PULL_NONE,
+		.dir = GPIOMUX_OUT_LOW,
+	},
+	{
+		.func = GPIOMUX_FUNC_2,
+		.drv = GPIOMUX_DRV_6MA,
+		.pull = GPIOMUX_PULL_NONE,
+	},
+	{
+		.func = GPIOMUX_FUNC_GPIO,
+		.drv = GPIOMUX_DRV_6MA,
+		.pull = GPIOMUX_PULL_DOWN,
+		.dir = GPIOMUX_IN,
+	},
+	{
+		.func = GPIOMUX_FUNC_GPIO,
+		.drv = GPIOMUX_DRV_2MA,
+		.pull = GPIOMUX_PULL_NONE,
+		.dir = GPIOMUX_IN,
+	},
+	{
+		.func = GPIOMUX_FUNC_GPIO,
+		.drv = GPIOMUX_DRV_2MA,
+		.pull = GPIOMUX_PULL_DOWN,
+		.dir = GPIOMUX_IN,
+	},
+	{
+		.func = GPIOMUX_FUNC_3,
+		.drv = GPIOMUX_DRV_6MA,
+		.pull = GPIOMUX_PULL_NONE,
+	},
+	{
+		.func = GPIOMUX_FUNC_GPIO,
+		.drv = GPIOMUX_DRV_2MA,
+		.pull = GPIOMUX_PULL_UP,
+		.dir = GPIOMUX_IN,
+	},
+	{
+		.func = GPIOMUX_FUNC_1,
+		.drv = GPIOMUX_DRV_8MA,
+		.pull = GPIOMUX_PULL_NONE,
+	},
+};
+
+
+static struct msm_gpiomux_config t6_fpc_common_configs[] = {
+	{
+		.gpio = FPC_IRQ_GPIO,
+		.settings = {
+			[GPIOMUX_ACTIVE] = &fpc_settings[6],
+			[GPIOMUX_SUSPENDED] = &fpc_settings[6],
+		},
+	},
+	{
+		.gpio = MSM_FP_SPI_CLK,
+		.settings = {
+			[GPIOMUX_ACTIVE] = &fpc_settings[7],
+			[GPIOMUX_SUSPENDED] = &fpc_settings[0],
+		},
+	},
+	{
+		.gpio = MSM_FP_SPI_CS0,
+		.settings = {
+			[GPIOMUX_ACTIVE] = &fpc_settings[7],
+			[GPIOMUX_SUSPENDED] = &fpc_settings[0],
+		},
+	},
+	{
+		.gpio = MSM_FP_SPI_MISO,
+		.settings = {
+			[GPIOMUX_ACTIVE] = &fpc_settings[7],
+			[GPIOMUX_SUSPENDED] = &fpc_settings[2],
+		},
+	},
+	{
+		.gpio = MSM_FP_SPI_MOSI,
+		.settings = {
+			[GPIOMUX_ACTIVE] = &fpc_settings[7],
+			[GPIOMUX_SUSPENDED] = &fpc_settings[0],
+		},
+	},
+};
+
+static uint16_t t6_fp_gpio[] = {
+	FPC_IRQ_GPIO,
+	MSM_FP_SPI_MOSI,
+	MSM_FP_SPI_MISO,
+	MSM_FP_SPI_CS0,
+	MSM_FP_SPI_CLK,
+};
+
+static struct gpiomux_setting recovery_config_cs = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_NONE,
+	.dir = GPIOMUX_OUT_LOW,
+};
+
+struct gpiomux_setting old_gpio_setting_cs = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting recovery_config_clk = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_NONE,
+	.dir = GPIOMUX_OUT_LOW,
+};
+struct gpiomux_setting old_gpio_setting_clk = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting recovery_config_mi = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_NONE,
+	.dir = GPIOMUX_OUT_LOW,
+};
+struct gpiomux_setting old_gpio_setting_mi = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting recovery_config_mo = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_NONE,
+	.dir = GPIOMUX_OUT_LOW,
+};
+
+struct gpiomux_setting old_gpio_setting_mo = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting recovery_config_isr = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+	.dir = GPIOMUX_IN,
+};
+
+struct gpiomux_setting old_gpio_setting_isr = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_UP,
+	.dir = GPIOMUX_IN,
+};
+
 static int fingerprint_set_pin(int pin_num, int value)
 {
 	int rc = 0;
@@ -3212,6 +3374,7 @@ static int __init t6_validity_fingerprint_spi_init(void)
 	if (err)
 		pr_err("[fp] failed to register spi board info for vadlidity fpr\n");
 
+	msm_gpiomux_install(t6_fpc_common_configs, ARRAY_SIZE(t6_fpc_common_configs));
 	for (i = 0; i < ARRAY_SIZE(t6_fp_gpio); i++) {
 		rc = gpio_request(t6_fp_gpio[i], "vfsspi");
 		if (rc < 0) {
